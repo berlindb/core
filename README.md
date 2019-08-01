@@ -1,6 +1,6 @@
 # BerlinDB
 
-...is a collection of PHP classes and functions that aims to provide an <a href="https://en.wikipedia.org/wiki/Object-relational_mapping">ORM</a>-like experience and interface to WordPress database tables.
+BerlinDB is a collection of PHP classes and functions that aims to provide an <a href="https://en.wikipedia.org/wiki/Object-relational_mapping">ORM</a>-like experience and interface to WordPress database tables.
 
 This repository contains all of the code that is required to be included in your WordPress project.
 
