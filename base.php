@@ -5,7 +5,7 @@
  * @package     Database
  * @subpackage  Base
  * @copyright   Copyright (c) 2019
- * @license     http://opensource.org/licenses/gpl-2.0.php GNU Public License
+ * @license     https://opensource.org/licenses/gpl-2.0.php GNU Public License
  * @since       1.0.0
  */
 namespace BerlinDB\Database;
