@@ -35,8 +35,8 @@ defined( 'ABSPATH' ) || exit;
  * @property string $query_clauses
  * @property string $request_clauses
  * @property \WP_Meta_Query $meta_query
- * @property Date_Query $date_query
- * @property Compare $compare
+ * @property Queries\Date $date_query
+ * @property Queries\Compare $compare
  * @property array $query_vars
  * @property array $query_var_originals
  * @property array $query_var_defaults
@@ -191,7 +191,7 @@ class Query extends Base {
 	 * Date query container.
 	 *
 	 * @since 1.0.0
-	 * @var   Date_Query
+	 * @var   object|Queries\Date
 	 */
 	protected $date_query = false;
 
@@ -199,7 +199,7 @@ class Query extends Base {
 	 * Compare query container.
 	 *
 	 * @since 1.0.0
-	 * @var   Compare
+	 * @var   object|Queries\Compare
 	 */
 	protected $compare_query = false;
 
@@ -441,8 +441,8 @@ class Query extends Base {
 			'search_columns'    => array(),
 			'count'             => false,
 			'meta_query'        => null, // See WP_Meta_Query
-			'date_query'        => null, // See Date_Query
-			'compare'           => null, // See Compare
+			'date_query'        => null, // See Queries\Date
+			'compare_query'     => null, // See Queries\Compare
 			'no_found_rows'     => true,
 
 			// Caching
@@ -665,22 +665,22 @@ class Query extends Base {
 	 * @return Compare
 	 */
 	private function get_compare_query( $args = array() ) {
-		return new Compare( $args );
+		return new Queries\Compare( $args );
 	}
 
 	/**
-	 * Pass-through method to return a new Date_Query object.
+	 * Pass-through method to return a new Queries\Date object.
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param array  $args   See Date_Query
+	 * @param array  $args   See Queries\Date
 	 * @param string $column Column to run date query on. Default `date_created`
 	 *
-	 * @return Date_Query
+	 * @return Queries\Date
 	 */
 	private function get_date_query( $args = array(), $column = 'date_created' ) {
 
-		$date_query = new Date_Query( $args, $column );
+		$date_query = new Queries\Date( $args, $column );
 		$table      = $this->get_table_name();
 
 		$date_query->column = "{$table}.{$column}";
