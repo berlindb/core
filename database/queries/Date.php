@@ -11,6 +11,8 @@
 namespace BerlinDB\Database\Queries;
 
 // Exit if accessed directly
+use BerlinDB\Database\Base;
+
 defined( 'ABSPATH' ) || exit;
 
 /**
