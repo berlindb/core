@@ -1,0 +1,8 @@
+{
+		"name": "berlindb/core",
+		"description": "a collection of PHP classes and functions that aims to provide an ORM-like experience and interface to WordPress database tables.",
+		"license": "GPL-2.0-only",
+    "autoload": {
+        "classmap": ["database/"]
+    }
+}
