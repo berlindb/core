@@ -723,6 +723,11 @@ class Column extends Base {
 	/**
 	 * Fallback to validate a datetime value if no other is set.
 	 *
+	 * This assumes NO_ZERO_DATES is off or overridden.
+	 *
+	 * If MySQL drops support for zero dates, this method will need to be
+	 * updated to support different default values based on the environment.
+	 *
 	 * @since 1.0.0
 	 * @param string $value Default '0000-00-00 00:00:00'. A datetime value that needs validating
 	 * @return string A valid datetime value
