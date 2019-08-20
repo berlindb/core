@@ -424,7 +424,7 @@ class Column extends Base {
 	 * Parse column arguments
 	 *
 	 * @since 1.0.0
-	 * @param array $args
+	 * @param array $args Default empty array.
 	 * @return array
 	 */
 	private function parse_args( $args = array() ) {
@@ -491,7 +491,7 @@ class Column extends Base {
 	 * Validate arguments after they are parsed.
 	 *
 	 * @since 1.0.0
-	 * @param array $args
+	 * @param array $args Default empty array.
 	 * @return array
 	 */
 	private function validate_args( $args = array() ) {
@@ -555,7 +555,7 @@ class Column extends Base {
 	 * Force column arguments for special column types
 	 *
 	 * @since 1.0.0
-	 * @param array $args
+	 * @param array $args Default empty array.
 	 * @return array
 	 */
 	private function special_args( $args = array() ) {
@@ -602,7 +602,7 @@ class Column extends Base {
 	 * Return if this column is of a certain type.
 	 *
 	 * @since 1.0.0
-	 * @param mixed $type The type to check. Accepts an array.
+	 * @param mixed $type Default empty string. The type to check. Also accepts an array.
 	 * @return bool True if of type, False if not
 	 */
 	private function is_type( $type = '' ) {
@@ -625,7 +625,7 @@ class Column extends Base {
 	 * Sanitize capabilities array
 	 *
 	 * @since 1.0.0
-	 * @param array $caps
+	 * @param array $caps Default empty array.
 	 * @return array
 	 */
 	private function sanitize_capabilities( $caps = array() ) {
@@ -641,7 +641,7 @@ class Column extends Base {
 	 * Sanitize aliases array using `sanitize_key()`
 	 *
 	 * @since 1.0.0
-	 * @param array $aliases
+	 * @param array $aliases Default empty array.
 	 * @return array
 	 */
 	private function sanitize_aliases( $aliases = array() ) {
@@ -653,7 +653,7 @@ class Column extends Base {
 	 *
 	 * @todo
 	 * @since 1.0.0
-	 * @param array $relationships
+	 * @param array $relationships Default empty array.
 	 * @return array
 	 */
 	private function sanitize_relationships( $relationships = array() ) {
@@ -687,7 +687,7 @@ class Column extends Base {
 	 * Sanitize the validation callback
 	 *
 	 * @since 1.0.0
-	 * @param string $callback A callable PHP function name or method
+	 * @param string $callback Default empty string. A callable PHP function name or method
 	 * @return string The most appropriate callback function for the value
 	 */
 	private function sanitize_validation( $callback = '' ) {
@@ -724,7 +724,7 @@ class Column extends Base {
 	 * Fallback to validate a datetime value if no other is set.
 	 *
 	 * @since 1.0.0
-	 * @param string $value A datetime value that needs validating
+	 * @param string $value Default '0000-00-00 00:00:00'. A datetime value that needs validating
 	 * @return string A valid datetime value
 	 */
 	public function validate_datetime( $value = '0000-00-00 00:00:00' ) {
@@ -756,10 +756,8 @@ class Column extends Base {
 	 * value is longer than specified.
 	 *
 	 * @since 1.0.0
-	 *
 	 * @param mixed $value    Default empty string. The decimal value to validate
 	 * @param int   $decimals Default 9. The number of decimal points to accept
-	 *
 	 * @return float
 	 */
 	public function validate_decimal( $value = 0, $decimals = 9 ) {
