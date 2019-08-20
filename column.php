@@ -755,7 +755,7 @@ class Column extends Base {
 	 * Uses number_format() which does rounding to the last decimal if your
 	 * value is longer than specified.
 	 *
-	 * @since 3.0
+	 * @since 1.0.0
 	 *
 	 * @param mixed $value    Default empty string. The decimal value to validate
 	 * @param int   $decimals Default 9. The number of decimal points to accept
