@@ -2793,7 +2793,7 @@ class Query extends Base {
 
 		// Get all columns, if specified.
 		if ( '*' === $cols ) {
-			$cols = array_keys( $this->get_column_names() );
+			$cols = $this->get_column_names();
 		}
 
 		// Fetch all the columns for the table being queried.
