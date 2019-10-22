@@ -1459,7 +1459,7 @@ class Query extends Base {
 	 * @param array $items
 	 * @return array
 	 */
-	private function shape_items( $items = array() ) {
+	public function shape_items( $items = array() ) {
 
 		// Force to stdClass if querying for fields
 		if ( ! empty( $this->query_vars['fields'] ) ) {
