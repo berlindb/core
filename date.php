@@ -31,7 +31,7 @@ defined( 'ABSPATH' ) || exit;
  *
  * @since 1.0.0
  */
-class Date extends Base {
+class Date extends \BerlinDB\Database\Base {
 
 	/**
 	 * Array of date queries.
