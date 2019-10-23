@@ -2762,6 +2762,168 @@ class Query extends Base {
 	}
 
 	/**
+	 * Generates a set clause.
+	 *
+	 * @since TBD
+	 *
+	 * @param array $set_columns List of values to set keyed by the column
+	 * @return string The set clause
+	 */
+	public function set_clause( $set_columns = array() ) {
+		$set_clause = '';
+
+		// Get keys from where columns
+		$column_whitelist = $this->sanitize_columns( array_keys( $set_columns ) );
+
+		if ( ! empty( $column_whitelist ) ) {
+			$set_clause = "SET ";
+
+			$set = array();
+
+			foreach ( $column_whitelist as $column ) {
+				$value = $set_columns[ $column ];
+
+				$set[] = "$column = $value";
+			}
+
+			$set        = implode( ',', $set );
+			$set_clause .= $set;
+		}
+
+		return $set_clause;
+	}
+
+	/**
+	 * Generates a where clause from the provided columns.
+	 *
+	 * @since TBD
+	 *
+	 * @param array $columns List of columns to select
+	 * @return string The where clause
+	 */
+	public function where_clause( $where_columns = array() ) {
+		$where_clause = "";
+
+		// Get keys from where columns
+		$column_whitelist = $this->sanitize_columns( array_keys( $where_columns ) );
+
+		if ( ! empty( $column_whitelist ) ) {
+			$where_clause = "WHERE 1=1";
+		}
+
+		foreach ( $column_whitelist as $column ) {
+			$compare = $where_columns[ $column ];
+
+			// Basic WHERE clause.
+			if ( ! is_array( $compare ) ) {
+				$where_clause .= " AND {$this->table_alias}.{$column} = {$compare}";
+
+				// More complex WHERE clause.
+			} else {
+				$value = isset( $compare['value'] )
+						? $compare['value']
+						: false;
+
+				// Skip if a value was not provided.
+				if ( false === $value ) {
+					continue;
+				}
+
+				// Default compare clause to equals.
+				$compare_clause = isset( $compare['compare'] )
+						? trim( strtoupper( $compare['compare'] ) )
+						: '=';
+
+				// Array (unprepared)
+				if ( is_array( $compare['value'] ) ) {
+
+					// Default to IN if clause not specified.
+					if ( ! in_array( $compare_clause, array( 'IN', 'NOT IN', 'BETWEEN' ), true ) ) {
+						$compare_clause = 'IN';
+					}
+
+					// Parse & escape for IN and NOT IN.
+					if ( 'IN' === $compare_clause || 'NOT IN' === $compare_clause ) {
+						$value = "('" . implode( "','", $this->get_db()->_escape( $compare['value'] ) ) . "')";
+
+						// Parse & escape for BETWEEN.
+					} elseif ( is_array( $value ) && 2 === count( $value ) && 'BETWEEN' === $compare_clause ) {
+						$_this = $this->get_db()->_escape( $value[0] );
+						$_that = $this->get_db()->_escape( $value[1] );
+						$value = " {$_this} AND {$_that} ";
+					}
+				}
+
+				// Add WHERE clause.
+				$where_clause .= " AND {$this->table_alias}.{$column} {$compare_clause} {$value} ";
+			}
+		}
+
+		return $where_clause;
+	}
+
+	/**
+	 * Generates a from clause for the current table.
+	 *
+	 * @since TBD
+	 *
+	 * @return string The from clause
+	 */
+	public function from_clause() {
+		return "FROM {$this->get_table_name()} {$this->table_alias}";
+	}
+
+	/**
+	 * Generates a select clause from the provided columns.
+	 *
+	 * @since TBD
+	 *
+	 * @param array $columns List of columns to select
+	 * @return string The select clause
+	 */
+	public function select_clause( $columns = array() ) {
+		$select = '';
+
+		$columns = $this->sanitize_columns( $columns );
+
+		if ( ! empty( $columns ) ) {
+			$select = "SELECT " . implode( ',', $columns );
+		}
+
+		return $select;
+	}
+
+	/**
+	 * Sanitizes column names into a list of valid columns.
+	 *
+	 * @since TBD
+	 *
+	 * @param array|string $columns An array of columns to sanitize, or a string containing an asterisk.
+	 * @return array list of valid columns
+	 */
+	public function sanitize_columns( $columns ) {
+
+		// Fetch all the columns for the table being queried.
+		$column_names = $this->get_column_names();
+
+		// Get all columns, if specified.
+		if ( '*' === $columns ) {
+			$columns = $column_names;
+		} elseif ( is_array( $columns ) ) {
+			// Ensure valid column names have been passed for the `SELECT` clause.
+			foreach ( $columns as $index => $column ) {
+				if ( ! isset( $column_names[ $column ] ) ) {
+					unset( $columns[ $index ] );
+				}
+			}
+		} else {
+			$columns = array();
+		}
+
+		return $columns;
+	}
+
+	/**
 	 * Fetch raw results directly from the database.
 	 *
 	 * @since 1.0.0
@@ -2791,95 +2953,22 @@ class Query extends Base {
 			return null;
 		}
 
-		// Fetch all the columns for the table being queried.
-		$column_names = $this->get_column_names();
-
-		// Ensure valid column names have been passed for the `SELECT` clause.
-		foreach ( $cols as $index => $column ) {
-			if ( ! in_array( $column, $column_names, true ) ) {
-				unset( $cols[ $index ] );
-			}
-		}
-
 		// Setup base SQL query.
-		$query  = "SELECT ";
-		$query .= implode( ',', $cols );
-		$query .= " FROM {$this->get_table_name()} {$this->table_alias} ";
-		$query .= " WHERE 1=1 ";
-
-		// Ensure valid columns have been passed for the `WHERE` clause.
-		if ( ! empty( $where_cols ) ) {
-
-			// Get keys from where columns
-			$columns = array_keys( $where_cols );
-
-			// Loop through columns and unset any invalid names
-			foreach ( $columns as $column ) {
-				if ( ! array_key_exists( $column, $column_names ) ) {
-					unset( $where_cols[ $column ] );
-				}
-			}
-
-			// Parse WHERE clauses.
-			foreach ( $where_cols as $column => $compare ) {
-
-				// Basic WHERE clause.
-				if ( ! is_array( $compare ) ) {
-					$query .= " AND {$this->table_alias}.{$column} = {$compare} ";
-
-				// More complex WHERE clause.
-				} else {
-					$value = isset( $compare['value'] )
-						? $compare['value']
-						: false;
-
-					// Skip if a value was not provided.
-					if ( false === $value ) {
-						continue;
-					}
-
-					// Default compare clause to equals.
-					$compare_clause = isset( $compare['compare'] )
-						? trim( strtoupper( $compare['compare'] ) )
-						: '=';
-
-					// Array (unprepared)
-					if ( is_array( $compare['value'] ) ) {
-
-						// Default to IN if clause not specified.
-						if ( ! in_array( $compare_clause, array( 'IN', 'NOT IN', 'BETWEEN' ), true ) ) {
-							$compare_clause = 'IN';
-						}
-
-						// Parse & escape for IN and NOT IN.
-						if ( 'IN' === $compare_clause || 'NOT IN' === $compare_clause ) {
-							$value = "('" . implode( "','", $this->get_db()->_escape( $compare['value'] ) ) . "')";
-
-						// Parse & escape for BETWEEN.
-						} elseif ( is_array( $value ) && 2 === count( $value ) && 'BETWEEN' === $compare_clause ) {
-							$_this = $this->get_db()->_escape( $value[0] );
-							$_that = $this->get_db()->_escape( $value[1] );
-							$value = " {$_this} AND {$_that} ";
-						}
-					}
-
-					// Add WHERE clause.
-					$query .= " AND {$this->table_alias}.{$column} {$compare_clause} {$value} ";
-				}
-			}
-		}
+		$query = $this->select_clause( $cols ) . " ";
+		$query .= $this->from_clause();
+		$query .= " " . $this->where_clause( $where_cols ) . " ";
 
 		// Maybe set an offset.
 		if ( ! empty( $offset ) ) {
 			$values = explode( ',', $offset );
 			$values = array_filter( $values, 'intval' );
 			$offset = implode( ',', $values );
-			$query .= " OFFSET {$offset} ";
+			$query  .= " OFFSET {$offset} ";
 		}
 
 		// Maybe set a limit.
 		if ( ! empty( $limit ) && ( $limit > 0 ) ) {
-			$limit  = intval( $limit );
+			$limit = intval( $limit );
 			$query .= " LIMIT {$limit} ";
 		}
 
