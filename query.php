@@ -1812,36 +1812,6 @@ class Query extends Base {
 		return $result;
 	}
 
-	public function update_many( $set, $where ) {
-
-		if ( ! is_array( $set ) ) {
-			$set = array( $set );
-		}
-
-		if ( ! is_array( $where ) ) {
-			$where = array( $where );
-		}
-
-		$where_clause = $this->where_clause( $where );
-		$set_clause   = $this->set_clause( $set );
-
-		// Bail early if the either clause is empty.
-		if ( empty( $where_clause ) || empty( $set_clause ) ) {
-			return false;
-		}
-
-		$query = "UPDATE {$this->get_table_name()} {$this->table_alias} ";
-		$query .= $set_clause . " ";
-		$query .= $where_clause;
-
-		return $query;
-		// Execute query.
-//		$results = $this->get_db()->get_results( $query, $output );
-
-		// Return results.
-//		return $results;
-	}
-
 	/**
 	 * Delete an item from the database
 	 *
