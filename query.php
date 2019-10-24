@@ -2816,7 +2816,7 @@ class Query extends Base {
 
 			// Basic WHERE clause.
 			if ( ! is_array( $compare ) ) {
-				$where_clause .= " AND {$this->table_alias}.{$column} = {$compare}";
+				$where_clause .= " AND {$this->table_alias}.{$column} = '{$compare}'";
 
 				// More complex WHERE clause.
 			} else {
