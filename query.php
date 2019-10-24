@@ -2772,18 +2772,32 @@ class Query extends Base {
 	public function set_clause( $set_columns = array() ) {
 		$set_clause = '';
 
-		// Get keys from where columns
+		// If date-modified is empty, use the current time
+		$modified = $this->get_column_by( array( 'modified' => true ) );
+		if ( ! empty( $modified ) ) {
+			$set_columns[ $modified->name ] = $this->get_current_time();
+		}
+
+		// Sanitize Column data
+		$set_columns      = $this->reduce_item( 'update', $set_columns );
+		$set_columns      = $this->validate_item( $set_columns );
 		$column_whitelist = $this->sanitize_columns( array_keys( $set_columns ) );
 
 		if ( ! empty( $column_whitelist ) ) {
 			$set_clause = "SET ";
 
+			$primary_column = $this->get_primary_column_name();
+
 			$set = array();
 
 			foreach ( $column_whitelist as $column ) {
-				$value = $set_columns[ $column ];
 
-				$set[] = "$column = $value";
+				// Don't change the primary column.
+				if($column !== $primary_column) {
+					$value = $this->get_db()->_escape( $set_columns[ $column ] );
+
+					$set[] = "$column = '$value'";
+				}
 			}
 
 			$set        = implode( ',', $set );
