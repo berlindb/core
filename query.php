@@ -2796,7 +2796,7 @@ class Query extends Base {
 
 		// Ensure valid column names have been passed for the `SELECT` clause.
 		foreach ( $cols as $index => $column ) {
-			if ( ! in_array( $column, $column_names, true ) ) {
+			if ( ! array_key_exists( $column, $column_names ) ) {
 				unset( $cols[ $index ] );
 			}
 		}
