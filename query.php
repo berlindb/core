@@ -1260,7 +1260,7 @@ class Query extends Base {
 			$where['search'] = $this->get_search_sql( $this->query_vars['search'], $search_columns );
 		}
 
-		// Maybe perform a meta-query.
+		// Maybe perform a meta query.
 		$meta_query = $this->query_vars['meta_query'];
 		if ( ! empty( $meta_query ) && is_array( $meta_query ) ) {
 			$this->meta_query = $this->get_meta_query( $meta_query );
@@ -1278,17 +1278,18 @@ class Query extends Base {
 			}
 		}
 
-		// Maybe perform a compare.
-		$compare = $this->query_vars['compare'];
-		if ( ! empty( $compare ) && is_array( $compare ) ) {
-			$this->compare_query = $this->get_compare_query( $compare );
+		// Maybe perform a compare query.
+		$compare_query = $this->query_vars['compare_query'];
+		if ( ! empty( $compare_query ) && is_array( $compare_query ) ) {
+			$this->compare_query = $this->get_compare_query( $compare_query );
 			$table               = $this->apply_prefix( $this->item_name );
 			$clauses             = $this->compare_query->get_sql( $table, $this->table_alias, $this->get_primary_column_name(), $this );
 
+			// Not all objects can compare, so make sure this one exists
 			if ( false !== $clauses ) {
 
 				// Remove " AND " from query where clause.
-				$where['compare'] = preg_replace( $and, '', $clauses['where'] );
+				$where['compare_query'] = preg_replace( $and, '', $clauses['where'] );
 			}
 		}
 
@@ -1297,7 +1298,7 @@ class Query extends Base {
 			? $date_query
 			: $this->query_vars['date_query'];
 
-		// Maybe perform a date-query
+		// Maybe perform a date query
 		if ( ! empty( $date_query ) && is_array( $date_query ) ) {
 			$this->date_query    = $this->get_date_query( $date_query );
 			$where['date_query'] = preg_replace( $and, '', $this->date_query_sql );
@@ -2839,8 +2840,8 @@ class Query extends Base {
 					}
 
 					// Default compare clause to equals.
-					$compare_clause = isset( $compare['compare'] )
-						? trim( strtoupper( $compare['compare'] ) )
+					$compare_clause = isset( $compare['compare_query'] )
+						? trim( strtoupper( $compare['compare_query'] ) )
 						: '=';
 
 					// Array (unprepared)
