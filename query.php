@@ -2542,7 +2542,7 @@ class Query extends Base {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param array $items
+	 * @param mixed $items Single object item, or Array of object items
 	 *
 	 * @return bool
 	 */
@@ -2554,7 +2554,11 @@ class Query extends Base {
 		}
 
 		// Make sure items are an array
-		$items  = (array) $items;
+		if ( ! is_array( $items ) ) {
+			$items = array( $items );
+		}
+
+		// Get all cache groups
 		$groups = $this->get_cache_groups();
 
 		// Loop through all items and clean them
