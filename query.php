@@ -1351,6 +1351,7 @@ class Query extends Base {
 	 * @since 1.0.0
 	 *
 	 * @param string $groupby
+	 * @param bool   $alias
 	 * @return string
 	 */
 	private function parse_groupby( $groupby = '', $alias = true ) {
@@ -1360,11 +1361,13 @@ class Query extends Base {
 			return '';
 		}
 
-		// Sanitize keys
-		$groupby = (array) array_map( 'sanitize_key', (array) $groupby );
+		// Sanitize groupby columns
+		$groupby   = (array) array_map( 'sanitize_key', (array) $groupby );
 
-		// Orderby is a literal column name
+		// Re'flip column names back around
 		$columns   = array_flip( $this->get_column_names() );
+
+		// Get the intersection of allowed column names to groupby columns
 		$intersect = array_intersect( $columns, $groupby );
 
 		// Bail if invalid column
@@ -1375,7 +1378,7 @@ class Query extends Base {
 		// Default return value
 		$retval = array();
 
-		// Prepend table alias to key
+		// Maybe prepend table alias to key
 		foreach ( $intersect as $key ) {
 			$retval[] = ( true === $alias )
 				? "{$this->table_alias}.{$key}"
