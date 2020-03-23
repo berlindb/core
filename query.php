@@ -1921,16 +1921,22 @@ class Query extends Base {
 	 */
 	private function validate_item( $item = array() ) {
 
-		// Bail if item is empty
-		if ( empty( $item ) ) {
+		// Bail if item is empty or not an array
+		if ( empty( $item ) || ! is_array( $item ) ) {
 			return $item;
 		}
 
 		// Loop through item attributes
 		foreach ( $item as $key => $value ) {
 
-			// Always strip slashes from all values
-			$value    = stripslashes( $value );
+			// Only allow null if column allows null
+			if ( is_null( $value ) && $this->get_column_field( array( 'name' => $key ), 'allow_null' ) ) {
+				$value = null;
+
+			// Strip slashes from all strings
+			} elseif ( is_string( $value ) ) {
+				$value = stripslashes( $value );
+			}
 
 			// Get callback for column
 			$callback = $this->get_column_field( array( 'name' => $key ), 'validate' );
@@ -1947,7 +1953,12 @@ class Query extends Base {
 				// Update the value
 				$item[ $key ] = $validated;
 
-			// Include basic stripslashes() call
+			/**
+			 * Fallback to using the raw value.
+			 *
+			 * Note: This may change at a later date, so do not rely on this.
+			 *       Please always validate all data.
+			 */
 			} else {
 				$item[ $key ] = $value;
 			}
