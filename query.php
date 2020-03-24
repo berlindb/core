@@ -40,6 +40,7 @@ defined( 'ABSPATH' ) || exit;
  * @property array $query_vars
  * @property array $query_var_originals
  * @property array $query_var_defaults
+ * @property string $query_var_default_value
  * @property array $items
  * @property int $found_items
  * @property int $max_num_pages
