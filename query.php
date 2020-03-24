@@ -441,7 +441,9 @@ class Query extends Base {
 	private function set_query_var_defaults() {
 
 		// Default query variable value
-		$this->query_var_default_value = uniqid( $this->table_name, true );
+		$this->query_var_default_value = function_exists( 'random_bytes' )
+			? $this->apply_prefix( bin2hex( random_bytes( 18 ) ) )
+			: $this->apply_prefix( uniqid( '_', true ) );
 
 		// Default query variables
 		$this->query_var_defaults = array(
