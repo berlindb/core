@@ -31,10 +31,13 @@ class Base {
 	 * may use something else, or you may be doing something really cool that
 	 * requires a custom interface.
 	 *
+	 * A future version of this utility may abstract this out entirely, so
+	 * custom calls to the get_db() should be avoided if at all possible.
+	 *
 	 * @since 1.0.0
 	 * @var   string
 	 */
-	protected $db_global = '';
+	protected $db_global = 'wpdb';
 
 	/** Global Properties *****************************************************/
 

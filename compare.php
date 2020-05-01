@@ -3,7 +3,7 @@
  * Base Custom Database Table Date Query Class.
  *
  * @package     Database
- * @subpackage  Date
+ * @subpackage  Compare
  * @copyright   Copyright (c) 2019
  * @license     https://opensource.org/licenses/gpl-2.0.php GNU Public License
  * @since       1.0.0

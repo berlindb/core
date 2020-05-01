@@ -2861,9 +2861,9 @@ class Query extends Base {
 			$columns = array_keys( $where_cols );
 
 			// Loop through columns and unset any invalid names
-			foreach ( $columns as $column ) {
+			foreach ( $columns as $index => $column ) {
 				if ( ! array_key_exists( $column, $column_names ) ) {
-					unset( $where_cols[ $column ] );
+					unset( $where_cols[ $index ] );
 				}
 			}
 
