@@ -153,6 +153,9 @@ abstract class Table extends Base {
 			return;
 		}
 
+		// Setup the defaults
+		$this->set_defaults();
+
 		// Add the table to the database interface
 		$this->set_db_interface();
 

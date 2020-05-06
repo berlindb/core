@@ -321,6 +321,7 @@ class Query extends Base {
 	public function __construct( $query = array() ) {
 
 		// Setup
+		$this->set_defaults();
 		$this->set_alias();
 		$this->set_prefix();
 		$this->set_columns();

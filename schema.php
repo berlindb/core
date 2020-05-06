@@ -44,6 +44,9 @@ class Schema extends Base {
 			return;
 		}
 
+		// Setup the defaults
+		$this->set_defaults();
+
 		// Juggle original columns array
 		$columns = $this->columns;
 		$this->columns = array();

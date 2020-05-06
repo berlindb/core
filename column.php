@@ -409,6 +409,9 @@ class Column extends Base {
 	 */
 	public function __construct( $args = array() ) {
 
+		// Setup the defaults
+		$this->set_defaults();
+
 		// Parse arguments
 		$r = $this->parse_args( $args );
 
