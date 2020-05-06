@@ -25,6 +25,15 @@ defined( 'ABSPATH' ) || exit;
 class Base {
 
 	/**
+	 * The private data array used to store class attributes, so that magic
+	 * methods work as intended.
+	 *
+	 * @since 1.1.0
+	 * @var   array
+	 */
+	private $data = array();
+
+	/**
 	 * The name of the PHP global that contains the primary database interface.
 	 *
 	 * For example, WordPress traditionally uses 'wpdb', but other applications
@@ -60,7 +69,7 @@ class Base {
 	/** Public ****************************************************************/
 
 	/**
-	 * Magic isset'ter for immutability.
+	 * Magic issetter, for immutability.
 	 *
 	 * @since 1.0.0
 	 *
@@ -74,20 +83,83 @@ class Base {
 			$key = 'id';
 		}
 
+		// Bail if empty key
+		if ( empty( $key ) ) {
+			return false;
+		}
+
 		// Class method to try and call
 		$method = "get_{$key}";
 
-		// Return property if exists
-		if ( method_exists( $this, $method ) ) {
+		// Return true if method exists
+		if ( is_callable( $this, $method ) ) {
 			return true;
 
-		// Return get method results if exists
+		// Return true if data exists
+		} elseif ( isset( $this->data[ $key ] ) ) {
+			return true;
+
+		// Return true if property exists
 		} elseif ( property_exists( $this, $key ) ) {
 			return true;
 		}
 
 		// Return false if not exists
 		return false;
+	}
+
+	/**
+	 * Magic unsetter, for immutability.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param string $key User meta key to unset.
+	 */
+	public function __unset( $key = '' ) {
+
+		// No more uppercase ID properties ever
+		if ( 'ID' === $key ) {
+			$key = 'id';
+		}
+
+		// Bail if empty key
+		if ( empty( $key ) ) {
+			return false;
+		}
+
+		// Maybe unset from data array
+		if ( isset( $this->data[ $key ] ) ) {
+			unset( $this->data[ $key ] );
+		}
+
+		// Maybe unset property
+		if ( property_exists( $this, $key ) ) {
+			unset( $this->{$key} );
+		}
+	}
+
+	/**
+	 * Magic setter, for immutability.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param string $key
+	 * @return mixed
+	 */
+	public function __set( $key = '', $value = '' ) {
+
+		// No more uppercase ID properties ever
+		if ( 'ID' === $key ) {
+			$key = 'id';
+		}
+
+		// Bail if empty key
+		if ( empty( $key ) ) {
+			return false;
+		}
+
+		// Set the data value by key
+		$this->data[ $key ] = $value;
 	}
 
 	/**
@@ -98,27 +170,39 @@ class Base {
 	 * @param string $key
 	 * @return mixed
 	 */
-	public function __get( $key = '' ) {
+	public function &__get( $key = '' ) {
 
 		// No more uppercase ID properties ever
 		if ( 'ID' === $key ) {
 			$key = 'id';
 		}
 
+		// Bail if empty key
+		if ( empty( $key ) ) {
+			return null;
+		}
+
 		// Class method to try and call
 		$method = "get_{$key}";
 
-		// Return property if exists
-		if ( method_exists( $this, $method ) ) {
+		// Return from method if exists
+		if ( is_callable( $this, $method ) ) {
 			return call_user_func( array( $this, $method ) );
 
-		// Return get method results if exists
+		// Return from data array if set
+		} elseif ( isset( $this->data[ $key ] ) ) {
+			return $this->data[ $key ];
+
+		// Return from property if set
 		} elseif ( property_exists( $this, $key ) ) {
 			return $this->{$key};
 		}
 
+		// Set to null
+		$this->data[ $key ] = null;
+
 		// Return null if not exists
-		return null;
+		return $this->data[ $key ];
 	}
 
 	/**
@@ -129,7 +213,37 @@ class Base {
 	 * @return array Array version of the given object.
 	 */
 	public function to_array() {
-		return get_object_vars( $this );
+		return $this->data;
+	}
+
+	/**
+	 * Get this objects default properties and set them up in the private data
+	 * array. Use this in the Constructor in any class that extends this class.
+	 *
+	 * @since 1.1.0
+	 */
+	public function set_defaults() {
+
+		// Get the hard-coded object variables
+		$r = get_object_vars( $this );
+
+		// Set those vars
+		$this->set_vars( $r );
+
+		// Data is private and protected
+		unset( $r['data'] );
+
+		// Maybe cleanup
+		if ( ! empty( $r ) ) {
+
+			// Get keys
+			$keys = array_keys( $r );
+
+			// Cleanup class properties
+			foreach ( $keys as $key ) {
+				unset( $this->{$key} );
+			}
+		}
 	}
 
 	/** Protected *************************************************************/
@@ -263,7 +377,11 @@ class Base {
 
 		// Set all properties
 		foreach ( $args as $key => $value ) {
-			$this->{$key} = $value;
+
+			// Avoid recusion
+			if ( 'data' !== $key ) {
+				$this->data[ $key ] = $value;
+			}
 		}
 	}
 
