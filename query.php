@@ -2292,6 +2292,11 @@ class Query extends Base {
 		$keys = $this->get_registered_meta_keys();
 		$meta = array_intersect_key( $meta, $keys );
 
+		// Bail if no registered meta keys
+		if ( empty( $meta ) ) {
+			return;
+		}
+
 		// Save or delete meta data
 		foreach ( $meta as $key => $value ) {
 			! empty( $value )
@@ -2331,6 +2336,11 @@ class Query extends Base {
 		$sql      = "SELECT meta_id FROM {$table} WHERE {$item_id_column} = %d";
 		$prepared = $this->get_db()->prepare( $sql, $item_id );
 		$meta_ids = $this->get_db()->get_col( $prepared );
+
+		// Bail if no meta IDs to delete
+		if ( empty( $meta_ids ) ) {
+			return;
+		}
 
 		// Delete all meta data for this item ID
 		foreach ( $meta_ids as $mid ) {
