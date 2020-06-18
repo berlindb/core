@@ -2334,7 +2334,7 @@ class Query extends Base {
 
 		// Delete all meta data for this item ID
 		foreach ( $meta_ids as $mid ) {
-			delete_metadata_by_mid( $this->table_name, $mid );
+			delete_metadata_by_mid( $this->item_name, $mid );
 		}
 	}
 
