@@ -514,9 +514,9 @@ abstract class Table extends Base {
 		$result = false;
 
 		// Remove all upgrades that have already been completed
-		$upgrades = array_filter( (array) $this->upgrades, function( $value ) {
-			return version_compare( $value, $this->db_version, '>' );
-		} );
+		$upgrades = array_filter( (array) $this->upgrades, function( $upgrade_version ) {
+			return version_compare( $upgrade_version, $this->db_version, '>' );
+		}, ARRAY_FILTER_USE_KEY );
 
 		// Bail if no upgrades or database version is missing
 		if ( empty( $upgrades ) || empty( $this->db_version ) ) {
