@@ -512,14 +512,7 @@ abstract class Table extends Base {
 	 */
 	public function upgrade() {
 		$result   = false;
-		$upgrades = array();
-
-		// Remove all upgrades that have already been completed
-		foreach ( $this->upgrades as $version => $method ) {
-			if ( true === version_compare( $version, $this->db_version, '>' ) ) {
-				$upgrades[ $version ] = $method;
-			}
-		}
+		$upgrades = $this->get_queued_upgrades();
 
 		// Bail if no upgrades or database version is missing
 		if ( empty( $upgrades ) || empty( $this->db_version ) ) {
@@ -540,6 +533,26 @@ abstract class Table extends Base {
 
 		// Success/fail
 		return $this->is_success( $result );
+	}
+
+	/**
+	 * Retrieves the list of upgrades that still need to run.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @return array List of upgrade methods keyed by their db version.
+	 */
+	private function get_queued_upgrades() {
+		$upgrades = array();
+
+		// Remove all upgrades that have already been completed
+		foreach ( $this->upgrades as $version => $method ) {
+			if ( true === version_compare( $version, $this->db_version, '>' ) ) {
+				$upgrades[ $version ] = $method;
+			}
+		}
+
+		return $upgrades;
 	}
 
 	/**
