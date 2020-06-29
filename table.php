@@ -515,7 +515,7 @@ abstract class Table extends Base {
 		$upgrades = array();
 
 		// Remove all upgrades that have already been completed
-		foreach ( $upgrades as $version => $method ) {
+		foreach ( $this->upgrades as $version => $method ) {
 			if ( true === version_compare( $version, $this->db_version, '>' ) ) {
 				$upgrades[ $version ] = $method;
 			}
