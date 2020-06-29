@@ -511,16 +511,20 @@ abstract class Table extends Base {
 	 * return bool
 	 */
 	public function upgrade() {
-		$result = false;
+		$result   = false;
+		$upgrades = array();
 
 		// Remove all upgrades that have already been completed
-		$upgrades = array_filter( (array) $this->upgrades, function( $upgrade_version ) {
-			return version_compare( $upgrade_version, $this->db_version, '>' );
-		}, ARRAY_FILTER_USE_KEY );
+		foreach ( $upgrades as $version => $method ) {
+			if ( true === version_compare( $version, $this->db_version, '>' ) ) {
+				$upgrades[ $version ] = $method;
+			}
+		}
 
 		// Bail if no upgrades or database version is missing
 		if ( empty( $upgrades ) || empty( $this->db_version ) ) {
 			$this->set_db_version();
+
 			return true;
 		}
 
