@@ -511,24 +511,28 @@ abstract class Table extends Base {
 	 * return bool
 	 */
 	public function upgrade() {
-		$result = false;
 
-		// Remove all upgrades that have already been completed
-		$upgrades = array_filter( (array) $this->upgrades, function( $value ) {
-			return version_compare( $value, $this->db_version, '>' );
-		} );
+		// Get pending upgrades
+		$upgrades = $this->get_pending_upgrades();
 
-		// Bail if no upgrades or database version is missing
-		if ( empty( $upgrades ) || empty( $this->db_version ) ) {
+		// Bail if no upgrades
+		if ( empty( $upgrades ) ) {
 			$this->set_db_version();
+
+			// Return, without failure
 			return true;
 		}
 
-		// Try to do all known upgrades
-		foreach ( $upgrades as $version => $method ) {
-			$result = $this->upgrade_to( $version, $method );
+		// Default result
+		$result = false;
 
-			// Bail if an error occurs, to avoid skipping ahead
+		// Try to do the upgrades
+		foreach ( $upgrades as $version => $callback ) {
+
+			// Do the upgrade
+			$result = $this->upgrade_to( $version, $callback );
+
+			// Bail if an error occurs, to avoid skipping upgrades
 			if ( ! $this->is_success( $result ) ) {
 				return false;
 			}
@@ -539,31 +543,59 @@ abstract class Table extends Base {
 	}
 
 	/**
+	 * Return array of upgrades that still need to run.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @return array Array of upgrade callbacks, keyed by their db version.
+	 */
+	public function get_pending_upgrades() {
+
+		// Default return value
+		$upgrades = array();
+
+		// Bail if no upgrades, or no database version to compare to
+		if ( empty( $this->upgrades ) || empty( $this->db_version ) ) {
+			return $upgrades;
+		}
+
+		// Loop through all upgrades, and pick out the ones that need doing
+		foreach ( $this->upgrades as $version => $callback ) {
+			if ( true === version_compare( $version, $this->db_version, '>' ) ) {
+				$upgrades[ $version ] = $callback;
+			}
+		}
+
+		// Return
+		return $upgrades;
+	}
+
+	/**
 	 * Upgrade to a specific database version.
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param mixed  $version Database version to check if upgrade is needed
-	 * @param string $method
+	 * @param mixed  $version  Database version to check if upgrade is needed
+	 * @param string $callback Callback function or class method to call
 	 *
 	 * @return bool
 	 */
-	public function upgrade_to( $version = '', $method = '' ) {
+	public function upgrade_to( $version = '', $callback = '' ) {
 
 		// Bail if no upgrade is needed
 		if ( ! $this->needs_upgrade( $version ) ) {
 			return false;
 		}
 
-		// Allow self-named upgrade methods
-		if ( empty( $method ) ) {
-			$method = $version;
+		// Allow self-named upgrade callbacks
+		if ( empty( $callback ) ) {
+			$callback = $version;
 		}
 
-		// Is the method callable?
-		$callable = $this->get_callable( $method );
+		// Is the callback... callable?
+		$callable = $this->get_callable( $callback );
 
-		// Bail if no callable upgrade method was found
+		// Bail if no callable upgrade was found
 		if ( empty( $callable ) ) {
 			return false;
 		}
@@ -765,34 +797,36 @@ abstract class Table extends Base {
 	}
 
 	/**
-	 * Try to get a callable upgrade method, with some magic to avoid needing to
+	 * Try to get a callable upgrade, with some magic to avoid needing to
 	 * do this dance repeatedly inside subclasses.
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param string $method
+	 * @param string $callback
 	 *
-	 * @return bool
+	 * @return mixed Callable string, or false if not callable
 	 */
-	private function get_callable( $method = '' ) {
-		$callable = $method;
+	private function get_callable( $callback = '' ) {
+
+		// Default return value
+		$callable = $callback;
 
 		// Look for global function
 		if ( ! is_callable( $callable ) ) {
-			$callable = array( $this, $method );
 
-			// Look for local class method
+			// Fallback to local class method
+			$callable = array( $this, $callback );
 			if ( ! is_callable( $callable ) ) {
-				$callable = array( $this, "__{$method}" );
 
-				// Look for method prefixed with "__"
+				// Fallback to class method prefixed with "__"
+				$callable = array( $this, "__{$callback}" );
 				if ( ! is_callable( $callable ) ) {
 					$callable = false;
 				}
 			}
 		}
 
-		// Return callable, if any
+		// Return callable string, or false if not callable
 		return $callable;
 	}
 }
