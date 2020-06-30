@@ -2292,6 +2292,11 @@ class Query extends Base {
 		$keys = $this->get_registered_meta_keys();
 		$meta = array_intersect_key( $meta, $keys );
 
+		// Bail if no registered meta keys
+		if ( empty( $meta ) ) {
+			return;
+		}
+
 		// Save or delete meta data
 		foreach ( $meta as $key => $value ) {
 			! empty( $value )
@@ -2332,9 +2337,14 @@ class Query extends Base {
 		$prepared = $this->get_db()->prepare( $sql, $item_id );
 		$meta_ids = $this->get_db()->get_col( $prepared );
 
+		// Bail if no meta IDs to delete
+		if ( empty( $meta_ids ) ) {
+			return;
+		}
+
 		// Delete all meta data for this item ID
 		foreach ( $meta_ids as $mid ) {
-			delete_metadata_by_mid( $table, $mid );
+			delete_metadata_by_mid( $this->item_name, $mid );
 		}
 	}
 
@@ -2697,7 +2707,7 @@ class Query extends Base {
 		// Get the cache group
 		$group = $this->get_cache_group( $group );
 
-		// Delete the cache
+		// Add to the cache
 		wp_cache_add( $key, $value, $group, $expire );
 	}
 
@@ -2720,7 +2730,7 @@ class Query extends Base {
 		// Get the cache group
 		$group = $this->get_cache_group( $group );
 
-		// Delete the cache
+		// Get from the cache
 		return wp_cache_get( $key, $group, $force );
 	}
 
@@ -2749,7 +2759,7 @@ class Query extends Base {
 		// Get the cache group
 		$group = $this->get_cache_group( $group );
 
-		// Delete the cache
+		// Update the cache
 		wp_cache_set( $key, $value, $group, $expire );
 	}
 
