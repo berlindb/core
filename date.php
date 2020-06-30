@@ -4,7 +4,7 @@
  *
  * @package     Database
  * @subpackage  Date
- * @copyright   Copyright (c) 2019
+ * @copyright   Copyright (c) 2020
  * @license     https://opensource.org/licenses/gpl-2.0.php GNU Public License
  * @since       1.0.0
  */
@@ -13,13 +13,15 @@ namespace BerlinDB\Database\Queries;
 // Exit if accessed directly
 defined( 'ABSPATH' ) || exit;
 
+use \BerlinDB\Database\Base;
+
 /**
  * Class for generating SQL clauses that filter a primary query according to date.
  *
  * Is heavily inspired by the WP_Date_Query class in WordPress, with changes to make
  * it more flexible for custom tables and their columns.
  *
- * Date_Query is a helper that allows primary query classes, such as WP_Query, to filter
+ * Date is a helper that allows primary query classes, such as WP_Query, to filter
  * their results by date columns, by generating `WHERE` subclauses to be attached to the
  * primary SQL query string.
  *
@@ -36,7 +38,7 @@ class Date extends Base {
 	/**
 	 * Array of date queries.
 	 *
-	 * See Date_Query::__construct() for information on date query arguments.
+	 * See Date::__construct() for information on date query arguments.
 	 *
 	 * @since 1.0.0
 	 * @var   array
@@ -546,8 +548,8 @@ class Date extends Base {
 		 *
 		 * @since 1.0.0
 		 *
-		 * @param string     $where WHERE clause of the date query.
-		 * @param Date_Query $this  The Date_Query instance.
+		 * @param string $where WHERE clause of the date query.
+		 * @param Date   $this  The Date query instance.
 		 */
 		return apply_filters( 'get_date_sql', $where, $this );
 	}
@@ -555,7 +557,7 @@ class Date extends Base {
 	/**
 	 * Generate SQL clauses to be appended to a main query.
 	 *
-	 * Called by the public Date_Query::get_sql(), this method is abstracted
+	 * Called by the public Date::get_sql(), this method is abstracted
 	 * out to maintain parity with the other Query classes.
 	 *
 	 * @since 1.0.0

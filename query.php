@@ -2735,7 +2735,7 @@ class Query extends Base {
 		// Get the cache group
 		$group = $this->get_cache_group( $group );
 
-		// Delete the cache
+		// Add to the cache
 		wp_cache_add( $key, $value, $group, $expire );
 	}
 
@@ -2758,7 +2758,7 @@ class Query extends Base {
 		// Get the cache group
 		$group = $this->get_cache_group( $group );
 
-		// Delete the cache
+		// Get from the cache
 		return wp_cache_get( $key, $group, $force );
 	}
 
@@ -2787,7 +2787,7 @@ class Query extends Base {
 		// Get the cache group
 		$group = $this->get_cache_group( $group );
 
-		// Delete the cache
+		// Update the cache
 		wp_cache_set( $key, $value, $group, $expire );
 	}
 
