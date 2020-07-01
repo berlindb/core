@@ -1,10 +1,10 @@
 <?php
 /**
- * Base Custom Database Table Date Query Class.
+ * Base Custom Database Table Compare Query Class.
  *
  * @package     Database
  * @subpackage  Compare
- * @copyright   Copyright (c) 2019
+ * @copyright   Copyright (c) 2020
  * @license     https://opensource.org/licenses/gpl-2.0.php GNU Public License
  * @since       1.0.0
  */
@@ -17,12 +17,12 @@ defined( 'ABSPATH' ) || exit;
  * Class used for generating SQL for compare clauses.
  *
  * This class is used to generate the SQL when a `compare` argument is passed to
- * the `Base` query class. It extends `WP_Meta_Query` so the `compare` key accepts
- * the same parameters as the ones passed to `WP_Meta_Query`.
+ * the `Base` query class. It extends `Meta` so the `compare` key accepts
+ * the same parameters as the ones passed to `Meta`.
  *
  * @since 1.0.0
  */
-class Compare_Query extends \WP_Meta_Query {
+class Compare extends Meta {
 
 	/**
 	 * Generate SQL WHERE clauses for a first-order query clause.
