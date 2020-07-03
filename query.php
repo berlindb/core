@@ -345,7 +345,7 @@ class Query extends Base {
 	 * @return array|int List of items, or number of items when 'count' is passed as a query var.
 	 */
 	public function query( $query = array() ) {
-		$this->parse_query( $query );
+		$this->prepare_query( $query );
 
 		return $this->get_items();
 	}
@@ -1094,7 +1094,7 @@ class Query extends Base {
 	 *
 	 * @param string|array $query Array or string of Query arguments.
 	 */
-	private function parse_query( $query = array() ) {
+	private function prepare_query( $query = array() ) {
 
 		// Setup the query_vars_original var
 		$this->query_var_originals = wp_parse_args( $query );
