@@ -1105,6 +1105,15 @@ class Query extends Base {
 			$this->query_var_defaults
 		);
 
+		$this->parse_query();
+	}
+
+	/**
+	 * Parses arguments passed to the item query with default query parameters.
+	 *
+	 * @since 1.0.0
+	 */
+	protected function parse_query(){
 		/**
 		 * Fires after the item query vars have been parsed.
 		 *
