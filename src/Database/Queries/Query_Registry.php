@@ -62,12 +62,14 @@ class Query_Registry extends \ArrayIterator {
 	 * @return Query_Processor|false the item value, if it is set. Otherwise, false.
 	 */
 	public function get( $key ) {
-		if ( isset( $this[ $key ] ) && is_string( $this[ $key ] ) ) {
-			$this[ $key ] = new $this[ $key ]( $this->query_args );
-
-			return $this[ $key ];
+		if ( ! isset( $this[ $key ] ) ) {
+			return false;
 		}
 
-		return false;
+		if ( is_string( $this[ $key ] ) ) {
+			$this[ $key ] = new $this[ $key ]( $this->query_args );
+		}
+
+		return $this[ $key ];
 	}
 }
