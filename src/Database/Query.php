@@ -11,6 +11,8 @@
 namespace BerlinDB\Database;
 
 // Exit if accessed directly
+use BerlinDB\Database\Queries\Query_Registry;
+
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -48,6 +50,8 @@ defined( 'ABSPATH' ) || exit;
  * @property string $date_query_sql
  */
 class Query extends Base {
+
+	private $registry;
 
 	/** Table Properties ******************************************************/
 
@@ -161,7 +165,8 @@ class Query extends Base {
 		'where'   => array(),
 		'groupby' => '',
 		'orderby' => '',
-		'limits'  => ''
+		'limits'  => '',
+		'join'    => array(),
 	);
 
 	/**
@@ -331,6 +336,23 @@ class Query extends Base {
 		if ( ! empty( $query ) ) {
 			$this->query( $query );
 		}
+	}
+
+	/**
+	 * Retrieves the query registry.
+	 *
+	 * @since 2.0.0
+	 *
+	 * @return Query_Registry
+	 */
+	private function registry() {
+
+		// If the registry has not been constructed in this request, go fetch it.
+		if ( ! $this->registry instanceof Query_Registry ) {
+			$this->registry = new Query_Registry( $this->query_args );
+		}
+
+		return $this->registry;
 	}
 
 	/**
@@ -504,7 +526,7 @@ class Query extends Base {
 
 		// Join
 		$join      = ! empty( $clauses['join'] )
-			? $clauses['join']
+			? explode( $clauses['join'], ' ' )
 			: '';
 
 		// Where
@@ -904,6 +926,9 @@ class Query extends Base {
 		// Setup primary column, and parse the where clause
 		$this->parse_where();
 
+		// Setup join
+		$this->parse_join();
+
 		// Order & Order By
 		$order   = $this->parse_order( $this->query_vars['order'] );
 		$orderby = $this->get_order_by( $order );
@@ -1130,6 +1155,17 @@ class Query extends Base {
 		// Loop through columns
 		foreach ( $this->columns as $column ) {
 
+			// Registered Processors
+			foreach ( $this->registry() as $key => $class ) {
+				if ( true === $column->$key ) {
+					$registered_where = $this->registry()->get( $key )->parse_where( $column );
+
+					if ( ! empty( $registered_where ) ) {
+						$where[ $key ] = $registered_where;
+					}
+				}
+			}
+
 			// Maybe add name to searchable array
 			if ( true === $column->searchable ) {
 				$searchable[] = $column->name;
@@ -1308,8 +1344,23 @@ class Query extends Base {
 		}
 
 		// Set where and join clauses
-		$this->query_clauses['where'] = $where;
-		$this->query_clauses['join']  = $join;
+		$this->query_clauses['where']  = $where;
+		$this->query_clauses['join'][] = $join;
+	}
+
+	/**
+	 * Parse the join clause from registered query processors.
+	 *
+	 * @since 2.0.0
+	 */
+	private function parse_join() {
+		foreach ( $this->registry() as $key => $class ) {
+			$join = $this->registry()->get( $key )->parse_join();
+
+			if ( ! empty( $join ) ) {
+				$this->query_clauses['join'][ $key ] = $join;
+			}
+		}
 	}
 
 	/**
