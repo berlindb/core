@@ -40,6 +40,7 @@ defined( 'ABSPATH' ) || exit;
  * @property array $query_vars
  * @property array $query_var_originals
  * @property array $query_var_defaults
+ * @property string $query_var_default_value
  * @property array $items
  * @property int $found_items
  * @property int $max_num_pages
@@ -238,6 +239,16 @@ class Query extends Base {
 	 */
 	protected $query_var_defaults = array();
 
+	/**
+	 * This private variable temporarily holds onto a random string used as the
+	 * default query var value. This is used internally when performing
+	 * comparisons, and allows for querying by falsy values.
+	 *
+	 * @since 1.1.0
+	 * @var   string
+	 */
+	protected $query_var_default_value = '';
+
 	/** Results ***************************************************************/
 
 	/**
@@ -429,6 +440,11 @@ class Query extends Base {
 	 */
 	private function set_query_var_defaults() {
 
+		// Default query variable value
+		$this->query_var_default_value = function_exists( 'random_bytes' )
+			? $this->apply_prefix( bin2hex( random_bytes( 18 ) ) )
+			: $this->apply_prefix( uniqid( '_', true ) );
+
 		// Default query variables
 		$this->query_var_defaults = array(
 			'fields'            => '',
@@ -458,7 +474,7 @@ class Query extends Base {
 		// Direct column names
 		$names = wp_list_pluck( $this->columns, 'name' );
 		foreach ( $names as $name ) {
-			$this->query_var_defaults[ $name ] = '';
+			$this->query_var_defaults[ $name ] = $this->query_var_default_value;
 		}
 
 		// Possible ins
@@ -638,6 +654,18 @@ class Query extends Base {
 	public function set_query_var( $key = '', $value = '' ) {
 		$this->query_var_defaults[ $key ] = $value;
 		$this->query_vars[ $key ]         = $value;
+	}
+
+	/**
+	 * Check whether a query variable strictly equals the unique default
+	 * starting value.
+	 *
+	 * @since 1.1.0
+	 * @param string $key
+	 * @return bool
+	 */
+	public function is_query_var_default( $key = '' ) {
+		return (bool) ( $this->query_vars[ $key ] === $this->query_var_default_value );
 	}
 
 	/** Private Getters *******************************************************/
@@ -1136,7 +1164,7 @@ class Query extends Base {
 			}
 
 			// Literal column comparison
-			if ( ! empty( $this->query_vars[ $column->name ] ) ) {
+			if ( ! $this->is_query_var_default( $column->name ) ) {
 
 				// Array (unprepared)
 				if ( is_array( $this->query_vars[ $column->name ] ) ) {
