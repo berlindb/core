@@ -8,12 +8,12 @@
  * @license     https://opensource.org/licenses/gpl-2.0.php GNU Public License
  * @since       1.0.0
  */
-namespace Sugar_Calendar\Database\Queries;
+namespace BerlinDB\Database\Queries;
 
 // Exit if accessed directly
 defined( 'ABSPATH' ) || exit;
 
-use Sugar_Calendar\Database\Base;
+use BerlinDB\Database\Base;
 
 /**
  * Class for generating SQL clauses that filter a primary query according to date.
