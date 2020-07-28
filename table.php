@@ -394,7 +394,7 @@ abstract class Table extends Base {
 		}
 
 		// Query statement
-		$query  = "CREATE TABLE {$this->table_name} ( {$this->schema} ) {$this->charset_collation};";
+		$query  = "CREATE TABLE {$this->table_name} ( {$this->schema} ) {$this->charset_collation}";
 		$result = $db->query( $query );
 
 		// Was the table created?
@@ -422,7 +422,7 @@ abstract class Table extends Base {
 		$query  = "DROP TABLE {$this->table_name}";
 		$result = $db->query( $query );
 
-		// Query success/fail
+		// Did the table get dropped?
 		return $this->is_success( $result );
 	}
 
@@ -447,7 +447,7 @@ abstract class Table extends Base {
 		$query  = "TRUNCATE TABLE {$this->table_name}";
 		$result = $db->query( $query );
 
-		// Query success/fail
+		// Did the table get truncated?
 		return $this->is_success( $result );
 	}
 
@@ -472,8 +472,84 @@ abstract class Table extends Base {
 		$query   = "DELETE FROM {$this->table_name}";
 		$deleted = $db->query( $query );
 
-		// Query success/fail
+		// Did the table get emptied?
 		return $deleted;
+	}
+
+	/**
+	 * Clone this database table.
+	 *
+	 * Pair with copy().
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param string $new_table_name The name of the new table, without prefix
+	 *
+	 * @return mixed
+	 */
+	public function clone( $new_table_name = '' ) {
+
+		// Get the database interface
+		$db = $this->get_db();
+
+		// Bail if no database interface is available
+		if ( empty( $db ) ) {
+			return;
+		}
+
+		// Sanitize the new table name
+		$table_name = $this->sanitize_table_name( $new_table_name );
+
+		// Bail if new table name is invalid
+		if ( empty( $table_name ) ) {
+			return;
+		}
+
+		// Query statement
+		$table  = $this->apply_prefix( $table_name );
+		$query  = "CREATE TABLE {$table} LIKE {$this->table_name}";
+		$result = $db->query( $query );
+
+		// Did the table get cloned?
+		return $this->is_success( $result );
+	}
+
+	/**
+	 * Copy the contents of this table to a new table.
+	 *
+	 * Pair with clone().
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param string $new_table_name The name of the new table, without prefix
+	 *
+	 * @return mixed
+	 */
+	public function copy( $new_table_name = '' ) {
+
+		// Get the database interface
+		$db = $this->get_db();
+
+		// Bail if no database interface is available
+		if ( empty( $db ) ) {
+			return;
+		}
+
+		// Sanitize the new table name
+		$table_name = $this->sanitize_table_name( $new_table_name );
+
+		// Bail if new table name is invalid
+		if ( empty( $table_name ) ) {
+			return;
+		}
+
+		// Query statement
+		$table  = $this->apply_prefix( $table_name );
+		$query  = "INSERT INTO {$table} SELECT * FROM {$this->table_name}";
+		$result = $db->query( $query );
+
+		// Did the table get copied?
+		return $this->is_success( $result );
 	}
 
 	/**
