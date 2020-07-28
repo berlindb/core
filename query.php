@@ -1131,8 +1131,7 @@ class Query extends Base {
 	private function parse_where() {
 
 		// Defaults
-		$where = $searchable = $date_query = array();
-		$join  = '';
+		$where = $join = $searchable = $date_query = array();
 		$and   = '/^\s*AND\s*/';
 
 		// Set the table right away
