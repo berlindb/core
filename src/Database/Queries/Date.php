@@ -10,8 +10,6 @@
  */
 namespace BerlinDB\Database\Queries;
 
-use BerlinDB\Database\Base;
-
 // Exit if accessed directly
 defined( 'ABSPATH' ) || exit;
 
