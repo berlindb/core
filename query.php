@@ -1,4 +1,4 @@
-c<?php
+<?php
 /**
  * Base Custom Database Table Query Class.
  *
