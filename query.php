@@ -1,4 +1,4 @@
-<?php
+c<?php
 /**
  * Base Custom Database Table Query Class.
  *
@@ -295,6 +295,7 @@ class Query extends Base {
 	 *
 	 *     @type string       $fields            Site fields to return. Accepts 'ids' (returns an array of item IDs)
 	 *                                           or empty (returns an array of complete item objects). Default empty.
+	 *                                           To do a date query against a field, append the field name with _query
 	 *     @type bool         $count             Whether to return a item count (true) or array of item objects.
 	 *                                           Default false.
 	 *     @type int          $number            Limit number of items to retrieve. Use 0 for no limit.
