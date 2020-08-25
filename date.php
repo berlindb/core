@@ -13,7 +13,7 @@ namespace BerlinDB\Database\Queries;
 // Exit if accessed directly
 defined( 'ABSPATH' ) || exit;
 
-use \BerlinDB\Database\Base;
+use BerlinDB\Database\Base;
 
 /**
  * Class for generating SQL clauses that filter a primary query according to date.
@@ -99,7 +99,7 @@ class Date extends Base {
 	 * @since 1.0.0
 	 * @var   array
 	 */
-	public $comparisons = array(
+	public $comparison_keys = array(
 		'=',
 		'!=',
 		'>',
@@ -110,6 +110,30 @@ class Date extends Base {
 		'NOT IN',
 		'BETWEEN',
 		'NOT BETWEEN'
+	);
+
+	/**
+	 * Supported multi-value comparison types
+	 *
+	 * @since 1.1.0
+	 * @var   array
+	 */
+	public $multi_value_keys = array(
+		'IN',
+		'NOT IN',
+		'BETWEEN',
+		'NOT BETWEEN'
+	);
+
+	/**
+	 * Supported relation types
+	 *
+	 * @since 1.1.0
+	 * @var   array
+	 */
+	public $relation_keys = array(
+		'OR',
+		'AND'
 	);
 
 	/**
@@ -127,7 +151,7 @@ class Date extends Base {
 	 *
 	 *     @type array {
 	 *         @type string $column   Optional. The column to query against. If undefined, inherits the value of
-	 *                                the `$default_column` parameter. Accepts 'date_created', 'date_created_gmt',
+	 *                                'date_created'. Accepts 'date_created', 'date_created_gmt',
 	 *                                'post_modified','post_modified_gmt', 'comment_date', 'comment_date_gmt'.
 	 *                                Default 'date_created'.
 	 *         @type string $compare  Optional. The comparison operator. Accepts '=', '!=', '>', '>=', '<', '<=',
@@ -193,45 +217,29 @@ class Date extends Base {
 	 *         }
 	 *     }
 	 * }
-	 * @param string $default_column Optional. Default column to query against. Default 'date_created'.
-	 *                               Accepts 'date_created', 'date_created_gmt', 'post_modified', 'post_modified_gmt',
-	 *                               'comment_date', 'comment_date_gmt'.
 	 */
-	public function __construct( $date_query, $default_column = 'date_created' ) {
+	public function __construct( $date_query = array() ) {
 
-		// AND or OR
-		if ( isset( $date_query['relation'] ) && ( 'OR' === strtoupper( $date_query['relation'] ) ) ) {
-			$this->relation = 'OR';
-		} else {
-			$this->relation = 'AND';
-		}
-
-		// Bail if not an array
+		// Bail if not an array.
 		if ( ! is_array( $date_query ) ) {
 			return;
 		}
 
-		// Support for passing time-based keys in the top level of the $date_query array.
+		// Support for passing time-based keys in the top level of the array.
 		if ( ! isset( $date_query[0] ) && ! empty( $date_query ) ) {
 			$date_query = array( $date_query );
 		}
 
-		// Bail if empty
+		// Bail if empty.
 		if ( empty( $date_query ) ) {
 			return;
 		}
 
-		// Escape the column
-		if ( ! empty( $date_query['column'] ) ) {
-			$date_query['column'] = esc_sql( $date_query['column'] );
-		} else {
-			$date_query['column'] = esc_sql( $default_column );
-		}
-
-		// Set column, compare, and queries
-		$this->column  = $this->validate_column( $this->column );
-		$this->compare = $this->get_compare( $date_query );
-		$this->queries = $this->sanitize_query( $date_query );
+		// Set column, compare, relation, and queries.
+		$this->column   = $this->get_column( $date_query );
+		$this->compare  = $this->get_compare( $date_query );
+		$this->relation = $this->get_relation( $date_query );
+		$this->queries  = $this->sanitize_query( $date_query );
 	}
 
 	/**
@@ -250,14 +258,14 @@ class Date extends Base {
 	 */
 	public function sanitize_query( $queries = array(), $parent_query = array() ) {
 
-		// Default return value
+		// Default return value.
 		$retval = array();
 
-		// Setup defaults
+		// Setup defaults.
 		$defaults = array(
-			'column'   => 'date_created',
-			'compare'  => '=',
-			'relation' => 'AND'
+			'column'   => $this->get_column(),
+			'compare'  => $this->get_compare(),
+			'relation' => $this->get_relation()
 		);
 
 		// Numeric keys should always have array values.
@@ -271,12 +279,12 @@ class Date extends Base {
 		// Inherit from the parent when possible.
 		foreach ( $defaults as $dkey => $dvalue ) {
 
-			// Skip if already set
+			// Skip if already set.
 			if ( isset( $queries[ $dkey ] ) ) {
 				continue;
 			}
 
-			// Set the query
+			// Set the query.
 			if ( isset( $parent_query[ $dkey ] ) ) {
 				$queries[ $dkey ] = $parent_query[ $dkey ];
 			} else {
@@ -289,7 +297,7 @@ class Date extends Base {
 			$this->validate_date_values( $queries );
 		}
 
-		// Add queries to return array
+		// Add queries to return array.
 		foreach ( $queries as $key => $q ) {
 
 			// This is a first-order query. Trust the values and sanitize when building SQL.
@@ -302,7 +310,7 @@ class Date extends Base {
 			}
 		}
 
-		// Return sanitized queries
+		// Return sanitized queries.
 		return $retval;
 	}
 
@@ -315,6 +323,7 @@ class Date extends Base {
 	 * @since 1.0.0
 	 *
 	 * @param  array $query Query clause.
+	 *
 	 * @return bool True if this is a first-order clause.
 	 */
 	protected function is_first_order_clause( $query = array() ) {
@@ -329,18 +338,58 @@ class Date extends Base {
 	 * @since 1.0.0
 	 *
 	 * @param array $query A date query or a date subquery.
+	 *
 	 * @return string The comparison operator.
 	 */
-	public function get_compare( $query = array() ) {
-		if ( ! empty( $query['compare'] ) && in_array( $query['compare'], $this->comparisons ) ) {
-			return strtoupper( $query['compare'] );
-		}
+	public function get_column( $query = array() ) {
 
-		return $this->compare;
+		// Use column if passed
+		$retval = ! empty( $query['column'] )
+			? esc_sql( $this->validate_column( $query['column'] ) )
+			: $this->column;
+
+		return $retval;
 	}
 
 	/**
-	 * Validates the given date_query values and triggers errors if something is not valid.
+	 * Determines and validates what comparison operator to use.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @param array $query A date query or a date subquery.
+	 *
+	 * @return string The comparison operator.
+	 */
+	public function get_compare( $query = array() ) {
+
+		// Compare must be in the allowed array
+		$retval = ! empty( $query['compare'] ) && in_array( $query['compare'], $this->comparison_keys, true )
+			? strtoupper( $query['compare'] )
+			: $this->compare;
+
+		return $retval;
+	}
+
+	/**
+	 * Determines and validates what relation to use.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @param array $query A date query or a date subquery.
+	 * @return string The relation operator.
+	 */
+	public function get_relation( $query = array() ) {
+
+		// Relation must be in the allowed array
+		$retval = ! empty( $query['relation'] ) && in_array( $query['relation'], $this->relation_keys, true )
+			? strtoupper( $query['relation'] )
+			: $this->relation;
+
+		return $retval;
+	}
+
+	/**
+	 * Validates the given date_query values.
 	 *
 	 * Note that date queries with invalid date ranges are allowed to
 	 * continue (though of course no items will be found for impossible dates).
@@ -349,11 +398,12 @@ class Date extends Base {
 	 * @since  1.0.0
 	 *
 	 * @param  array $date_query The date_query array.
+	 *
 	 * @return bool  True if all values in the query are valid, false if one or more fail.
 	 */
 	public function validate_date_values( $date_query = array() ) {
 
-		// Bail if empty
+		// Bail if empty.
 		if ( empty( $date_query ) ) {
 			return false;
 		}
@@ -469,16 +519,16 @@ class Date extends Base {
 		// Concatenate and throw a notice for each invalid value.
 		foreach ( $min_max_checks as $key => $check ) {
 
-			// Skip if not in query
+			// Skip if not in query.
 			if ( ! array_key_exists( $key, $date_query ) ) {
 				continue;
 			}
 
 			// Throw a notice for each failing value.
 			foreach ( (array) $date_query[ $key ] as $_value ) {
-				$is_between = $_value >= $check['min'] && $_value <= $check['max'];
+				$is_between = ( $_value >= $check['min'] ) && ( $_value <= $check['max'] );
 
-				if ( ! is_numeric( $_value ) || ! $is_between ) {
+				if ( ! is_numeric( $_value ) || empty( $is_between ) ) {
 					$valid = false;
 				}
 			}
@@ -493,14 +543,14 @@ class Date extends Base {
 		$month_exists = array_key_exists( 'month', $date_query ) && is_numeric( $date_query['month'] );
 		$year_exists  = array_key_exists( 'year',  $date_query ) && is_numeric( $date_query['year']  );
 
-		if ( $day_exists && $month_exists && $year_exists ) {
+		if ( ! empty( $day_exists ) && ! empty( $month_exists ) && ! empty( $year_exists ) ) {
 
 			// 1. Checking day, month, year combination.
 			if ( ! wp_checkdate( $date_query['month'], $date_query['day'], $date_query['year'], sprintf( '%s-%s-%s', $date_query['year'], $date_query['month'], $date_query['day'] ) ) ) {
 				$valid = false;
 			}
 
-		} elseif ( $day_exists && $month_exists ) {
+		} elseif ( ! empty( $day_exists ) && ! empty( $month_exists ) ) {
 
 			/*
 			 * 2. checking day, month combination
@@ -518,14 +568,10 @@ class Date extends Base {
 	/**
 	 * Validates a column name parameter.
 	 *
-	 * Column names without a table prefix (like 'date_created') are checked against a whitelist of
-	 * known tables, and then, if found, have a table prefix (such as 'wp_posts.') prepended.
-	 * Prefixed column names (such as 'wp_posts.date_created') bypass this whitelist check,
-	 * and are only sanitized to remove illegal characters.
-	 *
 	 * @since 1.0.0
 	 *
 	 * @param string $column The user-supplied column name.
+	 *
 	 * @return string A validated column name value.
 	 */
 	public function validate_column( $column = '' ) {
@@ -537,21 +583,20 @@ class Date extends Base {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @return string MySQL WHERE clause.
+	 * @return string MySQL WHERE clauses.
 	 */
 	public function get_sql() {
-		$sql   = $this->get_sql_clauses();
-		$where = $sql['where'];
+		$sql = $this->get_sql_clauses();
 
 		/**
-		 * Filters the date query WHERE clause.
+		 * Filters the date query clauses.
 		 *
 		 * @since 1.0.0
 		 *
-		 * @param string $where WHERE clause of the date query.
+		 * @param string $sql Clauses of the date query.
 		 * @param Date   $this  The Date query instance.
 		 */
-		return apply_filters( 'get_date_sql', $where, $this );
+		return apply_filters( 'get_date_sql', $sql, $this );
 	}
 
 	/**
@@ -678,6 +723,7 @@ class Date extends Base {
 	 *
 	 * @param  array $query        Date query clause.
 	 * @param  array $parent_query Parent query of the current date query.
+	 *
 	 * @return array {
 	 *     Array containing JOIN and WHERE SQL clauses to append to the main query.
 	 *
@@ -690,11 +736,7 @@ class Date extends Base {
 		// The sub-parts of a $where part.
 		$where_parts = array();
 
-		$column = ! empty( $query['column'] )
-			? esc_sql( $query['column'] )
-			: $this->column;
-
-		$column    = $this->validate_column( $column );
+		$column    = $this->get_column( $query );
 		$compare   = $this->get_compare( $query );
 		$inclusive = ! empty( $query['inclusive'] );
 
@@ -728,9 +770,9 @@ class Date extends Base {
 		}
 
 		if ( isset( $query['week'] ) && false !== ( $value = $this->build_numeric_value( $compare, $query['week'] ) ) ) {
-			$where_parts[] = _wp_mysql_week( $column ) . " $compare $value";
+			$where_parts[] = _wp_mysql_week( $column ) . " {$compare} {$value}";
 		} elseif ( isset( $query['w'] ) && false !== ( $value = $this->build_numeric_value( $compare, $query['w'] ) ) ) {
-			$where_parts[] = _wp_mysql_week( $column ) . " $compare $value";
+			$where_parts[] = _wp_mysql_week( $column ) . " {$compare} {$value}";
 		}
 
 		if ( isset( $query['dayofyear'] ) && $value = $this->build_numeric_value( $compare, $query['dayofyear'] ) ) {
@@ -789,6 +831,7 @@ class Date extends Base {
 	 *
 	 * @param string $compare The compare operator to use
 	 * @param string|array $value The value
+	 *
 	 * @return string|false|int The value to be used in SQL or false on error.
 	 */
 	public function build_numeric_value( $compare = '=', $value = null ) {
@@ -847,11 +890,12 @@ class Date extends Base {
 	 *
 	 * @param string $compare The compare operator to use
 	 * @param string|array $value The value
+	 *
 	 * @return string|false|int The value to be used in SQL or false on error.
 	 */
 	public function build_value( $compare = '=', $value = null ) {
 
-		if ( in_array( $compare, array( 'IN', 'NOT IN', 'BETWEEN', 'NOT BETWEEN' ) ) ) {
+		if ( in_array( $compare, $this->multi_value_keys, true ) ) {
 			if ( ! is_array( $value ) ) {
 				$value = preg_split( '/[,\s]+/', $value );
 			}
@@ -911,12 +955,19 @@ class Date extends Base {
 	 *                                     of $datetime that are arrays, or string values that are a
 	 *                                     subset of MySQL date format ('Y', 'Y-m', 'Y-m-d', 'Y-m-d H:i').
 	 *                                     Default: false.
+	 *
 	 * @return string|false A MySQL format date/time or false on failure
 	 */
-	public function build_mysql_datetime( $datetime, $default_to_max = false ) {
-		$now = current_time( 'timestamp' );
+	public function build_mysql_datetime( $datetime = '', $default_to_max = false ) {
 
-		if ( ! is_array( $datetime ) ) {
+		// Get current time
+		$now = time();
+
+		// Datetime is string
+		if ( is_string( $datetime ) ) {
+
+			// Define matches so linters don't complain
+			$matches = array();
 
 			/*
 			 * Try to parse some common date formats, so we can detect
@@ -961,36 +1012,43 @@ class Date extends Base {
 			}
 		}
 
+		// Map to ints
 		$datetime = array_map( 'absint', $datetime );
 
+		// Year
 		if ( ! isset( $datetime['year'] ) ) {
 			$datetime['year'] = date( 'Y', $now );
 		}
 
+		// Month
 		if ( ! isset( $datetime['month'] ) ) {
 			$datetime['month'] = ! empty( $default_to_max )
 				? 12
 				: 1;
 		}
 
+		// Day
 		if ( ! isset( $datetime['day'] ) ) {
 			$datetime['day'] = ! empty( $default_to_max )
 				? (int) date( 't', mktime( 0, 0, 0, $datetime['month'], 1, $datetime['year'] ) )
 				: 1;
 		}
 
+		// Hour
 		if ( ! isset( $datetime['hour'] ) ) {
 			$datetime['hour'] = ! empty( $default_to_max )
 				? 23
 				: 0;
 		}
 
+		// Minute
 		if ( ! isset( $datetime['minute'] ) ) {
 			$datetime['minute'] = ! empty( $default_to_max )
 				? 59
 				: 0;
 		}
 
+		// Second
 		if ( ! isset( $datetime['second'] ) ) {
 			$datetime['second'] = ! empty( $default_to_max )
 				? 59
@@ -1023,6 +1081,7 @@ class Date extends Base {
 	 * @param int|null $hour Optional. An hour value (0-23).
 	 * @param int|null $minute Optional. A minute value (0-59).
 	 * @param int|null $second Optional. A second value (0-59).
+	 *
 	 * @return string|false A query part or false on failure.
 	 */
 	public function build_time_query( $column, $compare, $hour = null, $minute = null, $second = null ) {
@@ -1033,40 +1092,49 @@ class Date extends Base {
 		}
 
 		// Complex combined queries aren't supported for multi-value queries
-		if ( in_array( $compare, array( 'IN', 'NOT IN', 'BETWEEN', 'NOT BETWEEN' ) ) ) {
-			$return = array();
+		if ( in_array( $compare, $this->multi_value_keys, true ) ) {
+			$retval = array();
 
+			// Hour
 			if ( isset( $hour ) && false !== ( $value = $this->build_numeric_value( $compare, $hour ) ) ) {
-				$return[] = "HOUR( {$column} ) {$compare} {$value}";
+				$retval[] = "HOUR( {$column} ) {$compare} {$value}";
 			}
 
+			// Minute
 			if ( isset( $minute ) && false !== ( $value = $this->build_numeric_value( $compare, $minute ) ) ) {
-				$return[] = "MINUTE( {$column} ) {$compare} {$value}";
+				$retval[] = "MINUTE( {$column} ) {$compare} {$value}";
 			}
 
+			// Second
 			if ( isset( $second ) && false !== ( $value = $this->build_numeric_value( $compare, $second ) ) ) {
-				$return[] = "SECOND( {$column} ) {$compare} {$value}";
+				$retval[] = "SECOND( {$column} ) {$compare} {$value}";
 			}
 
-			return implode( ' AND ', $return );
+			return implode( ' AND ', $retval );
 		}
 
 		// Cases where just one unit is set
+
+		// Hour
 		if ( isset( $hour ) && ! isset( $minute ) && ! isset( $second ) && false !== ( $value = $this->build_numeric_value( $compare, $hour ) ) ) {
 			return "HOUR( {$column} ) {$compare} {$value}";
 
+		// Minute
 		} elseif ( ! isset( $hour ) && isset( $minute ) && ! isset( $second ) && false !== ( $value = $this->build_numeric_value( $compare, $minute ) ) ) {
 			return "MINUTE( {$column} ) {$compare} {$value}";
 
+		// Second
 		} elseif ( ! isset( $hour ) && ! isset( $minute ) && isset( $second ) && false !== ( $value = $this->build_numeric_value( $compare, $second ) ) ) {
 			return "SECOND( {$column} ) {$compare} {$value}";
 		}
 
-		// Single units were already handled. Since hour & second isn't allowed, minute must to be set.
+		// Single units were already handled. Since hour & second isn't allowed,
+		// minute must to be set.
 		if ( ! isset( $minute ) ) {
 			return false;
 		}
 
+		// Defaults
 		$format = $time = '';
 
 		// Hour
@@ -1082,11 +1150,16 @@ class Date extends Base {
 		$format .= '%i';
 		$time   .= sprintf( '%02d', $minute );
 
+		// Second
 		if ( isset( $second ) ) {
 			$format .= '%s';
 			$time   .= sprintf( '%02d', $second );
 		}
 
-		return $this->get_db()->prepare( "DATE_FORMAT( {$column}, %s ) {$compare} %f", $format, $time );
+		// Build the SQL
+		$query = "DATE_FORMAT( {$column}, %s ) {$compare} %f";
+
+		// Return the prepared SQL
+		return $this->get_db()->prepare( $query, $format, $time );
 	}
 }
