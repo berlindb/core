@@ -4,7 +4,7 @@
  *
  * @package     Database
  * @subpackage  Table
- * @copyright   Copyright (c) 2019
+ * @copyright   Copyright (c) 2020
  * @license     https://opensource.org/licenses/gpl-2.0.php GNU Public License
  * @since       1.0.0
  */
@@ -353,33 +353,6 @@ abstract class Table extends Base {
 	}
 
 	/**
-	 * Check if table already exists.
-	 *
-	 * @since 1.0.0
-	 *
-	 * @return bool
-	 */
-	public function column_exists( $name = '' ) {
-
-		// Get the database interface
-		$db = $this->get_db();
-
-		// Bail if no database interface is available
-		if ( empty( $db ) ) {
-			return;
-		}
-
-		// Query statement
-		$query    = "SHOW COLUMNS FROM {$this->table_name} LIKE %s";
-		$like     = $db->esc_like( $name );
-		$prepared = $db->prepare( $query, $like );
-		$result   = $db->query( $prepared );
-
-		// Does the table exist?
-		return $this->is_success( $result );
-	}
-
-	/**
 	 * Create the table.
 	 *
 	 * @since 1.0.0
@@ -397,7 +370,7 @@ abstract class Table extends Base {
 		}
 
 		// Query statement
-		$query  = "CREATE TABLE {$this->table_name} ( {$this->schema} ) {$this->charset_collation};";
+		$query  = "CREATE TABLE {$this->table_name} ( {$this->schema} ) {$this->charset_collation}";
 		$result = $db->query( $query );
 
 		// Was the table created?
@@ -425,7 +398,7 @@ abstract class Table extends Base {
 		$query  = "DROP TABLE {$this->table_name}";
 		$result = $db->query( $query );
 
-		// Query success/fail
+		// Did the table get dropped?
 		return $this->is_success( $result );
 	}
 
@@ -450,7 +423,7 @@ abstract class Table extends Base {
 		$query  = "TRUNCATE TABLE {$this->table_name}";
 		$result = $db->query( $query );
 
-		// Query success/fail
+		// Did the table get truncated?
 		return $this->is_success( $result );
 	}
 
@@ -475,8 +448,84 @@ abstract class Table extends Base {
 		$query   = "DELETE FROM {$this->table_name}";
 		$deleted = $db->query( $query );
 
-		// Query success/fail
+		// Did the table get emptied?
 		return $deleted;
+	}
+
+	/**
+	 * Clone this database table.
+	 *
+	 * Pair with copy().
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param string $new_table_name The name of the new table, without prefix
+	 *
+	 * @return mixed
+	 */
+	public function clone( $new_table_name = '' ) {
+
+		// Get the database interface
+		$db = $this->get_db();
+
+		// Bail if no database interface is available
+		if ( empty( $db ) ) {
+			return;
+		}
+
+		// Sanitize the new table name
+		$table_name = $this->sanitize_table_name( $new_table_name );
+
+		// Bail if new table name is invalid
+		if ( empty( $table_name ) ) {
+			return;
+		}
+
+		// Query statement
+		$table  = $this->apply_prefix( $table_name );
+		$query  = "CREATE TABLE {$table} LIKE {$this->table_name}";
+		$result = $db->query( $query );
+
+		// Did the table get cloned?
+		return $this->is_success( $result );
+	}
+
+	/**
+	 * Copy the contents of this table to a new table.
+	 *
+	 * Pair with clone().
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param string $new_table_name The name of the new table, without prefix
+	 *
+	 * @return mixed
+	 */
+	public function copy( $new_table_name = '' ) {
+
+		// Get the database interface
+		$db = $this->get_db();
+
+		// Bail if no database interface is available
+		if ( empty( $db ) ) {
+			return;
+		}
+
+		// Sanitize the new table name
+		$table_name = $this->sanitize_table_name( $new_table_name );
+
+		// Bail if new table name is invalid
+		if ( empty( $table_name ) ) {
+			return;
+		}
+
+		// Query statement
+		$table  = $this->apply_prefix( $table_name );
+		$query  = "INSERT INTO {$table} SELECT * FROM {$this->table_name}";
+		$result = $db->query( $query );
+
+		// Did the table get copied?
+		return $this->is_success( $result );
 	}
 
 	/**
@@ -504,6 +553,65 @@ abstract class Table extends Base {
 		return $count;
 	}
 
+	/**
+	 * Check if column already exists.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @param string $name Value
+	 *
+	 * @return bool
+	 */
+	public function column_exists( $name = '' ) {
+
+		// Get the database interface
+		$db = $this->get_db();
+
+		// Bail if no database interface is available
+		if ( empty( $db ) ) {
+			return;
+		}
+
+		// Query statement
+		$query    = "SHOW COLUMNS FROM {$this->table_name} LIKE %s";
+		$like     = $db->esc_like( $name );
+		$prepared = $db->prepare( $query, $like );
+		$result   = $db->query( $prepared );
+
+		// Does the column exist?
+		return $this->is_success( $result );
+	}
+
+	/**
+	 * Check if index already exists.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @param string $name   Value
+	 * @param string $column Column name
+	 *
+	 * @return bool
+	 */
+	public function index_exists( $name = '', $column = 'Key_name' ) {
+
+		// Get the database interface
+		$db = $this->get_db();
+
+		// Bail if no database interface is available
+		if ( empty( $db ) ) {
+			return;
+		}
+
+		// Query statement
+		$query    = "SHOW INDEXES FROM {$this->table_name} WHERE %s LIKE %s";
+		$like     = $db->esc_like( $name );
+		$prepared = $db->prepare( $query, $column, $like );
+		$result   = $db->query( $prepared );
+
+		// Does the index exist?
+		return $this->is_success( $result );
+	}
+
 	/** Upgrades **************************************************************/
 
 	/**
@@ -514,24 +622,28 @@ abstract class Table extends Base {
 	 * return bool
 	 */
 	public function upgrade() {
-		$result = false;
 
-		// Remove all upgrades that have already been completed
-		$upgrades = array_filter( (array) $this->upgrades, function( $value ) {
-			return version_compare( $value, $this->db_version, '>' );
-		} );
+		// Get pending upgrades
+		$upgrades = $this->get_pending_upgrades();
 
-		// Bail if no upgrades or database version is missing
-		if ( empty( $upgrades ) || empty( $this->db_version ) ) {
+		// Bail if no upgrades
+		if ( empty( $upgrades ) ) {
 			$this->set_db_version();
+
+			// Return, without failure
 			return true;
 		}
 
-		// Try to do all known upgrades
-		foreach ( $upgrades as $version => $method ) {
-			$result = $this->upgrade_to( $version, $method );
+		// Default result
+		$result = false;
 
-			// Bail if an error occurs, to avoid skipping ahead
+		// Try to do the upgrades
+		foreach ( $upgrades as $version => $callback ) {
+
+			// Do the upgrade
+			$result = $this->upgrade_to( $version, $callback );
+
+			// Bail if an error occurs, to avoid skipping upgrades
 			if ( ! $this->is_success( $result ) ) {
 				return false;
 			}
@@ -542,31 +654,59 @@ abstract class Table extends Base {
 	}
 
 	/**
+	 * Return array of upgrades that still need to run.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @return array Array of upgrade callbacks, keyed by their db version.
+	 */
+	public function get_pending_upgrades() {
+
+		// Default return value
+		$upgrades = array();
+
+		// Bail if no upgrades, or no database version to compare to
+		if ( empty( $this->upgrades ) || empty( $this->db_version ) ) {
+			return $upgrades;
+		}
+
+		// Loop through all upgrades, and pick out the ones that need doing
+		foreach ( $this->upgrades as $version => $callback ) {
+			if ( true === version_compare( $version, $this->db_version, '>' ) ) {
+				$upgrades[ $version ] = $callback;
+			}
+		}
+
+		// Return
+		return $upgrades;
+	}
+
+	/**
 	 * Upgrade to a specific database version.
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param mixed  $version Database version to check if upgrade is needed
-	 * @param string $method
+	 * @param mixed  $version  Database version to check if upgrade is needed
+	 * @param string $callback Callback function or class method to call
 	 *
 	 * @return bool
 	 */
-	public function upgrade_to( $version = '', $method = '' ) {
+	public function upgrade_to( $version = '', $callback = '' ) {
 
 		// Bail if no upgrade is needed
 		if ( ! $this->needs_upgrade( $version ) ) {
 			return false;
 		}
 
-		// Allow self-named upgrade methods
-		if ( empty( $method ) ) {
-			$method = $version;
+		// Allow self-named upgrade callbacks
+		if ( empty( $callback ) ) {
+			$callback = $version;
 		}
 
-		// Is the method callable?
-		$callable = $this->get_callable( $method );
+		// Is the callback... callable?
+		$callable = $this->get_callable( $callback );
 
-		// Bail if no callable upgrade method was found
+		// Bail if no callable upgrade was found
 		if ( empty( $callable ) ) {
 			return false;
 		}
@@ -768,34 +908,36 @@ abstract class Table extends Base {
 	}
 
 	/**
-	 * Try to get a callable upgrade method, with some magic to avoid needing to
+	 * Try to get a callable upgrade, with some magic to avoid needing to
 	 * do this dance repeatedly inside subclasses.
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param string $method
+	 * @param string $callback
 	 *
-	 * @return bool
+	 * @return mixed Callable string, or false if not callable
 	 */
-	private function get_callable( $method = '' ) {
-		$callable = $method;
+	private function get_callable( $callback = '' ) {
+
+		// Default return value
+		$callable = $callback;
 
 		// Look for global function
 		if ( ! is_callable( $callable ) ) {
-			$callable = array( $this, $method );
 
-			// Look for local class method
+			// Fallback to local class method
+			$callable = array( $this, $callback );
 			if ( ! is_callable( $callable ) ) {
-				$callable = array( $this, "__{$method}" );
 
-				// Look for method prefixed with "__"
+				// Fallback to class method prefixed with "__"
+				$callable = array( $this, "__{$callback}" );
 				if ( ! is_callable( $callable ) ) {
 					$callable = false;
 				}
 			}
 		}
 
-		// Return callable, if any
+		// Return callable string, or false if not callable
 		return $callable;
 	}
 }

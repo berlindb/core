@@ -40,12 +40,12 @@ defined( 'ABSPATH' ) || exit;
  * @property array $query_vars
  * @property array $query_var_originals
  * @property array $query_var_defaults
+ * @property string $query_var_default_value
  * @property array $items
  * @property int $found_items
  * @property int $max_num_pages
  * @property string $request
  * @property int $last_changed
- * @property string $date_query_sql
  */
 class Query extends Base {
 
@@ -238,6 +238,16 @@ class Query extends Base {
 	 */
 	protected $query_var_defaults = array();
 
+	/**
+	 * This private variable temporarily holds onto a random string used as the
+	 * default query var value. This is used internally when performing
+	 * comparisons, and allows for querying by falsy values.
+	 *
+	 * @since 1.1.0
+	 * @var   string
+	 */
+	protected $query_var_default_value = '';
+
 	/** Results ***************************************************************/
 
 	/**
@@ -271,17 +281,6 @@ class Query extends Base {
 	 * @var   string
 	 */
 	protected $request = '';
-
-	/** Shims *****************************************************************/
-
-	/**
-	 * This private variable only exists to temporarily hold onto the SQL used
-	 * in this query, to work shortcomings in the parent application.
-	 *
-	 * @since 1.0.0
-	 * @var   string
-	 */
-	private $date_query_sql = '';
 
 	/** Methods ***************************************************************/
 
@@ -430,6 +429,11 @@ class Query extends Base {
 	 */
 	private function set_query_var_defaults() {
 
+		// Default query variable value
+		$this->query_var_default_value = function_exists( 'random_bytes' )
+			? $this->apply_prefix( bin2hex( random_bytes( 18 ) ) )
+			: $this->apply_prefix( uniqid( '_', true ) );
+
 		// Default query variables
 		$this->query_var_defaults = array(
 			'fields'            => '',
@@ -459,7 +463,7 @@ class Query extends Base {
 		// Direct column names
 		$names = wp_list_pluck( $this->columns, 'name' );
 		foreach ( $names as $name ) {
-			$this->query_var_defaults[ $name ] = '';
+			$this->query_var_defaults[ $name ] = $this->query_var_default_value;
 		}
 
 		// Possible ins
@@ -641,6 +645,18 @@ class Query extends Base {
 		$this->query_vars[ $key ]         = $value;
 	}
 
+	/**
+	 * Check whether a query variable strictly equals the unique default
+	 * starting value.
+	 *
+	 * @since 1.1.0
+	 * @param string $key
+	 * @return bool
+	 */
+	public function is_query_var_default( $key = '' ) {
+		return (bool) ( $this->query_vars[ $key ] === $this->query_var_default_value );
+	}
+
 	/** Private Getters *******************************************************/
 
 	/**
@@ -648,7 +664,8 @@ class Query extends Base {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param array $args See Meta
+	 * @param array $args See Queries\Meta
+	 *
 	 * @return Meta
 	 */
 	private function get_meta_query( $args = array() ) {
@@ -660,7 +677,8 @@ class Query extends Base {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param array $args See Compare
+	 * @param array $args See Queries\Compare
+	 *
 	 * @return Compare
 	 */
 	private function get_compare_query( $args = array() ) {
@@ -672,22 +690,12 @@ class Query extends Base {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param array  $args   See Queries\Date
-	 * @param string $column Column to run date query on. Default `date_created`
+	 * @param array $args See Queries\Date
 	 *
 	 * @return Queries\Date
 	 */
-	private function get_date_query( $args = array(), $column = 'date_created' ) {
-
-		$date_query = new Queries\Date( $args, $column );
-		$table      = $this->get_table_name();
-
-		$date_query->column = "{$table}.{$column}";
-		$date_query->validate_column( $column );
-		$this->date_query_sql = $date_query->get_sql();
-
-		// Return the date
-		return $date_query;
+	private function get_date_query( $args = array() ) {
+		return new Queries\Date( $args );
 	}
 
 	/**
@@ -924,7 +932,7 @@ class Query extends Base {
 
 		// Where & Join
 		$where = implode( ' AND ', $this->query_clauses['where'] );
-		$join  = $this->query_clauses['join'];
+		$join  = implode( ', ',    $this->query_clauses['join']  );
 
 		// Group by
 		$groupby = $this->parse_groupby( $this->query_vars['groupby'] );
@@ -1124,9 +1132,11 @@ class Query extends Base {
 	private function parse_where() {
 
 		// Defaults
-		$where = $searchable = $date_query = array();
-		$join  = '';
+		$where = $join = $searchable = $date_query = array();
 		$and   = '/^\s*AND\s*/';
+
+		// Set the table right away
+		$table = $this->apply_prefix( $this->item_name );
 
 		// Loop through columns
 		foreach ( $this->columns as $column ) {
@@ -1137,7 +1147,7 @@ class Query extends Base {
 			}
 
 			// Literal column comparison
-			if ( ! empty( $this->query_vars[ $column->name ] ) ) {
+			if ( ! $this->is_query_var_default( $column->name ) ) {
 
 				// Array (unprepared)
 				if ( is_array( $this->query_vars[ $column->name ] ) ) {
@@ -1218,10 +1228,12 @@ class Query extends Base {
 					// Default date query
 					if ( is_string( $column_date ) ) {
 						$date_query[] = $defaults;
+
+					// Array query var
 					} elseif ( is_array( $column_date ) ) {
 
-						// Maybe auto-fill column
-						if ( ! isset( $column_date['column'] ) ) {
+						// Auto-fill column if empty
+						if ( empty( $column_date['column'] ) ) {
 							$column_date['column'] = $defaults['column'];
 						}
 
@@ -1268,14 +1280,15 @@ class Query extends Base {
 		$meta_query = $this->query_vars['meta_query'];
 		if ( ! empty( $meta_query ) && is_array( $meta_query ) ) {
 			$this->meta_query = $this->get_meta_query( $meta_query );
-			$table            = $this->apply_prefix( $this->item_name );
 			$clauses          = $this->meta_query->get_sql( $table, $this->table_alias, $this->get_primary_column_name(), $this );
 
 			// Not all objects have meta, so make sure this one exists
 			if ( false !== $clauses ) {
 
 				// Set join
-				$join = $clauses['join'];
+				if ( ! empty( $clauses['join'] ) ) {
+					$join['meta_query'] = $clauses['join'];
+				}
 
 				// Remove " AND " from meta_query query where clause
 				$where['meta_query'] = preg_replace( $and, '', $clauses['where'] );
@@ -1286,7 +1299,6 @@ class Query extends Base {
 		$compare_query = $this->query_vars['compare_query'];
 		if ( ! empty( $compare_query ) && is_array( $compare_query ) ) {
 			$this->compare_query = $this->get_compare_query( $compare_query );
-			$table               = $this->apply_prefix( $this->item_name );
 			$clauses             = $this->compare_query->get_sql( $table, $this->table_alias, $this->get_primary_column_name(), $this );
 
 			// Not all objects can compare, so make sure this one exists
@@ -1304,8 +1316,15 @@ class Query extends Base {
 
 		// Maybe perform a date query
 		if ( ! empty( $date_query ) && is_array( $date_query ) ) {
-			$this->date_query    = $this->get_date_query( $date_query );
-			$where['date_query'] = preg_replace( $and, '', $this->date_query_sql );
+			$this->date_query = $this->get_date_query( $date_query );
+			$clauses          = $this->date_query->get_sql( $table, $this->table_alias, $this->get_primary_column_name(), $this );
+
+			// Not all objects are dates, so make sure this one exists
+			if ( false !== $clauses ) {
+
+				// Remove " AND " from query where clause.
+				$where['date_query'] = preg_replace( $and, '', $clauses['where'] );
+			}
 		}
 
 		// Set where and join clauses
@@ -2293,6 +2312,11 @@ class Query extends Base {
 		$keys = $this->get_registered_meta_keys();
 		$meta = array_intersect_key( $meta, $keys );
 
+		// Bail if no registered meta keys
+		if ( empty( $meta ) ) {
+			return;
+		}
+
 		// Save or delete meta data
 		foreach ( $meta as $key => $value ) {
 			! empty( $value )
@@ -2333,9 +2357,14 @@ class Query extends Base {
 		$prepared = $this->get_db()->prepare( $sql, $item_id );
 		$meta_ids = $this->get_db()->get_col( $prepared );
 
+		// Bail if no meta IDs to delete
+		if ( empty( $meta_ids ) ) {
+			return;
+		}
+
 		// Delete all meta data for this item ID
 		foreach ( $meta_ids as $mid ) {
-			delete_metadata_by_mid( $table, $mid );
+			delete_metadata_by_mid( $this->item_name, $mid );
 		}
 	}
 
@@ -2698,7 +2727,7 @@ class Query extends Base {
 		// Get the cache group
 		$group = $this->get_cache_group( $group );
 
-		// Delete the cache
+		// Add to the cache
 		wp_cache_add( $key, $value, $group, $expire );
 	}
 
@@ -2721,7 +2750,7 @@ class Query extends Base {
 		// Get the cache group
 		$group = $this->get_cache_group( $group );
 
-		// Delete the cache
+		// Get from the cache
 		return wp_cache_get( $key, $group, $force );
 	}
 
@@ -2750,7 +2779,7 @@ class Query extends Base {
 		// Get the cache group
 		$group = $this->get_cache_group( $group );
 
-		// Delete the cache
+		// Update the cache
 		wp_cache_set( $key, $value, $group, $expire );
 	}
 
