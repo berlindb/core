@@ -39,13 +39,25 @@ class Schema extends Base {
 	 */
 	public function __construct() {
 
+		// Setup the defaults
+		$this->set_defaults();
+
+		// Setup the columns
+		$this->set_columns();
+	}
+
+	/**
+	 * Setup the columns.
+	 *
+	 * @since 1.0.0
+	 * @return void
+	 */
+	public function set_columns() {
+
 		// Bail if no columns
 		if ( empty( $this->columns ) || ! is_array( $this->columns ) ) {
 			return;
 		}
-
-		// Setup the defaults
-		$this->set_defaults();
 
 		// Juggle original columns array
 		$columns = $this->columns;
