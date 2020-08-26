@@ -220,6 +220,9 @@ class Date extends Base {
 	 */
 	public function __construct( $date_query = array() ) {
 
+		// Setup the defaults
+		$this->set_defaults();
+
 		// Bail if not an array.
 		if ( ! is_array( $date_query ) ) {
 			return;
