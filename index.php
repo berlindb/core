@@ -34,15 +34,55 @@ abstract class Index extends Base {
 	/** Methods ***************************************************************/
 
 	/**
-	 * Hook into queries, admin screens, and more!
+	 * Constructor.
 	 *
 	 * @since 1.1.0
+	 *
+	 * @param array $args
 	 */
-	public function __construct( $table = false ) {
-		$this->table = $table;
+	public function __construct( $args = array() ) {
+
+		// Maybe initialize
+		if ( ! empty( $args ) ) {
+			$this->init( $args );
+		}
+	}
+
+	/**
+	 * Initialize properties based on passed arguments.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param array $args
+	 */
+	private function init( $args = array() ) {
+		$this->set_vars( $args );
 	}
 
 	/** Public Management *****************************************************/
+
+	/**
+	 * Does an index exist?
+	 *
+	 * @since 1.1.0
+	 * @param string|string[] $args Name of the key, or array of values.
+	 * @return bool
+	 */
+	public function exists( $args = array() ) {
+
+		// Default array
+		if ( is_string( $args ) ) {
+			$args = array(
+				'Key_name' => sanitize_key( $args )
+			);
+		}
+
+		// Filter indexes by arguments
+		$indexes = $this->filter( $args );
+
+		// Success/fail
+		return $this->is_success( $indexes );
+	}
 
 	/**
 	 * Get all of the indexes from this table.
@@ -57,6 +97,11 @@ abstract class Index extends Base {
 
 		// Bail if no database interface is available
 		if ( empty( $db ) ) {
+			return;
+		}
+
+		// Bail if no table name is set
+		if ( empty( $this->table->name ) ) {
 			return;
 		}
 
@@ -86,11 +131,11 @@ abstract class Index extends Base {
 	 */
 	public function filter( $args = array(), $operator = 'and' ) {
 
-		// Get the database interface
-		$db = $this->get_db();
+		// Parse the filter arguments
+		$r = $this->parse_filter_args( $args );
 
-		// Bail if no database interface is available
-		if ( empty( $db ) ) {
+		// Bail if not filtering by anything
+		if ( empty( $r ) ) {
 			return;
 		}
 
@@ -99,11 +144,29 @@ abstract class Index extends Base {
 
 		// Bail if no indexes
 		if ( empty( $indexes ) ) {
-			return false;
+			return;
+		}
+
+		// Filter the object list
+		return wp_filter_object_list( $indexes, $r, $operator );
+	}
+
+	/**
+	 * Parse filter arguments.
+	 *
+	 * @since 1.1.0
+	 * @param array $args
+	 * @return boolean
+	 */
+	public function parse_filter_args( $args = array() ) {
+
+		// Bail if not an array
+		if ( empty( $args ) ) {
+			return;
 		}
 
 		// Parse the arguments
-		$r = array_filter( wp_parse_args( $args, array(
+		$retval = wp_parse_args( $args, array(
 
 			// You probably want to use these
 			'Key_name'      => '',
@@ -123,52 +186,9 @@ abstract class Index extends Base {
 			'Index_comment' => null,
 			'Visible'       => null,
 			'Expression'    => null
-		) ) );
-
-		// Bail if not filtering by anything
-		if ( empty( $r ) ) {
-			return false;
-		}
-
-		// Filter the object list
-		return wp_filter_object_list( $indexes, $r, $operator );
-	}
-
-	/**
-	 * Does an index exist?
-	 *
-	 * @since 1.1.0
-	 * @param string $key_name Name of the index.
-	 * @return bool
-	 */
-	public function exists( $key_name = '' ) {
-
-		// Filter indexes by key name
-		$indexes = $this->filter( array(
-			'Key_name' => $key_name
 		) );
 
-		// Success/fail
-		return $this->is_success( $indexes );
-	}
-
-	/**
-	 * Does an index exist for a specific column name?
-	 *
-	 * @since 1.1.0
-	 * @param string $key_name    Name of the index.
-	 * @param string $column_name Name of the column.
-	 * @return bool
-	 */
-	public function exists_for_column( $key_name = '', $column_name = '' ) {
-
-		// Filter indexes by key name
-		$indexes = $this->filter( array(
-			'Key_name'    => $key_name,
-			'Column_name' => $column_name
-		) );
-
-		// Success/fail
-		return $this->is_success( $indexes );
+		// Return arguments
+		return array_filter( $retval );
 	}
 }
