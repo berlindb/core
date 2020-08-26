@@ -198,11 +198,11 @@ class Base {
 			return $this->{$key};
 		}
 
-		// Set to null
+		// Set key to null, so array operations work correctly
 		$this->data[ $key ] = null;
 
-		// Return null if not exists
-		return $this->data[ $key ];
+		// Return null
+		return null;
 	}
 
 	/**
