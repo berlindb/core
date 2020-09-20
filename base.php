@@ -202,7 +202,7 @@ class Base {
 		$this->data[ $key ] = null;
 
 		// Return null
-		return null;
+		return $this->data[ $key ];
 	}
 
 	/**
