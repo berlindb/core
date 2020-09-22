@@ -36,6 +36,11 @@ class Row extends Base {
 	 * @param mixed Null by default, Array/Object if not
 	 */
 	public function __construct( $item = null ) {
+
+		// Setup the defaults
+		$this->set_defaults();
+
+		// Maybe initialize
 		if ( ! empty( $item ) ) {
 			$this->init( $item );
 		}

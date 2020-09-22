@@ -153,6 +153,9 @@ abstract class Table extends Base {
 			return;
 		}
 
+		// Setup the defaults
+		$this->set_defaults();
+
 		// Add the table to the database interface
 		$this->set_db_interface();
 
@@ -344,33 +347,6 @@ abstract class Table extends Base {
 		$like     = $db->esc_like( $this->table_name );
 		$prepared = $db->prepare( $query, $like );
 		$result   = $db->get_var( $prepared );
-
-		// Does the table exist?
-		return $this->is_success( $result );
-	}
-
-	/**
-	 * Check if table already exists.
-	 *
-	 * @since 1.0.0
-	 *
-	 * @return bool
-	 */
-	public function column_exists( $name = '' ) {
-
-		// Get the database interface
-		$db = $this->get_db();
-
-		// Bail if no database interface is available
-		if ( empty( $db ) ) {
-			return;
-		}
-
-		// Query statement
-		$query    = "SHOW COLUMNS FROM {$this->table_name} LIKE %s";
-		$like     = $db->esc_like( $name );
-		$prepared = $db->prepare( $query, $like );
-		$result   = $db->query( $prepared );
 
 		// Does the table exist?
 		return $this->is_success( $result );
@@ -575,6 +551,65 @@ abstract class Table extends Base {
 
 		// Query success/fail
 		return $count;
+	}
+
+	/**
+	 * Check if column already exists.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @param string $name Value
+	 *
+	 * @return bool
+	 */
+	public function column_exists( $name = '' ) {
+
+		// Get the database interface
+		$db = $this->get_db();
+
+		// Bail if no database interface is available
+		if ( empty( $db ) ) {
+			return;
+		}
+
+		// Query statement
+		$query    = "SHOW COLUMNS FROM {$this->table_name} LIKE %s";
+		$like     = $db->esc_like( $name );
+		$prepared = $db->prepare( $query, $like );
+		$result   = $db->query( $prepared );
+
+		// Does the column exist?
+		return $this->is_success( $result );
+	}
+
+	/**
+	 * Check if index already exists.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @param string $name   Value
+	 * @param string $column Column name
+	 *
+	 * @return bool
+	 */
+	public function index_exists( $name = '', $column = 'Key_name' ) {
+
+		// Get the database interface
+		$db = $this->get_db();
+
+		// Bail if no database interface is available
+		if ( empty( $db ) ) {
+			return;
+		}
+
+		// Query statement
+		$query    = "SHOW INDEXES FROM {$this->table_name} WHERE %s LIKE %s";
+		$like     = $db->esc_like( $name );
+		$prepared = $db->prepare( $query, $column, $like );
+		$result   = $db->query( $prepared );
+
+		// Does the index exist?
+		return $this->is_success( $result );
 	}
 
 	/** Upgrades **************************************************************/

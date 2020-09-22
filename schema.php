@@ -39,6 +39,20 @@ class Schema extends Base {
 	 */
 	public function __construct() {
 
+		// Setup the defaults
+		$this->set_defaults();
+
+		// Setup the columns
+		$this->set_columns();
+	}
+
+	/**
+	 * Setup the columns.
+	 *
+	 * @since 1.0.0
+	 */
+	public function set_columns() {
+
 		// Bail if no columns
 		if ( empty( $this->columns ) || ! is_array( $this->columns ) ) {
 			return;
@@ -46,16 +60,20 @@ class Schema extends Base {
 
 		// Juggle original columns array
 		$columns = $this->columns;
-		$this->columns = array();
+		$this->columns = $new_columns = array();
 
 		// Loop through columns and create objects from them
 		foreach ( $columns as $column ) {
 			if ( is_array( $column ) ) {
-				$this->columns[] = new Column( $column );
+				$new_columns[] = new Column( $column );
+
 			} elseif ( $column instanceof Column ) {
-				$this->columns[] = $column;
+				$new_columns[] = $column;
 			}
 		}
+
+		// Set the columns
+		$this->columns = $new_columns;
 	}
 
 	/**

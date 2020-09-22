@@ -220,6 +220,9 @@ class Date extends Base {
 	 */
 	public function __construct( $date_query = array() ) {
 
+		// Setup the defaults
+		$this->set_defaults();
+
 		// Bail if not an array.
 		if ( ! is_array( $date_query ) ) {
 			return;
@@ -1159,7 +1162,10 @@ class Date extends Base {
 		// Build the SQL
 		$query = "DATE_FORMAT( {$column}, %s ) {$compare} %f";
 
+		// Get the return value
+		$retval = $this->get_db()->prepare( $query, $format, $time );
+
 		// Return the prepared SQL
-		return $this->get_db()->prepare( $query, $format, $time );
+		return $retval;
 	}
 }
