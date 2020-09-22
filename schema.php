@@ -50,7 +50,6 @@ class Schema extends Base {
 	 * Setup the columns.
 	 *
 	 * @since 1.0.0
-	 * @return void
 	 */
 	public function set_columns() {
 
@@ -61,16 +60,20 @@ class Schema extends Base {
 
 		// Juggle original columns array
 		$columns = $this->columns;
-		$this->columns = array();
+		$this->columns = $new_columns = array();
 
 		// Loop through columns and create objects from them
 		foreach ( $columns as $column ) {
 			if ( is_array( $column ) ) {
-				$this->columns[] = new Column( $column );
+				$new_columns[] = new Column( $column );
+
 			} elseif ( $column instanceof Column ) {
-				$this->columns[] = $column;
+				$new_columns[] = $column;
 			}
 		}
+
+		// Set the columns
+		$this->columns = $new_columns;
 	}
 
 	/**

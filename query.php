@@ -158,6 +158,7 @@ class Query extends Base {
 	protected $query_clauses = array(
 		'select'  => '',
 		'from'    => '',
+		'join'    => array(),
 		'where'   => array(),
 		'groupby' => '',
 		'orderby' => '',
@@ -173,6 +174,7 @@ class Query extends Base {
 	protected $request_clauses = array(
 		'select'  => '',
 		'from'    => '',
+		'join'    => '',
 		'where'   => '',
 		'groupby' => '',
 		'orderby' => '',
@@ -460,32 +462,41 @@ class Query extends Base {
 			return;
 		}
 
+		// Default defaults
+		$defaults = array();
+
 		// Direct column names
 		$names = wp_list_pluck( $this->columns, 'name' );
 		foreach ( $names as $name ) {
-			$this->query_var_defaults[ $name ] = $this->query_var_default_value;
+			$defaults[ $name ] = $this->query_var_default_value;
 		}
 
 		// Possible ins
 		$possible_ins = $this->get_columns( array( 'in' => true ), 'and', 'name' );
 		foreach ( $possible_ins as $in ) {
 			$key = "{$in}__in";
-			$this->query_var_defaults[ $key ] = false;
+			$defaults[ $key ] = false;
 		}
 
 		// Possible not ins
 		$possible_not_ins = $this->get_columns( array( 'not_in' => true ), 'and', 'name' );
 		foreach ( $possible_not_ins as $in ) {
 			$key = "{$in}__not_in";
-			$this->query_var_defaults[ $key ] = false;
+			$defaults[ $key ] = false;
 		}
 
 		// Possible dates
 		$possible_dates = $this->get_columns( array( 'date_query' => true ), 'and', 'name' );
 		foreach ( $possible_dates as $date ) {
 			$key = "{$date}_query";
-			$this->query_var_defaults[ $key ] = false;
+			$defaults[ $key ] = false;
 		}
+
+		// Set the default query variables
+		$this->query_var_defaults = array_merge(
+			$this->query_var_defaults,
+			$defaults
+		);
 	}
 
 	/**
@@ -535,15 +546,18 @@ class Query extends Base {
 		// Select & From
 		$table  = $this->get_table_name();
 		$select = "SELECT {$found_rows} {$fields}";
-		$from   = "FROM {$table} {$this->table_alias} {$join}";
+		$from   = "FROM {$table} {$this->table_alias}";
 
 		// Put query into clauses array
-		$this->request_clauses['select']  = $select;
-		$this->request_clauses['from']    = $from;
-		$this->request_clauses['where']   = $where;
-		$this->request_clauses['groupby'] = $groupby;
-		$this->request_clauses['orderby'] = $orderby;
-		$this->request_clauses['limits']  = $limits;
+		$this->request_clauses = array(
+			'select'  => $select,
+			'from'    => $from,
+			'join'    => $join,
+			'where'   => $where,
+			'groupby' => $groupby,
+			'orderby' => $orderby,
+			'limits'  => $limits
+		);
 	}
 
 	/**

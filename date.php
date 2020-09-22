@@ -1162,7 +1162,10 @@ class Date extends Base {
 		// Build the SQL
 		$query = "DATE_FORMAT( {$column}, %s ) {$compare} %f";
 
+		// Get the return value
+		$retval = $this->get_db()->prepare( $query, $format, $time );
+
 		// Return the prepared SQL
-		return $this->get_db()->prepare( $query, $format, $time );
+		return $retval;
 	}
 }

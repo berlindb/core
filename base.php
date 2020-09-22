@@ -25,13 +25,13 @@ defined( 'ABSPATH' ) || exit;
 class Base {
 
 	/**
-	 * The private data array used to store class attributes, so that magic
+	 * The private data object used to store class attributes, so that magic
 	 * methods work as intended.
 	 *
 	 * @since 1.1.0
-	 * @var   array
+	 * @var   object
 	 */
-	private $data = array();
+	private $data;
 
 	/**
 	 * The name of the PHP global that contains the primary database interface.
@@ -69,7 +69,7 @@ class Base {
 	/** Public ****************************************************************/
 
 	/**
-	 * Magic issetter, for immutability.
+	 * Magic isset method.
 	 *
 	 * @since 1.0.0
 	 *
@@ -78,29 +78,23 @@ class Base {
 	 */
 	public function __isset( $key = '' ) {
 
-		// No more uppercase ID properties ever
-		if ( 'ID' === $key ) {
-			$key = 'id';
-		}
+		// Validate the key
+		$key = $this->validate_key( $key );
 
-		// Bail if empty key
+		// Bail if invalid key
 		if ( empty( $key ) ) {
 			return false;
 		}
 
 		// Class method to try and call
-		$method = "get_{$key}";
+		$method = "__get_{$key}";
 
 		// Return true if method exists
-		if ( is_callable( $this, $method ) ) {
+		if ( method_exists( $this, $method ) ) {
 			return true;
 
 		// Return true if data exists
-		} elseif ( isset( $this->data[ $key ] ) ) {
-			return true;
-
-		// Return true if property exists
-		} elseif ( property_exists( $this, $key ) ) {
+		} elseif ( isset( $this->data->{$key} ) ) {
 			return true;
 		}
 
@@ -109,7 +103,7 @@ class Base {
 	}
 
 	/**
-	 * Magic unsetter, for immutability.
+	 * Magic unset method.
 	 *
 	 * @since 1.1.0
 	 *
@@ -117,29 +111,22 @@ class Base {
 	 */
 	public function __unset( $key = '' ) {
 
-		// No more uppercase ID properties ever
-		if ( 'ID' === $key ) {
-			$key = 'id';
-		}
+		// Validate the key
+		$key = $this->validate_key( $key );
 
-		// Bail if empty key
+		// Bail if invalid key
 		if ( empty( $key ) ) {
 			return false;
 		}
 
 		// Maybe unset from data array
-		if ( isset( $this->data[ $key ] ) ) {
-			unset( $this->data[ $key ] );
-		}
-
-		// Maybe unset property
-		if ( property_exists( $this, $key ) ) {
-			unset( $this->{$key} );
+		if ( isset( $this->data->{$key} ) ) {
+			unset( $this->data->{$key} );
 		}
 	}
 
 	/**
-	 * Magic setter, for immutability.
+	 * Magic set method.
 	 *
 	 * @since 1.1.0
 	 *
@@ -148,22 +135,28 @@ class Base {
 	 */
 	public function __set( $key = '', $value = '' ) {
 
-		// No more uppercase ID properties ever
-		if ( 'ID' === $key ) {
-			$key = 'id';
-		}
+		// Validate the key
+		$key = $this->validate_key( $key );
 
-		// Bail if empty key
+		// Bail if invalid key
 		if ( empty( $key ) ) {
 			return false;
 		}
 
-		// Set the data value by key
-		$this->data[ $key ] = $value;
+		// Class method to try and call
+		$method = "__set_{$key}";
+
+		// Maybe override the value
+		if ( method_exists( $this, $method ) ) {
+			$value = call_user_func( array( $this, $method ), $value );
+		}
+
+		// Set the key to the value
+		$this->data->{$key} = $value;
 	}
 
 	/**
-	 * Magic getter for immutability.
+	 * Magic get method.
 	 *
 	 * @since 1.0.0
 	 *
@@ -172,37 +165,39 @@ class Base {
 	 */
 	public function &__get( $key = '' ) {
 
-		// No more uppercase ID properties ever
-		if ( 'ID' === $key ) {
-			$key = 'id';
+		// Validate the key
+		$key = $this->validate_key( $key );
+
+		// Bail if invalid key
+		if ( empty( $key ) ) {
+			return false;
 		}
 
-		// Bail if empty key
-		if ( empty( $key ) ) {
-			return null;
-		}
+		// Default return value
+		$retval = null;
 
 		// Class method to try and call
-		$method = "get_{$key}";
+		$method = "__get_{$key}";
 
 		// Return from method if exists
-		if ( is_callable( $this, $method ) ) {
-			return call_user_func( array( $this, $method ) );
+		if ( method_exists( $this, $method ) ) {
+			$retval = call_user_func( array( $this, $method ) );
 
 		// Return from data array if set
-		} elseif ( isset( $this->data[ $key ] ) ) {
-			return $this->data[ $key ];
+		} elseif ( isset( $this->data->{$key} ) ) {
+			$retval = $this->data->{$key};
+		}
 
-		// Return from property if set
-		} elseif ( property_exists( $this, $key ) ) {
-			return $this->{$key};
+		// Return if not null
+		if ( ! is_null( $retval ) ) {
+			return $retval;
 		}
 
 		// Set key to null, so array operations work correctly
-		$this->data[ $key ] = null;
+		$this->data->{$key} = $retval;
 
-		// Return null
-		return $this->data[ $key ];
+		// Return variable byref
+		return $this->data->{$key};
 	}
 
 	/**
@@ -213,7 +208,7 @@ class Base {
 	 * @return array Array version of the given object.
 	 */
 	public function to_array() {
-		return $this->data;
+		return get_object_vars( $this->data );
 	}
 
 	/**
@@ -227,23 +222,14 @@ class Base {
 		// Get the hard-coded object variables
 		$r = get_object_vars( $this );
 
+		// Data is private, so don't set it recursively
+		unset( $r['data'] );
+
 		// Set those vars
 		$this->set_vars( $r );
 
-		// Data is private and protected
-		unset( $r['data'] );
-
-		// Maybe cleanup
-		if ( ! empty( $r ) ) {
-
-			// Get keys
-			$keys = array_keys( $r );
-
-			// Cleanup class properties
-			foreach ( $keys as $key ) {
-				unset( $this->{$key} );
-			}
-		}
+		// Unset those vars
+		$this->unset_vars( $r );
 	}
 
 	/** Protected *************************************************************/
@@ -360,6 +346,11 @@ class Base {
 	/**
 	 * Set class variables from arguments.
 	 *
+	 * This method accepts a key/value array of class variables to set, and is
+	 * used by set_defaults() to prepare a class for magic property overrides.
+	 *
+	 * It can also be called directly to set multiple class variables.
+	 *
 	 * @since 1.0.0
 	 * @param array $args
 	 */
@@ -375,13 +366,44 @@ class Base {
 			$args = (array) $args;
 		}
 
+		// Set empty class
+		$this->data = new \stdClass();
+
 		// Set all properties
 		foreach ( $args as $key => $value ) {
+			$this->data->{$key} = $value;
+		}
+	}
 
-			// Avoid recusion
-			if ( 'data' !== $key ) {
-				$this->data[ $key ] = $value;
-			}
+	/**
+	 * Unset class variables from arguments.
+	 *
+	 * This method accepts a key/value array of class variables to unset, and is
+	 * used by set_defaults() to prepare a class for magic property overrides.
+	 *
+	 * It can also be called directly to unset multiple class variables.
+	 *
+	 * @since 1.0.0
+	 * @param array $args
+	 */
+	protected function unset_vars( $args = array() ) {
+
+		// Bail if no vars to clean
+		if ( empty( $args ) ) {
+			return;
+		}
+
+		// Cast to an array
+		if ( ! is_array( $args ) ) {
+			$args = (array) $args;
+		}
+
+		// Get keys
+		$keys = array_keys( $args );
+
+		// Cleanup class properties
+		foreach ( $keys as $key ) {
+			unset( $this->{$key} );
 		}
 	}
 
@@ -400,7 +422,7 @@ class Base {
 		$retval = false;
 
 		// Look for a commonly used global database interface
-		if ( isset( $GLOBALS[ $this->db_global ] ) ) {
+		if ( ! empty( $this->db_global ) && isset( $GLOBALS[ $this->db_global ] ) ) {
 			$retval = $GLOBALS[ $this->db_global ];
 		}
 
@@ -451,5 +473,36 @@ class Base {
 
 		// Return the result
 		return (bool) $retval;
+	}
+
+	/** Private ***************************************************************/
+
+	/**
+	 * Validate a data key.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @param string $key
+	 * @return boolean|string
+	 */
+	private function validate_key( $key = '' ) {
+
+		// Bail if empty key
+		if ( empty( $key ) ) {
+			return false;
+		}
+
+		// Bail if setting data
+		if ( 'data' === $key ) {
+			return false;
+		}
+
+		// No more uppercase ID properties ever
+		if ( 'ID' === $key ) {
+			return 'id';
+		}
+
+		// Return the original key
+		return $key;
 	}
 }
