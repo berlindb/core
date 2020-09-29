@@ -1570,14 +1570,22 @@ class Query extends Base {
 	 * @return int
 	 */
 	private function shape_item_id( $item = 0 ) {
+
+		// Default return value
 		$retval  = 0;
+
+		// Get the primary column name
 		$primary = $this->get_primary_column_name();
 
-		// Item ID
+		// Numeric item ID
 		if ( is_numeric( $item ) ) {
 			$retval = $item;
+
+		// Object item
 		} elseif ( is_object( $item ) && isset( $item->{$primary} ) ) {
 			$retval = $item->{$primary};
+
+		// Array item
 		} elseif ( is_array( $item ) && isset( $item[ $primary ] ) ) {
 			$retval = $item[ $primary ];
 		}
@@ -1589,32 +1597,43 @@ class Query extends Base {
 	/** Queries ***************************************************************/
 
 	/**
-	 * Get a single database row by the primary column ID, possibly from cache
+	 * Get a single database row by the primary column ID, possibly from cache.
+	 *
+	 * Accepts an integer, object, or array, and attempts to get the ID from it,
+	 * then attempts to retrieve that item fresh from the database or cache.
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param int $item_id
+	 * @param int|array|object $item_id The ID of the item
 	 * @return mixed False if empty/error, Object if successful
 	 */
 	public function get_item( $item_id = 0 ) {
 
-		// Bail if no item to get by
+		// Shape the item ID
 		$item_id = $this->shape_item_id( $item_id );
+
+		// Bail if no item to get by
 		if ( empty( $item_id ) ) {
 			return false;
 		}
 
+		// Get the primary column name
+		$column_name = $this->get_primary_column_name();
+
 		// Get item by ID
-		return $this->get_item_by( $this->get_primary_column_name(), $item_id );
+		return $this->get_item_by( $column_name, $item_id );
 	}
 
 	/**
 	 * Get a single database row by any column and value, possibly from cache.
 	 *
+	 * Take care to only use this method on columns with unique values,
+	 * preferably with a cache group for that column. See: get_item().
+	 *
 	 * @since 1.0.0
 	 *
-	 * @param string $column_name  Name of database column
-	 * @param string $column_value Value to query for
+	 * @param string     $column_name  Name of database column
+	 * @param int|string $column_value Value to query for
 	 * @return mixed False if empty/error, Object if successful
 	 */
 	public function get_item_by( $column_name = '', $column_value = '' ) {
@@ -1624,6 +1643,16 @@ class Query extends Base {
 
 		// Bail if no key or value
 		if ( empty( $column_name ) || empty( $column_value ) ) {
+			return $retval;
+		}
+
+		// Bail if name is not a string
+		if ( ! is_string( $column_name ) ) {
+			return $retval;
+		}
+
+		// Bail if value is not scalar (null values also not allowed)
+		if ( ! is_scalar( $column_value ) ) {
 			return $retval;
 		}
 
@@ -2136,7 +2165,7 @@ class Query extends Base {
 			 *
 			 * @param mixed $old_value The value being transitioned FROM.
 			 * @param mixed $new_value The value being transitioned TO.
-			 * @param int   $item_Id   The ID of the item that is transitioning.
+			 * @param int   $item_id   The ID of the item that is transitioning.
 			 */
 			do_action( $key_action, $old_value, $new_value, $item_id );
 		}
