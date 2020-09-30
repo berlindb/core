@@ -666,7 +666,7 @@ class Query extends Base {
 	 *
 	 * @param array $args See Queries\Meta
 	 *
-	 * @return Meta
+	 * @return Queries\Meta
 	 */
 	private function get_meta_query( $args = array() ) {
 		return new Queries\Meta( $args );
@@ -679,7 +679,7 @@ class Query extends Base {
 	 *
 	 * @param array $args See Queries\Compare
 	 *
-	 * @return Compare
+	 * @return Queries\Compare
 	 */
 	private function get_compare_query( $args = array() ) {
 		return new Queries\Compare( $args );
@@ -803,7 +803,7 @@ class Query extends Base {
 	 *
 	 * @param string $column_name  Name of database column
 	 * @param string $column_value Value to query for
-	 * @return mixed False if empty/error, Object if successful
+	 * @return object|false False if empty/error, Object if successful
 	 */
 	private function get_item_raw( $column_name = '', $column_value = '' ) {
 
@@ -955,8 +955,8 @@ class Query extends Base {
 		 *
 		 * @since 1.0.0
 		 *
-		 * @param array  $pieces A compacted array of item query clauses.
-		 * @param object &$this  Current instance passed by reference.
+		 * @param array $pieces A compacted array of item query clauses.
+		 * @param Query &$this  Current instance passed by reference.
 		 */
 		$clauses = (array) apply_filters_ref_array( $this->apply_prefix( "{$this->item_name_plural}_query_clauses" ), array( $query, &$this ) );
 
@@ -1605,7 +1605,7 @@ class Query extends Base {
 	 * @since 1.0.0
 	 *
 	 * @param int|array|object $item_id The ID of the item
-	 * @return mixed False if empty/error, Object if successful
+	 * @return object|false False if empty/error, Object if successful
 	 */
 	public function get_item( $item_id = 0 ) {
 
@@ -1634,7 +1634,7 @@ class Query extends Base {
 	 *
 	 * @param string     $column_name  Name of database column
 	 * @param int|string $column_value Value to query for
-	 * @return mixed False if empty/error, Object if successful
+	 * @return object|false False if empty/error, Object if successful
 	 */
 	public function get_item_by( $column_name = '', $column_value = '' ) {
 
@@ -1972,7 +1972,7 @@ class Query extends Base {
 	 * @since 1.0.0
 	 *
 	 * @param array $item
-	 * @return mixed False on error, Array of validated values on success
+	 * @return array|false False on error, Array of validated values on success
 	 */
 	private function validate_item( $item = array() ) {
 
@@ -2182,7 +2182,7 @@ class Query extends Base {
 	 * @param string $meta_key
 	 * @param string $meta_value
 	 * @param string $unique
-	 * @return mixed
+	 * @return int|false The meta ID on success, false on failure.
 	 */
 	protected function add_item_meta( $item_id = 0, $meta_key = '', $meta_value = '', $unique = false ) {
 
@@ -2212,7 +2212,7 @@ class Query extends Base {
 	 * @param int     $item_id
 	 * @param string  $meta_key
 	 * @param bool    $single
-	 * @return mixed
+	 * @return mixed Single metadata value, or array of values
 	 */
 	protected function get_item_meta( $item_id = 0, $meta_key = '', $single = false ) {
 
@@ -2243,7 +2243,7 @@ class Query extends Base {
 	 * @param string $meta_key
 	 * @param string $meta_value
 	 * @param string $prev_value
-	 * @return mixed
+	 * @return bool True on successful update, false on failure.
 	 */
 	protected function update_item_meta( $item_id = 0, $meta_key = '', $meta_value = '', $prev_value = '' ) {
 
@@ -2274,7 +2274,7 @@ class Query extends Base {
 	 * @param string $meta_key
 	 * @param string $meta_value
 	 * @param string $delete_all
-	 * @return mixed
+	 * @return bool True on successful delete, false on failure.
 	 */
 	protected function delete_item_meta( $item_id = 0, $meta_key = '', $meta_value = '', $delete_all = false ) {
 

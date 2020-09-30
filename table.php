@@ -336,7 +336,7 @@ abstract class Table extends Base {
 
 		// Bail if no database interface is available
 		if ( empty( $db ) ) {
-			return;
+			return false;
 		}
 
 		// Query statement
@@ -363,7 +363,7 @@ abstract class Table extends Base {
 
 		// Bail if no database interface is available
 		if ( empty( $db ) ) {
-			return;
+			return false;
 		}
 
 		// Query statement
@@ -379,7 +379,7 @@ abstract class Table extends Base {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @return mixed
+	 * @return bool
 	 */
 	public function drop() {
 
@@ -388,7 +388,7 @@ abstract class Table extends Base {
 
 		// Bail if no database interface is available
 		if ( empty( $db ) ) {
-			return;
+			return false;
 		}
 
 		// Query statement
@@ -404,7 +404,7 @@ abstract class Table extends Base {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @return mixed
+	 * @return bool
 	 */
 	public function truncate() {
 
@@ -413,7 +413,7 @@ abstract class Table extends Base {
 
 		// Bail if no database interface is available
 		if ( empty( $db ) ) {
-			return;
+			return false;
 		}
 
 		// Query statement
@@ -429,7 +429,7 @@ abstract class Table extends Base {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @return mixed
+	 * @return bool
 	 */
 	public function delete_all() {
 
@@ -438,7 +438,7 @@ abstract class Table extends Base {
 
 		// Bail if no database interface is available
 		if ( empty( $db ) ) {
-			return;
+			return false;
 		}
 
 		// Query statement
@@ -458,7 +458,7 @@ abstract class Table extends Base {
 	 *
 	 * @param string $new_table_name The name of the new table, without prefix
 	 *
-	 * @return mixed
+	 * @return bool
 	 */
 	public function clone( $new_table_name = '' ) {
 
@@ -467,7 +467,7 @@ abstract class Table extends Base {
 
 		// Bail if no database interface is available
 		if ( empty( $db ) ) {
-			return;
+			return false;
 		}
 
 		// Sanitize the new table name
@@ -475,7 +475,7 @@ abstract class Table extends Base {
 
 		// Bail if new table name is invalid
 		if ( empty( $table_name ) ) {
-			return;
+			return false;
 		}
 
 		// Query statement
@@ -496,7 +496,7 @@ abstract class Table extends Base {
 	 *
 	 * @param string $new_table_name The name of the new table, without prefix
 	 *
-	 * @return mixed
+	 * @return bool
 	 */
 	public function copy( $new_table_name = '' ) {
 
@@ -505,7 +505,7 @@ abstract class Table extends Base {
 
 		// Bail if no database interface is available
 		if ( empty( $db ) ) {
-			return;
+			return false;
 		}
 
 		// Sanitize the new table name
@@ -513,7 +513,7 @@ abstract class Table extends Base {
 
 		// Bail if new table name is invalid
 		if ( empty( $table_name ) ) {
-			return;
+			return false;
 		}
 
 		// Query statement
@@ -530,7 +530,7 @@ abstract class Table extends Base {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @return mixed
+	 * @return int
 	 */
 	public function count() {
 
@@ -539,7 +539,7 @@ abstract class Table extends Base {
 
 		// Bail if no database interface is available
 		if ( empty( $db ) ) {
-			return;
+			return 0;
 		}
 
 		// Query statement
@@ -547,7 +547,7 @@ abstract class Table extends Base {
 		$count = $db->get_var( $query );
 
 		// Query success/fail
-		return $count;
+		return intval( $count );
 	}
 
 	/**
@@ -566,7 +566,7 @@ abstract class Table extends Base {
 
 		// Bail if no database interface is available
 		if ( empty( $db ) ) {
-			return;
+			return false;
 		}
 
 		// Query statement
@@ -596,7 +596,7 @@ abstract class Table extends Base {
 
 		// Bail if no database interface is available
 		if ( empty( $db ) ) {
-			return;
+			return false;
 		}
 
 		// Query statement
@@ -616,7 +616,7 @@ abstract class Table extends Base {
 	 *
 	 * @since 1.0.0
 	 *
-	 * return bool
+	 * @return bool
 	 */
 	public function upgrade() {
 
@@ -751,7 +751,7 @@ abstract class Table extends Base {
 
 		// Maybe create database key
 		if ( empty( $this->db_version_key ) ) {
-			$this->db_version_key = "wpdb_{$this->prefixed_name}_version";
+			$this->db_version_key = "{$this->db_global}_{$this->prefixed_name}_version";
 		}
 	}
 
@@ -853,8 +853,8 @@ abstract class Table extends Base {
 	 */
 	private function delete_db_version() {
 		$this->db_version = $this->is_global()
-			? delete_network_option( get_main_network_id(), $this->db_version_key, false )
-			:         delete_option(                        $this->db_version_key, false );
+			? delete_network_option( get_main_network_id(), $this->db_version_key )
+			:         delete_option(                        $this->db_version_key );
 	}
 
 	/**
