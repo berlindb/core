@@ -65,14 +65,6 @@ abstract class Table extends Base {
 	protected $global = false;
 
 	/**
-	 * Passed directly into register_activation_hook()
-	 *
-	 * @since 1.0.0
-	 * @var   string
-	 */
-	protected $file = '';
-
-	/**
 	 * Database version key (saved in _options or _sitemeta)
 	 *
 	 * @since 1.0.0
@@ -863,9 +855,6 @@ abstract class Table extends Base {
 	 * @since 1.0.0
 	 */
 	private function add_hooks() {
-
-		// Activation hook
-		register_activation_hook( $this->file, array( $this, 'maybe_upgrade' ) );
 
 		// Add table to the global database object
 		add_action( 'switch_blog', array( $this, 'switch_blog'   ) );
