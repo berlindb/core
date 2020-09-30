@@ -736,7 +736,7 @@ class Column extends Base {
 
 		// Handle "empty" values
 		if ( empty( $value ) || ( '0000-00-00 00:00:00' === $value ) ) {
-			$value = ! empty( $this->default )
+			$value = ! empty( $this->default ) || ( ( true === $this->allow_null ) && is_null( $this->default ) )
 				? $this->default
 				: '0000-00-00 00:00:00';
 
