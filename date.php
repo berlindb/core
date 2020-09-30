@@ -220,25 +220,22 @@ class Date extends Base {
 	 */
 	public function __construct( $date_query = array() ) {
 
-		// Bail if not an array.
-		if ( ! is_array( $date_query ) ) {
+		// Bail if empty or not an array.
+		if ( empty( $date_query ) || ! is_array( $date_query ) ) {
 			return;
 		}
 
 		// Support for passing time-based keys in the top level of the array.
-		if ( ! isset( $date_query[0] ) && ! empty( $date_query ) ) {
+		if ( ! isset( $date_query[0] ) ) {
 			$date_query = array( $date_query );
 		}
 
-		// Bail if empty.
-		if ( empty( $date_query ) ) {
-			return;
-		}
-
-		// Set column, compare, relation, and queries.
+		// Set column, compare, and relation.
 		$this->column   = $this->get_column( $date_query );
 		$this->compare  = $this->get_compare( $date_query );
 		$this->relation = $this->get_relation( $date_query );
+
+		// Set the queries
 		$this->queries  = $this->sanitize_query( $date_query );
 	}
 
