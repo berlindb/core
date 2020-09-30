@@ -803,7 +803,7 @@ class Query extends Base {
 	 *
 	 * @param string $column_name  Name of database column
 	 * @param string $column_value Value to query for
-	 * @return mixed False if empty/error, Object if successful
+	 * @return object|false False if empty/error, Object if successful
 	 */
 	private function get_item_raw( $column_name = '', $column_value = '' ) {
 
@@ -955,8 +955,8 @@ class Query extends Base {
 		 *
 		 * @since 1.0.0
 		 *
-		 * @param array  $pieces A compacted array of item query clauses.
-		 * @param object &$this  Current instance passed by reference.
+		 * @param array $pieces A compacted array of item query clauses.
+		 * @param Query &$this  Current instance passed by reference.
 		 */
 		$clauses = (array) apply_filters_ref_array( $this->apply_prefix( "{$this->item_name_plural}_query_clauses" ), array( $query, &$this ) );
 
@@ -1605,7 +1605,7 @@ class Query extends Base {
 	 * @since 1.0.0
 	 *
 	 * @param int|array|object $item_id The ID of the item
-	 * @return mixed False if empty/error, Object if successful
+	 * @return object|false False if empty/error, Object if successful
 	 */
 	public function get_item( $item_id = 0 ) {
 
@@ -1634,7 +1634,7 @@ class Query extends Base {
 	 *
 	 * @param string     $column_name  Name of database column
 	 * @param int|string $column_value Value to query for
-	 * @return mixed False if empty/error, Object if successful
+	 * @return object|false False if empty/error, Object if successful
 	 */
 	public function get_item_by( $column_name = '', $column_value = '' ) {
 
