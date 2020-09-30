@@ -771,9 +771,9 @@ class Date extends Base {
 		}
 
 		if ( isset( $query['week'] ) && false !== ( $value = $this->build_numeric_value( $compare, $query['week'] ) ) ) {
-			$where_parts[] = _wp_mysql_week( $column ) . " {$compare} {$value}";
+			$where_parts[] = $this->build_mysql_week( $column ) . " {$compare} {$value}";
 		} elseif ( isset( $query['w'] ) && false !== ( $value = $this->build_numeric_value( $compare, $query['w'] ) ) ) {
-			$where_parts[] = _wp_mysql_week( $column ) . " {$compare} {$value}";
+			$where_parts[] = $this->build_mysql_week( $column ) . " {$compare} {$value}";
 		}
 
 		if ( isset( $query['dayofyear'] ) && $value = $this->build_numeric_value( $compare, $query['dayofyear'] ) ) {
