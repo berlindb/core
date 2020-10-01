@@ -738,12 +738,22 @@ abstract class Table extends Base {
 			return;
 		}
 
+		// Separator
+		$glue = '_';
+
 		// Setup the prefixed name
-		$this->prefixed_name = $this->apply_prefix( $this->name );
+		$this->prefixed_name = $this->apply_prefix( $this->name, $glue );
 
 		// Maybe create database key
 		if ( empty( $this->db_version_key ) ) {
-			$this->db_version_key = "{$this->db_global}_{$this->prefixed_name}_version";
+			$this->db_version_key = implode(
+				$glue,
+				array(
+					sanitize_key( $this->db_global ),
+					$this->prefixed_name,
+					'version'
+				)
+			);
 		}
 	}
 
