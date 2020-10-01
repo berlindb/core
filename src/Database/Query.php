@@ -295,6 +295,7 @@ class Query extends Base {
 	 *
 	 *     @type string       $fields            Site fields to return. Accepts 'ids' (returns an array of item IDs)
 	 *                                           or empty (returns an array of complete item objects). Default empty.
+	 *                                           To do a date query against a field, append the field name with _query
 	 *     @type bool         $count             Whether to return a item count (true) or array of item objects.
 	 *                                           Default false.
 	 *     @type int          $number            Limit number of items to retrieve. Use 0 for no limit.
@@ -665,7 +666,7 @@ class Query extends Base {
 	 *
 	 * @param array $args See Queries\Meta
 	 *
-	 * @return Meta
+	 * @return Queries\Meta
 	 */
 	private function get_meta_query( $args = array() ) {
 		return new Queries\Meta( $args );
@@ -678,7 +679,7 @@ class Query extends Base {
 	 *
 	 * @param array $args See Queries\Compare
 	 *
-	 * @return Compare
+	 * @return Queries\Compare
 	 */
 	private function get_compare_query( $args = array() ) {
 		return new Queries\Compare( $args );
@@ -802,7 +803,7 @@ class Query extends Base {
 	 *
 	 * @param string $column_name  Name of database column
 	 * @param string $column_value Value to query for
-	 * @return mixed False if empty/error, Object if successful
+	 * @return object|false False if empty/error, Object if successful
 	 */
 	private function get_item_raw( $column_name = '', $column_value = '' ) {
 
@@ -954,8 +955,8 @@ class Query extends Base {
 		 *
 		 * @since 1.0.0
 		 *
-		 * @param array  $pieces A compacted array of item query clauses.
-		 * @param object &$this  Current instance passed by reference.
+		 * @param array $pieces A compacted array of item query clauses.
+		 * @param Query &$this  Current instance passed by reference.
 		 */
 		$clauses = (array) apply_filters_ref_array( $this->apply_prefix( "{$this->item_name_plural}_query_clauses" ), array( $query, &$this ) );
 
@@ -1569,14 +1570,22 @@ class Query extends Base {
 	 * @return int
 	 */
 	private function shape_item_id( $item = 0 ) {
+
+		// Default return value
 		$retval  = 0;
+
+		// Get the primary column name
 		$primary = $this->get_primary_column_name();
 
-		// Item ID
+		// Numeric item ID
 		if ( is_numeric( $item ) ) {
 			$retval = $item;
+
+		// Object item
 		} elseif ( is_object( $item ) && isset( $item->{$primary} ) ) {
 			$retval = $item->{$primary};
+
+		// Array item
 		} elseif ( is_array( $item ) && isset( $item[ $primary ] ) ) {
 			$retval = $item[ $primary ];
 		}
@@ -1588,33 +1597,44 @@ class Query extends Base {
 	/** Queries ***************************************************************/
 
 	/**
-	 * Get a single database row by the primary column ID, possibly from cache
+	 * Get a single database row by the primary column ID, possibly from cache.
+	 *
+	 * Accepts an integer, object, or array, and attempts to get the ID from it,
+	 * then attempts to retrieve that item fresh from the database or cache.
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param int $item_id
-	 * @return mixed False if empty/error, Object if successful
+	 * @param int|array|object $item_id The ID of the item
+	 * @return object|false False if empty/error, Object if successful
 	 */
 	public function get_item( $item_id = 0 ) {
 
-		// Bail if no item to get by
+		// Shape the item ID
 		$item_id = $this->shape_item_id( $item_id );
+
+		// Bail if no item to get by
 		if ( empty( $item_id ) ) {
 			return false;
 		}
 
+		// Get the primary column name
+		$column_name = $this->get_primary_column_name();
+
 		// Get item by ID
-		return $this->get_item_by( $this->get_primary_column_name(), $item_id );
+		return $this->get_item_by( $column_name, $item_id );
 	}
 
 	/**
 	 * Get a single database row by any column and value, possibly from cache.
 	 *
+	 * Take care to only use this method on columns with unique values,
+	 * preferably with a cache group for that column. See: get_item().
+	 *
 	 * @since 1.0.0
 	 *
-	 * @param string $column_name  Name of database column
-	 * @param string $column_value Value to query for
-	 * @return mixed False if empty/error, Object if successful
+	 * @param string     $column_name  Name of database column
+	 * @param int|string $column_value Value to query for
+	 * @return object|false False if empty/error, Object if successful
 	 */
 	public function get_item_by( $column_name = '', $column_value = '' ) {
 
@@ -1623,6 +1643,16 @@ class Query extends Base {
 
 		// Bail if no key or value
 		if ( empty( $column_name ) || empty( $column_value ) ) {
+			return $retval;
+		}
+
+		// Bail if name is not a string
+		if ( ! is_string( $column_name ) ) {
+			return $retval;
+		}
+
+		// Bail if value is not scalar (null values also not allowed)
+		if ( ! is_scalar( $column_value ) ) {
 			return $retval;
 		}
 
@@ -1942,7 +1972,7 @@ class Query extends Base {
 	 * @since 1.0.0
 	 *
 	 * @param array $item
-	 * @return mixed False on error, Array of validated values on success
+	 * @return array|false False on error, Array of validated values on success
 	 */
 	private function validate_item( $item = array() ) {
 
@@ -2135,7 +2165,7 @@ class Query extends Base {
 			 *
 			 * @param mixed $old_value The value being transitioned FROM.
 			 * @param mixed $new_value The value being transitioned TO.
-			 * @param int   $item_Id   The ID of the item that is transitioning.
+			 * @param int   $item_id   The ID of the item that is transitioning.
 			 */
 			do_action( $key_action, $old_value, $new_value, $item_id );
 		}
@@ -2152,7 +2182,7 @@ class Query extends Base {
 	 * @param string $meta_key
 	 * @param string $meta_value
 	 * @param string $unique
-	 * @return mixed
+	 * @return int|false The meta ID on success, false on failure.
 	 */
 	protected function add_item_meta( $item_id = 0, $meta_key = '', $meta_value = '', $unique = false ) {
 
@@ -2182,7 +2212,7 @@ class Query extends Base {
 	 * @param int     $item_id
 	 * @param string  $meta_key
 	 * @param bool    $single
-	 * @return mixed
+	 * @return mixed Single metadata value, or array of values
 	 */
 	protected function get_item_meta( $item_id = 0, $meta_key = '', $single = false ) {
 
@@ -2213,7 +2243,7 @@ class Query extends Base {
 	 * @param string $meta_key
 	 * @param string $meta_value
 	 * @param string $prev_value
-	 * @return mixed
+	 * @return bool True on successful update, false on failure.
 	 */
 	protected function update_item_meta( $item_id = 0, $meta_key = '', $meta_value = '', $prev_value = '' ) {
 
@@ -2244,7 +2274,7 @@ class Query extends Base {
 	 * @param string $meta_key
 	 * @param string $meta_value
 	 * @param string $delete_all
-	 * @return mixed
+	 * @return bool True on successful delete, false on failure.
 	 */
 	protected function delete_item_meta( $item_id = 0, $meta_key = '', $meta_value = '', $delete_all = false ) {
 
