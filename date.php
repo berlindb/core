@@ -29,7 +29,7 @@ use BerlinDB\Database\Base;
  * return no results. In these cases, a _doing_it_wrong() error notice is also thrown.
  * See Date::validate_date_values().
  *
- * @link https://codex.wordpress.org/Function_Reference/WP_Query Codex page.
+ * @link https://developer.wordpress.org/reference/classes/wp_query/
  *
  * @since 1.0.0
  */
@@ -149,7 +149,7 @@ class Date extends Base {
 	 * @param array $date_query {
 	 *     Array of date query clauses.
 	 *
-	 *     @type array {
+	 *     @type array ...$0 {
 	 *         @type string $column   Optional. The column to query against. If undefined, inherits the value of
 	 *                                'date_created'. Accepts 'date_created', 'date_created_gmt',
 	 *                                'post_modified','post_modified_gmt', 'comment_date', 'comment_date_gmt'.
@@ -158,7 +158,7 @@ class Date extends Base {
 	 *                                'IN', 'NOT IN', 'BETWEEN', 'NOT BETWEEN'. Default '='.
 	 *         @type string $relation Optional. The boolean relationship between the date queries. Accepts 'OR' or 'AND'.
 	 *                                Default 'OR'.
-	 *         @type array {
+	 *         @type array  ...$0 {
 	 *             Optional. An array of first-order clause parameters, or another fully-formed date query.
 	 *
 	 *             @type string|array $before {
@@ -440,7 +440,7 @@ class Date extends Base {
 				$_year = $date_query['year'];
 			}
 
-			$max_days_of_year = date( 'z', mktime( 0, 0, 0, 12, 31, $_year ) ) + 1;
+			$max_days_of_year = gmdate( 'z', mktime( 0, 0, 0, 12, 31, $_year ) ) + 1;
 
 		// Otherwise we use the max of 366 (leap-year)
 		} else {
@@ -477,7 +477,7 @@ class Date extends Base {
 			 * If we have a specific year, use it to calculate number of weeks.
 			 * Note: the number of weeks in a year is the date in which Dec 28 appears.
 			 */
-			$week_count = date( 'W', mktime( 0, 0, 0, 12, 28, $_year ) );
+			$week_count = gmdate( 'W', mktime( 0, 0, 0, 12, 28, $_year ) );
 
 		// Otherwise set the week-count to a maximum of 53.
 		} else {
@@ -670,7 +670,7 @@ class Date extends Base {
 					$clause_sql  = $this->get_sql_for_clause( $clause, $query );
 					$where_count = count( $clause_sql['where'] );
 
-					if ( ! $where_count ) {
+					if ( 0 === $where_count ) {
 						$sql_chunks['where'][] = '';
 
 					} elseif ( 1 === $where_count ) {
@@ -855,7 +855,7 @@ class Date extends Base {
 
 			case 'BETWEEN':
 			case 'NOT BETWEEN':
-				if ( ! is_array( $value ) || 2 != count( $value ) ) {
+				if ( ! is_array( $value ) || ( 2 !== count( $value ) ) ) {
 					$value = array( $value, $value );
 				} else {
 					$value = array_values( $value );
@@ -1015,7 +1015,7 @@ class Date extends Base {
 
 		// Year
 		if ( ! isset( $datetime['year'] ) ) {
-			$datetime['year'] = date( 'Y', $now );
+			$datetime['year'] = gmdate( 'Y', $now );
 		}
 
 		// Month
@@ -1028,7 +1028,7 @@ class Date extends Base {
 		// Day
 		if ( ! isset( $datetime['day'] ) ) {
 			$datetime['day'] = ! empty( $default_to_max )
-				? (int) date( 't', mktime( 0, 0, 0, $datetime['month'], 1, $datetime['year'] ) )
+				? (int) gmdate( 't', mktime( 0, 0, 0, $datetime['month'], 1, $datetime['year'] ) )
 				: 1;
 		}
 
