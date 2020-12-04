@@ -8,7 +8,7 @@
  * @license     https://opensource.org/licenses/gpl-2.0.php GNU Public License
  * @since       1.0.0
  */
-namespace Sugar_Calendar\Database;
+namespace BerlinDB\Database;
 
 // Exit if accessed directly
 defined( 'ABSPATH' ) || exit;
