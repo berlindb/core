@@ -753,9 +753,9 @@ class Column extends Base {
 				? $this->default
 				: '';
 
-		// Convert to MySQL datetime format via date() && strtotime
-		} elseif ( function_exists( 'date' ) ) {
-			$value = date( 'Y-m-d H:i:s', strtotime( $value ) );
+		// Convert to MySQL datetime format via gmdate() && strtotime
+		} elseif ( function_exists( 'gmdate' ) ) {
+			$value = gmdate( 'Y-m-d H:i:s', strtotime( $value ) );
 		}
 
 		// Return the validated value
