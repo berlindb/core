@@ -678,7 +678,7 @@ class Column extends Base {
 			return wp_kses_data( $default );
 
 		// Integer
-		} elseif ( $this->is_numeric( $default ) ) {
+		} elseif ( $this->is_numeric() ) {
 			return (int) $default;
 		}
 
