@@ -2001,8 +2001,8 @@ class Query extends Base {
 				}
 
 			// Attempt to validate
-			} elseif ( ! empty( $column->callback ) && is_callable( $column->callback ) ) {
-				$validated = call_user_func( $column->callback, $value );
+			} elseif ( ! empty( $column->validate ) && is_callable( $column->validate ) ) {
+				$validated = call_user_func( $column->validate, $value );
 
 				// Bail if error
 				if ( is_wp_error( $validated ) ) {
