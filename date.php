@@ -777,7 +777,7 @@ class Date extends Base {
 		$lt = '<';
 		$gt = '>';
 
-		if ( $inclusive ) {
+		if ( true === $inclusive ) {
 			$lt .= '=';
 			$gt .= '=';
 		}
