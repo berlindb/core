@@ -411,7 +411,7 @@ class Date extends Base {
 	public function get_start_of_week( $query = array() ) {
 
 		// Use start of week if passed and valid
-		$retval = ! empty( $query['start_of_week'] ) && ( 6 >= (int) $query['start_of_week'] ) && ( 0 <= (int) $query['start_of_week'] )
+		$retval = isset( $query['start_of_week'] ) && ( 6 >= (int) $query['start_of_week'] ) && ( 0 <= (int) $query['start_of_week'] )
 			? $query['start_of_week']
 			: $this->start_of_week;
 
