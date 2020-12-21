@@ -237,16 +237,16 @@ class Date extends Base {
 			return;
 		}
 
-		// Support for passing time-based keys in the top level of the array.
-		if ( ! isset( $date_query[0] ) ) {
-			$date_query = array( $date_query );
-		}
-
 		// Set column, compare, relation, and start_of_week.
 		$this->column        = $this->get_column( $date_query );
 		$this->compare       = $this->get_compare( $date_query );
 		$this->relation      = $this->get_relation( $date_query );
 		$this->start_of_week = $this->get_start_of_week( $date_query );
+
+		// Support for passing time-based keys in the top level of the array.
+		if ( ! isset( $date_query[0] ) ) {
+			$date_query = array( $date_query );
+		}
 
 		// Set the queries
 		$this->queries       = $this->sanitize_query( $date_query );
