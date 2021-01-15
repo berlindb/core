@@ -505,7 +505,7 @@ class Column extends Base {
 			'zerofill'      => 'wp_validate_boolean',
 			'binary'        => 'wp_validate_boolean',
 			'allow_null'    => 'wp_validate_boolean',
-			'default'       => 'wp_kses_data',
+			'default'       => array( $this, 'sanitize_default' ),
 			'extra'         => 'wp_kses_data',
 			'encoding'      => 'wp_kses_data',
 			'collation'     => 'wp_kses_data',
@@ -661,6 +661,34 @@ class Column extends Base {
 	}
 
 	/**
+	 * Sanitize the default value
+	 *
+	 * @since 1.0.0
+	 * @param string $default
+	 * @return string|null
+	 */
+	private function sanitize_default( $default = '' ) {
+
+		// Null
+		if ( ( true === $this->allow_null ) && is_null( $default ) ) {
+			return null;
+
+		// String
+		} elseif ( is_string( $default ) ) {
+			return wp_kses_data( $default );
+
+		// Integer
+		} elseif ( $this->is_numeric() ) {
+			return (int) $default;
+		}
+
+		// @todo datetime, decimal, and other column types
+
+		// Unknown, so return the default's default
+		return '';
+	}
+
+	/**
 	 * Sanitize the pattern
 	 *
 	 * @since 1.0.0
@@ -736,13 +764,13 @@ class Column extends Base {
 
 		// Handle "empty" values
 		if ( empty( $value ) || ( '0000-00-00 00:00:00' === $value ) ) {
-			$value = ! empty( $this->default ) || ( ( true === $this->allow_null ) && is_null( $this->default ) )
+			$value = ! empty( $this->default )
 				? $this->default
 				: '';
 
-		// Convert to MySQL datetime format via date() && strtotime
-		} elseif ( function_exists( 'date' ) ) {
-			$value = date( 'Y-m-d H:i:s', strtotime( $value ) );
+		// Convert to MySQL datetime format via gmdate() && strtotime
+		} elseif ( function_exists( 'gmdate' ) ) {
+			$value = gmdate( 'Y-m-d H:i:s', strtotime( $value ) );
 		}
 
 		// Return the validated value

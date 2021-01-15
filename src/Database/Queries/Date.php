@@ -29,7 +29,7 @@ use BerlinDB\Database\Base;
  * return no results. In these cases, a _doing_it_wrong() error notice is also thrown.
  * See Date::validate_date_values().
  *
- * @link https://codex.wordpress.org/Function_Reference/WP_Query Codex page.
+ * @link https://developer.wordpress.org/reference/classes/wp_query/
  *
  * @since 1.0.0
  */
@@ -68,6 +68,22 @@ class Date extends Base {
 	 * @var   array
 	 */
 	public $compare = '=';
+
+	/**
+	 * The start of week operator. Can be changed via the query arguments.
+	 *
+	 * @since 1.1.0
+	 * @var   array
+	 */
+	public $start_of_week = 0;
+
+	/**
+	 * The unix timestamp for this current time.
+	 *
+	 * @since 1.1.0
+	 * @var   int
+	 */
+	public $now = 0;
 
 	/**
 	 * Supported time-related parameter keys.
@@ -149,16 +165,18 @@ class Date extends Base {
 	 * @param array $date_query {
 	 *     Array of date query clauses.
 	 *
-	 *     @type array {
-	 *         @type string $column   Optional. The column to query against. If undefined, inherits the value of
-	 *                                'date_created'. Accepts 'date_created', 'date_created_gmt',
-	 *                                'post_modified','post_modified_gmt', 'comment_date', 'comment_date_gmt'.
-	 *                                Default 'date_created'.
-	 *         @type string $compare  Optional. The comparison operator. Accepts '=', '!=', '>', '>=', '<', '<=',
-	 *                                'IN', 'NOT IN', 'BETWEEN', 'NOT BETWEEN'. Default '='.
-	 *         @type string $relation Optional. The boolean relationship between the date queries. Accepts 'OR' or 'AND'.
-	 *                                Default 'OR'.
-	 *         @type array {
+	 *     @type array ...$0 {
+	 *         @type string $column           Optional. The column to query against. If undefined, inherits the value of
+	 *                                        'date_created'. Accepts 'date_created', 'date_created_gmt',
+	 *                                        'post_modified','post_modified_gmt', 'comment_date', 'comment_date_gmt'.
+	 *                                        Default 'date_created'.
+	 *         @type string $compare          Optional. The comparison operator. Accepts '=', '!=', '>', '>=', '<', '<=',
+	 *                                        'IN', 'NOT IN', 'BETWEEN', 'NOT BETWEEN'. Default '='.
+	 *         @type string $relation         Optional. The boolean relationship between the date queries. Accepts 'OR' or 'AND'.
+	 *                                        Default 'OR'.
+	 *         @type int|array $start_of_week Optional. Day that week starts on. Accepts numbers 0-6
+	 *                                        (0 = Sunday, 1 is Monday). Default 0.
+	 *         @type array  ...$0 {
 	 *             Optional. An array of first-order clause parameters, or another fully-formed date query.
 	 *
 	 *             @type string|array $before {
@@ -190,6 +208,8 @@ class Date extends Base {
 	 *                                               '<', '<=', 'IN', 'NOT IN', 'BETWEEN', 'NOT BETWEEN'. 'IN',
 	 *                                               'NOT IN', 'BETWEEN', and 'NOT BETWEEN'. Comparisons support
 	 *                                               arrays in some time-related parameters. Default '='.
+	 *             @type int|array    $start_of_week Optional. Day that week starts on. Accepts numbers 0-6
+	 *                                               (0 = Sunday, 1 is Monday). Default 0.
 	 *             @type bool         $inclusive     Optional. Include results from dates specified in 'before' or
 	 *                                               'after'. Default false.
 	 *             @type int|array    $year          Optional. The four-digit year number. Accepts any four-digit year
@@ -225,18 +245,20 @@ class Date extends Base {
 			return;
 		}
 
+		// Set now, column, compare, relation, and start_of_week.
+		$this->now           = $this->get_now( $date_query );
+		$this->column        = $this->get_column( $date_query );
+		$this->compare       = $this->get_compare( $date_query );
+		$this->relation      = $this->get_relation( $date_query );
+		$this->start_of_week = $this->get_start_of_week( $date_query );
+
 		// Support for passing time-based keys in the top level of the array.
 		if ( ! isset( $date_query[0] ) ) {
 			$date_query = array( $date_query );
 		}
 
-		// Set column, compare, and relation.
-		$this->column   = $this->get_column( $date_query );
-		$this->compare  = $this->get_compare( $date_query );
-		$this->relation = $this->get_relation( $date_query );
-
 		// Set the queries
-		$this->queries  = $this->sanitize_query( $date_query );
+		$this->queries       = $this->sanitize_query( $date_query );
 	}
 
 	/**
@@ -260,9 +282,11 @@ class Date extends Base {
 
 		// Setup defaults.
 		$defaults = array(
-			'column'   => $this->get_column(),
-			'compare'  => $this->get_compare(),
-			'relation' => $this->get_relation()
+			'now'           => $this->get_now(),
+			'column'        => $this->get_column(),
+			'compare'       => $this->get_compare(),
+			'relation'      => $this->get_relation(),
+			'start_of_week' => $this->get_start_of_week()
 		);
 
 		// Numeric keys should always have array values.
@@ -330,6 +354,25 @@ class Date extends Base {
 	}
 
 	/**
+	 * Determines and validates what the current unix timestamp is.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param array $query A date query or a date subquery.
+	 *
+	 * @return string The current unix timestamp.
+	 */
+	public function get_now( $query = array() ) {
+
+		// Use now if passed
+		$retval = ! empty( $query['now'] ) && is_numeric( $query['now'] )
+			? absint( $query['now'] )
+			: time();
+
+		return $retval;
+	}
+
+	/**
 	 * Determines and validates what comparison operator to use.
 	 *
 	 * @since 1.0.0
@@ -383,6 +426,25 @@ class Date extends Base {
 			: $this->relation;
 
 		return $retval;
+	}
+
+	/**
+	 * Determines and validates what start_of_week to use.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param array $query A date query or a date subquery.
+	 *
+	 * @return string The comparison operator.
+	 */
+	public function get_start_of_week( $query = array() ) {
+
+		// Use start of week if passed and valid
+		$retval = isset( $query['start_of_week'] ) && ( 6 >= (int) $query['start_of_week'] ) && ( 0 <= (int) $query['start_of_week'] )
+			? $query['start_of_week']
+			: $this->start_of_week;
+
+		return (int) $retval;
 	}
 
 	/**
@@ -440,7 +502,7 @@ class Date extends Base {
 				$_year = $date_query['year'];
 			}
 
-			$max_days_of_year = date( 'z', mktime( 0, 0, 0, 12, 31, $_year ) ) + 1;
+			$max_days_of_year = gmdate( 'z', gmmktime( 0, 0, 0, 12, 31, $_year ) ) + 1;
 
 		// Otherwise we use the max of 366 (leap-year)
 		} else {
@@ -477,7 +539,7 @@ class Date extends Base {
 			 * If we have a specific year, use it to calculate number of weeks.
 			 * Note: the number of weeks in a year is the date in which Dec 28 appears.
 			 */
-			$week_count = date( 'W', mktime( 0, 0, 0, 12, 28, $_year ) );
+			$week_count = gmdate( 'W', gmmktime( 0, 0, 0, 12, 28, $_year ) );
 
 		// Otherwise set the week-count to a maximum of 53.
 		} else {
@@ -670,7 +732,7 @@ class Date extends Base {
 					$clause_sql  = $this->get_sql_for_clause( $clause, $query );
 					$where_count = count( $clause_sql['where'] );
 
-					if ( ! $where_count ) {
+					if ( 0 === $where_count ) {
 						$sql_chunks['where'][] = '';
 
 					} elseif ( 1 === $where_count ) {
@@ -734,26 +796,29 @@ class Date extends Base {
 		// The sub-parts of a $where part.
 		$where_parts = array();
 
-		$column    = $this->get_column( $query );
-		$compare   = $this->get_compare( $query );
-		$inclusive = ! empty( $query['inclusive'] );
+		// Get first-order clauses
+		$now           = $this->get_now( $query );
+		$column        = $this->get_column( $query );
+		$compare       = $this->get_compare( $query );
+		$start_of_week = $this->get_start_of_week( $query );
+		$inclusive     = ! empty( $query['inclusive'] );
 
 		// Assign greater-than and less-than values.
 		$lt = '<';
 		$gt = '>';
 
-		if ( $inclusive ) {
+		if ( true === $inclusive ) {
 			$lt .= '=';
 			$gt .= '=';
 		}
 
 		// Range queries.
 		if ( ! empty( $query['after'] ) ) {
-			$where_parts[] = $this->get_db()->prepare( "{$column} {$gt} %s", $this->build_mysql_datetime( $query['after'], ! $inclusive ) );
+			$where_parts[] = $this->get_db()->prepare( "{$column} {$gt} %s", $this->build_mysql_datetime( $query['after'], ! $inclusive, $now ) );
 		}
 
 		if ( ! empty( $query['before'] ) ) {
-			$where_parts[] = $this->get_db()->prepare( "{$column} {$lt} %s", $this->build_mysql_datetime( $query['before'], $inclusive ) );
+			$where_parts[] = $this->get_db()->prepare( "{$column} {$lt} %s", $this->build_mysql_datetime( $query['before'], $inclusive, $now ) );
 		}
 
 		// Specific value queries.
@@ -768,9 +833,9 @@ class Date extends Base {
 		}
 
 		if ( isset( $query['week'] ) && false !== ( $value = $this->build_numeric_value( $compare, $query['week'] ) ) ) {
-			$where_parts[] = $this->build_mysql_week( $column ) . " {$compare} {$value}";
+			$where_parts[] = $this->build_mysql_week( $column, $start_of_week ) . " {$compare} {$value}";
 		} elseif ( isset( $query['w'] ) && false !== ( $value = $this->build_numeric_value( $compare, $query['w'] ) ) ) {
-			$where_parts[] = $this->build_mysql_week( $column ) . " {$compare} {$value}";
+			$where_parts[] = $this->build_mysql_week( $column, $start_of_week ) . " {$compare} {$value}";
 		}
 
 		if ( isset( $query['dayofyear'] ) && $value = $this->build_numeric_value( $compare, $query['dayofyear'] ) ) {
@@ -855,7 +920,7 @@ class Date extends Base {
 
 			case 'BETWEEN':
 			case 'NOT BETWEEN':
-				if ( ! is_array( $value ) || 2 != count( $value ) ) {
+				if ( ! is_array( $value ) || ( 2 !== count( $value ) ) ) {
 					$value = array( $value, $value );
 				} else {
 					$value = array_values( $value );
@@ -953,13 +1018,11 @@ class Date extends Base {
 	 *                                     of $datetime that are arrays, or string values that are a
 	 *                                     subset of MySQL date format ('Y', 'Y-m', 'Y-m-d', 'Y-m-d H:i').
 	 *                                     Default: false.
+	 * @param string|int   $now            The current unix timestamp.
 	 *
 	 * @return string|false A MySQL format date/time or false on failure
 	 */
-	public function build_mysql_datetime( $datetime = '', $default_to_max = false ) {
-
-		// Get current time
-		$now = time();
+	public function build_mysql_datetime( $datetime = '', $default_to_max = false, $now = 0 ) {
 
 		// Datetime is string
 		if ( is_string( $datetime ) ) {
@@ -1002,12 +1065,30 @@ class Date extends Base {
 					'hour'   => intval( $matches[4] ),
 					'minute' => intval( $matches[5] ),
 				);
-			}
 
-			// If no match is found, we don't support default_to_max.
-			if ( ! is_array( $datetime ) ) {
-				return gmdate( 'Y-m-d H:i:s', strtotime( $datetime, $now ) );
+			// Y-m-d H:i:s
+			} elseif ( preg_match( '/^(\d{4})\-(\d{2})\-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/', $datetime, $matches ) ) {
+				$datetime = array(
+					'year'   => intval( $matches[1] ),
+					'month'  => intval( $matches[2] ),
+					'day'    => intval( $matches[3] ),
+					'hour'   => intval( $matches[4] ),
+					'minute' => intval( $matches[5] ),
+					'second' => intval( $matches[6] ),
+				);
 			}
+		}
+
+		// No match; may be int or string
+		if ( ! is_array( $datetime ) ) {
+
+			// Maybe format or use as-is
+			$datetime = ! is_int( $datetime )
+				? strtotime( $datetime, $now )
+				: absint( $datetime );
+
+			// Return formatted
+			return gmdate( 'Y-m-d H:i:s', $datetime );
 		}
 
 		// Map to ints
@@ -1015,7 +1096,7 @@ class Date extends Base {
 
 		// Year
 		if ( ! isset( $datetime['year'] ) ) {
-			$datetime['year'] = date( 'Y', $now );
+			$datetime['year'] = gmdate( 'Y', $now );
 		}
 
 		// Month
@@ -1028,7 +1109,7 @@ class Date extends Base {
 		// Day
 		if ( ! isset( $datetime['day'] ) ) {
 			$datetime['day'] = ! empty( $default_to_max )
-				? (int) date( 't', mktime( 0, 0, 0, $datetime['month'], 1, $datetime['year'] ) )
+				? (int) gmdate( 't', gmmktime( 0, 0, 0, $datetime['month'], 1, $datetime['year'] ) )
 				: 1;
 		}
 
@@ -1079,9 +1160,6 @@ class Date extends Base {
 	 * @return string SQL clause.
 	 */
 	public function build_mysql_week( $column = '', $start_of_week = 0 ) {
-
-		// Start of week option
-		$start_of_week = (int) get_option( 'start_of_week', $start_of_week );
 
 		// When does the week start?
 		switch ( $start_of_week ) {
