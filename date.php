@@ -78,6 +78,14 @@ class Date extends Base {
 	public $start_of_week = 0;
 
 	/**
+	 * The unix timestamp for this current time.
+	 *
+	 * @since 1.1.0
+	 * @var   int
+	 */
+	public $now = 0;
+
+	/**
 	 * Supported time-related parameter keys.
 	 *
 	 * @since 1.0.0
@@ -237,7 +245,8 @@ class Date extends Base {
 			return;
 		}
 
-		// Set column, compare, relation, and start_of_week.
+		// Set now, column, compare, relation, and start_of_week.
+		$this->now           = $this->get_now( $date_query );
 		$this->column        = $this->get_column( $date_query );
 		$this->compare       = $this->get_compare( $date_query );
 		$this->relation      = $this->get_relation( $date_query );
@@ -273,6 +282,7 @@ class Date extends Base {
 
 		// Setup defaults.
 		$defaults = array(
+			'now'           => $this->get_now(),
 			'column'        => $this->get_column(),
 			'compare'       => $this->get_compare(),
 			'relation'      => $this->get_relation(),
@@ -341,6 +351,25 @@ class Date extends Base {
 		$time_keys = array_intersect( $this->time_keys, array_keys( $query ) );
 
 		return ! empty( $time_keys );
+	}
+
+	/**
+	 * Determines and validates what the current unix timestamp is.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param array $query A date query or a date subquery.
+	 *
+	 * @return string The current unix timestamp.
+	 */
+	public function get_now( $query = array() ) {
+
+		// Use now if passed
+		$retval = ! empty( $query['now'] ) && is_numeric( $query['now'] )
+			? absint( $query['now'] )
+			: time();
+
+		return $retval;
 	}
 
 	/**
@@ -768,6 +797,7 @@ class Date extends Base {
 		$where_parts = array();
 
 		// Get first-order clauses
+		$now           = $this->get_now( $query );
 		$column        = $this->get_column( $query );
 		$compare       = $this->get_compare( $query );
 		$start_of_week = $this->get_start_of_week( $query );
@@ -784,11 +814,11 @@ class Date extends Base {
 
 		// Range queries.
 		if ( ! empty( $query['after'] ) ) {
-			$where_parts[] = $this->get_db()->prepare( "{$column} {$gt} %s", $this->build_mysql_datetime( $query['after'], ! $inclusive ) );
+			$where_parts[] = $this->get_db()->prepare( "{$column} {$gt} %s", $this->build_mysql_datetime( $query['after'], ! $inclusive, $now ) );
 		}
 
 		if ( ! empty( $query['before'] ) ) {
-			$where_parts[] = $this->get_db()->prepare( "{$column} {$lt} %s", $this->build_mysql_datetime( $query['before'], $inclusive ) );
+			$where_parts[] = $this->get_db()->prepare( "{$column} {$lt} %s", $this->build_mysql_datetime( $query['before'], $inclusive, $now ) );
 		}
 
 		// Specific value queries.
@@ -988,13 +1018,11 @@ class Date extends Base {
 	 *                                     of $datetime that are arrays, or string values that are a
 	 *                                     subset of MySQL date format ('Y', 'Y-m', 'Y-m-d', 'Y-m-d H:i').
 	 *                                     Default: false.
+	 * @param string|int   $now            The current unix timestamp.
 	 *
 	 * @return string|false A MySQL format date/time or false on failure
 	 */
-	public function build_mysql_datetime( $datetime = '', $default_to_max = false ) {
-
-		// Get current time
-		$now = time();
+	public function build_mysql_datetime( $datetime = '', $default_to_max = false, $now = 0 ) {
 
 		// Datetime is string
 		if ( is_string( $datetime ) ) {
@@ -1037,12 +1065,30 @@ class Date extends Base {
 					'hour'   => intval( $matches[4] ),
 					'minute' => intval( $matches[5] ),
 				);
-			}
 
-			// If no match is found, we don't support default_to_max.
-			if ( ! is_array( $datetime ) ) {
-				return gmdate( 'Y-m-d H:i:s', strtotime( $datetime, $now ) );
+			// Y-m-d H:i:s
+			} elseif ( preg_match( '/^(\d{4})\-(\d{2})\-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/', $datetime, $matches ) ) {
+				$datetime = array(
+					'year'   => intval( $matches[1] ),
+					'month'  => intval( $matches[2] ),
+					'day'    => intval( $matches[3] ),
+					'hour'   => intval( $matches[4] ),
+					'minute' => intval( $matches[5] ),
+					'second' => intval( $matches[6] ),
+				);
 			}
+		}
+
+		// No match; may be int or string
+		if ( ! is_array( $datetime ) ) {
+
+			// Maybe format or use as-is
+			$datetime = ! is_int( $datetime )
+				? strtotime( $datetime, $now )
+				: absint( $datetime );
+
+			// Return formatted
+			return gmdate( 'Y-m-d H:i:s', $datetime );
 		}
 
 		// Map to ints
