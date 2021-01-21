@@ -2919,6 +2919,11 @@ class Query extends Base {
 			return null;
 		}
 
+		// Get all columns, if specified.
+		if ( '*' === $cols ) {
+			$cols = $this->get_column_names();
+		}
+
 		// Fetch all the columns for the table being queried.
 		$column_names = $this->get_column_names();
 
