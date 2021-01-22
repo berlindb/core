@@ -391,7 +391,7 @@ class Query extends Base {
 	}
 
 	/**
-	 * Set columns objects
+	 * Set columns objects.
 	 *
 	 * @since 1.0.0
 	 */
@@ -412,7 +412,7 @@ class Query extends Base {
 	}
 
 	/**
-	 * Set the default item shape if none exists
+	 * Set the default item shape if none exists.
 	 *
 	 * @since 1.0.0
 	 */
@@ -423,7 +423,7 @@ class Query extends Base {
 	}
 
 	/**
-	 * Set default query vars based on columns
+	 * Set default query vars based on columns.
 	 *
 	 * @since 1.0.0
 	 */
@@ -489,7 +489,7 @@ class Query extends Base {
 	}
 
 	/**
-	 * Set the request clauses
+	 * Set the request clauses.
 	 *
 	 * @since 1.0.0
 	 *
@@ -547,7 +547,7 @@ class Query extends Base {
 	}
 
 	/**
-	 * Set the request
+	 * Set the request.
 	 *
 	 * @since 1.0.0
 	 */
@@ -699,7 +699,7 @@ class Query extends Base {
 	}
 
 	/**
-	 * Return the current time as a UTC timestamp
+	 * Return the current time as a UTC timestamp.
 	 *
 	 * This is used by add_item() and update_item()
 	 *
@@ -723,7 +723,7 @@ class Query extends Base {
 	}
 
 	/**
-	 * Return array of column names
+	 * Return array of column names.
 	 *
 	 * @since 1.0.0
 	 *
@@ -734,7 +734,7 @@ class Query extends Base {
 	}
 
 	/**
-	 * Return the primary database column name
+	 * Return the primary database column name.
 	 *
 	 * @since 1.0.0
 	 *
@@ -745,7 +745,7 @@ class Query extends Base {
 	}
 
 	/**
-	 * Get a column from an array of arguments
+	 * Get a column from an array of arguments.
 	 *
 	 * @since 1.0.0
 	 *
@@ -753,7 +753,7 @@ class Query extends Base {
 	 */
 	private function get_column_field( $args = array(), $field = '', $default = false ) {
 
-		// Get column
+		// Get the column
 		$column = $this->get_column_by( $args );
 
 		// Return field, or default
@@ -763,7 +763,7 @@ class Query extends Base {
 	}
 
 	/**
-	 * Get a column from an array of arguments
+	 * Get a column from an array of arguments.
 	 *
 	 * @since 1.0.0
 	 *
@@ -781,7 +781,7 @@ class Query extends Base {
 	}
 
 	/**
-	 * Get columns from an array of arguments
+	 * Get columns from an array of arguments.
 	 *
 	 * @since 1.0.0
 	 */
@@ -817,10 +817,13 @@ class Query extends Base {
 			return false;
 		}
 
-		// Query database for row
-		$pattern = $this->get_column_field( array( 'name' => $column_name ), 'pattern', '%s' );
+		// Get query parts
 		$table   = $this->get_table_name();
-		$select  = $this->get_db()->prepare( "SELECT * FROM {$table} WHERE {$column_name} = {$pattern}", $column_value );
+		$pattern = $this->get_column_field( array( 'name' => $column_name ), 'pattern', '%s' );
+
+		// Query database
+		$query   = "SELECT * FROM {$table} WHERE {$column_name} = {$pattern} LIMIT 1";
+		$select  = $this->get_db()->prepare( $query, $column_value );
 		$result  = $this->get_db()->get_row( $select );
 
 		// Bail on failure
@@ -906,7 +909,8 @@ class Query extends Base {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @return int|array A single count of item IDs if a count query. An array of item IDs if a full query.
+	 * @return int|array A single count of item IDs if a count query. An array
+	 *                   of item IDs if a full query.
 	 */
 	private function get_item_ids() {
 
@@ -994,7 +998,8 @@ class Query extends Base {
 	private function get_order_by( $order = '' ) {
 
 		// Default orderby primary column
-		$orderby = "{$this->parse_orderby()} {$order}";
+		$parsed  = $this->parse_orderby();
+		$orderby = "{$parsed} {$order}";
 
 		// Disable ORDER BY if counting, or: 'none', an empty array, or false.
 		if ( ! empty( $this->query_vars['count'] ) || in_array( $this->query_vars['orderby'], array( 'none', array(), false ), true ) ) {
@@ -1065,7 +1070,8 @@ class Query extends Base {
 	}
 
 	/**
-	 * Used internally to generate an SQL string for searching across multiple columns.
+	 * Used internally to generate an SQL string for searching across multiple
+	 * columns.
 	 *
 	 * @since 1.0.0
 	 *
@@ -1125,7 +1131,7 @@ class Query extends Base {
 	}
 
 	/**
-	 * Parse the where clauses for all known columns
+	 * Parse the where clauses for all known columns.
 	 *
 	 * @todo split this method into smaller parts
 	 *
@@ -1276,7 +1282,7 @@ class Query extends Base {
 
 		/** Query Classes *****************************************************/
 
-		// Get the primary column & table
+		// Get the primary column name & meta table
 		$primary = $this->get_primary_column_name();
 		$table   = $this->get_meta_type();
 		$and     = '/^\s*AND\s*/';
@@ -1348,7 +1354,7 @@ class Query extends Base {
 	}
 
 	/**
-	 * Parse which fields to query for
+	 * Parse which fields to query for.
 	 *
 	 * @since 1.0.0
 	 *
@@ -1384,7 +1390,7 @@ class Query extends Base {
 	}
 
 	/**
-	 * Parses and sanitizes the 'groupby' keys passed into the item query
+	 * Parses and sanitizes the 'groupby' keys passed into the item query.
 	 *
 	 * @since 1.0.0
 	 *
@@ -1438,7 +1444,8 @@ class Query extends Base {
 	private function parse_orderby( $orderby = 'id' ) {
 
 		// Default value
-		$parsed = "{$this->table_alias}.{$this->get_primary_column_name()}";
+		$primary = $this->get_primary_column_name();
+		$parsed  = "{$this->table_alias}.{$primary}";
 
 		// __in
 		if ( false !== strstr( $orderby, '__in' ) ) {
@@ -1465,7 +1472,8 @@ class Query extends Base {
 	}
 
 	/**
-	 * Parses an 'order' query variable and cast it to 'ASC' or 'DESC' as necessary.
+	 * Parses an 'order' query variable and cast it to 'ASC' or 'DESC' as
+	 * necessary.
 	 *
 	 * @since 1.0.0
 	 *
@@ -1546,7 +1554,7 @@ class Query extends Base {
 	 */
 	private function get_item_fields( $items = array() ) {
 
-		// Get the primary column
+		// Get the primary column name
 		$primary = $this->get_primary_column_name();
 		$fields  = $this->query_vars['fields'];
 
@@ -1577,7 +1585,7 @@ class Query extends Base {
 	}
 
 	/**
-	 * Shape an item ID from an object, array, or numeric value
+	 * Shape an item ID from an object, array, or numeric value.
 	 *
 	 * @since 1.0.0
 	 *
@@ -1633,10 +1641,10 @@ class Query extends Base {
 		}
 
 		// Get the primary column name
-		$column_name = $this->get_primary_column_name();
+		$primary = $this->get_primary_column_name();
 
 		// Get item by ID
-		return $this->get_item_by( $column_name, $item_id );
+		return $this->get_item_by( $primary, $item_id );
 	}
 
 	/**
@@ -1671,7 +1679,7 @@ class Query extends Base {
 			return $retval;
 		}
 
-		// Get column names
+		// Get the column names
 		$columns = $this->get_column_names();
 
 		// Bail if column does not exist
@@ -1710,7 +1718,7 @@ class Query extends Base {
 	}
 
 	/**
-	 * Add an item to the database
+	 * Add an item to the database.
 	 *
 	 * @since 1.0.0
 	 *
@@ -1719,7 +1727,7 @@ class Query extends Base {
 	 */
 	public function add_item( $data = array() ) {
 
-		// Get primary column
+		// Get the primary column name
 		$primary = $this->get_primary_column_name();
 
 		// If data includes primary column, check if item already exists
@@ -1801,7 +1809,7 @@ class Query extends Base {
 	}
 
 	/**
-	 * Update an item in the database
+	 * Update an item in the database.
 	 *
 	 * @since 1.0.0
 	 *
@@ -1817,7 +1825,7 @@ class Query extends Base {
 			return false;
 		}
 
-		// Get primary column
+		// Get the primary column name
 		$primary = $this->get_primary_column_name();
 
 		// Get item to update (from database, not cache)
@@ -1860,10 +1868,10 @@ class Query extends Base {
 		}
 
 		// Try to update
-		$where  = array( $primary => $item_id );
 		$table  = $this->get_table_name();
 		$reduce = $this->reduce_item( 'update', $save );
 		$save   = $this->validate_item( $reduce );
+		$where  = array( $primary => $item_id );
 		$result = ! empty( $save )
 			? $this->get_db()->update( $table, $save, $where )
 			: false;
@@ -1884,7 +1892,7 @@ class Query extends Base {
 	}
 
 	/**
-	 * Delete an item from the database
+	 * Delete an item from the database.
 	 *
 	 * @since 1.0.0
 	 *
@@ -1899,7 +1907,7 @@ class Query extends Base {
 			return false;
 		}
 
-		// Get vars
+		// Get the primary column name
 		$primary = $this->get_primary_column_name();
 
 		// Get item (before it's deleted)
@@ -1919,9 +1927,9 @@ class Query extends Base {
 		}
 
 		// Try to delete
-		$table   = $this->get_table_name();
-		$where   = array( $primary => $item_id );
-		$result  = $this->get_db()->delete( $table, $where );
+		$table  = $this->get_table_name();
+		$where  = array( $primary => $item_id );
+		$result = $this->get_db()->delete( $table, $where );
 
 		// Bail on failure
 		if ( ! $this->is_success( $result ) ) {
@@ -2004,7 +2012,7 @@ class Query extends Base {
 				$value = stripslashes( $value );
 			}
 
-			// Get column
+			// Get the column
 			$column = $this->get_column_by( array( 'name' => $key ) );
 
 			// Null value is special for all item keys
@@ -2067,7 +2075,7 @@ class Query extends Base {
 		// Loop through item attributes
 		foreach ( $item as $key => $value ) {
 
-			// Get callback for column
+			// Get capabilities for this column
 			$caps = $this->get_column_field( array( 'name' => $key ), 'caps' );
 
 			// Unset if not explicitly allowed
@@ -2091,7 +2099,7 @@ class Query extends Base {
 	}
 
 	/**
-	 * Return an item comprised of all default values
+	 * Return an item comprised of all default values.
 	 *
 	 * This is used by `add_item()` to populate known default values, to ensure
 	 * new item data is always what we expect it to be.
@@ -2105,7 +2113,7 @@ class Query extends Base {
 		// Default return value
 		$retval   = array();
 
-		// Get column names and defaults
+		// Get the column names and their defaults
 		$names    = $this->get_columns( array(), 'and', 'name'    );
 		$defaults = $this->get_columns( array(), 'and', 'default' );
 
@@ -2193,7 +2201,7 @@ class Query extends Base {
 	/** Meta ******************************************************************/
 
 	/**
-	 * Add meta data to an item
+	 * Add meta data to an item.
 	 *
 	 * @since 1.0.0
 	 *
@@ -2216,7 +2224,7 @@ class Query extends Base {
 			return false;
 		}
 
-		// Get meta type
+		// Get the meta type
 		$meta_type = $this->get_meta_type();
 
 		// Return results of adding meta data
@@ -2224,7 +2232,7 @@ class Query extends Base {
 	}
 
 	/**
-	 * Get meta data for an item
+	 * Get meta data for an item.
 	 *
 	 * @since 1.0.0
 	 *
@@ -2246,7 +2254,7 @@ class Query extends Base {
 			return false;
 		}
 
-		// Get meta type
+		// Get the meta type
 		$meta_type = $this->get_meta_type();
 
 		// Return results of getting meta data
@@ -2254,7 +2262,7 @@ class Query extends Base {
 	}
 
 	/**
-	 * Update meta data for an item
+	 * Update meta data for an item.
 	 *
 	 * @since 1.0.0
 	 *
@@ -2277,7 +2285,7 @@ class Query extends Base {
 			return false;
 		}
 
-		// Get meta type
+		// Get the meta type
 		$meta_type = $this->get_meta_type();
 
 		// Return results of updating meta data
@@ -2285,7 +2293,7 @@ class Query extends Base {
 	}
 
 	/**
-	 * Delete meta data for an item
+	 * Delete meta data for an item.
 	 *
 	 * @since 1.0.0
 	 *
@@ -2308,7 +2316,7 @@ class Query extends Base {
 			return false;
 		}
 
-		// Get meta type
+		// Get the meta type
 		$meta_type = $this->get_meta_type();
 
 		// Return results of deleting meta data
@@ -2316,7 +2324,7 @@ class Query extends Base {
 	}
 
 	/**
-	 * Get registered meta data keys
+	 * Get registered meta data keys.
 	 *
 	 * @since 1.0.0
 	 *
@@ -2334,7 +2342,7 @@ class Query extends Base {
 	}
 
 	/**
-	 * Maybe update meta values on item update/save
+	 * Maybe update meta values on item update/save.
 	 *
 	 * @since 1.0.0
 	 *
@@ -2371,7 +2379,7 @@ class Query extends Base {
 	}
 
 	/**
-	 * Delete all meta data for an item
+	 * Delete all meta data for an item.
 	 *
 	 * @since 1.0.0
 	 *
@@ -2385,7 +2393,7 @@ class Query extends Base {
 			return;
 		}
 
-		// Get meta table name
+		// Get the meta table name
 		$table = $this->get_meta_table_name();
 
 		// Bail if no meta table exists
@@ -2398,8 +2406,8 @@ class Query extends Base {
 		$item_id_column = $this->apply_prefix( "{$this->item_name}_{$primary_id}" );
 
 		// Get meta IDs
-		$sql      = "SELECT meta_id FROM {$table} WHERE {$item_id_column} = %d";
-		$prepared = $this->get_db()->prepare( $sql, $item_id );
+		$query    = "SELECT meta_id FROM {$table} WHERE {$item_id_column} = %d";
+		$prepared = $this->get_db()->prepare( $query, $item_id );
 		$meta_ids = $this->get_db()->get_col( $prepared );
 
 		// Bail if no meta IDs to delete
@@ -2417,7 +2425,7 @@ class Query extends Base {
 	}
 
 	/**
-	 * Get the meta table for this query
+	 * Get the meta table for this query.
 	 *
 	 * Forked from WordPress\_get_meta_table() so it can be more accurately
 	 * predicted in a future iteration and default to returning false.
@@ -2447,7 +2455,7 @@ class Query extends Base {
 	}
 
 	/**
-	 * Get the meta type for this query
+	 * Get the meta type for this query.
 	 *
 	 * This method exists to reduce some duplication for now. Future iterations
 	 * will likely use Column::relationships to
@@ -2511,7 +2519,7 @@ class Query extends Base {
 	}
 
 	/**
-	 * Get array of which database columns have uniquely cached groups
+	 * Get array of which database columns have uniquely cached groups.
 	 *
 	 * @since 1.0.0
 	 *
@@ -2522,12 +2530,12 @@ class Query extends Base {
 		// Return value
 		$cache_groups = array();
 
-		// Get cache groups
+		// Get the cache groups
 		$groups = $this->get_columns( array( 'cache_key' => true ), 'and', 'name' );
 
 		if ( ! empty( $groups ) ) {
 
-			// Get the primary column
+			// Get the primary column name
 			$primary = $this->get_primary_column_name();
 
 			// Setup return values
@@ -2582,11 +2590,13 @@ class Query extends Base {
 				return false;
 			}
 
-			// Query
+			// Get query parts
 			$table   = $this->get_table_name();
 			$primary = $this->get_primary_column_name();
+
+			// Query database
 			$query   = "SELECT * FROM {$table} WHERE {$primary} IN (%s)";
-			$ids     = join( ',', array_map( 'absint', $ids ) );
+			$ids     = implode( ',', array_map( 'absint', $ids ) );
 			$prepare = sprintf( $query, $ids );
 			$results = $this->get_db()->get_results( $prepare );
 
@@ -2632,7 +2642,7 @@ class Query extends Base {
 			$items = array( $items );
 		}
 
-		// Get cache groups
+		// Get the cache groups
 		$groups = $this->get_cache_groups();
 
 		// Loop through all items and cache them
@@ -2682,7 +2692,7 @@ class Query extends Base {
 			$items = array( $items );
 		}
 
-		// Get all cache groups
+		// Get the cache groups
 		$groups = $this->get_cache_groups();
 
 		// Loop through all items and clean them
@@ -2706,9 +2716,11 @@ class Query extends Base {
 	}
 
 	/**
-	 * Update the last_changed key for the cache group
+	 * Update the last_changed key for the cache group.
 	 *
 	 * @since 1.0.0
+	 *
+	 * @return string The last time a cache group was changed.
 	 */
 	private function update_last_changed_cache( $group = '' ) {
 
@@ -2725,13 +2737,13 @@ class Query extends Base {
 	}
 
 	/**
-	 * Get the last_changed key for a cache group
+	 * Get the last_changed key for a cache group.
 	 *
 	 * @since 1.0.0
 	 *
 	 * @param string $group Cache group. Defaults to $this->cache_group
 	 *
-	 * @return int The last time a cache group was changed
+	 * @return string The last time a cache group was changed.
 	 */
 	private function get_last_changed_cache( $group = '' ) {
 
@@ -2826,7 +2838,7 @@ class Query extends Base {
 		// Get the cache group
 		$group = $this->get_cache_group( $group );
 
-		// Get from the cache
+		// Return from the cache
 		return wp_cache_get( $key, $group, $force );
 	}
 
@@ -2914,28 +2926,36 @@ class Query extends Base {
 	 */
 	public function get_results( $cols = array(), $where_cols = array(), $limit = 25, $offset = null, $output = OBJECT ) {
 
-		// Bail if no columns have been passed.
+		// Bail if no columns have been passed
 		if ( empty( $cols ) ) {
 			return null;
 		}
 
-		// Fetch all the columns for the table being queried.
+		// Fetch all the columns for the table being queried
 		$column_names = $this->get_column_names();
 
-		// Ensure valid column names have been passed for the `SELECT` clause.
+		// Ensure valid column names have been passed for the `SELECT` clause
 		foreach ( $cols as $index => $column ) {
 			if ( ! array_key_exists( $column, $column_names ) ) {
 				unset( $cols[ $index ] );
 			}
 		}
 
-		// Setup base SQL query.
-		$query  = "SELECT ";
-		$query .= implode( ',', $cols );
-		$query .= " FROM {$this->get_table_name()} {$this->table_alias} ";
-		$query .= " WHERE 1=1 ";
+		// Columns to retrieve
+		$columns = implode( ',', $cols );
 
-		// Ensure valid columns have been passed for the `WHERE` clause.
+		// Get the table name
+		$table = $this->get_table_name();
+
+		// Setup base query
+		$query = implode( ' ', array(
+			"SELECT",
+			$columns,
+			"FROM {$table} {$this->table_alias}",
+			"WHERE 1=1"
+		) );
+
+		// Ensure valid columns have been passed for the `WHERE` clause
 		if ( ! empty( $where_cols ) ) {
 
 			// Get keys from where columns
@@ -2948,27 +2968,27 @@ class Query extends Base {
 				}
 			}
 
-			// Parse WHERE clauses.
+			// Parse WHERE clauses
 			foreach ( $where_cols as $column => $compare ) {
 
-				// Basic WHERE clause.
+				// Basic WHERE clause
 				if ( ! is_array( $compare ) ) {
 					$pattern   = $this->get_column_field( array( 'name' => $column ), 'pattern', '%s' );
 					$statement = " AND {$this->table_alias}.{$column} = {$pattern} ";
 					$query    .= $this->get_db()->prepare( $statement, $compare );
 
-				// More complex WHERE clause.
+				// More complex WHERE clause
 				} else {
 					$value = isset( $compare['value'] )
 						? $compare['value']
 						: false;
 
-					// Skip if a value was not provided.
+					// Skip if a value was not provided
 					if ( false === $value ) {
 						continue;
 					}
 
-					// Default compare clause to equals.
+					// Default compare clause to equals
 					$compare_clause = isset( $compare['compare_query'] )
 						? trim( strtoupper( $compare['compare_query'] ) )
 						: '=';
@@ -2976,16 +2996,16 @@ class Query extends Base {
 					// Array (unprepared)
 					if ( is_array( $compare['value'] ) ) {
 
-						// Default to IN if clause not specified.
+						// Default to IN if clause not specified
 						if ( ! in_array( $compare_clause, array( 'IN', 'NOT IN', 'BETWEEN' ), true ) ) {
 							$compare_clause = 'IN';
 						}
 
-						// Parse & escape for IN and NOT IN.
+						// Parse & escape for IN and NOT IN
 						if ( 'IN' === $compare_clause || 'NOT IN' === $compare_clause ) {
 							$value = "('" . implode( "','", $this->get_db()->_escape( $compare['value'] ) ) . "')";
 
-						// Parse & escape for BETWEEN.
+						// Parse & escape for BETWEEN
 						} elseif ( is_array( $value ) && 2 === count( $value ) && 'BETWEEN' === $compare_clause ) {
 							$_this = $this->get_db()->_escape( $value[0] );
 							$_that = $this->get_db()->_escape( $value[1] );
@@ -2993,13 +3013,13 @@ class Query extends Base {
 						}
 					}
 
-					// Add WHERE clause.
+					// Add WHERE clause
 					$query .= " AND {$this->table_alias}.{$column} {$compare_clause} {$value} ";
 				}
 			}
 		}
 
-		// Maybe set an offset.
+		// Maybe set an offset
 		if ( ! empty( $offset ) ) {
 			$values = explode( ',', $offset );
 			$values = array_filter( $values, 'intval' );
@@ -3007,16 +3027,16 @@ class Query extends Base {
 			$query .= " OFFSET {$offset} ";
 		}
 
-		// Maybe set a limit.
+		// Maybe set a limit
 		if ( ! empty( $limit ) && ( $limit > 0 ) ) {
 			$limit  = intval( $limit );
 			$query .= " LIMIT {$limit} ";
 		}
 
-		// Execute query.
+		// Execute query
 		$results = $this->get_db()->get_results( $query, $output );
 
-		// Return results.
+		// Return results
 		return $results;
 	}
 }
