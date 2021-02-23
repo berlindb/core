@@ -591,10 +591,15 @@ abstract class Table extends Base {
 			return false;
 		}
 
+		// Limit $column to Key or Column name, until we can do better
+		if ( ! in_array( $column, array( 'Key_name', 'Column_name' ), true ) ) {
+			$column = 'Key_name';
+		}
+
 		// Query statement
-		$query    = "SHOW INDEXES FROM {$this->table_name} WHERE %s LIKE %s";
+		$query    = "SHOW INDEXES FROM {$this->table_name} WHERE {$column} LIKE %s";
 		$like     = $db->esc_like( $name );
-		$prepared = $db->prepare( $query, $column, $like );
+		$prepared = $db->prepare( $query, $like );
 		$result   = $db->query( $prepared );
 
 		// Does the index exist?
