@@ -1809,6 +1809,38 @@ class Query extends Base {
 	}
 
 	/**
+	 * Copy an item in the database to a new item.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param int $item_id
+	 * @param array $data
+	 * @return bool
+	 */
+	public function copy_item( $item_id = 0, $data = array() ) {
+
+		// Get the primary column name
+		$primary = $this->get_primary_column_name();
+
+		// Get item by ID (from database, not cache)
+		$item    = $this->get_item_raw( $primary, $item_id );
+
+		// Bail if item does not exist
+		if ( empty( $item ) ) {
+			return false;
+		}
+
+		// Merge data with original item
+		$save = array_merge( $item, $data );
+
+		// Unset the primary key
+		unset( $save[ $primary ] );
+
+		// Return result
+		return $this->add_item( $save );
+	}
+
+	/**
 	 * Update an item in the database.
 	 *
 	 * @since 1.0.0
