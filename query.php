@@ -1831,7 +1831,7 @@ class Query extends Base {
 		}
 
 		// Merge data with original item
-		$save = array_merge( $item, $data );
+		$save = array_merge( (array) $item, $data );
 
 		// Unset the primary key
 		unset( $save[ $primary ] );
