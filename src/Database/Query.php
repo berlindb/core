@@ -1830,8 +1830,13 @@ class Query extends Base {
 			return false;
 		}
 
-		// Merge data with original item
-		$save = array_merge( (array) $item, $data );
+		// Cast object to array
+		$save = (array) $item;
+
+		// Maybe merge data with original item
+		if ( ! empty( $data ) && is_array( $data ) ) {
+			$save = array_merge( $save, $data );
+		}
 
 		// Unset the primary key
 		unset( $save[ $primary ] );
