@@ -31,12 +31,13 @@ defined( 'ABSPATH' ) || exit;
  * @property string $item_name_plural
  * @property string $item_shape
  * @property string $cache_group
- * @property string $columns
- * @property string $query_clauses
- * @property string $request_clauses
+ * @property int $last_changed
+ * @property array $columns
+ * @property array $query_clauses
+ * @property array $request_clauses
  * @property Queries\Meta $meta_query
  * @property Queries\Date $date_query
- * @property Queries\Compare $compare
+ * @property Queries\Compare $compare_query
  * @property array $query_vars
  * @property array $query_var_originals
  * @property array $query_var_defaults
@@ -45,7 +46,6 @@ defined( 'ABSPATH' ) || exit;
  * @property int $found_items
  * @property int $max_num_pages
  * @property string $request
- * @property int $last_changed
  */
 class Query extends Base {
 
