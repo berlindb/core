@@ -11,7 +11,9 @@
 namespace BerlinDB\Database\Queries;
 
 // Exit if accessed directly
-defined( 'ABSPATH' ) || exit;
+if ( ! defined( 'ABSPATH' ) ) {
+    exit;
+}
 
 // @todo Remove the need for this dependency
 use \WP_Meta_Query;

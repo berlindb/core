@@ -11,7 +11,9 @@
 namespace BerlinDB\Database;
 
 // Exit if accessed directly
-defined( 'ABSPATH' ) || exit;
+if ( ! defined( 'ABSPATH' ) ) {
+    exit;
+}
 
 /**
  * Base class used for each column for a custom table.
@@ -664,7 +666,7 @@ class Column extends Base {
 	 * Sanitize the default value
 	 *
 	 * @since 1.0.0
-	 * @param string $default
+	 * @param string|null $default
 	 * @return string|null
 	 */
 	private function sanitize_default( $default = '' ) {
@@ -789,8 +791,8 @@ class Column extends Base {
 	 * value is longer than specified.
 	 *
 	 * @since 1.0.0
-	 * @param mixed $value    Default empty string. The decimal value to validate
-	 * @param int   $decimals Default 9. The number of decimal points to accept
+	 * @param mixed $value    Default 0. The decimal value to validate
+	 * @param mixed $decimals Default 9. The number of decimal points to accept
 	 * @return float
 	 */
 	public function validate_decimal( $value = 0, $decimals = 9 ) {
@@ -814,7 +816,7 @@ class Column extends Base {
 		$value = preg_replace( '/[^0-9\.]/', '', (string) $value );
 
 		// Format to number of decimals, and cast as float
-		$formatted = number_format( $value, $decimals, '.', '' );
+		$formatted = (float) number_format( $value, $decimals, '.', '' );
 
 		// Adjust for negative values
 		$retval = $formatted * $negative_exponent;

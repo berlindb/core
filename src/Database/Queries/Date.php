@@ -11,7 +11,9 @@
 namespace BerlinDB\Database\Queries;
 
 // Exit if accessed directly
-defined( 'ABSPATH' ) || exit;
+if ( ! defined( 'ABSPATH' ) ) {
+    exit;
+}
 
 use BerlinDB\Database\Base;
 
@@ -497,12 +499,12 @@ class Date extends Base {
 			 * If multiple years are provided (as in a BETWEEN), use the first one.
 			 */
 			if ( is_array( $date_query['year'] ) ) {
-				$_year = reset( $date_query['year'] );
+				$_year = (int) reset( $date_query['year'] );
 			} else {
-				$_year = $date_query['year'];
+				$_year = (int) $date_query['year'];
 			}
 
-			$max_days_of_year = gmdate( 'z', gmmktime( 0, 0, 0, 12, 31, $_year ) ) + 1;
+			$max_days_of_year = (int) gmdate( 'z', gmmktime( 0, 0, 0, 12, 31, $_year ) ) + 1;
 
 		// Otherwise we use the max of 366 (leap-year)
 		} else {
@@ -539,7 +541,7 @@ class Date extends Base {
 			 * If we have a specific year, use it to calculate number of weeks.
 			 * Note: the number of weeks in a year is the date in which Dec 28 appears.
 			 */
-			$week_count = gmdate( 'W', gmmktime( 0, 0, 0, 12, 28, $_year ) );
+			$week_count = (int) gmdate( 'W', gmmktime( 0, 0, 0, 12, 28, $_year ) );
 
 		// Otherwise set the week-count to a maximum of 53.
 		} else {
@@ -653,8 +655,8 @@ class Date extends Base {
 		 *
 		 * @since 1.0.0
 		 *
-		 * @param string $sql Clauses of the date query.
-		 * @param Date   $this  The Date query instance.
+		 * @param string $sql      Clauses of the date query.
+		 * @param $this  $instance The Date query instance.
 		 */
 		return apply_filters( 'get_date_sql', $sql, $this );
 	}

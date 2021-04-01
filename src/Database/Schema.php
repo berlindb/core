@@ -11,7 +11,9 @@
 namespace BerlinDB\Database;
 
 // Exit if accessed directly
-defined( 'ABSPATH' ) || exit;
+if ( ! defined( 'ABSPATH' ) ) {
+    exit;
+}
 
 /**
  * A base database table schema class, which houses the collection of columns

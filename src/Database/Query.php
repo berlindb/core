@@ -11,7 +11,9 @@
 namespace BerlinDB\Database;
 
 // Exit if accessed directly
-defined( 'ABSPATH' ) || exit;
+if ( ! defined( 'ABSPATH' ) ) {
+    exit;
+}
 
 /**
  * Base class used for querying custom database tables.
@@ -590,7 +592,7 @@ class Query extends Base {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param  array $item_ids Optional array of item IDs
+	 * @param array|string $item_ids Optional array of item IDs
 	 */
 	private function set_found_items( $item_ids = array() ) {
 
@@ -962,8 +964,8 @@ class Query extends Base {
 		 *
 		 * @since 1.0.0
 		 *
-		 * @param array $pieces A compacted array of item query clauses.
-		 * @param Query &$this  Current instance passed by reference.
+		 * @param array $pieces   A compacted array of item query clauses.
+		 * @param $this $instance Current instance passed by reference.
 		 */
 		$clauses = (array) apply_filters_ref_array( $this->apply_prefix( "{$this->item_name_plural}_query_clauses" ), array( $query, &$this ) );
 
@@ -1275,7 +1277,7 @@ class Query extends Base {
 			 *
 			 * @param array  $search_columns Array of column names to be searched.
 			 * @param string $search         Text being searched.
-			 * @param object $this           The current Query instance.
+			 * @param $this  $instance       The current Query instance.
 			 */
 			$search_columns = (array) apply_filters( $this->apply_prefix( "{$this->item_name_plural}_search_columns" ), $search_columns, $this->query_vars['search'], $this );
 
@@ -1336,6 +1338,7 @@ class Query extends Base {
 		// Maybe perform a date query
 		if ( ! empty( $date_query ) && is_array( $date_query ) ) {
 			$this->date_query = $this->get_date_query( $date_query );
+// @FIXME Queries\Date::get_sql() does not accept parameters.
 			$clauses          = $this->date_query->get_sql( $this->table_name, $this->table_alias, $primary, $this );
 
 			// Not all objects are dates, so make sure this one exists
@@ -1541,8 +1544,8 @@ class Query extends Base {
 		 *
 		 * @since 1.0.0
 		 *
-		 * @param array  $retval An array of items.
-		 * @param object &$this  Current instance of Query, passed by reference.
+		 * @param array $retval An array of items.
+		 * @param $this $instance Current instance of Query, passed by reference.
 		 */
 		$retval = (array) apply_filters_ref_array( $this->apply_prefix( "the_{$this->item_name_plural}" ), array( $retval, &$this ) );
 
@@ -2010,7 +2013,7 @@ class Query extends Base {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param mixed ID of item, or row from database
+	 * @param mixed $item ID of item, or row from database
 	 * @return mixed False on error, Object of single-object class type on success
 	 */
 	private function shape_item( $item = 0 ) {
@@ -2179,7 +2182,8 @@ class Query extends Base {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param array $item
+	 * @param array $new_data
+	 * @param array $old_data
 	 * @return array
 	 */
 	private function transition_item( $new_data = array(), $old_data = array() ) {
@@ -2253,7 +2257,7 @@ class Query extends Base {
 	 * @param int    $item_id
 	 * @param string $meta_key
 	 * @param string $meta_value
-	 * @param string $unique
+	 * @param bool   $unique
 	 * @return int|false The meta ID on success, false on failure.
 	 */
 	protected function add_item_meta( $item_id = 0, $meta_key = '', $meta_value = '', $unique = false ) {
@@ -2345,7 +2349,7 @@ class Query extends Base {
 	 * @param int    $item_id
 	 * @param string $meta_key
 	 * @param string $meta_value
-	 * @param string $delete_all
+	 * @param bool   $delete_all
 	 * @return bool True on successful delete, false on failure.
 	 */
 	protected function delete_item_meta( $item_id = 0, $meta_key = '', $meta_value = '', $delete_all = false ) {
@@ -2654,6 +2658,8 @@ class Query extends Base {
 			$singular = rtrim( $this->table_name, 's' ); // sic
 			update_meta_cache( $singular, $item_ids );
 		}
+
+		return true;
 	}
 
 	/**

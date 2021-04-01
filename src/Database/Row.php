@@ -11,7 +11,9 @@
 namespace BerlinDB\Database;
 
 // Exit if accessed directly
-defined( 'ABSPATH' ) || exit;
+if ( ! defined( 'ABSPATH' ) ) {
+    exit;
+}
 
 /**
  * Base database row class.
@@ -33,7 +35,7 @@ class Row extends Base {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param mixed Null by default, Array/Object if not
+	 * @param mixed $item Null by default, Array/Object if not
 	 */
 	public function __construct( $item = null ) {
 		if ( ! empty( $item ) ) {

@@ -11,7 +11,9 @@
 namespace BerlinDB\Database\Queries;
 
 // Exit if accessed directly
-defined( 'ABSPATH' ) || exit;
+if ( ! defined( 'ABSPATH' ) ) {
+    exit;
+}
 
 /**
  * Class used for generating SQL for compare clauses.
@@ -145,7 +147,7 @@ class Compare extends Meta {
 		}
 
 		/*
-		 * Multiple WHERE clauses (for meta_key and meta_value) should
+		 * @TODO Multiple WHERE clauses (for meta_key and meta_value) should
 		 * be joined in parentheses.
 		 */
 		if ( 1 < count( $sql_chunks['where'] ) ) {

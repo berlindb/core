@@ -11,7 +11,9 @@
 namespace BerlinDB\Database;
 
 // Exit if accessed directly
-defined( 'ABSPATH' ) || exit;
+if ( ! defined( 'ABSPATH' ) ) {
+    exit;
+}
 
 /**
  * The base class that all other database base classes extend.
@@ -207,7 +209,7 @@ class Base {
 	 *
 	 * @param string $name The name of the database table
 	 *
-	 * @return string Sanitized database table name
+	 * @return string|false Sanitized database table name
 	 */
 	protected function sanitize_table_name( $name = '' ) {
 
@@ -274,7 +276,7 @@ class Base {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @return \wpdb Database interface, or False if not set
+	 * @return \wpdb|false Database interface, or False if not set
 	 */
 	protected function get_db() {
 
