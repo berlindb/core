@@ -305,7 +305,7 @@ class Query extends Base {
 	 *     @type bool         $no_found_rows     Whether to disable the `SQL_CALC_FOUND_ROWS` query.
 	 *                                           Default true.
 	 *     @type string|array $orderby           Accepts false, an empty array, or 'none' to disable `ORDER BY` clause.
-	 *                                           Default 'id'.
+	 *                                           Default '', to primary column ID.
 	 *     @type string       $item              How to item retrieved items. Accepts 'ASC', 'DESC'.
 	 *                                           Default 'DESC'.
 	 *     @type string       $search            Search term(s) to retrieve matching items for.
@@ -434,12 +434,15 @@ class Query extends Base {
 			? $this->apply_prefix( bin2hex( random_bytes( 18 ) ) )
 			: $this->apply_prefix( uniqid( '_', true ) );
 
+		// Get the primary column name
+		$primary = $this->get_primary_column_name();
+
 		// Default query variables
 		$this->query_var_defaults = array(
 			'fields'            => '',
 			'number'            => 100,
 			'offset'            => '',
-			'orderby'           => 'id',
+			'orderby'           => $primary,
 			'order'             => 'DESC',
 			'groupby'           => '',
 			'search'            => '',
@@ -1441,11 +1444,16 @@ class Query extends Base {
 	 * @param string $orderby Field for the items to be ordered by.
 	 * @return string|false Value to used in the ORDER clause. False otherwise.
 	 */
-	private function parse_orderby( $orderby = 'id' ) {
+	private function parse_orderby( $orderby = '' ) {
 
 		// Default value
 		$primary = $this->get_primary_column_name();
 		$parsed  = "{$this->table_alias}.{$primary}";
+
+		// Default to primary column
+		if ( empty( $orderby ) ) {
+			$orderby = $primary;
+		}
 
 		// __in
 		if ( false !== strstr( $orderby, '__in' ) ) {
