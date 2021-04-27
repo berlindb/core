@@ -2492,7 +2492,7 @@ class Query extends Base {
 
 		// If not empty, return table name
 		if ( ! empty( $db->{$table_name} ) ) {
-			return $table_name;
+			return $db->{$table_name};
 		}
 
 		// Default return false
