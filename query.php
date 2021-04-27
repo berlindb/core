@@ -1907,6 +1907,11 @@ class Query extends Base {
 			return false;
 		}
 
+		// Maybe save meta keys
+		if ( ! empty( $meta ) ) {
+			$this->save_extra_item_meta( $item_id, $meta );
+		}
+
 		// If date-modified exists, use the current time
 		$modified = $this->get_column_by( array( 'modified' => true ) );
 		if ( ! empty( $modified ) ) {
@@ -1925,11 +1930,6 @@ class Query extends Base {
 		// Bail on failure
 		if ( ! $this->is_success( $result ) ) {
 			return false;
-		}
-
-		// Maybe save meta keys
-		if ( ! empty( $meta ) ) {
-			$this->save_extra_item_meta( $item_id, $meta );
 		}
 
 		// Use get item to prime caches
