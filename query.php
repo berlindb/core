@@ -2052,11 +2052,6 @@ class Query extends Base {
 		// Loop through item attributes
 		foreach ( $item as $key => $value ) {
 
-			// Strip slashes from all strings
-			if ( is_string( $value ) ) {
-				$value = stripslashes( $value );
-			}
-
 			// Get the column
 			$column = $this->get_column_by( array( 'name' => $key ) );
 
