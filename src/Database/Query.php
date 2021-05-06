@@ -1770,6 +1770,11 @@ class Query extends Base {
 		$meta    = array_diff_key( $data, $columns );
 		$save    = array_intersect_key( $data, $columns );
 
+		// Bail if nothing to save
+		if ( empty( $save ) && empty( $meta ) ) {
+			return false;
+		}
+
 		// Get the current time (maybe used by created/modified)
 		$time = $this->get_current_time();
 
@@ -1864,6 +1869,11 @@ class Query extends Base {
 	 */
 	public function update_item( $item_id = 0, $data = array() ) {
 
+		// Bail early if no data to update
+		if ( empty( $data ) ) {
+			return false;
+		}
+
 		// Bail if no item ID
 		$item_id = $this->shape_item_id( $item_id );
 		if ( empty( $item_id ) ) {
@@ -1884,13 +1894,16 @@ class Query extends Base {
 		// Cast as an array for easier manipulation
 		$item = (array) $item;
 
-		// Unset the primary key from data to parse
-		unset( $data[ $primary ] );
+		// Unset the primary key from item & data
+		unset(
+			$data[ $primary ],
+			$item[ $primary ]
+		);
 
-		// Splice new data into item, and cut out non-keys for meta
+		// Slice data that has columns, and cut out non-keys for meta
 		$columns = $this->get_column_names();
-		$data    = array_merge( $item, $data );
-		$meta    = array_diff_key( $data, $columns );
+		$meta    = array_diff_key( $item, $columns );
+		$data    = array_diff( $data, $item );
 		$save    = array_intersect_key( $data, $columns );
 
 		// Maybe save meta keys
@@ -1898,15 +1911,12 @@ class Query extends Base {
 			$this->save_extra_item_meta( $item_id, $meta );
 		}
 
-		// Bail if no change
-		if ( (array) $save === (array) $item ) {
-			return true;
+		// Bail if nothing to save
+		if ( empty( $save ) ) {
+			return false;
 		}
 
-		// Unset the primary key from data to save
-		unset( $save[ $primary ] );
-
-		// If date-modified is empty, use the current time
+		// If date-modified exists, use the current time
 		$modified = $this->get_column_by( array( 'modified' => true ) );
 		if ( ! empty( $modified ) ) {
 			$save[ $modified->name ] = $this->get_current_time();
@@ -2051,11 +2061,6 @@ class Query extends Base {
 
 		// Loop through item attributes
 		foreach ( $item as $key => $value ) {
-
-			// Strip slashes from all strings
-			if ( is_string( $value ) ) {
-				$value = stripslashes( $value );
-			}
 
 			// Get the column
 			$column = $this->get_column_by( array( 'name' => $key ) );
@@ -2492,7 +2497,7 @@ class Query extends Base {
 
 		// If not empty, return table name
 		if ( ! empty( $db->{$table_name} ) ) {
-			return $table_name;
+			return $db->{$table_name};
 		}
 
 		// Default return false
