@@ -1770,6 +1770,11 @@ class Query extends Base {
 		$meta    = array_diff_key( $data, $columns );
 		$save    = array_intersect_key( $data, $columns );
 
+		// Bail if nothing to save
+		if ( empty( $save ) && empty( $meta ) ) {
+			return false;
+		}
+
 		// Get the current time (maybe used by created/modified)
 		$time = $this->get_current_time();
 
@@ -1897,19 +1902,18 @@ class Query extends Base {
 
 		// Slice data that has columns, and cut out non-keys for meta
 		$columns = $this->get_column_names();
-		$data    = array_merge( $item, $data );
-		$meta    = array_diff_key( $data, $columns );
-		$diff    = array_diff( $data, $item );
-		$save    = array_intersect_key( $diff, $columns );
-
-		// Bail if nothing to save
-		if ( empty( $save ) && empty( $meta ) ) {
-			return false;
-		}
+		$meta    = array_diff_key( $item, $columns );
+		$data    = array_diff( $data, $item );
+		$save    = array_intersect_key( $data, $columns );
 
 		// Maybe save meta keys
 		if ( ! empty( $meta ) ) {
 			$this->save_extra_item_meta( $item_id, $meta );
+		}
+
+		// Bail if nothing to save
+		if ( empty( $save ) ) {
+			return false;
 		}
 
 		// If date-modified exists, use the current time
