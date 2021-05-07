@@ -1902,8 +1902,8 @@ class Query extends Base {
 
 		// Slice data that has columns, and cut out non-keys for meta
 		$columns = $this->get_column_names();
-		$meta    = array_diff_key( $item, $columns );
 		$data    = array_diff( $data, $item );
+		$meta    = array_diff_key( $data, $columns );
 		$save    = array_intersect_key( $data, $columns );
 
 		// Maybe save meta keys
