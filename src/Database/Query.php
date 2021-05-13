@@ -1304,8 +1304,10 @@ class Query extends Base {
 					$join['meta_query'] = $clauses['join'];
 				}
 
-				// Remove " AND " from meta_query query where clause
+				// Set where
 				if ( ! empty( $clauses['where'] ) ) {
+
+					// Remove " AND " from query query where clause
 					$where['meta_query'] = preg_replace( $and, '', $clauses['where'] );
 				}
 			}
@@ -1325,8 +1327,12 @@ class Query extends Base {
 					$join['compare_query'] = $clauses['join'];
 				}
 
-				// Remove " AND " from query where clause.
-				$where['compare_query'] = preg_replace( $and, '', $clauses['where'] );
+				// Set where
+				if ( ! empty( $clauses['where'] ) ) {
+
+					// Remove " AND " from query where clause.
+					$where['compare_query'] = preg_replace( $and, '', $clauses['where'] );
+				}
 			}
 		}
 
@@ -1348,14 +1354,18 @@ class Query extends Base {
 					$join['date_query'] = $clauses['join'];
 				}
 
-				// Remove " AND " from query where clause.
-				$where['date_query'] = preg_replace( $and, '', $clauses['where'] );
+				// Set where
+				if ( ! empty( $clauses['where'] ) ) {
+
+					// Remove " AND " from query where clause.
+					$where['date_query'] = preg_replace( $and, '', $clauses['where'] );
+				}
 			}
 		}
 
-		// Set where and join clauses
-		$this->query_clauses['where'] = $where;
-		$this->query_clauses['join']  = $join;
+		// Set where and join clauses, removing possible empties
+		$this->query_clauses['where'] = array_filter( $where );
+		$this->query_clauses['join']  = array_filter( $join  );
 	}
 
 	/**
