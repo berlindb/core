@@ -285,11 +285,15 @@ abstract class Table extends Base {
 	}
 
 	/**
-	 * Install a database table by creating the table and setting the version.
+	 * Install a database table
+	 *
+	 * Creates the table and sets the version information if successful.
 	 *
 	 * @since 1.0.0
 	 */
 	public function install() {
+
+		// Try to create the table
 		$created = $this->create();
 
 		// Set the DB version if create was successful
@@ -299,15 +303,20 @@ abstract class Table extends Base {
 	}
 
 	/**
-	 * Destroy a database table by dropping the table and deleting the version.
+	 * Uninstall a database table
+	 *
+	 * Drops the table and deletes the version information if successful and/or
+	 * the table does not exist anymore.
 	 *
 	 * @since 1.0.0
 	 */
 	public function uninstall() {
+
+		// Try to drop the table
 		$dropped = $this->drop();
 
-		// Delete the DB version if drop was successful
-		if ( true === $dropped ) {
+		// Delete the DB version if drop was successful or table does not exist
+		if ( ( true === $dropped ) || ! $this->exists() ) {
 			$this->delete_db_version();
 		}
 	}
