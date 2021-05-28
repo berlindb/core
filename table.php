@@ -349,6 +349,31 @@ abstract class Table extends Base {
 	}
 
 	/**
+	 * Get columns from table.
+	 *
+	 * @since 1.2.0
+	 *
+	 * @return array
+	 */
+	public function columns() {
+
+		// Get the database interface
+		$db = $this->get_db();
+
+		// Bail if no database interface is available
+		if ( empty( $db ) ) {
+			return false;
+		}
+
+		// Query statement
+		$query  = "SHOW FULL COLUMNS FROM {$this->table_name}";
+		$result = $db->get_results( $query );
+
+		// Does the table have columns?
+		return $this->is_success( $result );
+	}
+
+	/**
 	 * Create the table.
 	 *
 	 * @since 1.0.0
