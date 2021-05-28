@@ -371,8 +371,10 @@ abstract class Table extends Base {
 		$query  = "SHOW FULL COLUMNS FROM {$this->table_name}";
 		$result = $db->get_results( $query );
 
-		// Does the table have columns?
-		return $this->is_success( $result );
+		// Return the results
+		return $this->is_success( $result )
+			? $result
+			: false;
 	}
 
 	/**
@@ -468,11 +470,11 @@ abstract class Table extends Base {
 		}
 
 		// Query statement
-		$query   = "DELETE FROM {$this->table_name}";
-		$deleted = $db->query( $query );
+		$query  = "DELETE FROM {$this->table_name}";
+		$result = $db->query( $query );
 
-		// Did the table get emptied?
-		return $deleted;
+		// Return the results
+		return $result;
 	}
 
 	/**
@@ -569,11 +571,11 @@ abstract class Table extends Base {
 		}
 
 		// Query statement
-		$query = "SELECT COUNT(*) FROM {$this->table_name}";
-		$count = $db->get_var( $query );
+		$query  = "SELECT COUNT(*) FROM {$this->table_name}";
+		$result = $db->get_var( $query );
 
 		// Query success/fail
-		return intval( $count );
+		return intval( $result );
 	}
 
 	/**
