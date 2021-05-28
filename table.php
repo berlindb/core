@@ -341,10 +341,8 @@ abstract class Table extends Base {
 		}
 
 		// Query statement
-		$query    = "SHOW TABLES LIKE %s";
-		$like     = $db->esc_like( $this->table_name );
-		$prepared = $db->prepare( $query, $like );
-		$result   = $db->get_var( $prepared );
+		$query  = "SHOW CREATE TABLE {$this->table_name}";
+		$result = $db->query( $query );
 
 		// Does the table exist?
 		return $this->is_success( $result );
