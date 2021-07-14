@@ -2197,7 +2197,7 @@ class Query extends Base {
 	 * @since 1.0.0
 	 *
 	 * @param array $item
-	 * @return array
+	 * @return void
 	 */
 	private function transition_item( $new_data = array(), $old_data = array() ) {
 
@@ -2671,6 +2671,8 @@ class Query extends Base {
 			$singular = rtrim( $this->table_name, 's' ); // sic
 			update_meta_cache( $singular, $item_ids );
 		}
+
+		return true;
 	}
 
 	/**
@@ -2775,6 +2777,8 @@ class Query extends Base {
 
 		// Update last changed
 		$this->update_last_changed_cache();
+
+		return true;
 	}
 
 	/**
