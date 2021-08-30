@@ -1851,7 +1851,7 @@ class Query extends Base {
 		$this->update_item_cache( $item_id );
 
 		// Transition item data
-		$this->transition_item( $save, $item_id );
+		$this->transition_item( $save, array(), $item_id );
 
 		// Return result
 		return $item_id;
@@ -1910,8 +1910,10 @@ class Query extends Base {
 			return false;
 		}
 
-		// Bail if no item ID
+		// Shape the item ID
 		$item_id = $this->shape_item_id( $item_id );
+
+		// Bail if no item ID
 		if ( empty( $item_id ) ) {
 			return false;
 		}
@@ -1976,7 +1978,7 @@ class Query extends Base {
 		$this->update_item_cache( $item_id );
 
 		// Transition item data
-		$this->transition_item( $save, $item );
+		$this->transition_item( $save, $item, $item_id );
 
 		// Return result
 		return $result;
@@ -1992,8 +1994,10 @@ class Query extends Base {
 	 */
 	public function delete_item( $item_id = 0 ) {
 
-		// Bail if no item ID
+		// Shape the item ID
 		$item_id = $this->shape_item_id( $item_id );
+
+		// Bail if no item ID
 		if ( empty( $item_id ) ) {
 			return false;
 		}
@@ -2222,9 +2226,10 @@ class Query extends Base {
 	 *
 	 * @param array $new_data
 	 * @param array $old_data
+	 * @param int   $item_id
 	 * @return array
 	 */
-	private function transition_item( $new_data = array(), $old_data = array() ) {
+	private function transition_item( $new_data = array(), $old_data = array(), $item_id = 0 ) {
 
 		// Look for transition columns
 		$columns = $this->get_columns( array( 'transition' => true ), 'and', 'name' );
@@ -2234,16 +2239,16 @@ class Query extends Base {
 			return;
 		}
 
-		// Get the item ID
-		$item_id = $this->shape_item_id( $old_data );
+		// Shape the item ID
+		$item_id = $this->shape_item_id( $item_id );
 
-		// Bail if item ID cannot be retrieved
+		// Bail if no item ID
 		if ( empty( $item_id ) ) {
 			return;
 		}
 
 		// If no old value(s), it's new
-		if ( ! is_array( $old_data ) ) {
+		if ( empty( $old_data ) || ! is_array( $old_data ) ) {
 			$old_data = $new_data;
 
 			// Set all old values to "new"
@@ -2300,8 +2305,10 @@ class Query extends Base {
 	 */
 	protected function add_item_meta( $item_id = 0, $meta_key = '', $meta_value = '', $unique = false ) {
 
-		// Bail if no meta was returned
+		// Shape the item ID
 		$item_id = $this->shape_item_id( $item_id );
+
+		// Bail if no meta to add
 		if ( empty( $item_id ) || empty( $meta_key ) ) {
 			return false;
 		}
@@ -2330,8 +2337,10 @@ class Query extends Base {
 	 */
 	protected function get_item_meta( $item_id = 0, $meta_key = '', $single = false ) {
 
-		// Bail if no meta was returned
+		// Shape the item ID
 		$item_id = $this->shape_item_id( $item_id );
+
+		// Bail if no meta was returned
 		if ( empty( $item_id ) || empty( $meta_key ) ) {
 			return false;
 		}
@@ -2361,8 +2370,10 @@ class Query extends Base {
 	 */
 	protected function update_item_meta( $item_id = 0, $meta_key = '', $meta_value = '', $prev_value = '' ) {
 
-		// Bail if no meta was returned
+		// Shape the item ID
 		$item_id = $this->shape_item_id( $item_id );
+
+		// Bail if no meta was returned
 		if ( empty( $item_id ) || empty( $meta_key ) ) {
 			return false;
 		}
@@ -2392,8 +2403,10 @@ class Query extends Base {
 	 */
 	protected function delete_item_meta( $item_id = 0, $meta_key = '', $meta_value = '', $delete_all = false ) {
 
-		// Bail if no meta was returned
+		// Shape the item ID
 		$item_id = $this->shape_item_id( $item_id );
+
+		// Bail if no meta was returned
 		if ( empty( $item_id ) || empty( $meta_key ) ) {
 			return false;
 		}
@@ -2437,8 +2450,10 @@ class Query extends Base {
 	 */
 	private function save_extra_item_meta( $item_id = 0, $meta = array() ) {
 
-		// Bail if there is no bulk meta to save
+		// Shape the item ID
 		$item_id = $this->shape_item_id( $item_id );
+
+		// Bail if there is no bulk meta to save
 		if ( empty( $item_id ) || empty( $meta ) ) {
 			return;
 		}
@@ -2474,8 +2489,10 @@ class Query extends Base {
 	 */
 	private function delete_all_item_meta( $item_id = 0 ) {
 
-		// Bail if no meta was returned
+		// Shape the item ID
 		$item_id = $this->shape_item_id( $item_id );
+
+		// Bail if no item ID
 		if ( empty( $item_id ) ) {
 			return;
 		}
@@ -2863,6 +2880,8 @@ class Query extends Base {
 	 * @return array
 	 */
 	private function get_non_cached_ids( $item_ids = array(), $group = '' ) {
+
+		// Default return value
 		$retval = array();
 
 		// Bail if no item IDs
@@ -2872,8 +2891,11 @@ class Query extends Base {
 
 		// Loop through item IDs
 		foreach ( $item_ids as $id ) {
+
+			// Shape the item ID
 			$id = $this->shape_item_id( $id );
 
+			// Add to return value if not cached
 			if ( false === $this->cache_get( $id, $group ) ) {
 				$retval[] = $id;
 			}
