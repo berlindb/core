@@ -4,7 +4,7 @@
  *
  * @package     Database
  * @subpackage  Meta
- * @copyright   Copyright (c) 2020
+ * @copyright   Copyright (c) 2021
  * @license     https://opensource.org/licenses/gpl-2.0.php GNU Public License
  * @since       1.1.0
  */
