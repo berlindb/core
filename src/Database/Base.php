@@ -80,14 +80,10 @@ class Base {
 		// Return property if exists
 		if ( method_exists( $this, $method ) ) {
 			return true;
-
-		// Return get method results if exists
-		} elseif ( property_exists( $this, $key ) ) {
-			return true;
 		}
 
-		// Return false if not exists
-		return false;
+		// Return get method results if exists
+		return property_exists( $this, $key );
 	}
 
 	/**
@@ -240,13 +236,10 @@ class Base {
 		// Remove trailing underscores
 		$clean   = trim( $single, '_' );
 
-		// Bail if table name was garbaged
-		if ( empty( $clean ) ) {
-			return false;
-		}
-
-		// Return the cleaned table name
-		return $clean;
+		// Bail if table name was garbaged or return the cleaned table name
+		return empty( $clean )
+			? false
+			: $clean;
 	}
 
 	/**
@@ -338,6 +331,6 @@ class Base {
 		}
 
 		// Return the result
-		return (bool) $retval;
+		return $retval;
 	}
 }
