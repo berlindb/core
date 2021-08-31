@@ -162,7 +162,7 @@ class Base {
 	 * @since 1.0.0
 	 *
 	 * @param string $string
-	 * @param string $sep
+	 * @param non-empty-string $sep
 	 * @return string
 	 */
 	protected function first_letters( $string = '', $sep = '_' ) {
@@ -213,7 +213,7 @@ class Base {
 	 *
 	 * @param string $name The name of the database table
 	 *
-	 * @return string Sanitized database table name
+	 * @return mixed Sanitized database table name on success, False on error
 	 */
 	protected function sanitize_table_name( $name = '' ) {
 
@@ -280,7 +280,7 @@ class Base {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @return \wpdb Database interface, or False if not set
+	 * @return bool|\wpdb Database interface, or False if not set
 	 */
 	protected function get_db() {
 

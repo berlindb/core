@@ -52,7 +52,7 @@ class Column extends Base {
 	 * See: https://dev.mysql.com/doc/en/storage-requirements.html
 	 *
 	 * @since 1.0.0
-	 * @var   string
+	 * @var   mixed
 	 */
 	public $length = false;
 
@@ -299,7 +299,7 @@ class Column extends Base {
 	 * Use in conjunction with a database index for speedy queries.
 	 *
 	 * @since 1.0.0
-	 * @var   string
+	 * @var   bool
 	 */
 	public $cache_key = false;
 
@@ -374,7 +374,7 @@ class Column extends Base {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param string|array $args {
+	 * @param array|string $args {
 	 *     Optional. Array or query string of order query parameters. Default empty.
 	 *
 	 *     @type string   $name           Name of database column
@@ -664,8 +664,8 @@ class Column extends Base {
 	 * Sanitize the default value
 	 *
 	 * @since 1.0.0
-	 * @param string $default
-	 * @return string|null
+	 * @param int|string|null $default
+	 * @return int|string|null
 	 */
 	private function sanitize_default( $default = '' ) {
 
@@ -811,7 +811,7 @@ class Column extends Base {
 			: 1;
 
 		// Only numbers and period
-		$value = preg_replace( '/[^0-9\.]/', '', (string) $value );
+		$value = (float) preg_replace( '/[^0-9\.]/', '', (string) $value );
 
 		// Format to number of decimals, and cast as float
 		$formatted = number_format( $value, $decimals, '.', '' );
