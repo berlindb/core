@@ -65,7 +65,7 @@ class Date extends Base {
 	 * The value comparison operator. Can be changed via the query arguments.
 	 *
 	 * @since 1.0.0
-	 * @var   array
+	 * @var   string
 	 */
 	public $compare = '=';
 
@@ -73,7 +73,7 @@ class Date extends Base {
 	 * The start of week operator. Can be changed via the query arguments.
 	 *
 	 * @since 1.1.0
-	 * @var   array
+	 * @var   int
 	 */
 	public $start_of_week = 0;
 
@@ -179,7 +179,7 @@ class Date extends Base {
 	 *         @type array  ...$0 {
 	 *             Optional. An array of first-order clause parameters, or another fully-formed date query.
 	 *
-	 *             @type string|array $before {
+	 *             @type array|string $before {
 	 *                 Optional. Date to retrieve posts before. Accepts `strtotime()`-compatible string,
 	 *                 or array of 'year', 'month', 'day' values.
 	 *
@@ -189,7 +189,7 @@ class Date extends Base {
 	 *                 @type string $day   Optional when passing array.The day of the month.
 	 *                                     Default (string:empty)|(array:1). Accepts numbers 1-31.
 	 *             }
-	 *             @type string|array $after {
+	 *             @type array|string $after {
 	 *                 Optional. Date to retrieve posts after. Accepts `strtotime()`-compatible string,
 	 *                 or array of 'year', 'month', 'day' values.
 	 *
@@ -360,7 +360,7 @@ class Date extends Base {
 	 *
 	 * @param array $query A date query or a date subquery.
 	 *
-	 * @return string The current unix timestamp.
+	 * @return int The current unix timestamp.
 	 */
 	public function get_now( $query = array() ) {
 
@@ -435,7 +435,7 @@ class Date extends Base {
 	 *
 	 * @param array $query A date query or a date subquery.
 	 *
-	 * @return string The comparison operator.
+	 * @return int The comparison operator.
 	 */
 	public function get_start_of_week( $query = array() ) {
 
@@ -502,7 +502,7 @@ class Date extends Base {
 				$_year = $date_query['year'];
 			}
 
-			$max_days_of_year = gmdate( 'z', gmmktime( 0, 0, 0, 12, 31, $_year ) ) + 1;
+			$max_days_of_year = (int) gmdate( 'z', gmmktime( 0, 0, 0, 12, 31, $_year ) ) + 1;
 
 		// Otherwise we use the max of 366 (leap-year)
 		} else {
@@ -643,7 +643,7 @@ class Date extends Base {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @return string MySQL WHERE clauses.
+	 * @return array MySQL WHERE clauses.
 	 */
 	public function get_sql() {
 		$sql = $this->get_sql_clauses();
@@ -656,7 +656,7 @@ class Date extends Base {
 		 * @param string $sql Clauses of the date query.
 		 * @param Date   $this  The Date query instance.
 		 */
-		return apply_filters( 'get_date_sql', $sql, $this );
+		return (array) apply_filters( 'get_date_sql', $sql, $this );
 	}
 
 	/**
@@ -681,7 +681,7 @@ class Date extends Base {
 			$sql['where'] = ' AND ' . $sql['where'];
 		}
 
-		return apply_filters( 'get_date_sql_clauses', $sql, $this );
+		return (array) apply_filters( 'get_date_sql_clauses', $sql, $this );
 	}
 
 	/**
@@ -773,7 +773,7 @@ class Date extends Base {
 		}
 
 		// Filter and return
-		return apply_filters( 'get_date_sql_for_query', $sql, $query, $depth, $this );
+		return (array) apply_filters( 'get_date_sql_for_query', $sql, $query, $depth, $this );
 	}
 
 	/**
@@ -893,9 +893,9 @@ class Date extends Base {
 	 * @since 1.0.0
 	 *
 	 * @param string $compare The compare operator to use
-	 * @param string|array $value The value
+	 * @param array|int|string $value The value
 	 *
-	 * @return string|false|int The value to be used in SQL or false on error.
+	 * @return string|bool|int The value to be used in SQL or false on error.
 	 */
 	public function build_numeric_value( $compare = '=', $value = null ) {
 
@@ -952,7 +952,7 @@ class Date extends Base {
 	 * @since 1.0.0
 	 *
 	 * @param string $compare The compare operator to use
-	 * @param string|array $value The value
+	 * @param array|string $value The value
 	 *
 	 * @return string|false|int The value to be used in SQL or false on error.
 	 */
@@ -1013,12 +1013,12 @@ class Date extends Base {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param string|array $datetime       An array of parameters or a strtotime() string
-	 * @param bool         $default_to_max Whether to round up incomplete dates. Supported by values
-	 *                                     of $datetime that are arrays, or string values that are a
-	 *                                     subset of MySQL date format ('Y', 'Y-m', 'Y-m-d', 'Y-m-d H:i').
-	 *                                     Default: false.
-	 * @param string|int   $now            The current unix timestamp.
+	 * @param array|int|string $datetime       An array of parameters or a strtotime() string
+	 * @param bool             $default_to_max Whether to round up incomplete dates. Supported by values
+	 *                                         of $datetime that are arrays, or string values that are a
+	 *                                         subset of MySQL date format ('Y', 'Y-m', 'Y-m-d', 'Y-m-d H:i').
+	 *                                         Default: false.
+	 * @param string|int   $now                The current unix timestamp.
 	 *
 	 * @return string|false A MySQL format date/time or false on failure
 	 */

@@ -355,7 +355,7 @@ abstract class Table extends Base {
 	 *
 	 * @since 1.2.0
 	 *
-	 * @return array
+	 * @return mixed Array on success, False on failure
 	 */
 	public function columns() {
 
