@@ -5,7 +5,7 @@
  * @package     Database
  * @subpackage  Row
  * @copyright   Copyright (c) 2021
- * @license     https://opensource.org/licenses/gpl-2.0.php GNU Public License
+ * @license     https://opensource.org/licenses/MIT MIT
  * @since       1.0.0
  */
 namespace BerlinDB\Database;
