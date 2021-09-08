@@ -4,7 +4,7 @@
  *
  * @package     Database
  * @copyright   Copyright (c) 2021
- * @license     https://opensource.org/licenses/gpl-2.0.php GNU Public License
+ * @license     https://opensource.org/licenses/MIT MIT
  * @since       2.0.0
  */
 
