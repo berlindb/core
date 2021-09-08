@@ -1,0 +1,12 @@
+{
+  "name": "berlindb/core",
+  "description": "A collection of PHP classes and functions that aims to provide an ORM-like experience and interface to WordPress database tables.",
+  "type": "library",
+  "license": "MIT",
+  "require": {},
+  "autoload": {
+    "psr-4": {
+      "BerlinDB\\": "src/"
+    }
+  }
+}

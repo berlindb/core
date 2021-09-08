@@ -4,8 +4,8 @@
  *
  * @package     Database
  * @subpackage  Date
- * @copyright   Copyright (c) 2020
- * @license     https://opensource.org/licenses/gpl-2.0.php GNU Public License
+ * @copyright   Copyright (c) 2021
+ * @license     https://opensource.org/licenses/MIT MIT
  * @since       1.0.0
  */
 namespace BerlinDB\Database\Queries;
@@ -29,7 +29,7 @@ use BerlinDB\Database\Base;
  * return no results. In these cases, a _doing_it_wrong() error notice is also thrown.
  * See Date::validate_date_values().
  *
- * @link https://codex.wordpress.org/Function_Reference/WP_Query Codex page.
+ * @link https://developer.wordpress.org/reference/classes/wp_query/
  *
  * @since 1.0.0
  */
@@ -68,6 +68,22 @@ class Date extends Base {
 	 * @var   array
 	 */
 	public $compare = '=';
+
+	/**
+	 * The start of week operator. Can be changed via the query arguments.
+	 *
+	 * @since 1.1.0
+	 * @var   array
+	 */
+	public $start_of_week = 0;
+
+	/**
+	 * The unix timestamp for this current time.
+	 *
+	 * @since 1.1.0
+	 * @var   int
+	 */
+	public $now = 0;
 
 	/**
 	 * Supported time-related parameter keys.
@@ -149,16 +165,18 @@ class Date extends Base {
 	 * @param array $date_query {
 	 *     Array of date query clauses.
 	 *
-	 *     @type array {
-	 *         @type string $column   Optional. The column to query against. If undefined, inherits the value of
-	 *                                'date_created'. Accepts 'date_created', 'date_created_gmt',
-	 *                                'post_modified','post_modified_gmt', 'comment_date', 'comment_date_gmt'.
-	 *                                Default 'date_created'.
-	 *         @type string $compare  Optional. The comparison operator. Accepts '=', '!=', '>', '>=', '<', '<=',
-	 *                                'IN', 'NOT IN', 'BETWEEN', 'NOT BETWEEN'. Default '='.
-	 *         @type string $relation Optional. The boolean relationship between the date queries. Accepts 'OR' or 'AND'.
-	 *                                Default 'OR'.
-	 *         @type array {
+	 *     @type array ...$0 {
+	 *         @type string $column           Optional. The column to query against. If undefined, inherits the value of
+	 *                                        'date_created'. Accepts 'date_created', 'date_created_gmt',
+	 *                                        'post_modified','post_modified_gmt', 'comment_date', 'comment_date_gmt'.
+	 *                                        Default 'date_created'.
+	 *         @type string $compare          Optional. The comparison operator. Accepts '=', '!=', '>', '>=', '<', '<=',
+	 *                                        'IN', 'NOT IN', 'BETWEEN', 'NOT BETWEEN'. Default '='.
+	 *         @type string $relation         Optional. The boolean relationship between the date queries. Accepts 'OR' or 'AND'.
+	 *                                        Default 'OR'.
+	 *         @type int|array $start_of_week Optional. Day that week starts on. Accepts numbers 0-6
+	 *                                        (0 = Sunday, 1 is Monday). Default 0.
+	 *         @type array  ...$0 {
 	 *             Optional. An array of first-order clause parameters, or another fully-formed date query.
 	 *
 	 *             @type string|array $before {
@@ -190,6 +208,8 @@ class Date extends Base {
 	 *                                               '<', '<=', 'IN', 'NOT IN', 'BETWEEN', 'NOT BETWEEN'. 'IN',
 	 *                                               'NOT IN', 'BETWEEN', and 'NOT BETWEEN'. Comparisons support
 	 *                                               arrays in some time-related parameters. Default '='.
+	 *             @type int|array    $start_of_week Optional. Day that week starts on. Accepts numbers 0-6
+	 *                                               (0 = Sunday, 1 is Monday). Default 0.
 	 *             @type bool         $inclusive     Optional. Include results from dates specified in 'before' or
 	 *                                               'after'. Default false.
 	 *             @type int|array    $year          Optional. The four-digit year number. Accepts any four-digit year
@@ -223,26 +243,25 @@ class Date extends Base {
 		// Setup the defaults
 		$this->set_defaults();
 
-		// Bail if not an array.
-		if ( ! is_array( $date_query ) ) {
+		// Bail if empty or not an array.
+		if ( empty( $date_query ) || ! is_array( $date_query ) ) {
 			return;
 		}
 
+		// Set now, column, compare, relation, and start_of_week.
+		$this->now           = $this->get_now( $date_query );
+		$this->column        = $this->get_column( $date_query );
+		$this->compare       = $this->get_compare( $date_query );
+		$this->relation      = $this->get_relation( $date_query );
+		$this->start_of_week = $this->get_start_of_week( $date_query );
+
 		// Support for passing time-based keys in the top level of the array.
-		if ( ! isset( $date_query[0] ) && ! empty( $date_query ) ) {
+		if ( ! isset( $date_query[0] ) ) {
 			$date_query = array( $date_query );
 		}
 
-		// Bail if empty.
-		if ( empty( $date_query ) ) {
-			return;
-		}
-
-		// Set column, compare, relation, and queries.
-		$this->column   = $this->get_column( $date_query );
-		$this->compare  = $this->get_compare( $date_query );
-		$this->relation = $this->get_relation( $date_query );
-		$this->queries  = $this->sanitize_query( $date_query );
+		// Set the queries
+		$this->queries       = $this->sanitize_query( $date_query );
 	}
 
 	/**
@@ -266,9 +285,11 @@ class Date extends Base {
 
 		// Setup defaults.
 		$defaults = array(
-			'column'   => $this->get_column(),
-			'compare'  => $this->get_compare(),
-			'relation' => $this->get_relation()
+			'now'           => $this->get_now(),
+			'column'        => $this->get_column(),
+			'compare'       => $this->get_compare(),
+			'relation'      => $this->get_relation(),
+			'start_of_week' => $this->get_start_of_week()
 		);
 
 		// Numeric keys should always have array values.
@@ -336,6 +357,25 @@ class Date extends Base {
 	}
 
 	/**
+	 * Determines and validates what the current unix timestamp is.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param array $query A date query or a date subquery.
+	 *
+	 * @return string The current unix timestamp.
+	 */
+	public function get_now( $query = array() ) {
+
+		// Use now if passed
+		$retval = ! empty( $query['now'] ) && is_numeric( $query['now'] )
+			? absint( $query['now'] )
+			: time();
+
+		return $retval;
+	}
+
+	/**
 	 * Determines and validates what comparison operator to use.
 	 *
 	 * @since 1.0.0
@@ -392,6 +432,25 @@ class Date extends Base {
 	}
 
 	/**
+	 * Determines and validates what start_of_week to use.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param array $query A date query or a date subquery.
+	 *
+	 * @return string The comparison operator.
+	 */
+	public function get_start_of_week( $query = array() ) {
+
+		// Use start of week if passed and valid
+		$retval = isset( $query['start_of_week'] ) && ( 6 >= (int) $query['start_of_week'] ) && ( 0 <= (int) $query['start_of_week'] )
+			? $query['start_of_week']
+			: $this->start_of_week;
+
+		return (int) $retval;
+	}
+
+	/**
 	 * Validates the given date_query values.
 	 *
 	 * Note that date queries with invalid date ranges are allowed to
@@ -426,7 +485,7 @@ class Date extends Base {
 			$valid = $this->validate_date_values( $date_query['after'] );
 		}
 
-		// Values are passthroughs
+		// Values are passthroughs.
 		if ( array_key_exists( 'value', $date_query ) ) {
 			$valid = true;
 		}
@@ -446,7 +505,7 @@ class Date extends Base {
 				$_year = $date_query['year'];
 			}
 
-			$max_days_of_year = date( 'z', mktime( 0, 0, 0, 12, 31, $_year ) ) + 1;
+			$max_days_of_year = gmdate( 'z', gmmktime( 0, 0, 0, 12, 31, $_year ) ) + 1;
 
 		// Otherwise we use the max of 366 (leap-year)
 		} else {
@@ -483,13 +542,14 @@ class Date extends Base {
 			 * If we have a specific year, use it to calculate number of weeks.
 			 * Note: the number of weeks in a year is the date in which Dec 28 appears.
 			 */
-			$week_count = date( 'W', mktime( 0, 0, 0, 12, 28, $_year ) );
+			$week_count = gmdate( 'W', gmmktime( 0, 0, 0, 12, 28, $_year ) );
 
 		// Otherwise set the week-count to a maximum of 53.
 		} else {
 			$week_count = 53;
 		}
 
+		// Weeks per year.
 		$min_max_checks['week'] = array(
 			'min' => 1,
 			'max' => $week_count,
@@ -519,7 +579,7 @@ class Date extends Base {
 			'max' => 59,
 		);
 
-		// Concatenate and throw a notice for each invalid value.
+		// Loop through min/max checks.
 		foreach ( $min_max_checks as $key => $check ) {
 
 			// Skip if not in query.
@@ -527,7 +587,7 @@ class Date extends Base {
 				continue;
 			}
 
-			// Throw a notice for each failing value.
+			// Check for invalid values.
 			foreach ( (array) $date_query[ $key ] as $_value ) {
 				$is_between = ( $_value >= $check['min'] ) && ( $_value <= $check['max'] );
 
@@ -537,29 +597,29 @@ class Date extends Base {
 			}
 		}
 
-		// Bail if invalid date
+		// Bail if invalid query.
 		if ( false === $valid ) {
 			return $valid;
 		}
 
+		// Check what kinds of dates are being queried for.
 		$day_exists   = array_key_exists( 'day',   $date_query ) && is_numeric( $date_query['day']   );
 		$month_exists = array_key_exists( 'month', $date_query ) && is_numeric( $date_query['month'] );
 		$year_exists  = array_key_exists( 'year',  $date_query ) && is_numeric( $date_query['year']  );
 
-		if ( ! empty( $day_exists ) && ! empty( $month_exists ) && ! empty( $year_exists ) ) {
+		// Checking at least day & month.
+		if ( ! empty( $day_exists ) && ! empty( $month_exists ) ) {
 
-			// 1. Checking day, month, year combination.
-			if ( ! wp_checkdate( $date_query['month'], $date_query['day'], $date_query['year'], sprintf( '%s-%s-%s', $date_query['year'], $date_query['month'], $date_query['day'] ) ) ) {
-				$valid = false;
-			}
+			// Check for year query, or fallback to 2012 (for flexibility).
+			$year = ! empty( $year_exists )
+				? $date_query['year']
+				: '2012';
 
-		} elseif ( ! empty( $day_exists ) && ! empty( $month_exists ) ) {
+			// Parse the date to check.
+			$to_check = sprintf( '%s-%s-%s', $year, $date_query['month'], $date_query['day'] );
 
-			/*
-			 * 2. checking day, month combination
-			 * We use 2012 because, as a leap year, it's the most permissive.
-			 */
-			if ( ! wp_checkdate( $date_query['month'], $date_query['day'], 2012, sprintf( '2012-%s-%s', $date_query['month'], $date_query['day'] ) ) ) {
+			// Check the date.
+			if ( ! $this->checkdate( $date_query['month'], $date_query['day'], $year, $to_check ) ) {
 				$valid = false;
 			}
 		}
@@ -675,7 +735,7 @@ class Date extends Base {
 					$clause_sql  = $this->get_sql_for_clause( $clause, $query );
 					$where_count = count( $clause_sql['where'] );
 
-					if ( ! $where_count ) {
+					if ( 0 === $where_count ) {
 						$sql_chunks['where'][] = '';
 
 					} elseif ( 1 === $where_count ) {
@@ -739,26 +799,29 @@ class Date extends Base {
 		// The sub-parts of a $where part.
 		$where_parts = array();
 
-		$column    = $this->get_column( $query );
-		$compare   = $this->get_compare( $query );
-		$inclusive = ! empty( $query['inclusive'] );
+		// Get first-order clauses
+		$now           = $this->get_now( $query );
+		$column        = $this->get_column( $query );
+		$compare       = $this->get_compare( $query );
+		$start_of_week = $this->get_start_of_week( $query );
+		$inclusive     = ! empty( $query['inclusive'] );
 
 		// Assign greater-than and less-than values.
 		$lt = '<';
 		$gt = '>';
 
-		if ( $inclusive ) {
+		if ( true === $inclusive ) {
 			$lt .= '=';
 			$gt .= '=';
 		}
 
 		// Range queries.
 		if ( ! empty( $query['after'] ) ) {
-			$where_parts[] = $this->get_db()->prepare( "{$column} {$gt} %s", $this->build_mysql_datetime( $query['after'], ! $inclusive ) );
+			$where_parts[] = $this->get_db()->prepare( "{$column} {$gt} %s", $this->build_mysql_datetime( $query['after'], ! $inclusive, $now ) );
 		}
 
 		if ( ! empty( $query['before'] ) ) {
-			$where_parts[] = $this->get_db()->prepare( "{$column} {$lt} %s", $this->build_mysql_datetime( $query['before'], $inclusive ) );
+			$where_parts[] = $this->get_db()->prepare( "{$column} {$lt} %s", $this->build_mysql_datetime( $query['before'], $inclusive, $now ) );
 		}
 
 		// Specific value queries.
@@ -773,9 +836,9 @@ class Date extends Base {
 		}
 
 		if ( isset( $query['week'] ) && false !== ( $value = $this->build_numeric_value( $compare, $query['week'] ) ) ) {
-			$where_parts[] = _wp_mysql_week( $column ) . " {$compare} {$value}";
+			$where_parts[] = $this->build_mysql_week( $column, $start_of_week ) . " {$compare} {$value}";
 		} elseif ( isset( $query['w'] ) && false !== ( $value = $this->build_numeric_value( $compare, $query['w'] ) ) ) {
-			$where_parts[] = _wp_mysql_week( $column ) . " {$compare} {$value}";
+			$where_parts[] = $this->build_mysql_week( $column, $start_of_week ) . " {$compare} {$value}";
 		}
 
 		if ( isset( $query['dayofyear'] ) && $value = $this->build_numeric_value( $compare, $query['dayofyear'] ) ) {
@@ -860,7 +923,7 @@ class Date extends Base {
 
 			case 'BETWEEN':
 			case 'NOT BETWEEN':
-				if ( ! is_array( $value ) || 2 != count( $value ) ) {
+				if ( ! is_array( $value ) || ( 2 !== count( $value ) ) ) {
 					$value = array( $value, $value );
 				} else {
 					$value = array_values( $value );
@@ -958,13 +1021,11 @@ class Date extends Base {
 	 *                                     of $datetime that are arrays, or string values that are a
 	 *                                     subset of MySQL date format ('Y', 'Y-m', 'Y-m-d', 'Y-m-d H:i').
 	 *                                     Default: false.
+	 * @param string|int   $now            The current unix timestamp.
 	 *
 	 * @return string|false A MySQL format date/time or false on failure
 	 */
-	public function build_mysql_datetime( $datetime = '', $default_to_max = false ) {
-
-		// Get current time
-		$now = time();
+	public function build_mysql_datetime( $datetime = '', $default_to_max = false, $now = 0 ) {
 
 		// Datetime is string
 		if ( is_string( $datetime ) ) {
@@ -1007,12 +1068,30 @@ class Date extends Base {
 					'hour'   => intval( $matches[4] ),
 					'minute' => intval( $matches[5] ),
 				);
-			}
 
-			// If no match is found, we don't support default_to_max.
-			if ( ! is_array( $datetime ) ) {
-				return gmdate( 'Y-m-d H:i:s', strtotime( $datetime, $now ) );
+			// Y-m-d H:i:s
+			} elseif ( preg_match( '/^(\d{4})\-(\d{2})\-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/', $datetime, $matches ) ) {
+				$datetime = array(
+					'year'   => intval( $matches[1] ),
+					'month'  => intval( $matches[2] ),
+					'day'    => intval( $matches[3] ),
+					'hour'   => intval( $matches[4] ),
+					'minute' => intval( $matches[5] ),
+					'second' => intval( $matches[6] ),
+				);
 			}
+		}
+
+		// No match; may be int or string
+		if ( ! is_array( $datetime ) ) {
+
+			// Maybe format or use as-is
+			$datetime = ! is_int( $datetime )
+				? strtotime( $datetime, $now )
+				: absint( $datetime );
+
+			// Return formatted
+			return gmdate( 'Y-m-d H:i:s', $datetime );
 		}
 
 		// Map to ints
@@ -1020,7 +1099,7 @@ class Date extends Base {
 
 		// Year
 		if ( ! isset( $datetime['year'] ) ) {
-			$datetime['year'] = date( 'Y', $now );
+			$datetime['year'] = gmdate( 'Y', $now );
 		}
 
 		// Month
@@ -1033,7 +1112,7 @@ class Date extends Base {
 		// Day
 		if ( ! isset( $datetime['day'] ) ) {
 			$datetime['day'] = ! empty( $default_to_max )
-				? (int) date( 't', mktime( 0, 0, 0, $datetime['month'], 1, $datetime['year'] ) )
+				? (int) gmdate( 't', gmmktime( 0, 0, 0, $datetime['month'], 1, $datetime['year'] ) )
 				: 1;
 		}
 
@@ -1071,6 +1150,49 @@ class Date extends Base {
 	}
 
 	/**
+	 * Return a MySQL expression for selecting the week number based on the
+	 * day that the week starts.
+	 *
+	 * Uses the WordPress site option, if set.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @param string $column        Database column.
+	 * @param int    $start_of_week Day that week starts on. 0 = Sunday.
+	 *
+	 * @return string SQL clause.
+	 */
+	public function build_mysql_week( $column = '', $start_of_week = 0 ) {
+
+		// When does the week start?
+		switch ( $start_of_week ) {
+
+			// Monday
+			case 1:
+				$retval = "WEEK( {$column}, 1 )";
+				break;
+
+			// Tuesday - Saturday
+			case 2:
+			case 3:
+			case 4:
+			case 5:
+			case 6:
+				$retval = "WEEK( DATE_SUB( {$column}, INTERVAL {$start_of_week} DAY ), 0 )";
+				break;
+
+			// Sunday
+			case 0:
+			default:
+				$retval = "WEEK( {$column}, 0 )";
+				break;
+		}
+
+		// Return SQL
+		return $retval;
+	}
+
+	/**
 	 * Builds a query string for comparing time values (hour, minute, second).
 	 *
 	 * If just hour, minute, or second is set than a normal comparison will be done.
@@ -1079,11 +1201,11 @@ class Date extends Base {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param string $column The column to query against. Needs to be pre-validated!
-	 * @param string $compare The comparison operator. Needs to be pre-validated!
-	 * @param int|null $hour Optional. An hour value (0-23).
-	 * @param int|null $minute Optional. A minute value (0-59).
-	 * @param int|null $second Optional. A second value (0-59).
+	 * @param string   $column  The column to query against. Needs to be pre-validated!
+	 * @param string   $compare The comparison operator. Needs to be pre-validated!
+	 * @param int|null $hour    Optional. An hour value (0-23).
+	 * @param int|null $minute  Optional. A minute value (0-59).
+	 * @param int|null $second  Optional. A second value (0-59).
 	 *
 	 * @return string|false A query part or false on failure.
 	 */
@@ -1167,5 +1289,35 @@ class Date extends Base {
 
 		// Return the prepared SQL
 		return $retval;
+	}
+
+	/**
+	 * Test if the supplied date is valid for the Gregorian calendar.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @link https://www.php.net/manual/en/function.checkdate.php
+	 *
+	 * @param int    $month       Month number.
+	 * @param int    $day         Day number.
+	 * @param int    $year        Year number.
+	 * @param string $source_date The date to filter.
+	 *
+	 * @return bool True if valid date, false if not valid date.
+	 */
+	public function checkdate( $month = 0, $day = 0, $year = 0, $source_date = '' ) {
+
+		// Check the date
+		$retval = checkdate( $month, $day, $year );
+
+		/**
+		 * Filters whether the given date is valid for the Gregorian calendar.
+		 *
+		 * @since 1.0.0
+		 *
+		 * @param bool   $checkdate   Whether the given date is valid.
+		 * @param string $source_date Date to check.
+		 */
+		return (bool) apply_filters( 'wp_checkdate', $retval, $source_date );
 	}
 }

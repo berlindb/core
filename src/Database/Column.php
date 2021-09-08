@@ -4,8 +4,8 @@
  *
  * @package     Database
  * @subpackage  Column
- * @copyright   Copyright (c) 2020
- * @license     https://opensource.org/licenses/gpl-2.0.php GNU Public License
+ * @copyright   Copyright (c) 2021
+ * @license     https://opensource.org/licenses/MIT MIT
  * @since       1.0.0
  */
 namespace BerlinDB\Database;
@@ -436,39 +436,39 @@ class Column extends Base {
 		$r = wp_parse_args( $args, array(
 
 			// Table
-			'name'       => '',
-			'type'       => '',
-			'length'     => '',
-			'unsigned'   => false,
-			'zerofill'   => false,
-			'binary'     => false,
-			'allow_null' => false,
-			'default'    => '',
-			'extra'      => '',
-			'encoding'   => $this->get_db()->charset,
-			'collation'  => $this->get_db()->collate,
-			'comment'    => '',
+			'name'          => '',
+			'type'          => '',
+			'length'        => '',
+			'unsigned'      => false,
+			'zerofill'      => false,
+			'binary'        => false,
+			'allow_null'    => false,
+			'default'       => '',
+			'extra'         => '',
+			'encoding'      => $this->get_db()->charset,
+			'collation'     => $this->get_db()->collate,
+			'comment'       => '',
 
 			// Query
-			'pattern'    => false,
-			'searchable' => false,
-			'sortable'   => false,
-			'date_query' => false,
-			'transition' => false,
-			'in'         => true,
-			'not_in'     => true,
+			'pattern'       => false,
+			'searchable'    => false,
+			'sortable'      => false,
+			'date_query'    => false,
+			'transition'    => false,
+			'in'            => true,
+			'not_in'        => true,
 
 			// Special
-			'primary'    => false,
-			'created'    => false,
-			'modified'   => false,
-			'uuid'       => false,
+			'primary'       => false,
+			'created'       => false,
+			'modified'      => false,
+			'uuid'          => false,
 
 			// Cache
-			'cache_key'  => false,
+			'cache_key'     => false,
 
 			// Validation
-			'validate'   => '',
+			'validate'      => '',
 
 			// Capabilities
 			'caps'          => array(),
@@ -508,7 +508,7 @@ class Column extends Base {
 			'zerofill'      => 'wp_validate_boolean',
 			'binary'        => 'wp_validate_boolean',
 			'allow_null'    => 'wp_validate_boolean',
-			'default'       => 'wp_kses_data',
+			'default'       => array( $this, 'sanitize_default' ),
 			'extra'         => 'wp_kses_data',
 			'encoding'      => 'wp_kses_data',
 			'collation'     => 'wp_kses_data',
@@ -664,13 +664,41 @@ class Column extends Base {
 	}
 
 	/**
+	 * Sanitize the default value
+	 *
+	 * @since 1.0.0
+	 * @param string $default
+	 * @return string|null
+	 */
+	private function sanitize_default( $default = '' ) {
+
+		// Null
+		if ( ( true === $this->allow_null ) && is_null( $default ) ) {
+			return null;
+
+		// String
+		} elseif ( is_string( $default ) ) {
+			return wp_kses_data( $default );
+
+		// Integer
+		} elseif ( $this->is_numeric() ) {
+			return (int) $default;
+		}
+
+		// @todo datetime, decimal, and other column types
+
+		// Unknown, so return the default's default
+		return '';
+	}
+
+	/**
 	 * Sanitize the pattern
 	 *
 	 * @since 1.0.0
-	 * @param mixed $pattern
+	 * @param string $pattern
 	 * @return string
 	 */
-	private function sanitize_pattern( $pattern = false ) {
+	private function sanitize_pattern( $pattern = '%s' ) {
 
 		// Allowed patterns
 		$allowed_patterns = array( '%s', '%d', '%f' );
@@ -713,7 +741,7 @@ class Column extends Base {
 			$callback = array( $this, 'validate_decimal' );
 
 		// Intval fallback
-		} elseif ( $this->is_type( array( 'tinyint', 'int' ) ) ) {
+		} elseif ( $this->is_numeric() ) {
 			$callback = 'intval';
 		}
 
@@ -732,20 +760,20 @@ class Column extends Base {
 	 * updated to support different default values based on the environment.
 	 *
 	 * @since 1.0.0
-	 * @param string $value Default '0000-00-00 00:00:00'. A datetime value that needs validating
+	 * @param string $value Default ''. A datetime value that needs validating
 	 * @return string A valid datetime value
 	 */
-	public function validate_datetime( $value = '0000-00-00 00:00:00' ) {
+	public function validate_datetime( $value = '' ) {
 
 		// Handle "empty" values
 		if ( empty( $value ) || ( '0000-00-00 00:00:00' === $value ) ) {
 			$value = ! empty( $this->default )
 				? $this->default
-				: '0000-00-00 00:00:00';
+				: '';
 
-		// Convert to MySQL datetime format via date() && strtotime
-		} elseif ( function_exists( 'date' ) ) {
-			$value = date( 'Y-m-d H:i:s', strtotime( $value ) );
+		// Convert to MySQL datetime format via gmdate() && strtotime
+		} elseif ( function_exists( 'gmdate' ) ) {
+			$value = gmdate( 'Y-m-d H:i:s', strtotime( $value ) );
 		}
 
 		// Return the validated value

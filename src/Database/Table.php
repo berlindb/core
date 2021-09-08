@@ -4,8 +4,8 @@
  *
  * @package     Database
  * @subpackage  Table
- * @copyright   Copyright (c) 2020
- * @license     https://opensource.org/licenses/gpl-2.0.php GNU Public License
+ * @copyright   Copyright (c) 2021
+ * @license     https://opensource.org/licenses/MIT MIT
  * @since       1.0.0
  */
 namespace BerlinDB\Database;
@@ -63,14 +63,6 @@ abstract class Table extends Base {
 	 * @var   bool
 	 */
 	protected $global = false;
-
-	/**
-	 * Passed directly into register_activation_hook()
-	 *
-	 * @since 1.0.0
-	 * @var   string
-	 */
-	protected $file = '';
 
 	/**
 	 * Database version key (saved in _options or _sitemeta)
@@ -296,11 +288,15 @@ abstract class Table extends Base {
 	}
 
 	/**
-	 * Install a database table by creating the table and setting the version.
+	 * Install a database table
+	 *
+	 * Creates the table and sets the version information if successful.
 	 *
 	 * @since 1.0.0
 	 */
 	public function install() {
+
+		// Try to create the table
 		$created = $this->create();
 
 		// Set the DB version if create was successful
@@ -310,15 +306,20 @@ abstract class Table extends Base {
 	}
 
 	/**
-	 * Destroy a database table by dropping the table and deleting the version.
+	 * Uninstall a database table
+	 *
+	 * Drops the table and deletes the version information if successful and/or
+	 * the table does not exist anymore.
 	 *
 	 * @since 1.0.0
 	 */
 	public function uninstall() {
+
+		// Try to drop the table
 		$dropped = $this->drop();
 
-		// Delete the DB version if drop was successful
-		if ( true === $dropped ) {
+		// Delete the DB version if drop was successful or table does not exist
+		if ( ( true === $dropped ) || ! $this->exists() ) {
 			$this->delete_db_version();
 		}
 	}
@@ -339,7 +340,7 @@ abstract class Table extends Base {
 
 		// Bail if no database interface is available
 		if ( empty( $db ) ) {
-			return;
+			return false;
 		}
 
 		// Query statement
@@ -350,6 +351,33 @@ abstract class Table extends Base {
 
 		// Does the table exist?
 		return $this->is_success( $result );
+	}
+
+	/**
+	 * Get columns from table.
+	 *
+	 * @since 1.2.0
+	 *
+	 * @return array
+	 */
+	public function columns() {
+
+		// Get the database interface
+		$db = $this->get_db();
+
+		// Bail if no database interface is available
+		if ( empty( $db ) ) {
+			return false;
+		}
+
+		// Query statement
+		$query  = "SHOW FULL COLUMNS FROM {$this->table_name}";
+		$result = $db->get_results( $query );
+
+		// Return the results
+		return $this->is_success( $result )
+			? $result
+			: false;
 	}
 
 	/**
@@ -366,7 +394,7 @@ abstract class Table extends Base {
 
 		// Bail if no database interface is available
 		if ( empty( $db ) ) {
-			return;
+			return false;
 		}
 
 		// Query statement
@@ -382,7 +410,7 @@ abstract class Table extends Base {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @return mixed
+	 * @return bool
 	 */
 	public function drop() {
 
@@ -391,7 +419,7 @@ abstract class Table extends Base {
 
 		// Bail if no database interface is available
 		if ( empty( $db ) ) {
-			return;
+			return false;
 		}
 
 		// Query statement
@@ -407,7 +435,7 @@ abstract class Table extends Base {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @return mixed
+	 * @return bool
 	 */
 	public function truncate() {
 
@@ -416,7 +444,7 @@ abstract class Table extends Base {
 
 		// Bail if no database interface is available
 		if ( empty( $db ) ) {
-			return;
+			return false;
 		}
 
 		// Query statement
@@ -432,7 +460,7 @@ abstract class Table extends Base {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @return mixed
+	 * @return bool
 	 */
 	public function delete_all() {
 
@@ -441,15 +469,15 @@ abstract class Table extends Base {
 
 		// Bail if no database interface is available
 		if ( empty( $db ) ) {
-			return;
+			return false;
 		}
 
 		// Query statement
-		$query   = "DELETE FROM {$this->table_name}";
-		$deleted = $db->query( $query );
+		$query  = "DELETE FROM {$this->table_name}";
+		$result = $db->query( $query );
 
-		// Did the table get emptied?
-		return $deleted;
+		// Return the results
+		return $result;
 	}
 
 	/**
@@ -461,7 +489,7 @@ abstract class Table extends Base {
 	 *
 	 * @param string $new_table_name The name of the new table, without prefix
 	 *
-	 * @return mixed
+	 * @return bool
 	 */
 	public function clone( $new_table_name = '' ) {
 
@@ -470,7 +498,7 @@ abstract class Table extends Base {
 
 		// Bail if no database interface is available
 		if ( empty( $db ) ) {
-			return;
+			return false;
 		}
 
 		// Sanitize the new table name
@@ -478,7 +506,7 @@ abstract class Table extends Base {
 
 		// Bail if new table name is invalid
 		if ( empty( $table_name ) ) {
-			return;
+			return false;
 		}
 
 		// Query statement
@@ -499,7 +527,7 @@ abstract class Table extends Base {
 	 *
 	 * @param string $new_table_name The name of the new table, without prefix
 	 *
-	 * @return mixed
+	 * @return bool
 	 */
 	public function copy( $new_table_name = '' ) {
 
@@ -508,7 +536,7 @@ abstract class Table extends Base {
 
 		// Bail if no database interface is available
 		if ( empty( $db ) ) {
-			return;
+			return false;
 		}
 
 		// Sanitize the new table name
@@ -516,7 +544,7 @@ abstract class Table extends Base {
 
 		// Bail if new table name is invalid
 		if ( empty( $table_name ) ) {
-			return;
+			return false;
 		}
 
 		// Query statement
@@ -533,7 +561,7 @@ abstract class Table extends Base {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @return mixed
+	 * @return int
 	 */
 	public function count() {
 
@@ -542,15 +570,15 @@ abstract class Table extends Base {
 
 		// Bail if no database interface is available
 		if ( empty( $db ) ) {
-			return;
+			return 0;
 		}
 
 		// Query statement
-		$query = "SELECT COUNT(*) FROM {$this->table_name}";
-		$count = $db->get_var( $query );
+		$query  = "SELECT COUNT(*) FROM {$this->table_name}";
+		$result = $db->get_var( $query );
 
 		// Query success/fail
-		return $count;
+		return intval( $result );
 	}
 
 	/**
@@ -569,7 +597,7 @@ abstract class Table extends Base {
 
 		// Bail if no database interface is available
 		if ( empty( $db ) ) {
-			return;
+			return false;
 		}
 
 		// Query statement
@@ -599,13 +627,18 @@ abstract class Table extends Base {
 
 		// Bail if no database interface is available
 		if ( empty( $db ) ) {
-			return;
+			return false;
+		}
+
+		// Limit $column to Key or Column name, until we can do better
+		if ( ! in_array( $column, array( 'Key_name', 'Column_name' ), true ) ) {
+			$column = 'Key_name';
 		}
 
 		// Query statement
-		$query    = "SHOW INDEXES FROM {$this->table_name} WHERE %s LIKE %s";
+		$query    = "SHOW INDEXES FROM {$this->table_name} WHERE {$column} LIKE %s";
 		$like     = $db->esc_like( $name );
-		$prepared = $db->prepare( $query, $column, $like );
+		$prepared = $db->prepare( $query, $like );
 		$result   = $db->query( $prepared );
 
 		// Does the index exist?
@@ -619,7 +652,7 @@ abstract class Table extends Base {
 	 *
 	 * @since 1.0.0
 	 *
-	 * return bool
+	 * @return bool
 	 */
 	public function upgrade() {
 
@@ -749,12 +782,22 @@ abstract class Table extends Base {
 			return;
 		}
 
+		// Separator
+		$glue = '_';
+
 		// Setup the prefixed name
-		$this->prefixed_name = $this->apply_prefix( $this->name );
+		$this->prefixed_name = $this->apply_prefix( $this->name, $glue );
 
 		// Maybe create database key
 		if ( empty( $this->db_version_key ) ) {
-			$this->db_version_key = "wpdb_{$this->prefixed_name}_version";
+			$this->db_version_key = implode(
+				$glue,
+				array(
+					sanitize_key( $this->db_global ),
+					$this->prefixed_name,
+					'version'
+				)
+			);
 		}
 	}
 
@@ -856,8 +899,8 @@ abstract class Table extends Base {
 	 */
 	private function delete_db_version() {
 		$this->db_version = $this->is_global()
-			? delete_network_option( get_main_network_id(), $this->db_version_key, false )
-			:         delete_option(                        $this->db_version_key, false );
+			? delete_network_option( get_main_network_id(), $this->db_version_key )
+			:         delete_option(                        $this->db_version_key );
 	}
 
 	/**
@@ -866,9 +909,6 @@ abstract class Table extends Base {
 	 * @since 1.0.0
 	 */
 	private function add_hooks() {
-
-		// Activation hook
-		register_activation_hook( $this->file, array( $this, 'maybe_upgrade' ) );
 
 		// Add table to the global database object
 		add_action( 'switch_blog', array( $this, 'switch_blog'   ) );
