@@ -1851,7 +1851,7 @@ class Query extends Base {
 		$this->update_item_cache( $item_id );
 
 		// Transition item data
-		$this->transition_item( $save, array(), $item_id );
+		$this->transition_item( $item_id, $save, array() );
 
 		// Return result
 		return $item_id;
@@ -1978,7 +1978,7 @@ class Query extends Base {
 		$this->update_item_cache( $item_id );
 
 		// Transition item data
-		$this->transition_item( $save, $item, $item_id );
+		$this->transition_item( $item_id, $save, $item );
 
 		// Return result
 		return $result;
@@ -2224,11 +2224,11 @@ class Query extends Base {
 	 *
 	 * @since 1.0.0
 	 *
+	 * @param int   $item_id
 	 * @param array $new_data
 	 * @param array $old_data
-	 * @param int   $item_id
 	 */
-	private function transition_item( $new_data = array(), $old_data = array(), $item_id = 0 ) {
+	private function transition_item( $item_id = 0, $new_data = array(), $old_data = array() ) {
 
 		// Look for transition columns
 		$columns = $this->get_columns( array( 'transition' => true ), 'and', 'name' );
