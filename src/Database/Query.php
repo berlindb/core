@@ -166,6 +166,7 @@ class Query extends Base {
 	protected $query_clauses = array(
 		'select'  => '',
 		'from'    => '',
+		'join'    => array(),
 		'where'   => array(),
 		'groupby' => '',
 		'orderby' => '',
@@ -181,6 +182,7 @@ class Query extends Base {
 	protected $request_clauses = array(
 		'select'  => '',
 		'from'    => '',
+		'join'    => '',
 		'where'   => '',
 		'groupby' => '',
 		'orderby' => '',
@@ -584,11 +586,12 @@ class Query extends Base {
 		// Select & From
 		$table  = $this->get_table_name();
 		$select = "SELECT {$found_rows} {$fields}";
-		$from   = "FROM {$table} {$this->table_alias} {$join}";
+		$from   = "FROM {$table} {$this->table_alias}";
 
 		// Put query into clauses array
 		$this->request_clauses['select']  = $select;
 		$this->request_clauses['from']    = $from;
+		$this->request_clauses['join']    = $join;
 		$this->request_clauses['where']   = $where;
 		$this->request_clauses['groupby'] = $groupby;
 		$this->request_clauses['orderby'] = $orderby;
