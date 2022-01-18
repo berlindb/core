@@ -153,11 +153,7 @@ class Query extends Base {
 	 * @since 2.1.0
 	 * @var   array
 	 */
-	protected $query_handlers = array(
-		'meta'    => __NAMESPACE__ . '\\Queries\\Meta',
-		'date'    => __NAMESPACE__ . '\\Queries\\Date',
-		'compare' => __NAMESPACE__ . '\\Queries\\Compare'
-	);
+	protected $query_handlers = array();
 
 	/** Clauses ***************************************************************/
 
@@ -313,6 +309,7 @@ class Query extends Base {
 		$this->set_prefix();
 		$this->set_columns();
 		$this->set_item_shape();
+		$this->set_query_handlers();
 		$this->set_query_var_defaults();
 
 		// Maybe execute a query if arguments were passed
@@ -386,7 +383,7 @@ class Query extends Base {
 	private function set_columns() {
 
 		// Bail if no table schema
-		if ( ! class_exists( $this->table_schema ) ) {
+		if ( empty( $this->table_schema ) || ! class_exists( $this->table_schema ) ) {
 			return;
 		}
 
@@ -407,6 +404,21 @@ class Query extends Base {
 	private function set_item_shape() {
 		if ( empty( $this->item_shape ) || ! class_exists( $this->item_shape ) ) {
 			$this->item_shape = __NAMESPACE__ . '\\Row';
+		}
+	}
+
+	/**
+	 * Set query handlers.
+	 *
+	 * @since 1.0.0
+	 */
+	private function set_query_handlers() {
+		if ( empty( $this->query_handlers ) ) {
+			$this->query_handlers = array(
+				'meta'    => __NAMESPACE__ . '\\Queries\\Meta',
+				'date'    => __NAMESPACE__ . '\\Queries\\Date',
+				'compare' => __NAMESPACE__ . '\\Queries\\Compare'
+			);
 		}
 	}
 
@@ -697,7 +709,7 @@ class Query extends Base {
 	/** Private Getters *******************************************************/
 
 	/**
-	 * Pass-through method to return a new Query object.
+	 * Return a new Query Handler object, if it exists.
 	 *
 	 * @since 2.1.0
 	 * @param string $query
@@ -949,7 +961,7 @@ class Query extends Base {
 	 */
 	private function get_item_ids() {
 
-		// Parse where/join clauses
+		// Parse join/where clauses
 		$this->parse_where();
 
 		// Order & Order By
@@ -969,9 +981,9 @@ class Query extends Base {
 			$limits = '';
 		}
 
-		// Where & Join
-		$where = implode( ' AND ', $this->query_clauses['where'] );
+		// Join & Where
 		$join  = implode( ', ',    $this->query_clauses['join']  );
+		$where = implode( ' AND ', $this->query_clauses['where'] );
 
 		// Group by
 		$groupby = $this->parse_groupby( $this->query_vars['groupby'] );
@@ -1176,7 +1188,7 @@ class Query extends Base {
 		$methods = array(
 			'parse_where_columns',
 			'parse_where_search',
-			'parse_where_queries'
+			'parse_where_query_handlers'
 		);
 
 		// Default results
@@ -1187,17 +1199,17 @@ class Query extends Base {
 			$results[] = $this->{$method}();
 		}
 
-		// Pluck where & join from results
-		$where = wp_list_pluck( $results, 'where' );
+		// Pluck join/where from results
 		$join  = wp_list_pluck( $results, 'join' );
+		$where = wp_list_pluck( $results, 'where' );
 
-		// Set where and join clauses, removing possible empties
-		$this->query_clauses['where'] = call_user_func_array( 'array_merge', $where );
+		// Set join/where subclauses to merged results
 		$this->query_clauses['join']  = call_user_func_array( 'array_merge', $join );
+		$this->query_clauses['where'] = call_user_func_array( 'array_merge', $where );
 	}
 
 	/**
-	 * Parse where/join clauses for all columns.
+	 * Parse join/where subclauses for all columns.
 	 *
 	 * Used by parse_where().
 	 *
@@ -1208,8 +1220,8 @@ class Query extends Base {
 
 		// Defaults
 		$retval = array(
-			'where' => array(),
-			'join'  => array()
+			'join'  => array(),
+			'where' => array()
 		);
 
 		// All column names
@@ -1321,12 +1333,12 @@ class Query extends Base {
 			}
 		}
 
-		// Return where/join clauses
+		// Return join/where subclauses
 		return $retval;
 	}
 
 	/**
-	 * Parse where/join clauses for search queries.
+	 * Parse join/where subclauses for search queries.
 	 *
 	 * Used by parse_where().
 	 *
@@ -1346,8 +1358,8 @@ class Query extends Base {
 
 		// Defaults
 		$retval = array(
-			'where' => array(),
-			'join'  => array()
+			'join'  => array(),
+			'where' => array()
 		);
 
 		// Bail if no search
@@ -1390,24 +1402,24 @@ class Query extends Base {
 		// Add where clause
 		$retval['where']['search'] = $this->get_search_sql( $this->query_vars['search'], $search_columns );
 
-		// Return where/join clauses
+		// Return join/where subclauses
 		return $retval;
 	}
 
 	/**
-	 * Parse where/join clauses for query objects.
+	 * Parse join/where subclauses for query handler objects.
 	 *
 	 * Used by parse_where().
 	 *
 	 * @since 2.1.0
 	 * @return array
 	 */
-	private function parse_where_queries() {
+	private function parse_where_query_handlers() {
 
 		// Defaults
 		$retval = array(
-			'where' => array(),
-			'join'  => array()
+			'join'  => array(),
+			'where' => array()
 		);
 
 		// Bail if no queries
@@ -1416,52 +1428,68 @@ class Query extends Base {
 		}
 
 		// Get query handlers
-		$handlers = array_keys( $this->query_handlers );
+		$handlers = array_filter( array_keys( $this->query_handlers ) );
 
-		// Get the primary column name
-		$primary = $this->get_primary_column_name();
-
-		// Get the meta table
-		$table   = $this->get_meta_type();
+		// Query clause arguments
+		$args = array(
+			'table_name'     => $this->table_name,
+			'table_alias'    => $this->table_alias,
+			'primary_column' => $this->get_primary_column_name(),
+			'meta_type'      => $this->get_meta_type(),
+			'query'          => $this
+		);
 
 		// Loop through queries
 		foreach ( $handlers as $id ) {
 
+			// Skip
+			if ( empty( $id ) ) {
+				continue;
+			}
+
 			// Build the key
-			$key = strtolower( $id ) . '_query';
+			$key = sanitize_key( $id ) . '_query';
 
 			// Skip if no query vars
 			if ( empty( $this->query_vars[ $key ] ) || ! is_array( $this->query_vars[ $key ] ) ) {
 				continue;
 			}
 
-			// Try to get the query
-			$this->{$key} = $this->get_query_handler( $id, $this->query_vars[ $key ] );
+			// Try to get the query handler
+			$handler = $this->get_query_handler( $id, $this->query_vars[ $key ] );
 
-			// Try to get the query clauses
-			$clauses = method_exists( $this->{$key}, 'get_sql' )
-				? $this->{$key}->get_sql( $table, $this->table_alias, $primary, $this )
+			// Skip f no query handler
+			if ( empty( $handler ) ) {
+				continue;
+			}
+
+			// Set the key
+			$this->{$key} = $handler;
+
+			// Try to get the query subclauses
+			$subclauses = method_exists( $this->{$key}, 'subclauses' )
+				? $this->{$key}->subclauses( $args )
 				: false;
 
-			// Skip if no query clauses
-			if ( false === $clauses ) {
+			// Skip if no query subclauses
+			if ( false === $subclauses ) {
 				continue;
 			}
 
 			// Set join
-			if ( ! empty( $clauses['join'] ) ) {
-				$retval['join'][ $key ] = $clauses['join'];
+			if ( ! empty( $subclauses['join'] ) ) {
+				$retval['join'][ $key ] = $subclauses['join'];
 			}
 
 			// Set where
-			if ( ! empty( $clauses['where'] ) ) {
+			if ( ! empty( $subclauses['where'] ) ) {
 
-				// Remove " AND " from query query where clause
-				$retval['where'][ $key ] = preg_replace( '/^\s*AND\s*/', '', $clauses['where'] );
+				// Remove " AND " from where subclauses
+				$retval['where'][ $key ] = preg_replace( '/^\s*AND\s*/', '', $subclauses['where'] );
 			}
 		}
 
-		// Return where/join clauses
+		// Return join/where subclauses
 		return $retval;
 	}
 
