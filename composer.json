@@ -8,5 +8,10 @@
     "psr-4": {
       "BerlinDB\\": "src/"
     }
+  },
+  "config": {
+    "allow-plugins": {
+      "phpstan/extension-installer": true
+    }
   }
 }
