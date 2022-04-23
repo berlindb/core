@@ -46,6 +46,6 @@ spl_autoload_register(
 		}
 
 		// Require the file.
-		require_once $file;
+		require $file;
 	}
 );
