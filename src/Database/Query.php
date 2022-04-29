@@ -1447,7 +1447,7 @@ class Query extends Base {
 		$columns   = array_flip( $this->get_column_names() );
 
 		// Get the intersection of allowed column names to groupby columns
-		$intersect = array_intersect( $columns, $groupby );
+		$intersect = array_intersect( $groupby, $columns );
 
 		// Bail if invalid column
 		if ( empty( $intersect ) ) {
