@@ -306,7 +306,7 @@ class Query extends Base {
 	 *                                           Default true.
 	 *     @type array|string $orderby           Accepts false, an empty array, or 'none' to disable `ORDER BY` clause.
 	 *                                           Default '', to primary column ID.
-	 *     @type string       $item              How to item retrieved items. Accepts 'ASC', 'DESC'.
+	 *     @type string       $order             How to order retrieved items. Accepts 'ASC', 'DESC'.
 	 *                                           Default 'DESC'.
 	 *     @type string       $search            Search term(s) to retrieve matching items for.
 	 *                                           Default empty.
@@ -1447,7 +1447,7 @@ class Query extends Base {
 		$columns   = array_flip( $this->get_column_names() );
 
 		// Get the intersection of allowed column names to groupby columns
-		$intersect = array_intersect( $columns, $groupby );
+		$intersect = array_intersect( $groupby, $columns );
 
 		// Bail if invalid column
 		if ( empty( $intersect ) ) {
