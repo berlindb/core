@@ -2035,6 +2035,16 @@ class Query extends Base {
 		$this->delete_all_item_meta( $item_id );
 		$this->clean_item_cache( $item );
 
+		/**
+		 * Fires after an object has been deleted.
+		 *
+		 * @since 2.1.0
+		 *
+		 * @param int   $item_id The ID of the item that was deleted.
+		 * @param bool  $result  Whether the item was successfully deleted.
+		 */
+		do_action( $this->apply_prefix( "{$this->item_name}_deleted" ), $item_id, $result );
+
 		// Return result
 		return $result;
 	}
