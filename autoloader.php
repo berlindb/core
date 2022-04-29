@@ -23,6 +23,7 @@ spl_autoload_register(
 	static function ( $class_name = '' ) {
 
 		// Project namespace & length.
+		$root_namespace = 'BerlinDB\\';
 		$project_namespace = 'BerlinDB\\Database\\';
 		$length            = strlen( $project_namespace );
 
@@ -34,7 +35,7 @@ spl_autoload_register(
 		// Setup file parts.
 		$format = '%1$s/src/%2$s.php';
 		$path   = __DIR__;
-		$name   = str_replace( '\\', '/', substr( $class_name, $length ) );
+		$name   = str_replace( '\\', DIRECTORY_SEPARATOR, str_replace( $root_namespace, '', $class_name ) );
 
 		// Parse class and namespace to file.
 		$file   = sprintf( $format, $path, $name );
@@ -45,6 +46,6 @@ spl_autoload_register(
 		}
 
 		// Require the file.
-		require_once $file;
+		require $file;
 	}
 );
