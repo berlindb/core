@@ -214,6 +214,8 @@ class Column extends Base {
 	 * manually to `%s|%d|%f` only if you are doing something weird, or are
 	 * explicitly storing numeric values in text-based column types.
 	 *
+	 * See: https://www.php.net/manual/en/function.printf.php
+	 *
 	 * @since 1.0.0
 	 * @var   string
 	 */
@@ -389,7 +391,7 @@ class Column extends Base {
 	 *     @type string   $encoding       Typically inherited from wpdb
 	 *     @type string   $collation      Typically inherited from wpdb
 	 *     @type string   $comment        Typically empty
-	 *     @type bool     $pattern        What is the string-replace pattern?
+	 *     @type string   $pattern        Pattern used to format the value
 	 *     @type bool     $primary        Is this the primary column?
 	 *     @type bool     $created        Is this the column used as a created date?
 	 *     @type bool     $modified       Is this the column used as a modified date?
@@ -447,7 +449,7 @@ class Column extends Base {
 			'comment'       => '',
 
 			// Query
-			'pattern'       => false,
+			'pattern'       => '',
 			'searchable'    => false,
 			'sortable'      => false,
 			'date_query'    => false,
@@ -569,6 +571,7 @@ class Column extends Base {
 			$args['name']       = 'uuid';
 			$args['type']       = 'varchar';
 			$args['length']     = '100';
+			$args['pattern']    = '%s';
 			$args['in']         = false;
 			$args['not_in']     = false;
 			$args['searchable'] = false;
@@ -705,7 +708,7 @@ class Column extends Base {
 			return $pattern;
 		}
 
-		// Fallback to digit or string
+		// Fallback to signed decimal if numeric; otherwise: string
 		return $this->is_numeric()
 			? '%d'
 			: '%s';
