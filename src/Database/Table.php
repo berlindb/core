@@ -121,6 +121,17 @@ abstract class Table extends Base {
 	protected $charset_collation = '';
 
 	/**
+	 * Typically empty; probably ignore.
+	 *
+	 * By default, tables do not have comments. This is unused by any other
+	 * relative code, but you can include less than 1024 characters here.
+	 *
+	 * @since 2.1.0
+	 * @var   string
+	 */
+	protected $comment = '';
+
+	/**
 	 * Key => value array of versions => methods.
 	 *
 	 * @since 1.0.0
@@ -412,8 +423,26 @@ abstract class Table extends Base {
 			return false;
 		}
 
+		// Bail if schema not initialized (tables need at least 1 column)
+		if ( empty( $this->schema ) ) {
+			return false;
+		}
+
+		// Required parts
+		$sql = array(
+			'CREATE TABLE',
+			$this->table_name,
+			"( {$this->schema} )",
+			$this->charset_collation,
+		);
+
+		// Maybe append comment
+		if ( ! empty( $this->comment ) ) {
+			$sql[] = "COMMENT='{$this->comment}'";
+		}
+
 		// Query statement
-		$query  = "CREATE TABLE {$this->table_name} ( {$this->schema} ) {$this->charset_collation}";
+		$query  = implode( ' ', array_filter( $sql ) );
 		$result = $db->query( $query );
 
 		// Was the table created?
