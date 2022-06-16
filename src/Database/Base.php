@@ -134,15 +134,35 @@ class Base {
 	 * Maybe append the prefix to string.
 	 *
 	 * @since 1.0.0
+	 * @since 2.1.0 Prevents double prefixing
 	 *
 	 * @param string $string
 	 * @param string $sep
 	 * @return string
 	 */
 	protected function apply_prefix( $string = '', $sep = '_' ) {
-		return ! empty( $this->prefix )
-			? "{$this->prefix}{$sep}{$string}"
-			: $string;
+
+		// Trim spaces off the ends
+		$retval = trim( $string );
+
+		// Bail if no prefix
+		if ( empty( $this->prefix ) ) {
+			return $retval;
+		}
+
+		// Setup new prefix
+		$new_prefix = $this->prefix . $sep;
+
+		// Bail if already prefixed
+		if ( 0 === strpos( $string, $new_prefix ) ) {
+			return $retval;
+		}
+
+		// Setup prefixed string
+		$retval = $new_prefix . $retval;
+
+		// Return the result
+		return $retval;
 	}
 
 	/**
