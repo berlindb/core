@@ -740,7 +740,7 @@ class Column extends Base {
 		} elseif ( $this->is_type( 'decimal' ) ) {
 			$callback = array( $this, 'validate_decimal' );
 
-		// Intval fallback
+		// Numeric fallback
 		} elseif ( $this->is_numeric() ) {
 			$callback = 'intval';
 		}
