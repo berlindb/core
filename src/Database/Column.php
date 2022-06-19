@@ -39,7 +39,7 @@ class Column extends Base {
 	/**
 	 * Type of database column.
 	 *
-	 * See: https://dev.mysql.com/doc/en/data-types.html
+	 * See: https://dev.mysql.com/doc/refman/8.0/en/data-types.html
 	 *
 	 * @since 1.0.0
 	 * @var   string
@@ -49,7 +49,7 @@ class Column extends Base {
 	/**
 	 * Length of database column.
 	 *
-	 * See: https://dev.mysql.com/doc/en/storage-requirements.html
+	 * See: https://dev.mysql.com/doc/refman/8.0/en/storage-requirements.html
 	 *
 	 * @since 1.0.0
 	 * @var   mixed
@@ -59,7 +59,7 @@ class Column extends Base {
 	/**
 	 * Is integer unsigned?
 	 *
-	 * See: https://dev.mysql.com/doc/en/numeric-type-overview.html
+	 * See: https://dev.mysql.com/doc/refman/8.0/en/numeric-types.html
 	 *
 	 * @since 1.0.0
 	 * @var   bool
@@ -69,7 +69,7 @@ class Column extends Base {
 	/**
 	 * Is integer filled with zeroes?
 	 *
-	 * See: https://dev.mysql.com/doc/en/numeric-type-overview.html
+	 * See: https://dev.mysql.com/doc/refman/8.0/en/numeric-types.html
 	 *
 	 * @since 1.0.0
 	 * @var   bool
@@ -79,7 +79,7 @@ class Column extends Base {
 	/**
 	 * Is data in a binary format?
 	 *
-	 * See: https://dev.mysql.com/doc/en/binary-varbinary.html
+	 * See: https://dev.mysql.com/doc/refman/8.0/en/binary-varbinary.html
 	 *
 	 * @since 1.0.0
 	 * @var   bool
@@ -89,7 +89,7 @@ class Column extends Base {
 	/**
 	 * Is null an allowed value?
 	 *
-	 * See: https://dev.mysql.com/doc/en/data-type-defaults.html
+	 * See: https://dev.mysql.com/doc/refman/8.0/en/data-type-defaults.html
 	 *
 	 * @since 1.0.0
 	 * @var   bool
@@ -99,7 +99,7 @@ class Column extends Base {
 	/**
 	 * Typically empty/null, or date value.
 	 *
-	 * See: https://dev.mysql.com/doc/en/data-type-defaults.html
+	 * See: https://dev.mysql.com/doc/refman/8.0/en/data-type-defaults.html
 	 *
 	 * @since 1.0.0
 	 * @var   string
@@ -109,7 +109,7 @@ class Column extends Base {
 	/**
 	 * auto_increment, etc...
 	 *
-	 * See: https://dev.mysql.com/doc/en/data-type-defaults.html
+	 * See: https://dev.mysql.com/doc/refman/8.0/en/data-type-defaults.html
 	 *
 	 * @since 1.0.0
 	 * @var   string
@@ -123,7 +123,7 @@ class Column extends Base {
 	 * most likely do not want to change this; if you do, you already know what
 	 * to do.
 	 *
-	 * See: https://dev.mysql.com/doc/mysql/en/charset-column.html
+	 * See: https://dev.mysql.com/doc/refman/8.0/en/charset-column.html
 	 *
 	 * @since 1.0.0
 	 * @var   string
@@ -137,7 +137,7 @@ class Column extends Base {
 	 * most likely do not want to change this; if you do, you already know what
 	 * to do.
 	 *
-	 * See: https://dev.mysql.com/doc/mysql/en/charset-column.html
+	 * See: https://dev.mysql.com/doc/refman/8.0/en/charset-column.html
 	 *
 	 * @since 1.0.0
 	 * @var   string
@@ -208,9 +208,9 @@ class Column extends Base {
 	/** Query Attributes ******************************************************/
 
 	/**
-	 * What is the string-replace pattern?
+	 * What is the string-replace format?
 	 *
-	 * By default, column patterns will be guessed based on their type. Set this
+	 * By default, column formats will be guessed based on their type. Set this
 	 * manually to `%s|%d|%f` only if you are doing something weird, or are
 	 * explicitly storing numeric values in text-based column types.
 	 *
@@ -526,7 +526,7 @@ class Column extends Base {
 			'not_in'        => 'wp_validate_boolean',
 			'cache_key'     => 'wp_validate_boolean',
 
-			'pattern'       => array( $this, 'sanitize_pattern'       ),
+			'pattern'       => array( $this, 'sanitize_format'        ),
 			'validate'      => array( $this, 'sanitize_validation'    ),
 			'caps'          => array( $this, 'sanitize_capabilities'  ),
 			'aliases'       => array( $this, 'sanitize_aliases'       ),
@@ -692,20 +692,20 @@ class Column extends Base {
 	}
 
 	/**
-	 * Sanitize the pattern
+	 * Sanitize the format
 	 *
 	 * @since 1.0.0
-	 * @param string $pattern
+	 * @param string $format
 	 * @return string
 	 */
-	private function sanitize_pattern( $pattern = '%s' ) {
+	private function sanitize_format( $format = '%s' ) {
 
-		// Allowed patterns
-		$allowed_patterns = array( '%s', '%d', '%f' );
+		// Allowed formats
+		$allowed_formats = array( '%s', '%d', '%f' );
 
-		// Return pattern if allowed
-		if ( in_array( $pattern, $allowed_patterns, true ) ) {
-			return $pattern;
+		// Return format if allowed
+		if ( in_array( $format, $allowed_formats, true ) ) {
+			return $format;
 		}
 
 		// Fallback to signed decimal if numeric; otherwise: string
