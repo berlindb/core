@@ -621,7 +621,7 @@ abstract class Table extends Base {
 		$query  = "SELECT COUNT(*) FROM {$this->table_name}";
 		$result = $db->get_var( $query );
 
-		// Query success/fail
+		// 0 on error/empty, number of rows on success
 		return intval( $result );
 	}
 
@@ -629,8 +629,9 @@ abstract class Table extends Base {
 	 * Check if column already exists.
 	 *
 	 * @since 1.0.0
+	 * @since 2.1.0 Uses sanitize_column_name().
 	 *
-	 * @param string $name Value
+	 * @param string $name Column name to check.
 	 *
 	 * @return bool
 	 */
@@ -646,6 +647,7 @@ abstract class Table extends Base {
 
 		// Query statement
 		$query    = "SHOW COLUMNS FROM {$this->table_name} LIKE %s";
+		$name     = $this->sanitize_column_name( $name );
 		$like     = $db->esc_like( $name );
 		$prepared = $db->prepare( $query, $like );
 		$result   = $db->query( $prepared );
@@ -658,9 +660,10 @@ abstract class Table extends Base {
 	 * Check if index already exists.
 	 *
 	 * @since 1.0.0
+	 * @since 2.1.0 Uses sanitize_column_name().
 	 *
-	 * @param string $name   Value
-	 * @param string $column Column name
+	 * @param string $name   Index name to check.
+	 * @param string $column Column name to compare.
 	 *
 	 * @return bool
 	 */
@@ -681,6 +684,7 @@ abstract class Table extends Base {
 
 		// Query statement
 		$query    = "SHOW INDEXES FROM {$this->table_name} WHERE {$column} LIKE %s";
+		$name     = $this->sanitize_column_name( $name );
 		$like     = $db->esc_like( $name );
 		$prepared = $db->prepare( $query, $like );
 		$result   = $db->query( $prepared );
