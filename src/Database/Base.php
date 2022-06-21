@@ -177,8 +177,8 @@ class Base {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param string $string
-	 * @param non-empty-string $sep
+	 * @param string $string Default empty string.
+	 * @param string $sep    Default "_".
 	 * @return string
 	 */
 	protected function first_letters( $string = '', $sep = '_' ) {
@@ -226,10 +226,11 @@ class Base {
 	 * - No trailing underscores
 	 *
 	 * @since 1.0.0
+	 * @since 2.1.0 Allow uppercase letters
 	 *
 	 * @param string $name The name of the database table
 	 *
-	 * @return mixed Sanitized database table name on success, False on error
+	 * @return bool|string Sanitized database table name on success, False on error
 	 */
 	protected function sanitize_table_name( $name = '' ) {
 
@@ -244,13 +245,13 @@ class Base {
 		// Only non-accented table names (avoid truncation)
 		$accents = remove_accents( $unspace );
 
-		// Only lowercase characters, hyphens, and dashes (avoid index corruption)
-		$lower   = sanitize_key( $accents );
+		// Only upper & lower case letters, numbers, hyphens, and underscores
+		$replace = preg_replace( '/^[a-zA-Z0-9_\-]+$/', '', $accents );
 
 		// Replace hyphens with single underscores
-		$under   = str_replace( '-',  '_', $lower );
+		$under   = str_replace( '-',  '_', $replace );
 
-		// Single underscores only
+		// Replace double underscores with singles
 		$single  = str_replace( '__', '_', $under );
 
 		// Remove trailing underscores
@@ -260,6 +261,29 @@ class Base {
 		return empty( $clean )
 			? false
 			: $clean;
+	}
+
+	/**
+	 * Sanitize a column name string.
+	 *
+	 * Used to make sure that a column name value meets MySQL expectations.
+	 *
+	 * Applies the following formatting to a string:
+	 * - Trim whitespace
+	 * - No accents
+	 * - No special characters
+	 * - No hyphens
+	 * - No double underscores
+	 * - No trailing underscores
+	 *
+	 * @since 2.1.0
+	 *
+	 * @param string $name The name of the database column
+	 *
+	 * @return bool|string Sanitized database column name on success, False on error
+	 */
+	protected function sanitize_column_name( $name = '' ) {
+		return $this->sanitize_table_name( $name );
 	}
 
 	/**
@@ -331,12 +355,12 @@ class Base {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param mixed $result
+	 * @param mixed $result Default false.
 	 * @return bool
 	 */
 	protected function is_success( $result = false ) {
 
-		// Bail if no row exists
+		// Bail if falsy result
 		if ( empty( $result ) ) {
 			$retval = false;
 
