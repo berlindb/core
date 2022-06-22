@@ -246,7 +246,7 @@ class Base {
 		$accents = remove_accents( $unspace );
 
 		// Only upper & lower case letters, numbers, hyphens, and underscores
-		$replace = preg_replace( '/^[a-zA-Z0-9_\-]+$/', '', $accents );
+		$replace = preg_replace( '/[^a-zA-Z0-9_\-]/', '', $accents );
 
 		// Replace hyphens with single underscores
 		$under   = str_replace( '-',  '_', $replace );
