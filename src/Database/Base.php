@@ -142,6 +142,11 @@ class Base {
 	 */
 	protected function apply_prefix( $string = '', $sep = '_' ) {
 
+		// Bail if not a string
+		if ( ! is_string( $string ) ) {
+			return '';
+		}
+
 		// Trim spaces off the ends
 		$retval = trim( $string );
 
@@ -197,7 +202,7 @@ class Base {
 		// Only non-accented table names (avoid truncation)
 		$accents = remove_accents( $unspace );
 
-		// Only lowercase letters are allowed
+		// Convert to lowercase
 		$lower   = strtolower( $accents );
 
 		// Explode into parts
@@ -311,6 +316,23 @@ class Base {
 	}
 
 	/**
+	 * Stash arguments and class variables.
+	 *
+	 * This is used to stash a copy of the original constructor arguments and
+	 * the object variable values, for later comparison, reuse, or resetting
+	 * back to a previous state.
+	 *
+	 * @since 2.1.0
+	 * @param array $args
+	 */
+	protected function stash_args( $args = array() ) {
+		$this->args = array(
+			'param' => $args,
+			'class' => get_object_vars( $this )
+		);
+	}
+
+	/**
 	 * Return the global database interface.
 	 *
 	 * See: https://core.trac.wordpress.org/ticket/31556
@@ -352,6 +374,11 @@ class Base {
 
 	/**
 	 * Check if an operation succeeded.
+	 *
+	 * Note: Even though "0" or "''" may indicate a successful result, for the
+	 *       purposes of database queries and this method, it isn't.
+	 *       When using this method, take care that your possible results do not
+	 *       pass falsy values on success.
 	 *
 	 * @since 1.0.0
 	 *
