@@ -265,7 +265,7 @@ class Column extends Base {
 	 * What is the string-replace format?
 	 *
 	 * By default, column formats will be guessed based on their type. Set this
-	 * manually to `%s|%d|%f` only if you are doing something weird, or are
+	 * manually to "%s|%d|%f" only if you are doing something weird, or are
 	 * explicitly storing numeric values in text-based column types.
 	 *
 	 * See: https://www.php.net/manual/en/function.printf.php
@@ -278,10 +278,10 @@ class Column extends Base {
 	/**
 	 * Is this column searchable?
 	 *
-	 * By default, columns are not searchable. When `true`, the Query class will
+	 * By default, columns are not searchable. When "true", the Query class will
 	 * add this column to the results of search queries.
 	 *
-	 * Avoid setting to `true` on large blobs of text, unless you've optimized
+	 * Avoid setting to "true" on large blobs of text, unless you've optimized
 	 * your database server to accommodate these kinds of queries.
 	 *
 	 * @since 1.0.0
@@ -292,7 +292,7 @@ class Column extends Base {
 	/**
 	 * Is this column a date?
 	 *
-	 * By default, columns do not support date queries. When `true`, the Query
+	 * By default, columns do not support date queries. When "true", the Query
 	 * class will accept complex statements to help narrow results down to
 	 * specific periods of time for values in this column.
 	 *
@@ -319,10 +319,10 @@ class Column extends Base {
 	/**
 	 * Is __in supported?
 	 *
-	 * By default, columns support being queried using an `IN` statement. This
+	 * By default, columns support being queried using an "IN" statement. This
 	 * allows the Query class to retrieve rows that match your array of values.
 	 *
-	 * Consider setting this to `false` for longer text columns.
+	 * Consider setting this to "false" for longer text columns.
 	 *
 	 * @since 1.0.0
 	 * @var   bool Default true
@@ -332,11 +332,11 @@ class Column extends Base {
 	/**
 	 * Is __not_in supported?
 	 *
-	 * By default, columns support being queried using a `NOT IN` statement.
+	 * By default, columns support being queried using a "NOT IN" statement.
 	 * This allows the Query class to retrieve rows that do not match your array
 	 * of values.
 	 *
-	 * Consider setting this to `false` for longer text columns.
+	 * Consider setting this to "false" for longer text columns.
 	 *
 	 * @since 1.0.0
 	 * @var   bool Default true.
@@ -523,7 +523,7 @@ class Column extends Base {
 		$callbacks = array(
 
 			// Table
-			'name'          => 'sanitize_key',
+			'name'          => array( $this, 'sanitize_column_name' ),
 			'type'          => 'strtoupper',
 			'length'        => 'intval',
 			'unsigned'      => 'wp_validate_boolean',
@@ -849,14 +849,21 @@ class Column extends Base {
 	}
 
 	/**
-	 * Sanitize aliases array using `sanitize_key()`.
+	 * Sanitize aliases array.
+	 *
+	 * An array of other names that this column is known as. Useful for
+	 * renaming a Column and wanting to continue supporting the old name(s).
 	 *
 	 * @since 1.0.0
 	 * @param array $aliases Default empty array.
 	 * @return array
 	 */
 	private function sanitize_aliases( $aliases = array() ) {
-		return array_map( 'sanitize_key', $aliases );
+		$func    = array( $this, 'sanitize_column_name' );
+		$aliases = array_filter( $aliases );
+		$retval  = array_map( $func, $aliases );
+
+		return $retval;
 	}
 
 	/**
@@ -909,33 +916,12 @@ class Column extends Base {
 	 * Sanitize the default value.
 	 *
 	 * @since 1.0.0
+	 * @since 2.1.0 Uses validate()
 	 * @param int|string|null $default
 	 * @return int|string|null
 	 */
 	private function sanitize_default( $default = '' ) {
-
-		// Null
-		if ( ( true === $this->allow_null ) && is_null( $default ) ) {
-			return null;
-
-		// String (binary & non-binary)
-		} elseif ( $this->is_text( $default ) ) {
-			return wp_kses_data( $default );
-
-		// Others
-		} else {
-
-			// Get a validator
-			$func = $this->sanitize_validation();
-
-			// Return the callback (already sanitized as callable)
-			if ( ! empty( $func ) ) {
-				return call_user_func( $func, $default );
-			}
-		}
-
-		// Unknown, so return the default's default
-		return '';
+		return $this->validate( $default );
 	}
 
 	/**
@@ -951,7 +937,7 @@ class Column extends Base {
 		// Allowed patterns
 		$allowed_patterns = array(
 			'%s', // String
-			'%d', // Integer (digit)
+			'%d', // Integer (decimal)
 			'%f', // Float
 		);
 
@@ -979,6 +965,10 @@ class Column extends Base {
 	/**
 	 * Sanitize the validation callback.
 	 *
+	 * This method accepts a function or method, and will return it if it is
+	 * callable. If it is not callable, the best fallback callback is
+	 * calculated based on varying column properties.
+	 *
 	 * @since 1.0.0
 	 * @since 2.1.0 Explicit support for decimal, int, and numeric types.
 	 * @param string $callback Default empty string. A callable PHP function
@@ -1002,7 +992,7 @@ class Column extends Base {
 
 		// Intval fallback
 		} elseif ( $this->is_int() ) {
-			$callback = 'intval';
+			$callback = array( $this, 'validate_int' );
 
 		// Decimal fallback
 		} elseif ( $this->is_decimal() ) {
@@ -1024,14 +1014,85 @@ class Column extends Base {
 	/** Public Validators *****************************************************/
 
 	/**
+	 * Validate a value.
+	 *
+	 * Used by Column::sanitize_default() and Query to prevent invalid and
+	 * unexpected values from being saved in the database.
+	 *
+	 * @since 2.1.0
+	 * @param int|string|null $value   Default empty string. Value to validate.
+	 * @param int|string|null $default Default empty string. Fallback if invalid.
+	 * @return int|string|null
+	 */
+	public function validate( $value = '', $default = '' ) {
+
+		// Check if a literal null value is allowed
+		$value = $this->validate_null( $value );
+
+		// Return null if allowed
+		if ( null === $value ) {
+			return null;
+		}
+
+		// Return the callback (already sanitized as callable)
+		if ( ! empty( $this->validate ) ) {
+			return call_user_func( $this->validate, $value );
+		}
+
+		// Return the default
+		return $default;
+	}
+
+	/**
+	 * Validate a null value.
+	 *
+	 * Will return the $default if $allow_null is false.
+	 *
+	 * @since 2.1.0
+	 * @param int|string|null $value Default empty string.
+	 * @return int|string|null
+	 */
+	public function validate_null( $value = '' ) {
+
+		// Value is null
+		if ( null === $value ) {
+
+			// If null is allowed, return it
+			if ( true === $this->allow_null ) {
+				return null;
+			}
+
+			/**
+			 * Null was passed but is not allowed, so fallback to the default
+			 * (but only if it is also not null.)
+			 *
+			 * If the default is null and null is not allowed, fallback to an
+			 * empty string and allow MySQL to sort it out.
+			 *
+			 * Future versions of this validation method will attempt to return
+			 * a less ambiguous value.
+			 */
+			$value = ( null !== $this->default )
+				? $this->default
+				: '';
+		}
+
+		// Return
+		return $value;
+	}
+
+	/**
 	 * Validate a datetime value.
 	 *
-	 * Fallback to validate a datetime value if no other is set.
-	 *
-	 * This assumes NO_ZERO_DATES is off or overridden.
+	 * This assumes the following MySQL modes:
+	 * - NO_ZERO_DATE is off (double negative is proof positive!)
+	 * - ALLOW_INVALID_DATES is off
 	 *
 	 * When MySQL drops support for zero dates, this method will need to be
 	 * updated to support different default values based on the environment.
+	 *
+	 * See: https://dev.mysql.com/doc/refman/8.0/en/sql-mode.html#sqlmode_allow_invalid_dates
+	 * See: wpdb::set_sql_mode()
 	 *
 	 * @since 1.0.0
 	 * @since 2.1.0 Add support for CURRENT_TIMESTAMP.
@@ -1040,19 +1101,36 @@ class Column extends Base {
 	 */
 	public function validate_datetime( $value = '' ) {
 
-		// Handle "empty" values
-		if ( empty( $value ) || ( '0000-00-00 00:00:00' === $value ) ) {
-			$value = ! empty( $this->default )
-				? $this->default
-				: '';
+		// Default empty datetime (value with NO_ZERO_DATE off)
+		$default_empty = '0000-00-00 00:00:00';
 
-		// Handle current_timestamp constant
-		} elseif ( 'CURRENT_TIMESTAMP' === strtoupper( $value ) ) {
+		// Handle current_timestamp MySQL constant
+		if ( 'CURRENT_TIMESTAMP' === strtoupper( $value ) ) {
 			$value = 'CURRENT_TIMESTAMP';
 
-		// Convert to MySQL datetime format via gmdate() && strtotime
+		// Fallback if "empty" value
+		} elseif ( empty( $value ) || ( $default_empty === $value ) ) {
+			$fallback = true;
+
+		// All other values
 		} else {
-			$value = gmdate( 'Y-m-d H:i:s', strtotime( $value ) );
+
+			// Check if valid $value
+			$timestamp = strtotime( $value );
+
+			// Format if valid
+			if ( false !== $timestamp ) {
+				$value = gmdate( 'Y-m-d H:i:s', $timestamp );
+
+			// Fallback if invalid
+			} else {
+				$fallback = true;
+			}
+		}
+
+		// Fallback to $default or empty string
+		if ( true === $fallback ) {
+			$value = (string) $this->default;
 		}
 
 		// Return the validated value
@@ -1067,16 +1145,11 @@ class Column extends Base {
 	 *
 	 * @since 1.0.0
 	 * @since 2.1.0 Uses: validate_numeric().
-	 * @param mixed $value    Default empty string. The decimal value to validate
-	 * @param int   $decimals Default 9. The number of decimal points to accept
+	 * @param int|string $value    Default empty string. The decimal value to validate.
+	 * @param int        $decimals Default 9. The number of decimal points to accept.
 	 * @return float Formatted to the number of decimals specified
 	 */
 	public function validate_decimal( $value = 0, $decimals = 9 ) {
-
-		// Protect against non-numeric values
-		if ( ! is_numeric( $value ) ) {
-			$value = 0;
-		}
 
 		// Protect against non-numeric decimals
 		if ( ! is_numeric( $decimals ) ) {
@@ -1093,19 +1166,21 @@ class Column extends Base {
 	 * This is used to validate a mixed value before it is saved into any
 	 * numeric column in a database table.
 	 *
-	 * Uses number_format() which does rounding to the last decimal if your
-	 * value is longer than specified.
+	 * Uses number_format() (without a thousands separator) which does rounding
+	 * to the last decimal if the value is longer than specified.
 	 *
 	 * @since 2.1.0
-	 * @param mixed $value    Default empty string. The decimal value to validate
-	 * @param mixed $decimals Default false. Decimal position will be used, or 0.
+	 * @param int|string $value    Default empty string. The numeric value to validate.
+	 * @param int|bool   $decimals Default false. Decimal position will be used, or 0.
 	 * @return float
 	 */
 	public function validate_numeric( $value = 0, $decimals = false ) {
 
 		// Protect against non-numeric values
 		if ( ! is_numeric( $value ) ) {
-			$value = 0;
+			$value = ( $value !== $this->default )
+				? $this->default
+				: 0;
 		}
 
 		// Is the value negative and allowed to be?
@@ -1136,6 +1211,23 @@ class Column extends Base {
 
 		// Return
 		return $retval;
+	}
+
+	/**
+	 * Validate an integer value.
+	 *
+	 * This is used to validate an integer value before it is saved into any
+	 * integer column in a database table.
+	 *
+	 * Uses: validate_numeric() to guard against non-numeric, invalid values
+	 *       being cast to a 1 when a fallback to $default is expected.
+	 *
+	 * @since 2.1.0
+	 * @param int $value Default zero.
+	 * @return int
+	 */
+	public function validate_int( $value = 0 ) {
+		return (int) $this->validate_numeric( $value, false );
 	}
 
 	/**
@@ -1290,7 +1382,7 @@ class Column extends Base {
 				if ( $this->is_extra( 'ON UPDATE CURRENT_TIMESTAMP' ) ) {
 					$create[] = "ON UPDATE current_timestamp()";
 
-				// @todo NO_ZERO_DATES
+				// @todo NO_ZERO_DATE
 				} elseif ( $this->is_type( 'datetime' ) ) {
 					$create[] = "default '0000-00-00 00:00:00'";
 				}
