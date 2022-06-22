@@ -479,23 +479,22 @@ class Column extends Base {
 	/** Argument Handlers *****************************************************/
 
 	/**
-	 * Parse column arguments
+	 * Parse column arguments.
 	 *
 	 * @since 1.0.0
-	 * @since 2.1.0
+	 * @since 2.1.0 Arguments are stashed. Bails if $args is empty.
 	 * @param array $args Default empty array.
 	 * @return array
 	 */
 	private function parse_args( $args = array() ) {
 
-		// Clean-up (if re-parsing)
-		unset( $this->args );
+		// Stash the arguments
+		$this->stash_args( $args );
 
-		// Save copies of arguments
-		$this->args = array(
-			'param' => $args,
-			'class' => get_object_vars( $this )
-		);
+		// Bail if no arguments
+		if ( empty( $args ) ) {
+			return array();
+		}
 
 		// Parse arguments
 		$r = wp_parse_args( $args, $this->args['class'] );
@@ -503,7 +502,7 @@ class Column extends Base {
 		// Force some arguments for special column types
 		$r = $this->special_args( $r );
 
-		// Set the args before they are validated & sanitized
+		// Set the arguments before they are validated & sanitized
 		$this->set_vars( $r );
 
 		// Return array
@@ -559,7 +558,7 @@ class Column extends Base {
 			'relationships' => array( $this, 'sanitize_relationships' )
 		);
 
-		// Default args array
+		// Default return arguments
 		$r = array();
 
 		// Loop through and try to execute callbacks
@@ -569,7 +568,12 @@ class Column extends Base {
 			if ( isset( $callbacks[ $key ] ) && is_callable( $callbacks[ $key ] ) ) {
 				$r[ $key ] = call_user_func( $callbacks[ $key ], $value );
 
-			// Callback is malformed so just let it through to avoid breakage
+			/**
+			 * Key has no validation method.
+			 *
+			 * Trust that the value has been validated. This may change in a
+			 * future version.
+			 */
 			} else {
 				$r[ $key ] = $value;
 			}
@@ -637,7 +641,7 @@ class Column extends Base {
 			$args['sortable']   = false;
 		}
 
-		// Return args
+		// Return arguments
 		return (array) $args;
 	}
 
