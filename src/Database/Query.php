@@ -1055,6 +1055,7 @@ class Query extends Base {
 	 * columns.
 	 *
 	 * @since 1.0.0
+	 * @since 2.1.0 Bail early if parameters are empty.
 	 *
 	 * @param string $string       Search string.
 	 * @param array  $column_names Columns to search.
@@ -1310,7 +1311,9 @@ class Query extends Base {
 
 		// Maybe search if columns are searchable.
 		if ( ! empty( $searchable ) && strlen( $this->query_vars['search'] ) ) {
-			$search_columns = array();
+
+			// Default to all searchable columns
+			$search_columns = $searchable;
 
 			// Intersect against known searchable columns
 			if ( ! empty( $this->query_vars['search_columns'] ) ) {
@@ -1320,26 +1323,8 @@ class Query extends Base {
 				);
 			}
 
-			// Default to all searchable columns
-			if ( empty( $search_columns ) ) {
-				$search_columns = $searchable;
-			}
-
-			/**
-			 * Filters the columns to search in a Query search.
-			 *
-			 * @since 1.0.0
-			 *
-			 * @param array  $search_columns Array of column names to be searched.
-			 * @param string $search         Text being searched.
-			 * @param Query  $this           The current Query instance.
-			 */
-			$search_columns = (array) apply_filters(
-				$this->apply_prefix( "{$this->item_name_plural}_search_columns" ),
-				$search_columns,
-				$this->query_vars['search'],
-				$this
-			);
+			// Filter search columns
+			$search_columns = $this->filter_search_columns( $search_columns );
 
 			// Add search query clause
 			$where['search'] = $this->get_search_sql( $this->query_vars['search'], $search_columns );
@@ -3031,6 +3016,7 @@ class Query extends Base {
 	 * querying for it again. It's just safer this way.
 	 *
 	 * @since 1.0.0
+	 * @since 2.1.0 Uses shape_item_id() if $items is scalar
 	 *
 	 * @param int|object|array $items Primary ID if int. Row if object. Array
 	 *                                of objects if array.
@@ -3183,6 +3169,7 @@ class Query extends Base {
 	 * Get array of non-cached item IDs.
 	 *
 	 * @since 1.0.0
+	 * @since 2.1.0 No longer uses shape_item_id()
 	 *
 	 * @param array  $item_ids Array of item IDs
 	 * @param string $group    Cache group. Defaults to $this->cache_group
@@ -3328,7 +3315,7 @@ class Query extends Base {
 	/**
 	 * Filter an item before it is inserted or updated in the database.
 	 *
-	 * @since 1.0.0
+	 * @since 2.1.0
 	 *
 	 * @param array $item The item data.
 	 * @return array
@@ -3355,7 +3342,7 @@ class Query extends Base {
 	/**
 	 * Filter all shaped items after they are retrieved from the database.
 	 *
-	 * @since 1.0.0
+	 * @since 2.1.0
 	 *
 	 * @param array $items The item data.
 	 * @return array
@@ -3432,12 +3419,41 @@ class Query extends Base {
 		);
 	}
 
+	/**
+	 * Filters the columns to search by.
+	 *
+	 * @since 2.1.0
+	 *
+	 * @param array $search_columns All of the columns to search.
+	 * @return array
+	 */
+	public function filter_search_columns( $search_columns = array() ) {
+
+		/**
+		 * Filters the columns to search by.
+		 *
+		 * @since 1.0.0
+		 * @since 2.1.0 Uses apply_filters_ref_array() instead of apply_filters()
+		 *
+		 * @param array $search_columns Array of column names to be searched.
+		 * @param Query &$this          Current instance passed by reference.
+		 */
+		return (array) apply_filters_ref_array(
+			$this->apply_prefix( "{$this->item_name_plural}_search_columns" ),
+			array(
+				$search_columns,
+				&$this
+			)
+		);
+	}
+
 	/** General ***************************************************************/
 
 	/**
 	 * Fetch raw results directly from the database.
 	 *
 	 * @since 1.0.0
+	 * @since 2.1.0 Uses query()
 	 *
 	 * @param array  $cols       Columns for `SELECT`.
 	 * @param array  $where_cols Where clauses. Each key-value pair in the array
