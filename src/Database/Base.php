@@ -4,7 +4,7 @@
  *
  * @package     Database
  * @subpackage  Base
- * @copyright   Copyright (c) 2021
+ * @copyright   2021-2022 - JJJ and all BerlinDB contributors
  * @license     https://opensource.org/licenses/MIT MIT
  * @since       1.0.0
  */
@@ -375,8 +375,8 @@ class Base {
 	/**
 	 * Check if an operation succeeded.
 	 *
-	 * Note: Even though "0" or "''" may indicate a successful result, for the
-	 *       purposes of database queries and this method, it isn't.
+	 * Note: While "0" or "''" may be the return value of a successful result,
+	 *       for the purposes of database queries and this method, it isn't.
 	 *       When using this method, take care that your possible results do not
 	 *       pass falsy values on success.
 	 *

@@ -1,23 +1,24 @@
 <?php
 /**
- * Autoloader.
+ * BerlinDB Autoloader.
  *
  * @package     Database
- * @copyright   Copyright (c) 2021
+ * @subpackage  Autoloader
+ * @copyright   2021-2022 - JJJ and all BerlinDB Contributors
  * @license     https://opensource.org/licenses/MIT MIT
  * @since       2.0.0
  */
 
-// Exit if accessed directly.
-defined( 'ABSPATH' ) || exit;
-
-// Register a closure to autoload BerlinDB.
+/**
+ * Register a closure to autoload BerlinDB classes.
+ */
 spl_autoload_register(
 
 	/**
-	 * Closure of the autoloader.
+	 * Closure for the autoloader.
 	 *
-	 * @param string $class_name The fully-qualified class name.
+	 * @since 2.0.0
+	 * @param string $class_name A fully-qualified class name.
 	 * @return void
 	 */
 	static function ( $class_name = '' ) {
