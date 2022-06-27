@@ -163,11 +163,8 @@ class Base {
 			return $retval;
 		}
 
-		// Setup prefixed string
-		$retval = $new_prefix . $retval;
-
-		// Return the result
-		return $retval;
+		// Return prefixed string
+		return $new_prefix . $retval;
 	}
 
 	/**
