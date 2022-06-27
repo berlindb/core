@@ -144,9 +144,9 @@ class Base {
 	 * @return string
 	 */
 	protected function apply_prefix( $string = '', $sep = '_' ) {
-		return ! empty( $this->prefix )
-			? "{$this->prefix}{$sep}{$string}"
-			: $string;
+		return empty( $this->prefix )
+			? $string
+			: "{$this->prefix}{$sep}{$string}";
 	}
 
 	/**
@@ -325,19 +325,15 @@ class Base {
 
 		// Bail if no row exists
 		if ( empty( $result ) ) {
-			$retval = false;
+			return false;
 
 		// Bail if an error occurred
-		} elseif ( is_wp_error( $result ) ) {
+		if ( is_wp_error( $result ) ) {
 			$this->last_error = $result;
-			$retval           = false;
-
-		// No errors
-		} else {
-			$retval = true;
+			return false;
 		}
 
-		// Return the result
-		return (bool) $retval;
+		// No errors
+		return true;
 	}
 }
