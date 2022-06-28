@@ -1524,7 +1524,7 @@ class Query extends Base {
 		// Maybe perform a date query
 		if ( ! empty( $date_query ) && is_array( $date_query ) ) {
 			$this->date_query = $this->get_date_query( $date_query );
-			$clauses          = $this->date_query->get_sql( $this->table_name, $alias, $primary, $this );
+			$clauses          = $this->date_query->get_sql();
 
 			// Not all objects are dates, so make sure this one exists
 			if ( false !== $clauses ) {
@@ -1691,7 +1691,7 @@ class Query extends Base {
 	 * @param bool     $alias
 	 * @return string
 	 */
-	private function parse_fields( $fields = '', $count = false, $groupby = '', $alias = true ) {
+	private function parse_fields( $fields = array(), $count = false, $groupby = array(), $alias = true ) {
 
 		// Maybe fallback to $query_vars
 		if ( empty( $count ) ) {
@@ -1838,7 +1838,7 @@ class Query extends Base {
 		}
 
 		// Bail if nothing to groupby
-		if ( empty( $names ) && ! empty( $before ) ) {
+		if ( 0 === count( $names ) && ! empty( $before ) ) {
 			return '';
 		}
 
@@ -2676,7 +2676,7 @@ class Query extends Base {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param mixed ID of item, or row from database
+	 * @param mixed $item ID of item, or row from database
 	 * @return mixed False on error, Object of single-object class type on success
 	 */
 	private function shape_item( $item = 0 ) {

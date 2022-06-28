@@ -1108,6 +1108,8 @@ class Column extends Base {
 		// Default empty datetime (value with NO_ZERO_DATE off)
 		$default_empty = '0000-00-00 00:00:00';
 
+		$fallback = false;
+
 		// Handle current_timestamp MySQL constant
 		if ( 'CURRENT_TIMESTAMP' === strtoupper( $value ) ) {
 			$value = 'CURRENT_TIMESTAMP';
