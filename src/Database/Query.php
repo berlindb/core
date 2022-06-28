@@ -138,16 +138,6 @@ class Query extends Base {
 	 */
 	protected $last_changed = '';
 
-	/** Columns ***************************************************************/
-
-	/**
-	 * Array of all database column objects.
-	 *
-	 * @since 1.0.0
-	 * @var   array
-	 */
-	protected $columns = array();
-
 	/** Schema *************************************************************/
 
 	/**
@@ -300,29 +290,29 @@ class Query extends Base {
 	 *     Optional. Array or query string of item query parameters.
 	 *     Default empty.
 	 *
-	 *     @type string       $fields            Site fields to return. Accepts 'ids' (returns an array of item IDs)
-	 *                                           or empty (returns an array of complete item objects). Default empty.
-	 *                                           To do a date query against a field, append the field name with _query
-	 *     @type bool         $count             Whether to return a item count (true) or array of item objects.
-	 *                                           Default false.
-	 *     @type int          $number            Limit number of items to retrieve. Use 0 for no limit.
-	 *                                           Default 100.
-	 *     @type int          $offset            Number of items to offset the query. Used to build LIMIT clause.
-	 *                                           Default 0.
-	 *     @type bool         $no_found_rows     Whether to disable the `SQL_CALC_FOUND_ROWS` query.
-	 *                                           Default true.
-	 *     @type array|string $orderby           Accepts false, an empty array, or 'none' to disable `ORDER BY` clause.
-	 *                                           Default '', to primary column ID.
-	 *     @type string       $order             How to order retrieved items. Accepts 'ASC', 'DESC'.
-	 *                                           Default 'DESC'.
-	 *     @type string       $search            Search term(s) to retrieve matching items for.
-	 *                                           Default empty.
-	 *     @type array        $search_columns    Array of column names to be searched.
-	 *                                           Default empty array.
-	 *     @type bool         $update_item_cache Whether to prime the cache for found items.
-	 *                                           Default false.
-	 *     @type bool         $update_meta_cache Whether to prime the meta cache for found items.
-	 *                                           Default false.
+	 *     @type string  $fields            Site fields to return. Accepts 'ids' (returns an array of item IDs)
+	 *                                      or empty (returns an array of complete item objects). Default empty.
+	 *                                      To do a date query against a field, append the field name with _query
+	 *     @type bool    $count             Return an item count (true) or array of item objects.
+	 *                                      Default false.
+	 *     @type int     $number            Limit number of items to retrieve. Use 0 for no limit.
+	 *                                      Default 100.
+	 *     @type int     $offset            Number of items to offset the query. Used to build LIMIT clause.
+	 *                                      Default 0.
+	 *     @type bool    $no_found_rows     Disable the separate COUNT(*) query.
+	 *                                      Default true.
+	 *     @type string  $orderby           Accepts false, an empty array, or 'none' to disable `ORDER BY` clause.
+	 *                                      Default '', to primary column ID.
+	 *     @type string  $order             How to order retrieved items. Accepts 'ASC', 'DESC'.
+	 *                                      Default 'DESC'.
+	 *     @type string  $search            Search term(s) to retrieve matching items for.
+	 *                                      Default empty.
+	 *     @type array   $search_columns    Array of column names to be searched.
+	 *                                      Default empty array.
+	 *     @type bool    $update_item_cache Prime the cache for found items.
+	 *                                      Default false.
+	 *     @type bool    $update_meta_cache Prime the meta cache for found items.
+	 *                                      Default false.
 	 * }
 	 */
 	public function __construct( $query = array() ) {
@@ -337,7 +327,7 @@ class Query extends Base {
 	}
 
 	/**
-	 * Setup the class variables.
+	 * Setup class attributes that rely on other properties.
 	 *
 	 * This method is public to allow subclasses to override it, and allow for
 	 * it to be called directly on a class that has already been used.
@@ -449,6 +439,7 @@ class Query extends Base {
 
 		// Default query clauses
 		$this->query_clauses = array(
+			'explain' => '',
 			'select'  => '',
 			'fields'  => '',
 			'count'   => '',
@@ -484,17 +475,29 @@ class Query extends Base {
 
 		// Default query variables
 		$this->query_var_defaults = array(
+
+			// Statements
+			'explain'           => false,
+			'select'            => '',
+
+			// Fields
 			'fields'            => '',
+			'groupby'           => '',
+
+			// Boundaries
 			'number'            => 100,
 			'offset'            => '',
 			'orderby'           => $primary,
 			'order'             => 'DESC',
-			'groupby'           => '',
+
+			// Search
 			'search'            => '',
 			'search_columns'    => array(),
+
+			// COUNT(*)
 			'count'             => false,
 
-			// Disable SQL_CALC_FOUND_ROWS?
+			// Disable row count
 			'no_found_rows'     => true,
 
 			// Queries
@@ -508,7 +511,7 @@ class Query extends Base {
 		);
 
 		// Direct column names
-		$names = $this->get_column_names();
+		$names = array_flip( $this->get_column_names() );
 		foreach ( $names as $name ) {
 			$this->query_var_defaults[ $name ] = $this->query_var_default_value;
 		}
@@ -536,86 +539,39 @@ class Query extends Base {
 	}
 
 	/**
-	 * Set the request clauses.
+	 * Set $query_clauses by parsing $query_vars.
 	 *
-	 * @since 1.0.0
-	 *
-	 * @param array $clauses
+	 * @since 2.1.0
 	 */
-	private function set_request_clauses( $clauses = array() ) {
-
-		// Found rows
-		$found_rows = empty( $this->query_vars['no_found_rows'] )
-			? 'SQL_CALC_FOUND_ROWS'
-			: '';
-
-		// Count
-		$count      = ! empty( $clauses['count'] )
-			? $clauses['count']
-			: '';
-
-		// Fields
-		$fields     = ! empty( $clauses['fields'] )
-			? $clauses['fields']
-			: '';
-
-		// Join
-		$join       = ! empty( $clauses['join'] )
-			? $clauses['join']
-			: '';
-
-		// Where
-		$where      = ! empty( $clauses['where'] )
-			? "WHERE {$clauses['where']}"
-			: '';
-
-		// Group by
-		$groupby    = ! empty( $clauses['groupby'] )
-			? "GROUP BY {$clauses['groupby']}"
-			: '';
-
-		// Order by
-		$orderby    = ! empty( $clauses['orderby'] )
-			? "ORDER BY {$clauses['orderby']}"
-			: '';
-
-		// Limits
-		$limits     = ! empty( $clauses['limits']  )
-			? $clauses['limits']
-			: '';
-
-		// Select & From
-		$table  = $this->get_table_name();
-		$select = "SELECT {$found_rows}";
-		$from   = "FROM {$table} {$this->table_alias}";
-
-		// Put query into clauses array
-		$this->request_clauses['select']  = $select;
-		$this->request_clauses['fields']  = $fields;
-		$this->request_clauses['count']   = $count;
-		$this->request_clauses['from']    = $from;
-		$this->request_clauses['join']    = $join;
-		$this->request_clauses['where']   = $where;
-		$this->request_clauses['groupby'] = $groupby;
-		$this->request_clauses['orderby'] = $orderby;
-		$this->request_clauses['limits']  = $limits;
+	private function set_query_clauses() {
+		$this->query_clauses = $this->parse_query_vars();
 	}
 
 	/**
-	 * Set the request.
+	 * Set the $request_clauses.
 	 *
 	 * @since 1.0.0
+	 * @since 2.1.0 Uses parse_query_clauses() with support for new clauses.
+	 */
+	private function set_request_clauses() {
+		$this->request_clauses = $this->parse_query_clauses();
+	}
+
+	/**
+	 * Set the $request.
+	 *
+	 * @since 1.0.0
+	 * @since 2.1.0 Uses parse_request_clauses() on $request_clauses.
 	 */
 	private function set_request() {
-		$filtered      = array_filter( $this->request_clauses );
-		$clauses       = array_map( 'trim', $filtered );
-		$this->request = implode( ' ', $clauses );
+		$this->request = $this->parse_request_clauses();
 	}
 
 	/**
 	 * Set items by mapping them through the single item callback.
 	 *
 	 * @since 1.0.0
+	 * @since 2.1.0 Moved 'count' logic back into get_items().
 	 * @param array $item_ids
 	 */
 	private function set_items( $item_ids = array() ) {
@@ -634,9 +590,8 @@ class Query extends Base {
 	 * Populates found_items and max_num_pages properties for the current query
 	 * if the limit clause was used.
 	 *
-	 * @todo: make safe for MySQL 8
-	 *
 	 * @since 1.0.0
+	 * @since 2.1.0 Uses filter_found_items_query().
 	 *
 	 * @param mixed $item_ids Optional array of item IDs
 	 */
@@ -646,10 +601,10 @@ class Query extends Base {
 		$this->found_items = count( (array) $item_ids );
 
 		// Count query
-		if ( ! empty( $this->query_vars['count'] ) ) {
+		if ( $this->get_query_var( 'count' ) ) {
 
 			// Not grouped
-			if ( is_numeric( $item_ids ) && empty( $this->query_vars['groupby'] ) ) {
+			if ( is_numeric( $item_ids ) && ! $this->get_query_var( 'groupby' ) ) {
 				$this->found_items = (int) $item_ids;
 			}
 
@@ -658,18 +613,30 @@ class Query extends Base {
 			is_array( $item_ids )
 			&&
 			(
-				! empty( $this->query_vars['number'] )
-				&&
-				empty( $this->query_vars['no_found_rows'] )
+				$this->get_query_var( 'number' ) && ! $this->get_query_var( 'no_found_rows' )
 			)
 		) {
 
-			// Get the found items SQL
-			$found_items_query = $this->filter_found_items_query();
+			// Override a few request clauses
+			$r = wp_parse_args(
+				array(
+					'count'   => 'COUNT(*)',
+					'fields'  => '',
+					'limits'  => '',
+					'orderby' => ''
+				),
+				$this->request_clauses
+			);
+
+			// Parse the new clauses
+			$query = $this->parse_request_clauses( $r );
+
+			// Filter the found items query
+			$query = $this->filter_found_items_query( $query );
 
 			// Maybe query for found items
-			if ( ! empty( $found_items_query ) ) {
-				$this->found_items = (int) $this->get_db()->get_var( $found_items_query );
+			if ( ! empty( $query ) ) {
+				$this->found_items = (int) $this->get_db()->get_var( $query );
 			}
 		}
 	}
@@ -679,7 +646,7 @@ class Query extends Base {
 	/**
 	 * Set a query var, to both defaults and request arrays.
 	 *
-	 * This method is used to expose the private query_vars array to hooks,
+	 * This method is used to expose the private $query_vars array to hooks,
 	 * allowing them to manipulate query vars just-in-time.
 	 *
 	 * @since 1.0.0
@@ -701,10 +668,44 @@ class Query extends Base {
 	 * @return bool
 	 */
 	public function is_query_var_default( $key = '' ) {
-		return (bool) ( $this->query_vars[ $key ] === $this->query_var_default_value );
+		return (bool) ( $this->get_query_var( $key ) === $this->query_var_default_value );
+	}
+
+	/**
+	 * Is a column valid?
+	 *
+	 * @since 2.1.0
+	 * @param string $column_name
+	 * @return bool
+	 */
+	private function is_valid_column( $column_name = '' ) {
+
+		// Bail if column name not valid string
+		if ( empty( $column_name ) || ! is_string( $column_name ) ) {
+			return false;
+		}
+
+		// Get all of the column names
+		$columns = $this->get_column_names();
+
+		// Return if column name exists
+		return isset( $columns[ $column_name ] );
 	}
 
 	/** Private Getters *******************************************************/
+
+	/**
+	 * Get a query variable.
+	 *
+	 * @since 2.1.0
+	 * @param string $key
+	 * @return mixed
+	 */
+	private function get_query_var( $key = '' ) {
+		return isset( $this->query_vars[ $key ] )
+			? $this->query_vars[ $key ]
+			: null;
+	}
 
 	/**
 	 * Pass-through method to return a new Meta object.
@@ -760,7 +761,10 @@ class Query extends Base {
 	}
 
 	/**
-	 * Return the literal table name (with prefix) from the database interface.
+	 * Return the table name.
+	 *
+	 * Prefixed by the $table_prefix global, or get_blog_prefix() if
+	 * is_multisite().
 	 *
 	 * @since 1.0.0
 	 *
@@ -908,6 +912,11 @@ class Query extends Base {
 			$values = array( $values );
 		}
 
+		// Maybe fallback to $key
+		if ( empty( $field ) ) {
+			$field = $key;
+		}
+
 		// Get the column fields
 		foreach ( $values as $value ) {
 			$args     = array( $key => $value );
@@ -919,9 +928,36 @@ class Query extends Base {
 	}
 
 	/**
+	 * Get a column name, possibly with the $table_alias append.
+	 *
+	 * @since 2.1.0
+	 * @param string $column_name
+	 * @param bool   $alias
+	 * @return string
+	 */
+	private function get_column_name_aliased( $column_name = '', $alias = true ) {
+
+		// Default return value
+		$retval = $column_name;
+
+		/**
+		 * Maybe append table alias.
+		 *
+		 * Also append a period, to separate it from the column name.
+		 */
+		if ( true === $alias ) {
+			$retval = "{$this->table_alias}.{$column_name}";
+		}
+
+		// Return SQL
+		return $retval;
+	}
+
+	/**
 	 * Get a single database row by any column and value, skipping cache.
 	 *
 	 * @since 1.0.0
+	 * @since 2.1.0 Uses is_valid_column()
 	 *
 	 * @param string $column_name  Name of database column
 	 * @param mixed  $column_value Value to query for
@@ -929,13 +965,13 @@ class Query extends Base {
 	 */
 	private function get_item_raw( $column_name = '', $column_value = '' ) {
 
-		// Bail if no name or value
-		if ( empty( $column_name ) || empty( $column_value ) ) {
+		// Bail if empty or non-scalar value
+		if ( empty( $column_value ) || ! is_scalar( $column_value ) ) {
 			return false;
 		}
 
-		// Bail if values aren't query'able
-		if ( ! is_string( $column_name ) || ! is_scalar( $column_value ) ) {
+		// Bail if invalid column
+		if ( ! $this->is_valid_column( $column_name ) ) {
 			return false;
 		}
 
@@ -971,7 +1007,7 @@ class Query extends Base {
 		 *
 		 * @since 1.0.0
 		 *
-		 * @param Query &$this Current instance of Query, passed by reference.
+		 * @param Query &$this Current instance passed by reference.
 		 */
 		do_action_ref_array(
 			$this->apply_prefix( "pre_get_{$this->item_name_plural}" ),
@@ -1009,18 +1045,22 @@ class Query extends Base {
 		}
 
 		// Pagination
-		if ( ! empty( $this->found_items ) && ! empty( $this->query_vars['number'] ) ) {
-			$this->max_num_pages = (int) ceil( $this->found_items / $this->query_vars['number'] );
+		if ( ! empty( $this->found_items ) ) {
+			$number = (int) $this->get_query_var( 'number' );
+
+			if ( ! empty( $number ) ) {
+				$this->max_num_pages = (int) ceil( $this->found_items / $number );
+			}
 		}
 
 		// Cast to int if not grouping counts
-		if ( ! empty( $this->query_vars['count'] ) ) {
+		if ( $this->get_query_var( 'count' ) ) {
 
 			// Set items
 			$this->items = $result;
 
 			// Not grouping, so cast to int
-			if ( empty( $this->query_vars['groupby'] ) ) {
+			if ( ! $this->get_query_var( 'groupby' ) ) {
 				$this->items = (int) $result;
 			}
 
@@ -1046,64 +1086,18 @@ class Query extends Base {
 	 */
 	private function get_item_ids() {
 
-		// Parse 'where' & 'join'
-		$this->parse_where_join_vars();
-
-		// Where & Join
-		$where   = $this->parse_where_clauses( $this->query_clauses['where'] );
-		$join    = $this->parse_join_clauses( $this->query_clauses['join'] );
-
-		// Order & Order By
-		$orderby = $this->parse_orderby(
-			$this->query_vars['orderby'],
-			$this->query_vars['order']
-		);
-
-		// Group by
-		$groupby = $this->parse_groupby( $this->query_vars['groupby'] );
-
-		// Count
-		$count   = $this->parse_count(
-			$this->query_vars['count'],
-			$this->query_vars['groupby']
-		);
-
-		// Fields
-		$fields  = $this->parse_fields(
-			$this->query_vars['fields'],
-			$this->query_vars['count'],
-			$this->query_vars['groupby']
-		);
-
-		// Limits
-		$limits  = $this->parse_limits(
-			$this->query_vars['number'],
-			$this->query_vars['offset']
-		);
-
-		// Setup the query array
-		$query = array(
-			'count'   => $count,
-			'fields'  => $fields,
-			'join'    => $join,
-			'where'   => $where,
-			'orderby' => $orderby,
-			'limits'  => $limits,
-			'groupby' => $groupby
-		);
-
-		// Filter the query clauses
-		$clauses = $this->filter_query_clauses( $query );
+		// Setup the query clauses
+		$this->set_query_clauses();
 
 		// Setup request
-		$this->set_request_clauses( $clauses );
+		$this->set_request_clauses();
 		$this->set_request();
 
 		// Return count
-		if ( ! empty( $this->query_vars['count'] ) ) {
+		if ( $this->get_query_var( 'count' ) ) {
 
 			// Get vars or results
-			$retval = empty( $this->query_vars['groupby'] )
+			$retval = ! $this->get_query_var( 'groupby' )
 				? $this->get_db()->get_var( $this->request )
 				: $this->get_db()->get_results( $this->request, ARRAY_A );
 
@@ -1182,8 +1176,8 @@ class Query extends Base {
 		// Default return value
 		$retval = '';
 
-		// Bail if no values or column name
-		if ( empty( $values ) || empty( $column_name ) ) {
+		// Bail if no values or invalid column
+		if ( empty( $values ) || ! $this->is_valid_column( $column_name ) ) {
 			return $retval;
 		}
 
@@ -1221,24 +1215,23 @@ class Query extends Base {
 	 * Parses arguments passed to the item query with default query parameters.
 	 *
 	 * @since 1.0.0
+	 * @since 2.1.0 Forces some $query_vars if counting
 	 *
-	 * @see Query::__construct()
-	 *
-	 * @param array|string $query Array or string of Query arguments.
+	 * @param array|string $query
 	 */
 	private function parse_query( $query = array() ) {
 
-		// Setup the query_vars_original var
+		// Setup the $query_vars_original var
 		$this->query_var_originals = wp_parse_args( $query );
 
-		// Setup the query_vars parsed var
+		// Setup the $query_vars parsed var
 		$this->query_vars = wp_parse_args(
 			$this->query_var_originals,
 			$this->query_var_defaults
 		);
 
-		// If counting, override some other query_vars
-		if ( ! empty( $this->query_vars['count'] ) ) {
+		// If counting, override some other $query_vars
+		if ( $this->get_query_var( 'count' ) ) {
 			$this->query_vars['number']            = false;
 			$this->query_vars['orderby']           = '';
 			$this->query_vars['no_found_rows']     = true;
@@ -1251,7 +1244,7 @@ class Query extends Base {
 		 *
 		 * @since 1.0.0
 		 *
-		 * @param Query &$this The Query instance (passed by reference).
+		 * @param Query &$this Current instance passed by reference.
 		 */
 		do_action_ref_array(
 			$this->apply_prefix( "parse_{$this->item_name_plural}_query" ),
@@ -1262,13 +1255,66 @@ class Query extends Base {
 	}
 
 	/**
-	 * Parse the 'where' and 'join' query clauses for all known columns.
+	 * Parse all of the $query_vars.
 	 *
-	 * @todo split this method into smaller parts
+	 * Optionally accepts an array of custom $query_vars that can be used
+	 * instead of the default ones.
+	 *
+	 * Calls filter_query_clauses() on the return value.
 	 *
 	 * @since 2.1.0
+	 * @param array $query_vars Optional. Default empty array.
+	 *                          Fallback to Query::query_vars.
+	 * @return array Query clauses, parsed from Query vars.
 	 */
-	private function parse_where_join_vars() {
+	private function parse_query_vars( $query_vars = array() ) {
+
+		// Maybe fallback to $query_vars
+		if ( empty( $query_vars ) && ! empty( $this->query_vars ) ) {
+			$query_vars = $this->query_vars;
+		}
+
+		// Parse arguments
+		$r = wp_parse_args( $query_vars );
+
+		// Parse $query_vars
+		$where_join = $this->parse_where_join( $r );
+
+		// Parse all clauses
+		$clauses = array(
+			'explain' => $this->parse_explain( $r['explain'] ),
+			'select'  => $this->parse_select(),
+			'fields'  => $this->parse_fields( $r['fields'], $r['count'], $r['groupby'] ),
+			'count'   => $this->parse_count( $r['count'], $r['groupby'] ),
+			'from'    => $this->parse_from(),
+			'join'    => $this->parse_join_clause( $where_join['join'] ),
+			'where'   => $this->parse_where_clause( $where_join['where'] ),
+			'groupby' => $this->parse_groupby( $r['groupby'], 'GROUP BY ' ),
+			'orderby' => $this->parse_orderby( $r['orderby'], $r['order'], 'ORDER BY ' ),
+			'limits'  => $this->parse_limits( $r['number'], $r['offset'] )
+		);
+
+		// Return clauses
+		return $this->filter_query_clauses( $clauses );
+	}
+
+	/**
+	 * Parse the 'where' and 'join' $query_vars for all known columns.
+	 *
+	 * @since 2.1.0
+	 *
+	 * @param array $args Query vars
+	 * @return array Array of 'where' and 'join' clauses.
+	 */
+	private function parse_where_join( $args = array() ) {
+
+		// Maybe fallback to $query_vars
+		if ( empty( $args ) && ! empty( $this->query_vars ) ) {
+			$args = $this->query_vars;
+		}
+
+		// Parse arguments
+		$r = wp_parse_args( $args );
 
 		// Defaults
 		$where = $join = $date_query = array();
@@ -1279,30 +1325,32 @@ class Query extends Base {
 		// Loop through columns
 		foreach ( $columns as $column ) {
 
-			// Get pattern
-			$pattern = $this->get_column_field( array( 'name' => $column->name ), 'pattern', '%s' );
+			// Get column name, pattern, and aliased name
+			$name    = $column->name;
+			$pattern = $this->get_column_field( array( 'name' => $name ), 'pattern', '%s' );
+			$aliased = $this->get_column_name_aliased( $name );
 
 			// Literal column comparison
 			if ( false !== $column->by ) {
 
 				// Parse query variable
-				$where_id = $column->name;
-				$values   = $this->parse_query_var( $this->query_vars, $where_id );
+				$where_id = $name;
+				$values   = $this->parse_query_var( $r, $where_id );
 
 				// Parse item for direct clause.
 				if ( false !== $values ) {
 
 					// Convert single item arrays to literal column comparisons
 					if ( 1 === count( $values ) ) {
-						$statement          = "{$this->table_alias}.{$column->name} = {$pattern}";
+						$statement          = "{$aliased} = {$pattern}";
 						$column_value       = reset( $values );
 						$where[ $where_id ] = $this->get_db()->prepare( $statement, $column_value );
 
 					// Implode
 					} else {
 						$where_id           = "{$where_id}__in";
-						$in_values          = $this->get_in_sql( $column->name, $values, true, $pattern );
-						$where[ $where_id ] = "{$this->table_alias}.{$column->name} IN {$in_values}";
+						$in_values          = $this->get_in_sql( $name, $values, true, $pattern );
+						$where[ $where_id ] = "{$aliased} IN {$in_values}";
 					}
 				}
 			}
@@ -1311,23 +1359,23 @@ class Query extends Base {
 			if ( true === $column->in ) {
 
 				// Parse query var
-				$where_id = "{$column->name}__in";
-				$values   = $this->parse_query_var( $this->query_vars, $where_id );
+				$where_id = "{$name}__in";
+				$values   = $this->parse_query_var( $r, $where_id );
 
 				// Parse item for an IN clause.
 				if ( false !== $values ) {
 
 					// Convert single item arrays to literal column comparisons
 					if ( 1 === count( $values ) ) {
-						$statement          = "{$this->table_alias}.{$column->name} = {$pattern}";
-						$where_id           = $column->name;
+						$statement          = "{$aliased} = {$pattern}";
+						$where_id           = $name;
 						$column_value       = reset( $values );
 						$where[ $where_id ] = $this->get_db()->prepare( $statement, $column_value );
 
 					// Implode
 					} else {
-						$in_values          = $this->get_in_sql( $column->name, $values, true, $pattern );
-						$where[ $where_id ] = "{$this->table_alias}.{$column->name} IN {$in_values}";
+						$in_values          = $this->get_in_sql( $name, $values, true, $pattern );
+						$where[ $where_id ] = "{$aliased} IN {$in_values}";
 					}
 				}
 			}
@@ -1336,52 +1384,49 @@ class Query extends Base {
 			if ( true === $column->not_in ) {
 
 				// Parse query var
-				$where_id = "{$column->name}__not_in";
-				$values   = $this->parse_query_var( $this->query_vars, $where_id );
+				$where_id = "{$name}__not_in";
+				$values   = $this->parse_query_var( $r, $where_id );
 
 				// Parse item for a NOT IN clause.
 				if ( false !== $values ) {
 
 					// Convert single item arrays to literal column comparisons
 					if ( 1 === count( $values ) ) {
-						$statement          = "{$this->table_alias}.{$column->name} != {$pattern}";
-						$where_id           = $column->name;
+						$statement          = "{$aliased} != {$pattern}";
+						$where_id           = $name;
 						$column_value       = reset( $values );
 						$where[ $where_id ] = $this->get_db()->prepare( $statement, $column_value );
 
 					// Implode
 					} else {
-						$in_values          = $this->get_in_sql( $column->name, $values, true, $pattern );
-						$where[ $where_id ] = "{$this->table_alias}.{$column->name} NOT IN {$in_values}";
+						$in_values          = $this->get_in_sql( $name, $values, true, $pattern );
+						$where[ $where_id ] = "{$aliased} NOT IN {$in_values}";
 					}
 				}
 			}
 
 			// date_query
 			if ( true === $column->date_query ) {
-				$where_id    = "{$column->name}_query";
-				$column_date = $this->query_vars[ $where_id ];
+				$where_id    = "{$name}_query";
+				$column_date = $this->parse_query_var( $r, $where_id );
 
 				// Parse item
-				if ( ! empty( $column_date ) && ! $this->is_query_var_default( $where_id ) ) {
+				if ( false !== $column_date ) {
 
-					// Default arguments
-					$defaults = array(
-						'column'    => "{$this->table_alias}.{$column->name}",
-						'before'    => $column_date,
-						'inclusive' => true
-					);
+					// Single
+					if ( 1 === count( $column_date ) ) {
+						$date_query[] = array(
+							'column'    => $aliased,
+							'before'    => reset( $column_date ),
+							'inclusive' => true
+						);
 
-					// Default date query
-					if ( is_string( $column_date ) ) {
-						$date_query[] = $defaults;
-
-					// Array query var
-					} elseif ( is_array( $column_date ) ) {
+					// Multi
+					} else {
 
 						// Auto-fill column if empty
 						if ( empty( $column_date['column'] ) ) {
-							$column_date['column'] = $defaults['column'];
+							$column_date['column'] = $aliased;
 						}
 
 						// Add clause to date query
@@ -1397,15 +1442,15 @@ class Query extends Base {
 		$searchable = $this->get_columns( array( 'searchable' => true ), 'and', 'name' );
 
 		// Maybe search if columns are searchable.
-		if ( ! empty( $searchable ) && strlen( $this->query_vars['search'] ) ) {
+		if ( ! empty( $searchable ) && strlen( $r['search'] ) ) {
 
 			// Default to all searchable columns
 			$search_columns = $searchable;
 
 			// Intersect against known searchable columns
-			if ( ! empty( $this->query_vars['search_columns'] ) ) {
+			if ( ! empty( $r['search_columns'] ) ) {
 				$search_columns = array_intersect(
-					$this->query_vars['search_columns'],
+					$r['search_columns'],
 					$searchable
 				);
 			}
@@ -1414,7 +1459,7 @@ class Query extends Base {
 			$search_columns = $this->filter_search_columns( $search_columns );
 
 			// Add search query clause
-			$where['search'] = $this->get_search_sql( $this->query_vars['search'], $search_columns );
+			$where['search'] = $this->get_search_sql( $r['search'], $search_columns );
 		}
 
 		/** Query Classes *****************************************************/
@@ -1422,17 +1467,18 @@ class Query extends Base {
 		// Get the primary column name
 		$primary = $this->get_primary_column_name();
 
-		// Get the meta table
+		// Get the meta type & table alias
 		$table   = $this->get_meta_type();
+		$alias   = $this->table_alias;
 
 		// Set the " AND " regex pattern
 		$and     = '/^\s*AND\s*/';
 
 		// Maybe perform a meta query.
-		$meta_query = $this->query_vars['meta_query'];
+		$meta_query = $r['meta_query'];
 		if ( ! empty( $meta_query ) && is_array( $meta_query ) ) {
 			$this->meta_query = $this->get_meta_query( $meta_query );
-			$clauses          = $this->meta_query->get_sql( $table, $this->table_alias, $primary, $this );
+			$clauses          = $this->meta_query->get_sql( $table, $alias, $primary, $this );
 
 			// Not all objects have meta, so make sure this one exists
 			if ( false !== $clauses ) {
@@ -1444,18 +1490,16 @@ class Query extends Base {
 
 				// Set where
 				if ( ! empty( $clauses['where'] ) ) {
-
-					// Remove " AND " from query query where clause
 					$where['meta_query'] = preg_replace( $and, '', $clauses['where'] );
 				}
 			}
 		}
 
 		// Maybe perform a compare query.
-		$compare_query = $this->query_vars['compare_query'];
+		$compare_query = $r['compare_query'];
 		if ( ! empty( $compare_query ) && is_array( $compare_query ) ) {
 			$this->compare_query = $this->get_compare_query( $compare_query );
-			$clauses             = $this->compare_query->get_sql( $table, $this->table_alias, $primary, $this );
+			$clauses             = $this->compare_query->get_sql( $table, $alias, $primary, $this );
 
 			// Not all objects can compare, so make sure this one exists
 			if ( false !== $clauses ) {
@@ -1467,8 +1511,6 @@ class Query extends Base {
 
 				// Set where
 				if ( ! empty( $clauses['where'] ) ) {
-
-					// Remove " AND " from query where clause.
 					$where['compare_query'] = preg_replace( $and, '', $clauses['where'] );
 				}
 			}
@@ -1477,12 +1519,12 @@ class Query extends Base {
 		// Only do a date query with an array
 		$date_query = ! empty( $date_query )
 			? $date_query
-			: $this->query_vars['date_query'];
+			: $r['date_query'];
 
 		// Maybe perform a date query
 		if ( ! empty( $date_query ) && is_array( $date_query ) ) {
 			$this->date_query = $this->get_date_query( $date_query );
-			$clauses          = $this->date_query->get_sql( $this->table_name, $this->table_alias, $primary, $this );
+			$clauses          = $this->date_query->get_sql( $this->table_name, $alias, $primary, $this );
 
 			// Not all objects are dates, so make sure this one exists
 			if ( false !== $clauses ) {
@@ -1494,16 +1536,16 @@ class Query extends Base {
 
 				// Set where
 				if ( ! empty( $clauses['where'] ) ) {
-
-					// Remove " AND " from query where clause.
 					$where['date_query'] = preg_replace( $and, '', $clauses['where'] );
 				}
 			}
 		}
 
-		// Set where and join clauses, removing possible empties
-		$this->query_clauses['where'] = array_filter( $where );
-		$this->query_clauses['join']  = array_filter( $join  );
+		// Return where & join, removing possible empties
+		return array(
+			'where' => array_filter( $where ),
+			'join'  => array_filter( $join  )
+		);
 	}
 
 	/**
@@ -1595,6 +1637,42 @@ class Query extends Base {
 	}
 
 	/**
+	 * Parse if query to be EXPLAIN'ed.
+	 *
+	 * @since 2.1.0
+	 * @param bool $explain Default false. True to EXPLAIN.
+	 * @return string
+	 */
+	private function parse_explain( $explain = false ) {
+
+		// Maybe fallback to $query_vars
+		if ( empty( $explain ) ) {
+			$explain = $this->get_query_var( 'explain' );
+		}
+
+		// Default return value
+		$retval = '';
+
+		// Maybe explaining
+		if ( ! empty( $explain ) ) {
+			$retval = 'EXPLAIN';
+		}
+
+		// Return SQL
+		return $retval;
+	}
+
+	/**
+	 * Parse the "SELECT" part of the SQL.
+	 *
+	 * @since 2.1.0
+	 * @return string Default "SELECT".
+	 */
+	private function parse_select() {
+		return 'SELECT';
+	}
+
+	/**
 	 * Parse which fields to query for.
 	 *
 	 * If making a 'count' request, this will return either an empty string or
@@ -1604,7 +1682,8 @@ class Query extends Base {
 	 * predictably hit the cache, but that may change in a future version.
 	 *
 	 * @since 1.0.0
-	 * @since 2.1.0 Moved COUNT() SQL to parse_count()
+	 * @since 2.1.0 Moved COUNT() SQL to parse_count() and uses parse_groupby()
+	 *              when counting to satisfy MySQL 8 and higher.
 	 *
 	 * @param string[] $fields
 	 * @param bool     $count
@@ -1615,8 +1694,8 @@ class Query extends Base {
 	private function parse_fields( $fields = '', $count = false, $groupby = '', $alias = true ) {
 
 		// Maybe fallback to $query_vars
-		if ( empty( $count ) && ! empty( $this->query_vars['count'] ) ) {
-			$count = $this->query_vars['count'];
+		if ( empty( $count ) ) {
+			$count = $this->get_query_var( 'count' );
 		}
 
 		// Default return value
@@ -1627,24 +1706,22 @@ class Query extends Base {
 
 			// Use groupby instead
 			if ( ! empty( $groupby ) ) {
-				$retval = $this->parse_groupby( $groupby, $alias );
+				$retval = $this->parse_groupby( $groupby, '', $alias );
 			}
 
-		// Not counting
+		// Not counting, so use primary column
 		} else {
 
 			// Maybe fallback to $query_vars
-			if ( empty( $fields ) && ! empty( $this->query_vars['fields'] ) ) {
-				$fields = $this->query_vars['fields'];
+			if ( empty( $fields ) ) {
+				$fields = $this->get_query_var( 'fields' );
 			}
 
 			// Get the primary column name
 			$primary = $this->get_primary_column_name();
 
 			// Default return value
-			$retval = ( true === $alias )
-				? "{$this->table_alias}.{$primary}"
-				: $primary;
+			$retval = $this->get_column_name_aliased( $primary, $alias );
 		}
 
 		// Return fields
@@ -1652,8 +1729,10 @@ class Query extends Base {
 	}
 
 	/**
-	 * Parse if counting, possibly grouping by columns.
+	 * Parse if counting.
 	 *
+	 * When counting with groups, parse_fields() will return the required SQL to
+	 * prevent errors.
 	 *
 	 * @since 2.1.0
 	 * @param bool   $count
@@ -1665,8 +1744,8 @@ class Query extends Base {
 	private function parse_count( $count = false, $groupby = '', $name = 'count', $alias = true ) {
 
 		// Maybe fallback to $query_vars
-		if ( empty( $count ) && ! empty( $this->query_vars['count'] ) ) {
-			$count = $this->query_vars['count'];
+		if ( empty( $count ) ) {
+			$count = $this->get_query_var( 'count' );
 		}
 
 		// Bail if not counting
@@ -1678,7 +1757,7 @@ class Query extends Base {
 		$retval = 'COUNT(*)';
 
 		// Check for "GROUP BY"
-		$groupby_names = $this->parse_groupby( $groupby, $alias );
+		$groupby_names = $this->parse_groupby( $groupby, '', $alias );
 
 		// Reformat if grouping counts together
 		if ( ! empty( $groupby_names ) ) {
@@ -1690,19 +1769,46 @@ class Query extends Base {
 	}
 
 	/**
+	 * Parse which table to query and whether to follow it with an alias.
+	 *
+	 * @since 2.1.0
+	 * @param string $table Optional. Default empty string.
+	 *                      Fallback to get_table_name().
+	 * @param string $alias Optional. Default empty string.
+	 *                      Fallback to $table_alias.
+	 * @return string
+	 */
+	private function parse_from( $table = '', $alias = '' ) {
+
+		// Maybe fallback to get_table_name()
+		if ( empty( $table ) ) {
+			$table = $this->get_table_name();
+		}
+
+		// Maybe fallback to $table_alias
+		if ( empty( $alias ) ) {
+			$alias = $this->table_alias;
+		}
+
+		// Return
+		return "FROM {$table} {$alias}";
+	}
+
+	/**
 	 * Parses and sanitizes the 'groupby' keys passed into the item query.
 	 *
 	 * @since 1.0.0
 	 *
 	 * @param string $groupby
+	 * @param string $before
 	 * @param bool   $alias
 	 * @return string
 	 */
-	private function parse_groupby( $groupby = '', $alias = true ) {
+	private function parse_groupby( $groupby = '', $before = '', $alias = true ) {
 
 		// Maybe fallback to $query_vars
-		if ( empty( $groupby ) && ! empty( $this->query_vars['groupby'] ) ) {
-			$groupby = $this->query_vars['groupby'];
+		if ( empty( $groupby ) ) {
+			$groupby = $this->get_query_var( 'groupby' );
 		}
 
 		// Bail if empty
@@ -1710,128 +1816,119 @@ class Query extends Base {
 			return '';
 		}
 
-		// Sanitize groupby columns
-		$groupby   = (array) array_map( 'sanitize_key', (array) $groupby );
-
-		// Re'flip column names back around
-		$columns   = array_flip( $this->get_column_names() );
+		// Maybe cast to array
+		if ( ! is_array( $groupby ) ) {
+			$groupby = (array) $groupby;
+		}
 
 		// Get the intersection of allowed column names to groupby columns
-		$intersect = array_intersect( $groupby, $columns );
+		$intersect = $this->get_columns_field_by( 'name', $groupby );
 
-		// Bail if invalid column
+		// Bail if invalid columns
 		if ( empty( $intersect ) ) {
 			return '';
 		}
 
-		// Default return value
-		$retval = array();
+		// Column names array
+		$names = array();
 
 		// Maybe prepend table alias to key
 		foreach ( $intersect as $key ) {
-			$retval[] = ( true === $alias )
-				? "{$this->table_alias}.{$key}"
-				: $key;
+			$names[] = $this->get_column_name_aliased( $key, $alias );
 		}
 
-		// Separate sanitized columns
-		return implode( ',', array_values( $retval ) );
+		// Bail if nothing to groupby
+		if ( empty( $names ) && ! empty( $before ) ) {
+			return '';
+		}
+
+		// Format column names
+		$retval = implode( ',', $names );
+
+		// Return columns
+		return implode( ' ', array( $before, $retval ) ) ;
 	}
 
 	/**
 	 * Parse the ORDER BY clause.
 	 *
 	 * @since 1.0.0 As get_order_by
-	 * @since 2.1.0 Renamed to parse_orderby and accepts $orderby, $order, and $alias
+	 * @since 2.1.0 Renamed to parse_orderby and accepts $orderby, $order, $before, and $alias
 	 *
 	 * @param string $orderby
 	 * @param string $order
+	 * @param string $before
 	 * @param bool   $alias
 	 * @return string
 	 */
-	private function parse_orderby( $orderby = '', $order = '', $alias = true ) {
+	private function parse_orderby( $orderby = '', $order = '', $before = '', $alias = true ) {
 
 		// Maybe fallback to $query_vars
-		if ( empty( $orderby ) && ! empty( $this->query_vars['orderby'] ) ) {
-			$orderby = $this->query_vars['orderby'];
+		if ( empty( $orderby ) ) {
+			$orderby = $this->get_query_var( 'orderby' );
 		}
 
-		// Default orderby primary column
-		$parsed  = $this->parse_single_orderby( $orderby, $alias );
-		$order   = $this->parse_order( $order );
-		$orderby = "{$parsed} {$order}";
+		// Bail if counting
+		if ( $this->get_query_var( 'count' ) ) {
+			return '';
+		}
 
-		// Disable ORDER BY if counting, or: 'none', an empty array, or false.
-		if (
+		// Bail if $orderby is a value that could cancel ordering
+		if ( in_array( $orderby, array( 'none', array(), false, null ), true ) ) {
+			return '';
+		}
 
-			! empty( $this->query_vars['count'] )
+		// Default return value
+		$retval = '';
 
-			||
-
-			in_array( $orderby, array( 'none', array(), false ), true )
-		) {
-			$orderby = '';
+		// Fallback to default orderby & order
+		if ( empty( $orderby ) ) {
+			$parsed = $this->parse_single_orderby( $orderby, $alias );
+			$order  = $this->parse_order( $order );
+			$retval = "{$parsed} {$order}";
 
 		// Ordering by something, so figure it out
-		} elseif ( ! empty( $orderby ) ) {
+		} else {
 
-			// Array of keys, or comma separated
-			$ordersby = $this->parse_query_var( $this->query_vars, 'orderby' );
+			// Cast orderby as an array
+			$ordersby = (array) $orderby;
 
+			// Fill if numeric
+			if ( wp_is_numeric_array( $ordersby ) ) {
+				$ordersby = array_fill_keys( $ordersby, $order );
+			}
+
+			// Default return value
 			$orderby_array = array();
-			$possible_ins  = $this->get_columns( array( 'in'       => true ), 'and', 'name' );
-			$sortables     = $this->get_columns( array( 'sortable' => true ), 'and', 'name' );
 
-			// Loop through possible order by's
-			foreach ( $ordersby as $_key => $_value ) {
-
-				// Skip if empty
-				if ( empty( $_value ) ) {
-					continue;
-				}
-
-				// Key is numeric
-				if ( is_int( $_key ) ) {
-					$_orderby = $_value;
-					$_item    = $order;
-
-				// Key is string
-				} else {
-					$_orderby = $_key;
-					$_item    = $_value;
-				}
-
-				// Skip if not sortable
-				if ( ! in_array( $_value, $sortables, true ) ) {
-					continue;
-				}
+			// Loop through orderby's
+			foreach ( $ordersby as $key => $value ) {
 
 				// Parse orderby
-				$parsed = $this->parse_single_orderby( $_orderby, $alias );
+				$parsed = $this->parse_single_orderby( $key, $alias );
 
 				// Skip if empty
 				if ( empty( $parsed ) ) {
 					continue;
 				}
 
-				// Set if __in
-				if ( in_array( $_orderby, $possible_ins, true ) ) {
-					$orderby_array[] = "{$parsed} {$order}";
-					continue;
-				}
-
 				// Append parsed orderby to array
-				$orderby_array[] = $parsed . ' ' . $this->parse_order( $_item );
+				$orderby_array[] = $parsed . ' ' . $this->parse_order( $value );
 			}
 
 			// Only set if valid orderby
 			if ( ! empty( $orderby_array ) ) {
-				$orderby = implode( ', ', $orderby_array );
+				$retval = implode( ', ', $orderby_array );
 			}
 		}
 
+		// Bail if nothing to orderby
+		if ( empty( $retval ) && ! empty( $before ) ) {
+			return '';
+		}
+
 		// Return parsed orderby
-		return $orderby;
+		return implode( ' ', array( $before, $retval ) );
 	}
 
 	/**
@@ -1839,10 +1936,17 @@ class Query extends Base {
 	 *
 	 * @since 2.1.0
 	 * @param array $where
-	 * @return string
+	 * @return string A single SQL statement.
 	 */
-	private function parse_where_clauses( $where = array() ) {
-		return implode( ' AND ', $where );
+	private function parse_where_clause( $where = array() ) {
+
+		// Bail if no where
+		if ( empty( $where ) ) {
+			return '';
+		}
+
+		// Return SQL
+		return 'WHERE ' . implode( ' AND ', $where );
 	}
 
 	/**
@@ -1850,10 +1954,60 @@ class Query extends Base {
 	 *
 	 * @since 2.1.0
 	 * @param array $join
-	 * @return string
+	 * @return string A single SQL statement.
 	 */
-	private function parse_join_clauses( $join = array() ) {
+	private function parse_join_clause( $join = array() ) {
+
+		// Return SQL
 		return implode( ', ', $join );
+	}
+
+	/**
+	 * Parse all of the SQL query clauses.
+	 *
+	 * @since 2.1.0
+	 * @param array $clauses
+	 * @return array
+	 */
+	private function parse_query_clauses( $clauses = array() ) {
+
+		// Maybe fallback to $query_clauses
+		if ( empty( $clauses ) && ! empty( $this->query_clauses ) ) {
+			$clauses = $this->query_clauses;
+		}
+
+		// Default return value
+		$retval = wp_parse_args( $clauses );
+
+		// Return array of clauses
+		return $retval;
+	}
+
+	/**
+	 * Parse all SQL $request_clauses into a single SQL query string.
+	 *
+	 * @since 2.1.0
+	 * @param array $clauses
+	 * @return string A single SQL statement.
+	 */
+	private function parse_request_clauses( $clauses = array() ) {
+
+		// Maybe fallback to $request_clauses
+		if ( empty( $clauses ) && ! empty( $this->request_clauses ) ) {
+			$clauses = $this->request_clauses;
+		}
+
+		// Bail if empty clauses
+		if ( empty( $clauses ) ) {
+			return '';
+		}
+
+		// Remove empties
+		$filtered = array_filter( $clauses );
+		$retval   = array_map( 'trim', $filtered );
+
+		// Return SQL
+		return implode( ' ', $retval );
 	}
 
 	/**
@@ -1904,28 +2058,33 @@ class Query extends Base {
 			$orderby = $this->get_primary_column_name();
 		}
 
-		// __in
+		// Default return value
+		$retval = '';
+
+		// Get possible columns an $orderby can belong to
+		$ins       = $this->get_columns( array( 'in'       => true ), 'and', 'name' );
+		$sortables = $this->get_columns( array( 'sortable' => true ), 'and', 'name' );
+
+		// __in column
 		if ( false !== strstr( $orderby, '__in' ) ) {
+
+			// Get column name from $orderby clause
 			$column_name = str_replace( '__in', '', $orderby );
-			$item_in     = $this->get_in_sql( $column_name, $this->query_vars[ $orderby ], false );
-			$aliased     = ( true === $alias )
-				? "{$this->table_alias}.{$column_name}"
-				: $column_name;
-			$retval      = "FIELD( {$aliased}, {$item_in} )";
 
-		// Specific column
-		} else {
-
-			// Orderby is a literal, sortable column name
-			$sortables = $this->get_columns( array( 'sortable' => true ), 'and', 'name' );
-			if ( in_array( $orderby, $sortables, true ) ) {
-				$retval = ( true === $alias )
-					? "{$this->table_alias}.{$orderby}"
-					: $orderby;
+			// Get values if valid column
+			if ( in_array( $column_name, $ins, true ) ) {
+				$values  = $this->get_query_var( $orderby );
+				$item_in = $this->get_in_sql( $column_name, $values, false );
+				$aliased = $this->get_column_name_aliased( $column_name, $alias );
+				$retval  = "FIELD( {$aliased}, {$item_in} )";
 			}
+
+		// Specific sortable column
+		} elseif ( in_array( $orderby, $sortables, true ) ) {
+			$retval = $this->get_column_name_aliased( $orderby, $alias );
 		}
 
-		// Return parsed value
+		// Return SQL
 		return $retval;
 	}
 
@@ -1973,8 +2132,8 @@ class Query extends Base {
 	private function shape_items( $items = array(), $fields = array() ) {
 
 		// Maybe fallback to $query_vars
-		if ( empty( $fields ) && ! empty( $this->query_vars['fields'] ) ) {
-			$fields = $this->query_vars['fields'];
+		if ( empty( $fields ) ) {
+			$fields = $this->get_query_var( 'fields' );
 		}
 
 		// Force to stdClass if querying for fields
@@ -2020,8 +2179,8 @@ class Query extends Base {
 		$retval = $items;
 
 		// Maybe fallback to $query_vars
-		if ( empty( $fields ) && ! empty( $this->query_vars['fields'] ) ) {
-			$fields = $this->query_vars['fields'];
+		if ( empty( $fields ) ) {
+			$fields = $this->get_query_var( 'fields' );
 		}
 
 		// Bail if no fields to get
@@ -2029,11 +2188,13 @@ class Query extends Base {
 			return $retval;
 		}
 
+		// Maybe cast to array
+		if ( ! is_array( $fields ) ) {
+			$fields = (array) $fields;
+		}
+
 		// Get the primary column name
 		$primary = $this->get_primary_column_name();
-
-		// Sanitize fields
-		$fields = (array) array_map( 'sanitize_key', (array) $fields );
 
 		// 'ids' is numerically keyed
 		if ( ( 1 === count( $fields ) ) && ( 'ids' === $fields[0] ) ) {
@@ -2142,7 +2303,7 @@ class Query extends Base {
 	 * Get a single database row by any column and value, possibly from cache.
 	 *
 	 * Take care to only use this method on columns with unique values,
-	 * preferably with a cache group for that column. See: get_item().
+	 * preferably with a cache group for that column.
 	 *
 	 * @since 1.0.0
 	 *
@@ -2152,31 +2313,18 @@ class Query extends Base {
 	 */
 	public function get_item_by( $column_name = '', $column_value = '' ) {
 
-		// Default return value
-		$retval = false;
-
-		// Bail if no key or value
-		if ( empty( $column_name ) || empty( $column_value ) ) {
-			return $retval;
+		// Bail if empty or non-scalar value
+		if ( empty( $column_value ) || ! is_scalar( $column_value ) ) {
+			return false;
 		}
-
-		// Bail if name is not a string
-		if ( ! is_string( $column_name ) ) {
-			return $retval;
-		}
-
-		// Bail if value is not scalar (null values also not allowed)
-		if ( ! is_scalar( $column_value ) ) {
-			return $retval;
-		}
-
-		// Get all of the column names
-		$columns = $this->get_column_names();
 
 		// Bail if column does not exist
-		if ( ! isset( $columns[ $column_name ] ) ) {
-			return $retval;
+		if ( ! $this->is_valid_column( $column_name ) ) {
+			return false;
 		}
+
+		// Default return value
+		$retval = false;
 
 		// Get all of the cache groups
 		$groups = $this->get_cache_groups();
@@ -2972,31 +3120,32 @@ class Query extends Base {
 	/**
 	 * Get the meta table for this query.
 	 *
-	 * Forked from WordPress\_get_meta_table() so it can be more accurately
-	 * predicted in a future iteration and default to returning false.
-	 *
 	 * @since 1.0.0
+	 * @since 2.1.0 Minor refactor to improve readability.
 	 *
-	 * @return mixed Table name if exists, False if not
+	 * @return bool|string Table name if exists, False if not.
 	 */
 	private function get_meta_table_name() {
 
-		// Get the meta-type
-		$type       = $this->get_meta_type();
+		// Default return value
+		$retval = false;
 
-		// Append "meta" to end of meta-type
-		$table_name = "{$type}meta";
+		// Get the meta type
+		$type   = $this->get_meta_type();
+
+		// Append "meta" to end of meta type
+		$table  = "{$type}meta";
 
 		// Variable'ize the database interface, to use inside empty()
-		$db         = $this->get_db();
+		$db     = $this->get_db();
 
 		// If not empty, return table name
-		if ( ! empty( $db->{$table_name} ) ) {
-			return $db->{$table_name};
+		if ( ! empty( $db->{$table} ) ) {
+			$retval = $db->{$table};
 		}
 
-		// Default return false
-		return false;
+		// Return
+		return $retval;
 	}
 
 	/**
@@ -3016,7 +3165,7 @@ class Query extends Base {
 	/** Cache *****************************************************************/
 
 	/**
-	 * Get cache key from query_vars and query_var_defaults.
+	 * Get cache key from $query_vars and $query_var_defaults.
 	 *
 	 * @since 1.0.0
 	 *
@@ -3025,7 +3174,7 @@ class Query extends Base {
 	 */
 	private function get_cache_key( $group = '' ) {
 
-		// Slice query vars
+		// Slice $query_vars by default keys
 		$slice = wp_array_slice_assoc( $this->query_vars, array_keys( $this->query_var_defaults ) );
 
 		// Unset "fields" so it does not effect the cache key
@@ -3035,7 +3184,7 @@ class Query extends Base {
 		$key          = md5( serialize( $slice ) );
 		$last_changed = $this->get_last_changed_cache( $group );
 
-		// Concatenate and return cache key
+		// Return the concatenated cache key
 		return "get_{$this->item_name_plural}:{$key}:{$last_changed}";
 	}
 
@@ -3099,8 +3248,7 @@ class Query extends Base {
 	}
 
 	/**
-	 * Maybe prime item & item-meta caches by querying 1 time for all un-cached
-	 * items.
+	 * Maybe prime item & item-meta caches.
 	 *
 	 * Accepts a single ID, or an array of IDs.
 	 *
@@ -3108,7 +3256,11 @@ class Query extends Base {
 	 * after an item is inserted in the database, but before items have been
 	 * "shaped" into proper objects, so object properties may not be set yet.
 	 *
+	 * Queries the database 1 time for all non-cached item objects and 1 time
+	 * for all non-cached item meta.
+	 *
 	 * @since 1.0.0
+	 * @since 2.1.0 Uses get_meta_table_name() to
 	 *
 	 * @param array $item_ids
 	 * @param bool  $force
@@ -3128,45 +3280,51 @@ class Query extends Base {
 		/**
 		 * Update item caches.
 		 *
-		 * Uses our own get_non_cached_ids() method to avoid
+		 * Uses get_non_cached_ids() to remove item IDs that already exist in
+		 * in the cache, then performs direct database query for the remaining
+		 * IDs, and caches them.
 		 */
-		if ( ! empty( $force ) || ! empty( $this->query_vars['update_item_cache'] ) ) {
+		if ( ! empty( $force ) || $this->get_query_var( 'update_item_cache' ) ) {
 
 			// Look for non-cached IDs
 			$ids = $this->get_non_cached_ids( $item_ids, $this->cache_group );
 
-			// Bail if IDs are cached
-			if ( empty( $ids ) ) {
-				return false;
+			// Proceed if non-cached IDs exist
+			if ( ! empty( $ids ) ) {
+
+				// Get query parts
+				$table   = $this->get_table_name();
+				$primary = $this->get_primary_column_name();
+				$ids     = $this->get_in_sql( $primary, $ids );
+
+				// Query database
+				$query   = "SELECT * FROM {$table} WHERE {$primary} IN %s";
+				$prepare = sprintf( $query, $ids );
+				$results = $this->get_db()->get_results( $prepare );
+
+				// Update item cache(s)
+				$this->update_item_cache( $results );
 			}
-
-			// Get query parts
-			$table   = $this->get_table_name();
-			$primary = $this->get_primary_column_name();
-			$ids     = $this->get_in_sql( $primary, $ids );
-
-			// Query database
-			$query   = "SELECT * FROM {$table} WHERE {$primary} IN %s";
-			$prepare = sprintf( $query, $ids );
-			$results = $this->get_db()->get_results( $prepare );
-
-			// Update item cache(s)
-			$this->update_item_cache( $results );
 		}
 
 		/**
 		 * Update meta data caches.
 		 *
 		 * Uses update_meta_cache() because it politely handles all of the
-		 * uncached ID logic. This allows us to use the original (and likely
+		 * non-cached ID logic. This allows us to use the original (and likely
 		 * larger) $item_ids array instead of $ids, thus ensuring the everything
 		 * is cached according to our expectations.
 		 */
-		if ( ! empty( $this->query_vars['update_meta_cache'] ) ) {
-			$singular = rtrim( $this->table_name, 's' ); // sic
-			update_meta_cache( $singular, $item_ids );
+		if ( ! empty( $force ) || $this->get_query_var( 'update_meta_cache' ) ) {
+
+			// Proceed if meta table exists
+			if ( $this->get_meta_table_name() ) {
+				$meta_type = $this->get_meta_type();
+				update_meta_cache( $meta_type, $item_ids );
+			}
 		}
 
+		// Return true because something was cached
 		return true;
 	}
 
@@ -3534,23 +3692,25 @@ class Query extends Base {
 	 * Filter the found items query.
 	 *
 	 * @since 2.1.0
-	 *
+	 * @param string $sql
 	 * @return string
 	 */
-	public function filter_found_items_query() {
+	public function filter_found_items_query( $sql = '' ) {
 
 		/**
 		 * Filters the query used to retrieve the found item count.
 		 *
 		 * @since 1.0.0
+		 * @since 2.1.0 Supports MySQL 8 by removing FOUND_ROWS() and uses
+		 *              $request_clauses instead.
 		 *
 		 * @param string $query SQL query. Default 'SELECT FOUND_ROWS()'.
-		 * @param Query &$this  Current instance passed by reference.
+		 * @param Query  &$this Current instance passed by reference.
 		 */
 		return (string) apply_filters_ref_array(
 			$this->apply_prefix( "found_{$this->item_name_plural}_query" ),
 			array(
-				'SELECT FOUND_ROWS()',
+				$sql,
 				&$this
 			)
 		);
