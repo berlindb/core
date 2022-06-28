@@ -69,20 +69,15 @@ class Base {
 	 */
 	public function __isset( $key = '' ) {
 
-		// No more uppercase ID properties ever
-		if ( 'ID' === $key ) {
-			$key = 'id';
-		}
-
 		// Class method to try and call
 		$method = "get_{$key}";
 
-		// Return property if exists
-		if ( method_exists( $this, $method ) ) {
+		// Return callable method exists
+		if ( is_callable( array( $this, $method ) ) ) {
 			return true;
 		}
 
-		// Return get method results if exists
+		// Return property if exists
 		return property_exists( $this, $key );
 	}
 
@@ -96,19 +91,14 @@ class Base {
 	 */
 	public function __get( $key = '' ) {
 
-		// No more uppercase ID properties ever
-		if ( 'ID' === $key ) {
-			$key = 'id';
-		}
-
 		// Class method to try and call
 		$method = "get_{$key}";
 
-		// Return property if exists
-		if ( method_exists( $this, $method ) ) {
+		// Return get method results if callable
+		if ( is_callable( array( $this, $method ) ) ) {
 			return call_user_func( array( $this, $method ) );
 
-		// Return get method results if exists
+		// Return property value if exists
 		} elseif ( property_exists( $this, $key ) ) {
 			return $this->{$key};
 		}
@@ -164,10 +154,7 @@ class Base {
 		}
 
 		// Setup prefixed string
-		$retval = $new_prefix . $retval;
-
-		// Return the result
-		return $retval;
+		return $new_prefix . $retval;
 	}
 
 	/**
@@ -381,27 +368,28 @@ class Base {
 	 *       pass falsy values on success.
 	 *
 	 * @since 1.0.0
+	 * @since 2.1.0 Minor refactor to improve readability.
 	 *
-	 * @param mixed $result Default false.
+	 * @param mixed $result Optional. Default false. Any value to check.
 	 * @return bool
 	 */
 	protected function is_success( $result = false ) {
 
-		// Bail if falsy result
-		if ( empty( $result ) ) {
-			$retval = false;
+		// Default return value
+		$retval = false;
 
-		// Bail if an error occurred
-		} elseif ( is_wp_error( $result ) ) {
-			$this->last_error = $result;
-			$retval           = false;
-
-		// No errors
-		} else {
+		// Non-empty is success
+		if ( ! empty( $result ) ) {
 			$retval = true;
+
+			// But Error is still fail, so stash it
+			if ( is_wp_error( $result ) ) {
+				$this->last_error = $result;
+				$retval           = false;
+			}
 		}
 
 		// Return the result
-		return $retval;
+		return (bool) $retval;
 	}
 }
