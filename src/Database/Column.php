@@ -1135,7 +1135,7 @@ class Column extends Base {
 		}
 
 		// Fallback to $default or empty string
-		if ( true === $fallback ) {
+		if ( $fallback ) {
 			$value = (string) $this->default;
 		}
 
