@@ -41,7 +41,7 @@ class Schema extends Base {
 	 * @since 2.1.0
 	 * @var   string
 	 */
-	protected $index = __NAMESPACE__ . '\\Index';
+	public $index = __NAMESPACE__ . '\\Index';
 
 	/** Item Objects **********************************************************/
 
