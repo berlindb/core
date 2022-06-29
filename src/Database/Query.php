@@ -1691,7 +1691,7 @@ class Query extends Base {
 	 * @param bool     $alias
 	 * @return string
 	 */
-	private function parse_fields( $fields = '', $count = false, $groupby = '', $alias = true ) {
+	private function parse_fields( $fields = array(), $count = false, $groupby = array(), $alias = true ) {
 
 		// Maybe fallback to $query_vars
 		if ( empty( $count ) ) {
@@ -2671,13 +2671,13 @@ class Query extends Base {
 	}
 
 	/**
-	 * Shape an item from the database into the type of object it always wanted
-	 * to be when it grew up.
+	 * "Shape" an $item (likely an object) that was sourced either from cache
+	 * or the database, into the object type set in Query::item_shape.
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param mixed ID of item, or row from database
-	 * @return mixed False on error, Object of single-object class type on success
+	 * @param int|object|array $item ID of item, or row from database
+	 * @return object Object of single-object class type on success
 	 */
 	private function shape_item( $item = 0 ) {
 

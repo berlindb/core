@@ -1108,13 +1108,16 @@ class Column extends Base {
 		// Default empty datetime (value with NO_ZERO_DATE off)
 		$default_empty = '0000-00-00 00:00:00';
 
+		// Not using the $default yet
+		$use_default = false;
+
 		// Handle current_timestamp MySQL constant
 		if ( 'CURRENT_TIMESTAMP' === strtoupper( $value ) ) {
 			$value = 'CURRENT_TIMESTAMP';
 
 		// Fallback if "empty" value
 		} elseif ( empty( $value ) || ( $default_empty === $value ) ) {
-			$fallback = true;
+			$use_default = true;
 
 		// All other values
 		} else {
@@ -1128,12 +1131,12 @@ class Column extends Base {
 
 			// Fallback if invalid
 			} else {
-				$fallback = true;
+				$use_default = true;
 			}
 		}
 
-		// Fallback to $default or empty string
-		if ( true === $fallback ) {
+		// Fallback to $default
+		if ( ! empty( $use_default ) ) {
 			$value = (string) $this->default;
 		}
 

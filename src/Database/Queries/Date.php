@@ -653,8 +653,8 @@ class Date extends Base {
 		 *
 		 * @since 1.0.0
 		 *
-		 * @param string $sql Clauses of the date query.
-		 * @param Date   $this  The Date query instance.
+		 * @param array $sql      Clauses of the date query.
+		 * @param Date  $instance The Date query instance.
 		 */
 		return (array) apply_filters( 'get_date_sql', $sql, $this );
 	}
