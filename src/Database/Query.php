@@ -899,13 +899,13 @@ class Query extends Base {
 	 */
 	private function get_columns_field_by( $key = '', $values = array(), $field = '', $default = false ) {
 
-		// Default return value
-		$retval = array();
-
 		// Bail if no values
 		if ( empty( $values ) ) {
-			return $retval;
+			return array();
 		}
+
+		// Default return value
+		$retval = array();
 
 		// Allow scalar values
 		if ( is_scalar( $values ) ) {
@@ -1173,18 +1173,18 @@ class Query extends Base {
 	 */
 	private function get_in_sql( $column_name = '', $values = array(), $wrap = true, $pattern = '' ) {
 
-		// Default return value
-		$retval = '';
-
 		// Bail if no values or invalid column
 		if ( empty( $values ) || ! $this->is_valid_column( $column_name ) ) {
-			return $retval;
+			return '';
 		}
 
 		// Fallback to column pattern
 		if ( empty( $pattern ) || ! is_string( $pattern ) ) {
 			$pattern = $this->get_column_field( array( 'name' => $column_name ), 'pattern', '%s' );
 		}
+
+		// Default return value
+		$retval = '';
 
 		// Fill an array of patterns to match the number of values
 		$count    = count( $values );
@@ -2175,9 +2175,6 @@ class Query extends Base {
 	 */
 	private function get_item_fields( $items = array(), $fields = array() ) {
 
-		// Default return value
-		$retval = $items;
-
 		// Maybe fallback to $query_vars
 		if ( empty( $fields ) ) {
 			$fields = $this->get_query_var( 'fields' );
@@ -2185,7 +2182,7 @@ class Query extends Base {
 
 		// Bail if no fields to get
 		if ( empty( $fields ) ) {
-			return $retval;
+			return $items;
 		}
 
 		// Maybe cast to array
@@ -2196,13 +2193,15 @@ class Query extends Base {
 		// Get the primary column name
 		$primary = $this->get_primary_column_name();
 
+		// Default return value
+		$retval  = array();
+
 		// 'ids' is numerically keyed
 		if ( ( 1 === count( $fields ) ) && ( 'ids' === $fields[0] ) ) {
 			$retval = wp_list_pluck( $items, $primary );
 
 		// Get fields from items
 		} else {
-			$retval = array();
 			$fields = array_flip( $fields );
 
 			// Loop through items and pluck out the fields
@@ -2671,8 +2670,13 @@ class Query extends Base {
 	}
 
 	/**
-	 * "Shape" an $item (likely an object) that was sourced either from cache
-	 * or the database, into the object type set in Query::item_shape.
+	 * "Shape" an $item (likely a stdClass object, sourced either from cache or
+	 * the database) into the type of Row object defined in Query::item_shape.
+	 *
+	 * This grants each item object access to all of the methods & parameters
+	 * from the Row class, which is particularly useful when it has been
+	 * subclassed to add the custom functionality needed by your application.
+	 *
 	 *
 	 * @since 1.0.0
 	 *
@@ -2796,10 +2800,7 @@ class Query extends Base {
 		$defaults = $this->get_columns( $r, 'and', 'default' );
 
 		// Combine them
-		$retval   = array_combine( $names, $defaults );
-
-		// Return
-		return $retval;
+		return array_combine( $names, $defaults );
 	}
 
 	/**
@@ -2832,15 +2833,9 @@ class Query extends Base {
 			return;
 		}
 
-		// If no old value(s), it's new
+		// If no old data, set all old values to "new"
 		if ( empty( $old_data ) || ! is_array( $old_data ) ) {
-			$old_data = $new_data;
-
-			// Set all old values to "new"
-			foreach ( $old_data as $key => $value ) {
-				$value            = 'new';
-				$old_data[ $key ] = $value;
-			}
+			$old_data = array_fill_keys( array_keys( $new_data ), 'new' );
 		}
 
 		// Compare
@@ -2857,7 +2852,7 @@ class Query extends Base {
 		}
 
 		// Do the actions
-		foreach ( $diff as $key => $value ) {
+		foreach ( array_keys( $diff ) as $key ) {
 			$old_value  = $old_data[ $key ];
 			$new_value  = $new_data[ $key ];
 			$key_action = $this->apply_prefix( "transition_{$this->item_name}_{$key}" );
@@ -3500,13 +3495,13 @@ class Query extends Base {
 	 */
 	private function get_non_cached_ids( $item_ids = array(), $group = '' ) {
 
-		// Default return value
-		$retval = array();
-
 		// Bail if no item IDs
 		if ( empty( $item_ids ) ) {
-			return $retval;
+			return array();
 		}
+
+		// Default return value
+		$retval = array();
 
 		// Loop through item IDs
 		foreach ( $item_ids as $id ) {
