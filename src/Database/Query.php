@@ -1524,7 +1524,7 @@ class Query extends Base {
 		// Maybe perform a date query
 		if ( ! empty( $date_query ) && is_array( $date_query ) ) {
 			$this->date_query = $this->get_date_query( $date_query );
-			$clauses          = $this->date_query->get_sql();
+			$clauses          = $this->date_query->get_sql( $this->table_name, $alias, $primary, $this );
 
 			// Not all objects are dates, so make sure this one exists
 			if ( false !== $clauses ) {
