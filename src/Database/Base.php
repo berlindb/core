@@ -21,6 +21,8 @@ defined( 'ABSPATH' ) || exit;
  * into a magic call handler and others.
  *
  * @since 1.0.0
+ *
+ * @property array<string, mixed> $args
  */
 class Base {
 

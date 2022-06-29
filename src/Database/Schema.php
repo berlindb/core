@@ -41,7 +41,7 @@ class Schema extends Base {
 	 * @since 2.1.0
 	 * @var   string
 	 */
-	protected $index = __NAMESPACE__ . '\\Index';
+	public $index = __NAMESPACE__ . '\\Index';
 
 	/** Item Objects **********************************************************/
 
@@ -51,7 +51,7 @@ class Schema extends Base {
 	 * @since 1.0.0
 	 * @var   array
 	 */
-	protected $columns = array();
+	public $columns = array();
 
 	/**
 	 * Array of database Index objects.
@@ -152,10 +152,10 @@ class Schema extends Base {
 	 * Add an item to a specific items array.
 	 *
 	 * @since 2.1.0
-	 * @param string       $type  Item type to add.
-	 * @param string       $class Class to shape item into.
-	 * @param array|object $data  Data to pass into class constructor.
-	 * @return bool|object
+	 * @param string             $type  Item type to add.
+	 * @param string             $class Class to shape item into.
+	 * @param array|object|false $data  Data to pass into class constructor.
+	 * @return object|false
 	 */
 	public function add_item( $type = 'column', $class = 'Column', $data = false ) {
 

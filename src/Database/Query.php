@@ -1691,7 +1691,7 @@ class Query extends Base {
 	 * @param bool     $alias
 	 * @return string
 	 */
-	private function parse_fields( $fields = '', $count = false, $groupby = '', $alias = true ) {
+	private function parse_fields( $fields = array(), $count = false, $groupby = array(), $alias = true ) {
 
 		// Maybe fallback to $query_vars
 		if ( empty( $count ) ) {
@@ -1838,7 +1838,7 @@ class Query extends Base {
 		}
 
 		// Bail if nothing to groupby
-		if ( empty( $names ) && ! empty( $before ) ) {
+		if ( 0 === count( $names ) && ! empty( $before ) ) {
 			return '';
 		}
 
@@ -2676,7 +2676,7 @@ class Query extends Base {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param mixed ID of item, or row from database
+	 * @param mixed $item ID of item, or row from database
 	 * @return mixed False on error, Object of single-object class type on success
 	 */
 	private function shape_item( $item = 0 ) {
