@@ -152,12 +152,12 @@ class Schema extends Base {
 	 * Add an item to a specific items array.
 	 *
 	 * @since 2.1.0
-	 * @param string             $type  Item type to add.
-	 * @param string             $class Class to shape item into.
-	 * @param array|object|false $data  Data to pass into class constructor.
+	 * @param string       $type  Item type to add.
+	 * @param string       $class Class to shape item into.
+	 * @param array|object $data  Data to pass into class constructor.
 	 * @return object|false
 	 */
-	public function add_item( $type = 'column', $class = 'Column', $data = false ) {
+	public function add_item( $type = 'column', $class = 'Column', $data = array() ) {
 
 		// Default return value
 		$retval = false;
