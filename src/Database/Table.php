@@ -825,7 +825,7 @@ abstract class Table extends Base {
 		// Sanitize the database table name
 		$this->name = $this->sanitize_table_name( $this->name );
 
-		// Bail if database table name was garbage
+		// Bail if database table name sanitization failed
 		if ( false === $this->name ) {
 			return;
 		}
