@@ -247,9 +247,6 @@ class Query extends Base {
 	/**
 	 * The total number of items found by the SQL query.
 	 *
-	 * This may differ from the item count, depending on the request and whether
-	 * 'no_found_rows' is set.
-	 *
 	 * @since 1.0.0
 	 * @var   int
 	 */
@@ -597,25 +594,40 @@ class Query extends Base {
 	 */
 	private function set_found_items( $item_ids = array() ) {
 
-		// Default to number of item IDs
-		$this->found_items = count( (array) $item_ids );
+		/**
+		 * Default to count of item IDs.
+		 *
+		 * This is relevant for any kind of query. Either it is literal item IDs
+		 * or it is the number of results returned by a 'count' and 'groupby'
+		 * query.
+		 */
+		$retval = count( (array) $item_ids );
 
-		// Count query
+		/**
+		 * Count query.
+		 *
+		 * Possibly grouping results by some other columns.
+		 */
 		if ( $this->get_query_var( 'count' ) ) {
 
 			// Not grouped
 			if ( is_numeric( $item_ids ) && ! $this->get_query_var( 'groupby' ) ) {
-				$this->found_items = (int) $item_ids;
+				$retval = $item_ids;
 			}
 
-		// Not a count query, and number of rows is limited
-		} elseif (
-			is_array( $item_ids )
-			&&
-			(
-				$this->get_query_var( 'number' ) && ! $this->get_query_var( 'no_found_rows' )
-			)
-		) {
+		/**
+		 * Maybe perform a second COUNT(*) query immediately if:
+		 *
+		 * - 'count' query var is not truthy
+		 * - 'no_found_row' query var is not truthy
+		 * - 'number' query var is not falsy
+		 *
+		 * This second query uses most of the previously parsed $request_clauses
+		 * and overrides a few to correct the SQL syntax.
+		 *
+		 * @since 2.1.0 No longer uses FOUND_ROWS()
+		 */
+		} elseif ( ! $this->get_query_var( 'no_found_rows' ) && $this->get_query_var( 'number' ) ) {
 
 			// Override a few request clauses
 			$r = wp_parse_args(
@@ -639,9 +651,12 @@ class Query extends Base {
 
 			// Maybe query for found items
 			if ( ! empty( $query ) && ! empty( $db ) ) {
-				$this->found_items = (int) $db->get_var( $query );
+				$retval = $db->get_var( $query );
 			}
 		}
+
+		// Set found items
+		$this->found_items = (int) $retval;
 	}
 
 	/** Public Setters ********************************************************/
