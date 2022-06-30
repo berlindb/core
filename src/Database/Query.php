@@ -634,9 +634,12 @@ class Query extends Base {
 			// Filter the found items query
 			$query = $this->filter_found_items_query( $query );
 
+			// Get the database interface
+			$db = $this->get_db();
+
 			// Maybe query for found items
-			if ( ! empty( $query ) ) {
-				$this->found_items = (int) $this->get_db()->get_var( $query );
+			if ( ! empty( $query ) && ! empty( $db ) ) {
+				$this->found_items = (int) $db->get_var( $query );
 			}
 		}
 	}
@@ -771,7 +774,14 @@ class Query extends Base {
 	 * @return string
 	 */
 	private function get_table_name() {
-		return $this->get_db()->{$this->table_name};
+
+		// Get the database interface
+		$db = $this->get_db();
+
+		// Return SQL
+		return ! empty( $db )
+			? $db->{$this->table_name}
+			: $this->table_name;
 	}
 
 	/**
@@ -899,13 +909,13 @@ class Query extends Base {
 	 */
 	private function get_columns_field_by( $key = '', $values = array(), $field = '', $default = false ) {
 
-		// Bail if no values
-		if ( empty( $values ) ) {
-			return array();
-		}
-
 		// Default return value
 		$retval = array();
+
+		// Bail if no values
+		if ( empty( $values ) ) {
+			return $retval;
+		}
 
 		// Allow scalar values
 		if ( is_scalar( $values ) ) {
@@ -965,6 +975,14 @@ class Query extends Base {
 	 */
 	private function get_item_raw( $column_name = '', $column_value = '' ) {
 
+		// Get the database interface
+		$db = $this->get_db();
+
+		// Bail if no database
+		if ( empty( $db ) ) {
+			return false;
+		}
+
 		// Bail if empty or non-scalar value
 		if ( empty( $column_value ) || ! is_scalar( $column_value ) ) {
 			return false;
@@ -981,8 +999,8 @@ class Query extends Base {
 
 		// Query database
 		$query   = "SELECT * FROM {$table} WHERE {$column_name} = {$pattern} LIMIT 1";
-		$select  = $this->get_db()->prepare( $query, $column_value );
-		$result  = $this->get_db()->get_row( $select );
+		$select  = $db->prepare( $query, $column_value );
+		$result  = $db->get_row( $select );
 
 		// Bail on failure
 		if ( ! $this->is_success( $result ) ) {
@@ -1093,20 +1111,28 @@ class Query extends Base {
 		$this->set_request_clauses();
 		$this->set_request();
 
+		// Get the database interface
+		$db = $this->get_db();
+
+		// Bail if no database
+		if ( empty( $db ) ) {
+			return array();
+		}
+
 		// Return count
 		if ( $this->get_query_var( 'count' ) ) {
 
 			// Get vars or results
 			$retval = ! $this->get_query_var( 'groupby' )
-				? $this->get_db()->get_var( $this->request )
-				: $this->get_db()->get_results( $this->request, ARRAY_A );
+				? $db->get_var( $this->request )
+				: $db->get_results( $this->request, ARRAY_A );
 
 			// Return vars or results
 			return $retval;
 		}
 
 		// Get IDs
-		$item_ids = $this->get_db()->get_col( $this->request );
+		$item_ids = $db->get_col( $this->request );
 
 		// Return parsed IDs
 		return wp_parse_list( $item_ids );
@@ -1135,17 +1161,25 @@ class Query extends Base {
 			return '';
 		}
 
+		// Get the database interface
+		$db = $this->get_db();
+
+		// Bail if no database
+		if ( empty( $db ) ) {
+			return '';
+		}
+
 		// Array or String
 		$like = ( false !== strpos( $string, '*' ) )
-			? '%' . implode( '%', array_map( array( $this->get_db(), 'esc_like' ), explode( '*', $string ) ) ) . '%'
-			: '%' . $this->get_db()->esc_like( $string ) . '%';
+			? '%' . implode( '%', array_map( array( $db, 'esc_like' ), explode( '*', $string ) ) ) . '%'
+			: '%' . $db->esc_like( $string ) . '%';
 
 		// Default array
 		$searches = array();
 
 		// Build search SQL
 		foreach ( $column_names as $column ) {
-			$searches[] = $this->get_db()->prepare( "{$column} LIKE %s", $like );
+			$searches[] = $db->prepare( "{$column} LIKE %s", $like );
 		}
 
 		// Concatinate
@@ -1178,13 +1212,18 @@ class Query extends Base {
 			return '';
 		}
 
+		// Get the database interface
+		$db = $this->get_db();
+
+		// Bail if no database
+		if ( empty( $db ) ) {
+			return '';
+		}
+
 		// Fallback to column pattern
 		if ( empty( $pattern ) || ! is_string( $pattern ) ) {
 			$pattern = $this->get_column_field( array( 'name' => $column_name ), 'pattern', '%s' );
 		}
-
-		// Default return value
-		$retval = '';
 
 		// Fill an array of patterns to match the number of values
 		$count    = count( $values );
@@ -1192,8 +1231,8 @@ class Query extends Base {
 
 		// Escape & prepare
 		$sql      = implode( ', ', $patterns );
-		$values   = $this->get_db()->_escape( $values );       // May quote strings
-		$retval   = $this->get_db()->prepare( $sql, $values ); // Catches quoted strings
+		$values   = $db->_escape( $values );       // May quote strings
+		$retval   = $db->prepare( $sql, $values ); // Catches quoted strings
 
 		// Set return value to empty string if prepare() returns falsy
 		if ( empty( $retval ) ) {
@@ -1308,6 +1347,17 @@ class Query extends Base {
 	 */
 	private function parse_where_join( $args = array() ) {
 
+		// Get the database interface
+		$db = $this->get_db();
+
+		// Bail if no database
+		if ( empty( $db ) ) {
+			return array(
+				'where' => array(),
+				'join'  => array()
+			);
+		}
+
 		// Maybe fallback to $query_vars
 		if ( empty( $args ) && ! empty( $this->query_vars ) ) {
 			$args = $this->query_vars;
@@ -1344,7 +1394,7 @@ class Query extends Base {
 					if ( 1 === count( $values ) ) {
 						$statement          = "{$aliased} = {$pattern}";
 						$column_value       = reset( $values );
-						$where[ $where_id ] = $this->get_db()->prepare( $statement, $column_value );
+						$where[ $where_id ] = $db->prepare( $statement, $column_value );
 
 					// Implode
 					} else {
@@ -1370,7 +1420,7 @@ class Query extends Base {
 						$statement          = "{$aliased} = {$pattern}";
 						$where_id           = $name;
 						$column_value       = reset( $values );
-						$where[ $where_id ] = $this->get_db()->prepare( $statement, $column_value );
+						$where[ $where_id ] = $db->prepare( $statement, $column_value );
 
 					// Implode
 					} else {
@@ -1395,7 +1445,7 @@ class Query extends Base {
 						$statement          = "{$aliased} != {$pattern}";
 						$where_id           = $name;
 						$column_value       = reset( $values );
-						$where[ $where_id ] = $this->get_db()->prepare( $statement, $column_value );
+						$where[ $where_id ] = $db->prepare( $statement, $column_value );
 
 					// Implode
 					} else {
@@ -1691,7 +1741,7 @@ class Query extends Base {
 	 * @param bool     $alias
 	 * @return string
 	 */
-	private function parse_fields( $fields = array(), $count = false, $groupby = array(), $alias = true ) {
+	private function parse_fields( $fields = '', $count = false, $groupby = '', $alias = true ) {
 
 		// Maybe fallback to $query_vars
 		if ( empty( $count ) ) {
@@ -1958,6 +2008,11 @@ class Query extends Base {
 	 */
 	private function parse_join_clause( $join = array() ) {
 
+		// Bail if no join
+		if ( empty( $join ) ) {
+			return '';
+		}
+
 		// Return SQL
 		return implode( ', ', $join );
 	}
@@ -2175,6 +2230,9 @@ class Query extends Base {
 	 */
 	private function get_item_fields( $items = array(), $fields = array() ) {
 
+		// Default return value
+		$retval = $items;
+
 		// Maybe fallback to $query_vars
 		if ( empty( $fields ) ) {
 			$fields = $this->get_query_var( 'fields' );
@@ -2182,7 +2240,7 @@ class Query extends Base {
 
 		// Bail if no fields to get
 		if ( empty( $fields ) ) {
-			return $items;
+			return $retval;
 		}
 
 		// Maybe cast to array
@@ -2193,15 +2251,13 @@ class Query extends Base {
 		// Get the primary column name
 		$primary = $this->get_primary_column_name();
 
-		// Default return value
-		$retval  = array();
-
 		// 'ids' is numerically keyed
 		if ( ( 1 === count( $fields ) ) && ( 'ids' === $fields[0] ) ) {
 			$retval = wp_list_pluck( $items, $primary );
 
 		// Get fields from items
 		} else {
+			$retval = array();
 			$fields = array_flip( $fields );
 
 			// Loop through items and pluck out the fields
@@ -2365,8 +2421,13 @@ class Query extends Base {
 	 */
 	public function add_item( $data = array() ) {
 
-		// Default return value
-		$retval = false;
+		// Get the database interface
+		$db = $this->get_db();
+
+		// Bail if no database
+		if ( empty( $db ) ) {
+			return false;
+		}
 
 		// Get the primary column name
 		$primary = $this->get_primary_column_name();
@@ -2427,12 +2488,15 @@ class Query extends Base {
 		$reduce = $this->reduce_item( 'insert', $save );
 		$save   = $this->validate_item( $reduce );
 
+		// Default return value
+		$retval = false;
+
 		// Try to save
 		if ( ! empty( $save ) ) {
 			$table       = $this->get_table_name();
 			$names       = array_keys( $save );
 			$save_format = $this->get_columns_field_by( 'name', $names, 'pattern', '%s' );
-			$retval      = $this->get_db()->insert( $table, $save, $save_format );
+			$retval      = $db->insert( $table, $save, $save_format );
 		}
 
 		// Bail on failure
@@ -2441,7 +2505,7 @@ class Query extends Base {
 		}
 
 		// Get the new item ID
-		$retval = $this->get_db()->insert_id;
+		$retval = $db->insert_id;
 
 		// Maybe save meta keys
 		if ( ! empty( $meta ) ) {
@@ -2509,8 +2573,13 @@ class Query extends Base {
 	 */
 	public function update_item( $item_id = 0, $data = array() ) {
 
-		// Default return value
-		$retval = false;
+		// Get the database interface
+		$db = $this->get_db();
+
+		// Bail if no database
+		if ( empty( $db ) ) {
+			return false;
+		}
 
 		// Bail early if no data to update
 		if ( empty( $data ) ) {
@@ -2571,6 +2640,9 @@ class Query extends Base {
 		$reduce = $this->reduce_item( 'update', $save );
 		$save   = $this->validate_item( $reduce );
 
+		// Default return value
+		$retval = false;
+
 		// Try to update
 		if ( ! empty( $save ) ) {
 			$table        = $this->get_table_name();
@@ -2578,7 +2650,7 @@ class Query extends Base {
 			$names        = array_keys( $save );
 			$save_format  = $this->get_columns_field_by( 'name', $names,   'pattern', '%s' );
 			$where_format = $this->get_columns_field_by( 'name', $primary, 'pattern', '%s' );
-			$retval       = $this->get_db()->update( $table, $save, $where, $save_format, $where_format );
+			$retval       = $db->update( $table, $save, $where, $save_format, $where_format );
 		}
 
 		// Bail on failure
@@ -2606,8 +2678,13 @@ class Query extends Base {
 	 */
 	public function delete_item( $item_id = 0 ) {
 
-		// Default return value
-		$retval = false;
+		// Get the database interface
+		$db = $this->get_db();
+
+		// Bail if no database
+		if ( empty( $db ) ) {
+			return false;
+		}
 
 		// Shape the item ID
 		$item_id = $this->shape_item_id( $item_id );
@@ -2640,7 +2717,7 @@ class Query extends Base {
 		$table        = $this->get_table_name();
 		$where        = array( $primary => $item_id );
 		$where_format = $this->get_columns_field_by( 'name', $primary, 'pattern', '%s' );
-		$retval       = $this->get_db()->delete( $table, $where, $where_format );
+		$retval       = $db->delete( $table, $where, $where_format );
 
 		// Bail on failure
 		if ( ! $this->is_success( $retval ) ) {
@@ -2670,18 +2747,13 @@ class Query extends Base {
 	}
 
 	/**
-	 * "Shape" an $item (likely a stdClass object, sourced either from cache or
-	 * the database) into the type of Row object defined in Query::item_shape.
-	 *
-	 * This grants each item object access to all of the methods & parameters
-	 * from the Row class, which is particularly useful when it has been
-	 * subclassed to add the custom functionality needed by your application.
-	 *
+	 * Shape an item from the database into the type of object it always wanted
+	 * to be when it grew up.
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param int|object|array $item ID of item, or row from database
-	 * @return object Object of single-object class type on success
+	 * @param mixed ID of item, or row from database
+	 * @return mixed False on error, Object of single-object class type on success
 	 */
 	private function shape_item( $item = 0 ) {
 
@@ -2800,7 +2872,10 @@ class Query extends Base {
 		$defaults = $this->get_columns( $r, 'and', 'default' );
 
 		// Combine them
-		return array_combine( $names, $defaults );
+		$retval   = array_combine( $names, $defaults );
+
+		// Return
+		return $retval;
 	}
 
 	/**
@@ -2833,9 +2908,15 @@ class Query extends Base {
 			return;
 		}
 
-		// If no old data, set all old values to "new"
+		// If no old value(s), it's new
 		if ( empty( $old_data ) || ! is_array( $old_data ) ) {
-			$old_data = array_fill_keys( array_keys( $new_data ), 'new' );
+			$old_data = $new_data;
+
+			// Set all old values to "new"
+			foreach ( $old_data as $key => $value ) {
+				$value            = 'new';
+				$old_data[ $key ] = $value;
+			}
 		}
 
 		// Compare
@@ -2852,7 +2933,7 @@ class Query extends Base {
 		}
 
 		// Do the actions
-		foreach ( array_keys( $diff ) as $key ) {
+		foreach ( $diff as $key => $value ) {
 			$old_value  = $old_data[ $key ];
 			$new_value  = $new_data[ $key ];
 			$key_action = $this->apply_prefix( "transition_{$this->item_name}_{$key}" );
@@ -3070,6 +3151,14 @@ class Query extends Base {
 	 */
 	private function delete_all_item_meta( $item_id = 0 ) {
 
+		// Get the database interface
+		$db = $this->get_db();
+
+		// Bail if no database
+		if ( empty( $db ) ) {
+			return;
+		}
+
 		// Shape the item ID
 		$item_id = $this->shape_item_id( $item_id );
 
@@ -3095,8 +3184,8 @@ class Query extends Base {
 
 		// Get meta IDs
 		$query    = "SELECT meta_id FROM {$table} WHERE {$item_id_column} = {$item_id_pattern}";
-		$prepared = $this->get_db()->prepare( $query, $item_id );
-		$meta_ids = $this->get_db()->get_col( $prepared );
+		$prepared = $db->prepare( $query, $item_id );
+		$meta_ids = $db->get_col( $prepared );
 
 		// Bail if no meta IDs to delete
 		if ( empty( $meta_ids ) ) {
@@ -3122,25 +3211,22 @@ class Query extends Base {
 	 */
 	private function get_meta_table_name() {
 
-		// Default return value
-		$retval = false;
-
 		// Get the meta type
-		$type   = $this->get_meta_type();
+		$type  = $this->get_meta_type();
 
 		// Append "meta" to end of meta type
-		$table  = "{$type}meta";
+		$table = "{$type}meta";
 
 		// Variable'ize the database interface, to use inside empty()
-		$db     = $this->get_db();
+		$db    = $this->get_db();
 
 		// If not empty, return table name
 		if ( ! empty( $db->{$table} ) ) {
-			$retval = $db->{$table};
+			return $db->{$table};
 		}
 
 		// Return
-		return $retval;
+		return false;
 	}
 
 	/**
@@ -3264,6 +3350,14 @@ class Query extends Base {
 	 */
 	private function prime_item_caches( $item_ids = array(), $force = false ) {
 
+		// Get the database interface
+		$db = $this->get_db();
+
+		// Bail if no database
+		if ( empty( $db ) ) {
+			return false;
+		}
+
 		// Bail if no items to cache
 		if ( empty( $item_ids ) ) {
 			return false;
@@ -3295,7 +3389,7 @@ class Query extends Base {
 				// Query database
 				$query   = "SELECT * FROM {$table} WHERE {$primary} IN %s";
 				$prepare = sprintf( $query, $ids );
-				$results = $this->get_db()->get_results( $prepare );
+				$results = $db->get_results( $prepare );
 
 				// Update item cache(s)
 				$this->update_item_cache( $results );
@@ -3495,13 +3589,13 @@ class Query extends Base {
 	 */
 	private function get_non_cached_ids( $item_ids = array(), $group = '' ) {
 
-		// Bail if no item IDs
-		if ( empty( $item_ids ) ) {
-			return array();
-		}
-
 		// Default return value
 		$retval = array();
+
+		// Bail if no item IDs
+		if ( empty( $item_ids ) ) {
+			return $retval;
+		}
 
 		// Loop through item IDs
 		foreach ( $item_ids as $id ) {

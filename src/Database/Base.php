@@ -324,20 +324,20 @@ class Base {
 	/**
 	 * Return the global database interface.
 	 *
-	 * See: https://core.trac.wordpress.org/ticket/31556
-	 *
 	 * @since 1.0.0
+	 * @since 2.1.0 No longer copies a $GLOBALS superglobal value
 	 *
 	 * @return bool|\wpdb Database interface, or False if not set
 	 */
 	protected function get_db() {
+		global ${$this->db_global};
 
 		// Default database return value (might change)
 		$retval = false;
 
-		// Look for a commonly used global database interface
-		if ( isset( $GLOBALS[ $this->db_global ] ) ) {
-			$retval = $GLOBALS[ $this->db_global ];
+		// Look for the global database interface
+		if ( ! is_null( ${$this->db_global} ) ) {
+			$retval = ${$this->db_global};
 		}
 
 		/*
