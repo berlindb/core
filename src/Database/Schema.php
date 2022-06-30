@@ -33,7 +33,7 @@ class Schema extends Base {
 	 * @since 2.1.0
 	 * @var   string
 	 */
-	protected $column = __NAMESPACE__ . '\\Column';
+	public $column = __NAMESPACE__ . '\\Column';
 
 	/**
 	 * Schema Index class.
@@ -41,7 +41,7 @@ class Schema extends Base {
 	 * @since 2.1.0
 	 * @var   string
 	 */
-	protected $index = __NAMESPACE__ . '\\Index';
+	public $index = __NAMESPACE__ . '\\Index';
 
 	/** Item Objects **********************************************************/
 
