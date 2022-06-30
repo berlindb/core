@@ -859,10 +859,10 @@ abstract class Table extends Base {
 	 */
 	private function set_db_interface() {
 
-		// Get the database once, to avoid duplicate function calls
+		// Get the database interface
 		$db = $this->get_db();
 
-		// Bail if no database
+		// Bail if no database interface is available
 		if ( empty( $db ) ) {
 			return;
 		}

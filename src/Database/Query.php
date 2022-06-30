@@ -978,7 +978,7 @@ class Query extends Base {
 		// Get the database interface
 		$db = $this->get_db();
 
-		// Bail if no database
+		// Bail if no database interface is available
 		if ( empty( $db ) ) {
 			return false;
 		}
@@ -1114,7 +1114,7 @@ class Query extends Base {
 		// Get the database interface
 		$db = $this->get_db();
 
-		// Bail if no database
+		// Bail if no database interface is available
 		if ( empty( $db ) ) {
 			return array();
 		}
@@ -1164,7 +1164,7 @@ class Query extends Base {
 		// Get the database interface
 		$db = $this->get_db();
 
-		// Bail if no database
+		// Bail if no database interface is available
 		if ( empty( $db ) ) {
 			return '';
 		}
@@ -1215,7 +1215,7 @@ class Query extends Base {
 		// Get the database interface
 		$db = $this->get_db();
 
-		// Bail if no database
+		// Bail if no database interface is available
 		if ( empty( $db ) ) {
 			return '';
 		}
@@ -1350,7 +1350,7 @@ class Query extends Base {
 		// Get the database interface
 		$db = $this->get_db();
 
-		// Bail if no database
+		// Bail if no database interface is available
 		if ( empty( $db ) ) {
 			return array(
 				'where' => array(),
@@ -2424,7 +2424,7 @@ class Query extends Base {
 		// Get the database interface
 		$db = $this->get_db();
 
-		// Bail if no database
+		// Bail if no database interface is available
 		if ( empty( $db ) ) {
 			return false;
 		}
@@ -2576,7 +2576,7 @@ class Query extends Base {
 		// Get the database interface
 		$db = $this->get_db();
 
-		// Bail if no database
+		// Bail if no database interface is available
 		if ( empty( $db ) ) {
 			return false;
 		}
@@ -2681,7 +2681,7 @@ class Query extends Base {
 		// Get the database interface
 		$db = $this->get_db();
 
-		// Bail if no database
+		// Bail if no database interface is available
 		if ( empty( $db ) ) {
 			return false;
 		}
@@ -3154,7 +3154,7 @@ class Query extends Base {
 		// Get the database interface
 		$db = $this->get_db();
 
-		// Bail if no database
+		// Bail if no database interface is available
 		if ( empty( $db ) ) {
 			return;
 		}
@@ -3353,7 +3353,7 @@ class Query extends Base {
 		// Get the database interface
 		$db = $this->get_db();
 
-		// Bail if no database
+		// Bail if no database interface is available
 		if ( empty( $db ) ) {
 			return false;
 		}
