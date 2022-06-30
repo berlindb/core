@@ -77,7 +77,7 @@ class Query extends Base {
 	 * @since 1.0.0
 	 * @var   string
 	 */
-	protected $table_schema = '\\BerlinDB\\Database\\Schema';
+	protected $table_schema = __NAMESPACE__ . '\\Schema';
 
 	/** Item ******************************************************************/
 
@@ -114,7 +114,7 @@ class Query extends Base {
 	 * @since 1.0.0
 	 * @var   mixed
 	 */
-	protected $item_shape = '\\BerlinDB\\Database\\Row';
+	protected $item_shape = __NAMESPACE__ . '\\Row';
 
 	/** Cache *****************************************************************/
 
