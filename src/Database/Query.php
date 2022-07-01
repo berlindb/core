@@ -22,28 +22,6 @@ defined( 'ABSPATH' ) || exit;
  * @since 1.0.0
  *
  * @see Query::__construct() for accepted arguments.
- *
- * @property string $prefix
- * @property string $table_name
- * @property string $table_alias
- * @property string $table_schema
- * @property string $item_name
- * @property string $item_name_plural
- * @property string $item_shape
- * @property string $cache_group
- * @property string $last_changed
- * @property array $query_handlers
- * @property array $schema
- * @property array $query_clauses
- * @property array $request_clauses
- * @property array $query_vars
- * @property array $query_var_originals
- * @property array $query_var_defaults
- * @property string $query_var_default_value
- * @property array|int $items
- * @property int $found_items
- * @property int $max_num_pages
- * @property string $request
  */
 class Query extends Base {
 
@@ -152,7 +130,10 @@ class Query extends Base {
 	/** Handlers **************************************************************/
 
 	/**
-	 * Array of all query handlers.
+	 * Query handlers.
+	 *
+	 * An array of special classes used to parse Magic $query_vars into
+	 * $query_clauses.
 	 *
 	 * @since 2.1.0
 	 * @var   array
@@ -830,8 +811,6 @@ class Query extends Base {
 	 * @since 2.1.0 Pass $args and $operator to filter names.
 	 *              No longer calls array_flip().
 	 *
-	 * @static array  $columns  Local static copy of columns, abstracted to
-	 *                          support different storage locations.
 	 * @param  array  $args     Arguments to filter columns by.
 	 * @param  string $operator Optional. The logical operation to perform.
 	 * @return array
