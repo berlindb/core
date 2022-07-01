@@ -4,7 +4,7 @@
  *
  * @package     Database
  * @subpackage  Date
- * @copyright   Copyright (c) 2021
+ * @copyright   2021-2022 - JJJ and all BerlinDB contributors
  * @license     https://opensource.org/licenses/MIT MIT
  * @since       1.0.0
  */
@@ -653,8 +653,8 @@ class Date extends Base {
 		 *
 		 * @since 1.0.0
 		 *
-		 * @param string $sql Clauses of the date query.
-		 * @param Date   $this  The Date query instance.
+		 * @param array $sql      Clauses of the date query.
+		 * @param Date  $instance The Date query instance.
 		 */
 		return (array) apply_filters( 'get_date_sql', $sql, $this );
 	}

@@ -4,7 +4,7 @@
  *
  * @package     Database
  * @subpackage  Base
- * @copyright   Copyright (c) 2021
+ * @copyright   2021-2022 - JJJ and all BerlinDB contributors
  * @license     https://opensource.org/licenses/MIT MIT
  * @since       1.0.0
  */
@@ -21,6 +21,8 @@ defined( 'ABSPATH' ) || exit;
  * into a magic call handler and others.
  *
  * @since 1.0.0
+ *
+ * @property array<string, mixed> $args
  */
 class Base {
 
@@ -69,20 +71,15 @@ class Base {
 	 */
 	public function __isset( $key = '' ) {
 
-		// No more uppercase ID properties ever
-		if ( 'ID' === $key ) {
-			$key = 'id';
-		}
-
 		// Class method to try and call
 		$method = "get_{$key}";
 
-		// Return property if exists
-		if ( method_exists( $this, $method ) ) {
+		// Return callable method exists
+		if ( is_callable( array( $this, $method ) ) ) {
 			return true;
 		}
 
-		// Return get method results if exists
+		// Return property if exists
 		return property_exists( $this, $key );
 	}
 
@@ -96,19 +93,14 @@ class Base {
 	 */
 	public function __get( $key = '' ) {
 
-		// No more uppercase ID properties ever
-		if ( 'ID' === $key ) {
-			$key = 'id';
-		}
-
 		// Class method to try and call
 		$method = "get_{$key}";
 
-		// Return property if exists
-		if ( method_exists( $this, $method ) ) {
+		// Return get method results if callable
+		if ( is_callable( array( $this, $method ) ) ) {
 			return call_user_func( array( $this, $method ) );
 
-		// Return get method results if exists
+		// Return property value if exists
 		} elseif ( property_exists( $this, $key ) ) {
 			return $this->{$key};
 		}
@@ -134,15 +126,37 @@ class Base {
 	 * Maybe append the prefix to string.
 	 *
 	 * @since 1.0.0
+	 * @since 2.1.0 Prevents double prefixing
 	 *
 	 * @param string $string
 	 * @param string $sep
 	 * @return string
 	 */
 	protected function apply_prefix( $string = '', $sep = '_' ) {
-		return ! empty( $this->prefix )
-			? "{$this->prefix}{$sep}{$string}"
-			: $string;
+
+		// Bail if not a string
+		if ( ! is_string( $string ) ) {
+			return '';
+		}
+
+		// Trim spaces off the ends
+		$retval = trim( $string );
+
+		// Bail if no prefix
+		if ( empty( $this->prefix ) ) {
+			return $retval;
+		}
+
+		// Setup new prefix
+		$new_prefix = $this->prefix . $sep;
+
+		// Bail if already prefixed
+		if ( 0 === strpos( $string, $new_prefix ) ) {
+			return $retval;
+		}
+
+		// Return prefixed string
+		return $new_prefix . $retval;
 	}
 
 	/**
@@ -157,8 +171,8 @@ class Base {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param string $string
-	 * @param non-empty-string $sep
+	 * @param string $string Default empty string.
+	 * @param string $sep    Default "_".
 	 * @return string
 	 */
 	protected function first_letters( $string = '', $sep = '_' ) {
@@ -177,7 +191,7 @@ class Base {
 		// Only non-accented table names (avoid truncation)
 		$accents = remove_accents( $unspace );
 
-		// Only lowercase letters are allowed
+		// Convert to lowercase
 		$lower   = strtolower( $accents );
 
 		// Explode into parts
@@ -206,10 +220,11 @@ class Base {
 	 * - No trailing underscores
 	 *
 	 * @since 1.0.0
+	 * @since 2.1.0 Allow uppercase letters
 	 *
 	 * @param string $name The name of the database table
 	 *
-	 * @return mixed Sanitized database table name on success, False on error
+	 * @return bool|string Sanitized database table name on success, False on error
 	 */
 	protected function sanitize_table_name( $name = '' ) {
 
@@ -224,13 +239,13 @@ class Base {
 		// Only non-accented table names (avoid truncation)
 		$accents = remove_accents( $unspace );
 
-		// Only lowercase characters, hyphens, and dashes (avoid index corruption)
-		$lower   = sanitize_key( $accents );
+		// Only upper & lower case letters, numbers, hyphens, and underscores
+		$replace = preg_replace( '/[^a-zA-Z0-9_\-]/', '', $accents );
 
 		// Replace hyphens with single underscores
-		$under   = str_replace( '-',  '_', $lower );
+		$under   = str_replace( '-',  '_', $replace );
 
-		// Single underscores only
+		// Replace double underscores with singles
 		$single  = str_replace( '__', '_', $under );
 
 		// Remove trailing underscores
@@ -240,6 +255,29 @@ class Base {
 		return empty( $clean )
 			? false
 			: $clean;
+	}
+
+	/**
+	 * Sanitize a column name string.
+	 *
+	 * Used to make sure that a column name value meets MySQL expectations.
+	 *
+	 * Applies the following formatting to a string:
+	 * - Trim whitespace
+	 * - No accents
+	 * - No special characters
+	 * - No hyphens
+	 * - No double underscores
+	 * - No trailing underscores
+	 *
+	 * @since 2.1.0
+	 *
+	 * @param string $name The name of the database column
+	 *
+	 * @return bool|string Sanitized database column name on success, False on error
+	 */
+	protected function sanitize_column_name( $name = '' ) {
+		return $this->sanitize_table_name( $name );
 	}
 
 	/**
@@ -267,22 +305,39 @@ class Base {
 	}
 
 	/**
+	 * Stash arguments and class variables.
+	 *
+	 * This is used to stash a copy of the original constructor arguments and
+	 * the object variable values, for later comparison, reuse, or resetting
+	 * back to a previous state.
+	 *
+	 * @since 2.1.0
+	 * @param array $args
+	 */
+	protected function stash_args( $args = array() ) {
+		$this->args = array(
+			'param' => $args,
+			'class' => get_object_vars( $this )
+		);
+	}
+
+	/**
 	 * Return the global database interface.
 	 *
-	 * See: https://core.trac.wordpress.org/ticket/31556
-	 *
 	 * @since 1.0.0
+	 * @since 2.1.0 No longer copies a $GLOBALS superglobal value
 	 *
 	 * @return bool|\wpdb Database interface, or False if not set
 	 */
 	protected function get_db() {
+		global ${$this->db_global};
 
 		// Default database return value (might change)
 		$retval = false;
 
-		// Look for a commonly used global database interface
-		if ( isset( $GLOBALS[ $this->db_global ] ) ) {
-			$retval = $GLOBALS[ $this->db_global ];
+		// Look for the global database interface
+		if ( ! is_null( ${$this->db_global} ) ) {
+			$retval = ${$this->db_global};
 		}
 
 		/*
@@ -309,28 +364,34 @@ class Base {
 	/**
 	 * Check if an operation succeeded.
 	 *
-	 * @since 1.0.0
+	 * Note: While "0" or "''" may be the return value of a successful result,
+	 *       for the purposes of database queries and this method, it isn't.
+	 *       When using this method, take care that your possible results do not
+	 *       pass falsy values on success.
 	 *
-	 * @param mixed $result
+	 * @since 1.0.0
+	 * @since 2.1.0 Minor refactor to improve readability.
+	 *
+	 * @param mixed $result Optional. Default false. Any value to check.
 	 * @return bool
 	 */
 	protected function is_success( $result = false ) {
 
-		// Bail if no row exists
-		if ( empty( $result ) ) {
-			$retval = false;
+		// Default return value
+		$retval = false;
 
-		// Bail if an error occurred
-		} elseif ( is_wp_error( $result ) ) {
-			$this->last_error = $result;
-			$retval           = false;
-
-		// No errors
-		} else {
+		// Non-empty is success
+		if ( ! empty( $result ) ) {
 			$retval = true;
+
+			// But Error is still fail, so stash it
+			if ( is_wp_error( $result ) ) {
+				$this->last_error = $result;
+				$retval           = false;
+			}
 		}
 
 		// Return the result
-		return $retval;
+		return (bool) $retval;
 	}
 }

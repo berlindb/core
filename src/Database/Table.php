@@ -4,7 +4,7 @@
  *
  * @package     Database
  * @subpackage  Table
- * @copyright   Copyright (c) 2021
+ * @copyright   2021-2022 - JJJ and all BerlinDB contributors
  * @license     https://opensource.org/licenses/MIT MIT
  * @since       1.0.0
  */
@@ -121,6 +121,17 @@ abstract class Table extends Base {
 	protected $charset_collation = '';
 
 	/**
+	 * Typically empty; probably ignore.
+	 *
+	 * By default, tables do not have comments. This is unused by any other
+	 * relative code, but you can include less than 1024 characters here.
+	 *
+	 * @since 2.1.0
+	 * @var   string
+	 */
+	protected $comment = '';
+
+	/**
 	 * Key => value array of versions => methods.
 	 *
 	 * @since 1.0.0
@@ -159,6 +170,24 @@ abstract class Table extends Base {
 			$this->maybe_upgrade();
 		}
 	}
+
+	/**
+ 	 * Compatibility for clone() method for PHP versions less than 7.0.
+ 	 *
+ 	 * See: https://github.com/sugarcalendar/core/issues/105
+ 	 *
+ 	 * This shim will be removed at a later date.
+ 	 *
+ 	 * @since 2.0.20
+ 	 *
+ 	 * @param string $function
+ 	 * @param array  $args
+ 	 */
+ 	public function __call( $function = '', $args = array() ) {
+ 		if ( 'clone' === $function ) {
+ 			call_user_func_array( array( $this, '_clone' ), $args );
+ 		}
+ 	}
 
 	/** Abstract **************************************************************/
 
@@ -394,8 +423,26 @@ abstract class Table extends Base {
 			return false;
 		}
 
+		// Bail if schema not initialized (tables need at least 1 column)
+		if ( empty( $this->schema ) ) {
+			return false;
+		}
+
+		// Required parts
+		$sql = array(
+			'CREATE TABLE',
+			$this->table_name,
+			"( {$this->schema} )",
+			$this->charset_collation,
+		);
+
+		// Maybe append comment
+		if ( ! empty( $this->comment ) ) {
+			$sql[] = "COMMENT='{$this->comment}'";
+		}
+
 		// Query statement
-		$query  = "CREATE TABLE {$this->table_name} ( {$this->schema} ) {$this->charset_collation}";
+		$query  = implode( ' ', array_filter( $sql ) );
 		$result = $db->query( $query );
 
 		// Was the table created?
@@ -488,7 +535,7 @@ abstract class Table extends Base {
 	 *
 	 * @return bool
 	 */
-	public function clone( $new_table_name = '' ) {
+	public function _clone( $new_table_name = '' ) {
 
 		// Get the database interface
 		$db = $this->get_db();
@@ -574,7 +621,7 @@ abstract class Table extends Base {
 		$query  = "SELECT COUNT(*) FROM {$this->table_name}";
 		$result = $db->get_var( $query );
 
-		// Query success/fail
+		// 0 on error/empty, number of rows on success
 		return intval( $result );
 	}
 
@@ -582,8 +629,9 @@ abstract class Table extends Base {
 	 * Check if column already exists.
 	 *
 	 * @since 1.0.0
+	 * @since 2.1.0 Uses sanitize_column_name().
 	 *
-	 * @param string $name Value
+	 * @param string $name Column name to check.
 	 *
 	 * @return bool
 	 */
@@ -599,6 +647,7 @@ abstract class Table extends Base {
 
 		// Query statement
 		$query    = "SHOW COLUMNS FROM {$this->table_name} LIKE %s";
+		$name     = $this->sanitize_column_name( $name );
 		$like     = $db->esc_like( $name );
 		$prepared = $db->prepare( $query, $like );
 		$result   = $db->query( $prepared );
@@ -611,9 +660,10 @@ abstract class Table extends Base {
 	 * Check if index already exists.
 	 *
 	 * @since 1.0.0
+	 * @since 2.1.0 Uses sanitize_column_name().
 	 *
-	 * @param string $name   Value
-	 * @param string $column Column name
+	 * @param string $name   Index name to check.
+	 * @param string $column Column name to compare.
 	 *
 	 * @return bool
 	 */
@@ -634,6 +684,7 @@ abstract class Table extends Base {
 
 		// Query statement
 		$query    = "SHOW INDEXES FROM {$this->table_name} WHERE {$column} LIKE %s";
+		$name     = $this->sanitize_column_name( $name );
 		$like     = $db->esc_like( $name );
 		$prepared = $db->prepare( $query, $like );
 		$result   = $db->query( $prepared );
@@ -774,7 +825,7 @@ abstract class Table extends Base {
 		// Sanitize the database table name
 		$this->name = $this->sanitize_table_name( $this->name );
 
-		// Bail if database table name was garbage
+		// Bail if database table name sanitization failed
 		if ( false === $this->name ) {
 			return;
 		}
@@ -808,10 +859,10 @@ abstract class Table extends Base {
 	 */
 	private function set_db_interface() {
 
-		// Get the database once, to avoid duplicate function calls
+		// Get the database interface
 		$db = $this->get_db();
 
-		// Bail if no database
+		// Bail if no database interface is available
 		if ( empty( $db ) ) {
 			return;
 		}
