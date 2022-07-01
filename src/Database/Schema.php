@@ -51,7 +51,7 @@ class Schema extends Base {
 	 * @since 1.0.0
 	 * @var   array
 	 */
-	public $columns = array();
+	protected $columns = array();
 
 	/**
 	 * Array of database Index objects.
@@ -59,7 +59,7 @@ class Schema extends Base {
 	 * @since 2.1.0
 	 * @var   array
 	 */
-	public $indexes = array();
+	protected $indexes = array();
 
 	/** Public Methods ********************************************************/
 

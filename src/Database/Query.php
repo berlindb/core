@@ -413,7 +413,7 @@ class Query extends Base {
 	/**
 	 * Set query handlers.
 	 *
-	 * @since 1.0.0
+	 * @since 2.1.0
 	 */
 	private function set_query_handlers() {
 		if ( empty( $this->query_handlers ) ) {
@@ -426,7 +426,7 @@ class Query extends Base {
 	}
 
 	/**
-	 * Set default query clauses.
+	 * Set defaults for query (and also request) clauses.
 	 *
 	 * @since 2.1.0
 	 */
@@ -503,17 +503,18 @@ class Query extends Base {
 		/** Column Names ******************************************************/
 
 		// All column names
-		$all_columns = $this->get_columns( array(), 'and', 'name' );
+		$names = $this->get_column_names();
 
 		// Bail if no columns
-		if ( empty( $all_columns ) ) {
+		if ( empty( $names ) ) {
 			return;
 		}
 
 		// Set query vars
-		foreach ( $all_columns as $name ) {
-			$this->query_var_defaults[ $name ] = $this->query_var_default_value;
-		}
+		$by_vars = array_fill_keys( $names, $this->query_var_default_value );
+
+		// Set query vars
+		$this->query_var_defaults = array_merge( $this->query_var_defaults, $by_vars );
 
 		/** Specials **********************************************************/
 
@@ -1665,8 +1666,8 @@ class Query extends Base {
 
 		// Query clause arguments
 		$args = array(
-			'table_name'     => $this->table_name,
-			'table_alias'    => $this->table_alias,
+			'primary_table'  => $this->table_name,
+			'primary_alias'  => $this->table_alias,
 			'primary_column' => $this->get_primary_column_name(),
 			'meta_type'      => $this->get_meta_type(),
 			'query'          => $this
@@ -1699,7 +1700,7 @@ class Query extends Base {
 			// Try to get the query handler
 			$handler = $this->get_query_handler( $id, $query_vars[ $key ] );
 
-			// Skip f no query handler
+			// Skip if no query handler
 			if ( empty( $handler ) ) {
 				continue;
 			}
@@ -1710,17 +1711,20 @@ class Query extends Base {
 			// Set the key
 			$this->{$key} = $handler;
 
-			// Try to get the query subclauses
-			if ( is_callable( array( $this->{$key}, 'get_sql' ) ) ) {
-				$subclauses = $this->{$key}->get_sql(
+			// Set the callback
+			$callback = array( $this->{$key}, 'get_sql' );
+
+			// Try to get the SQL subclauses
+			if ( is_callable( $callback ) ) {
+				$subclauses = call_user_func( $callback, array(
 					$args['meta_type'],
 					$args['primary_table'],
 					$args['primary_column'],
 					$args['query']
-				);
+				) );
 			}
 
-			// Skip if no query subclauses
+			// Skip if no SQL subclauses
 			if ( false === $subclauses ) {
 				continue;
 			}
@@ -1730,10 +1734,8 @@ class Query extends Base {
 				$join[ $key ] = $subclauses['join'];
 			}
 
-			// Set where
+			// Set where (removing " AND " from subclauses)
 			if ( ! empty( $subclauses['where'] ) ) {
-
-				// Remove " AND " from where subclauses
 				$where[ $key ] = preg_replace( '/^\s*AND\s*/', '', $subclauses['where'] );
 			}
 		}
