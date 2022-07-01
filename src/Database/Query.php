@@ -457,6 +457,7 @@ class Query extends Base {
 	 * Set default query vars based on columns.
 	 *
 	 * @since 1.0.0
+	 * @since 2.1.0
 	 */
 	private function set_query_var_defaults() {
 
@@ -505,16 +506,13 @@ class Query extends Base {
 		// All column names
 		$names = $this->get_column_names();
 
-		// Bail if no columns
+		// Bail early if no columns
 		if ( empty( $names ) ) {
 			return;
 		}
 
-		// Set query vars
-		$by_vars = array_fill_keys( $names, $this->query_var_default_value );
-
-		// Set query vars
-		$this->query_var_defaults = array_merge( $this->query_var_defaults, $by_vars );
+		// Fill with default value
+		$defaults = array_fill_keys( $names, $this->query_var_default_value );
 
 		/** Specials **********************************************************/
 
@@ -529,52 +527,51 @@ class Query extends Base {
 		foreach ( $specials as $column => $suffix ) {
 
 			// Columns
-			$columns = $this->get_columns(
-				array(
-					$column => true
-				),
-				'and',
-				'name'
-			);
+			$filter  = array( $column => true );
+			$columns = $this->get_column_names( $filter );
 
 			// Skip if no columns
 			if ( empty( $columns ) ) {
 				continue;
 			}
 
-			// Set query vars
+			// Add defaults
 			foreach ( $columns as $name ) {
-				$this->query_var_defaults[ "{$name}{$suffix}" ] = $this->query_var_default_value;
+				$defaults[] = "{$name}{$suffix}";
 			}
 		}
 
 		/** Query Objects *****************************************************/
 
-		// Loop through queries
+		// Loop through query handlers
 		foreach ( array_keys( $this->query_handlers ) as $id ) {
 
 			// Set query key
-			$query_key = strtolower( $id ) . '_query';
+			$suffix    = '_query';
+			$query_key = strtolower( $id ) . $suffix;
 
-			// Possible columns
-			$columns = $this->get_columns(
-				array(
-					$query_key => true
-				),
-				'and',
-				'name'
-			);
+			// Columns
+			$filter  = array( $query_key => true );
+			$columns = $this->get_column_names( $filter );
 
 			// Skip if no columns
 			if ( empty( $columns ) ) {
 				continue;
 			}
 
-			// Set query vars
+			// Add defaults
 			foreach ( $columns as $column ) {
-				$this->query_var_defaults[ "{$column}_query" ] = $this->query_var_default_value;
+				$defaults[] = "{$name}{$suffix}";
 			}
 		}
+
+		/** Defaults **********************************************************/
+
+		// Fill default keys with default value
+		$default_values = array_fill_keys( $defaults, $this->query_var_default_value );
+
+		// Merge defaults
+		$this->query_var_defaults = array_merge( $this->query_var_defaults, $default_values );
 	}
 
 	/**
@@ -745,11 +742,8 @@ class Query extends Base {
 			return false;
 		}
 
-		// Get all of the column names
-		$columns = $this->get_column_names();
-
-		// Return if column name exists
-		return isset( $columns[ $column_name ] );
+		// Return if column exists
+		return (bool) $this->get_column_by( array( 'name' => $column_name ) );
 	}
 
 	/** Private Getters *******************************************************/
@@ -833,11 +827,17 @@ class Query extends Base {
 	 * Return array of column names.
 	 *
 	 * @since 1.0.0
+	 * @since 2.1.0 Pass $args and $operator to filter names.
+	 *              No longer calls array_flip().
 	 *
+	 * @static array  $columns  Local static copy of columns, abstracted to
+	 *                          support different storage locations.
+	 * @param  array  $args     Arguments to filter columns by.
+	 * @param  string $operator Optional. The logical operation to perform.
 	 * @return array
 	 */
-	private function get_column_names() {
-		return array_flip( $this->get_columns( array(), 'and', 'name' ) );
+	private function get_column_names( $args = array(), $operator = 'and' ) {
+		return $this->get_columns( $args, $operator, 'name' );
 	}
 
 	/**
@@ -1685,7 +1685,7 @@ class Query extends Base {
 			}
 
 			// Build the key
-			$key = sanitize_key( $id ) . '_query';
+			$key = strtolower( $id ) . '_query';
 
 			// Skip if no query vars
 			if ( empty( $query_vars[ $key ] ) || ! is_array( $query_vars[ $key ] ) ) {
@@ -2608,7 +2608,7 @@ class Query extends Base {
 		}
 
 		// Slice data that has columns, and cut out non-keys for meta
-		$columns = $this->get_column_names();
+		$columns = array_flip( $this->get_column_names() );
 		$data    = array_merge( $item, $data );
 		$meta    = array_diff_key( $data, $columns );
 		$save    = array_intersect_key( $data, $columns );
@@ -2764,7 +2764,7 @@ class Query extends Base {
 		);
 
 		// Slice data that has columns, and cut out non-keys for meta
-		$columns = $this->get_column_names();
+		$columns = array_flip( $this->get_column_names() );
 		$data    = array_diff_assoc( $data, $item );
 		$meta    = array_diff_key( $data, $columns );
 		$save    = array_intersect_key( $data, $columns );
