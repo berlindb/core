@@ -156,7 +156,7 @@ abstract class Table extends Base {
 			return;
 		}
 
-		// Add the table to the database interface
+		// Add table to the database interface
 		$this->set_db_interface();
 
 		// Set the database schema
@@ -316,7 +316,7 @@ abstract class Table extends Base {
 	/**
 	 * Install a database table
 	 *
-	 * Creates the table and sets the version information if successful.
+	 * Create table and set the version if successful.
 	 *
 	 * @since 1.0.0
 	 */
@@ -334,8 +334,9 @@ abstract class Table extends Base {
 	/**
 	 * Uninstall a database table
 	 *
-	 * Drops the table and deletes the version information if successful and/or
-	 * the table does not exist anymore.
+	 * Drops table and deletes the version information if successful.
+	 *
+	 * If the table does not exist, the version will still be deleted.
 	 *
 	 * @since 1.0.0
 	 */
@@ -353,7 +354,7 @@ abstract class Table extends Base {
 	/** Public Management *****************************************************/
 
 	/**
-	 * Check if table already exists.
+	 * Check if table exists.
 	 *
 	 * @since 1.0.0
 	 *
@@ -380,6 +381,38 @@ abstract class Table extends Base {
 	}
 
 	/**
+	 * Get status of table.
+	 *
+	 * See: https://dev.mysql.com/doc/refman/8.0/en/show-table-status.html
+	 *
+	 * @since 2.1.0
+	 *
+	 * @return object
+	 */
+	public function status() {
+
+		// Get the database interface
+		$db = $this->get_db();
+
+		// Bail if no database interface is available
+		if ( empty( $db ) ) {
+			return false;
+		}
+
+		// Query statement
+		$query    = "SHOW TABLE STATUS LIKE %s";
+		$like     = $db->esc_like( $this->table_name );
+		$prepared = $db->prepare( $query, $like );
+		$query    = (array) $db->get_results( $prepared );
+		$result   = end( $query );
+
+		// Does the table exist?
+		return $this->is_success( $result )
+			? $result
+			: false;
+	}
+
+	/**
 	 * Get columns from table.
 	 *
 	 * @since 1.2.0
@@ -397,8 +430,8 @@ abstract class Table extends Base {
 		}
 
 		// Query statement
-		$query  = "SHOW FULL COLUMNS FROM {$this->table_name}";
-		$result = $db->get_results( $query );
+		$sql    = "SHOW FULL COLUMNS FROM {$this->table_name}";
+		$result = $db->get_results( $sql );
 
 		// Return the results
 		return $this->is_success( $result )
@@ -407,7 +440,7 @@ abstract class Table extends Base {
 	}
 
 	/**
-	 * Create the table.
+	 * Create the database table.
 	 *
 	 * @since 1.0.0
 	 *
@@ -467,8 +500,8 @@ abstract class Table extends Base {
 		}
 
 		// Query statement
-		$query  = "DROP TABLE {$this->table_name}";
-		$result = $db->query( $query );
+		$sql    = "DROP TABLE {$this->table_name}";
+		$result = $db->query( $sql );
 
 		// Did the table get dropped?
 		return $this->is_success( $result );
@@ -492,8 +525,8 @@ abstract class Table extends Base {
 		}
 
 		// Query statement
-		$query  = "TRUNCATE TABLE {$this->table_name}";
-		$result = $db->query( $query );
+		$sql    = "TRUNCATE TABLE {$this->table_name}";
+		$result = $db->query( $sql );
 
 		// Did the table get truncated?
 		return $this->is_success( $result );
@@ -517,8 +550,8 @@ abstract class Table extends Base {
 		}
 
 		// Query statement
-		$query  = "DELETE FROM {$this->table_name}";
-		$result = $db->query( $query );
+		$sql    = "DELETE FROM {$this->table_name}";
+		$result = $db->query( $sql );
 
 		// Return the results
 		return $result;
@@ -555,8 +588,8 @@ abstract class Table extends Base {
 
 		// Query statement
 		$table  = $this->apply_prefix( $table_name );
-		$query  = "CREATE TABLE {$table} LIKE {$this->table_name}";
-		$result = $db->query( $query );
+		$sql    = "CREATE TABLE {$table} LIKE {$this->table_name}";
+		$result = $db->query( $sql );
 
 		// Did the table get cloned?
 		return $this->is_success( $result );
@@ -593,8 +626,8 @@ abstract class Table extends Base {
 
 		// Query statement
 		$table  = $this->apply_prefix( $table_name );
-		$query  = "INSERT INTO {$table} SELECT * FROM {$this->table_name}";
-		$result = $db->query( $query );
+		$sql    = "INSERT INTO {$table} SELECT * FROM {$this->table_name}";
+		$result = $db->query( $sql );
 
 		// Did the table get copied?
 		return $this->is_success( $result );
@@ -618,8 +651,8 @@ abstract class Table extends Base {
 		}
 
 		// Query statement
-		$query  = "SELECT COUNT(*) FROM {$this->table_name}";
-		$result = $db->get_var( $query );
+		$sql    = "SELECT COUNT(*) FROM {$this->table_name}";
+		$result = $db->get_var( $sql );
 
 		// 0 on error/empty, number of rows on success
 		return intval( $result );
@@ -646,10 +679,10 @@ abstract class Table extends Base {
 		}
 
 		// Query statement
-		$query    = "SHOW COLUMNS FROM {$this->table_name} LIKE %s";
+		$sql      = "SHOW COLUMNS FROM {$this->table_name} LIKE %s";
 		$name     = $this->sanitize_column_name( $name );
 		$like     = $db->esc_like( $name );
-		$prepared = $db->prepare( $query, $like );
+		$prepared = $db->prepare( $sql, $like );
 		$result   = $db->query( $prepared );
 
 		// Does the column exist?
@@ -683,14 +716,167 @@ abstract class Table extends Base {
 		}
 
 		// Query statement
-		$query    = "SHOW INDEXES FROM {$this->table_name} WHERE {$column} LIKE %s";
+		$sql      = "SHOW INDEXES FROM {$this->table_name} WHERE {$column} LIKE %s";
 		$name     = $this->sanitize_column_name( $name );
 		$like     = $db->esc_like( $name );
-		$prepared = $db->prepare( $query, $like );
+		$prepared = $db->prepare( $sql, $like );
 		$result   = $db->query( $prepared );
 
 		// Does the index exist?
 		return $this->is_success( $result );
+	}
+
+	/** Repair ****************************************************************/
+
+	/**
+	 * Analyze the database table.
+	 *
+	 * See: https://dev.mysql.com/doc/refman/8.0/en/analyze-table.html
+	 *
+	 * @since 2.1.0
+	 *
+	 * @return bool|string
+	 */
+	public function analyze() {
+
+		// Get the database interface
+		$db = $this->get_db();
+
+		// Bail if no database interface is available
+		if ( empty( $db ) ) {
+			return false;
+		}
+
+		// Query statement
+		$sql    = "ANALYZE TABLE {$this->table_name}";
+		$query  = (array) $db->get_results( $sql );
+		$result = end( $query );
+
+		// Return message text
+		return ! empty( $result->Msg_text )
+			? $result->Msg_text
+			: false;
+	}
+
+	/**
+	 * Check the database table.
+	 *
+	 * See: https://dev.mysql.com/doc/refman/8.0/en/check-table.html
+	 *
+	 * @since 2.1.0
+	 *
+	 * @return bool|string
+	 */
+	public function check() {
+
+		// Get the database interface
+		$db = $this->get_db();
+
+		// Bail if no database interface is available
+		if ( empty( $db ) ) {
+			return false;
+		}
+
+		// Query statement
+		$sql    = "CHECK TABLE {$this->table_name}";
+		$query  = (array) $db->get_results( $sql );
+		$result = end( $query );
+
+		// Return message text
+		return ! empty( $result->Msg_text )
+			? $result->Msg_text
+			: false;
+	}
+
+	/**
+	 * Get the Checksum the database table.
+	 *
+	 * See: https://dev.mysql.com/doc/refman/8.0/en/checksum-table.html
+	 *
+	 * @since 2.1.0
+	 *
+	 * @return bool|string
+	 */
+	public function checksum() {
+
+		// Get the database interface
+		$db = $this->get_db();
+
+		// Bail if no database interface is available
+		if ( empty( $db ) ) {
+			return false;
+		}
+
+		// Query statement
+		$sql    = "CHECKSUM TABLE {$this->table_name}";
+		$query  = (array) $db->get_results( $sql );
+		$result = end( $query );
+
+		// Return checksum
+		return ! empty( $result->Checksum )
+			? $result->Checksum
+			: false;
+	}
+
+	/**
+	 * Optimize the database table.
+	 *
+	 * See: https://dev.mysql.com/doc/refman/8.0/en/optimize-table.html
+	 *
+	 * @since 2.1.0
+	 *
+	 * @return bool|string
+	 */
+	public function optimize() {
+
+		// Get the database interface
+		$db = $this->get_db();
+
+		// Bail if no database interface is available
+		if ( empty( $db ) ) {
+			return false;
+		}
+
+		// Query statement
+		$sql    = "OPTIMIZE TABLE {$this->table_name}";
+		$query  = (array) $db->get_results( $sql );
+		$result = end( $query );
+
+		// Return message text
+		return ! empty( $result->Msg_text )
+			? $result->Msg_text
+			: false;
+	}
+
+	/**
+	 * Repair the database table.
+	 *
+	 * See: https://dev.mysql.com/doc/refman/8.0/en/repair-table.html
+	 * Note: Not supported by InnoDB, the default engine in MySQL 8 and higher.
+	 *
+	 * @since 2.1.0
+	 *
+	 * @return bool|string
+	 */
+	public function repair() {
+
+		// Get the database interface
+		$db = $this->get_db();
+
+		// Bail if no database interface is available
+		if ( empty( $db ) ) {
+			return false;
+		}
+
+		// Query statement
+		$sql    = "REPAIR TABLE {$this->table_name}";
+		$query  = (array) $db->get_results( $sql );
+		$result = end( $query );
+
+		// Return message text
+		return ! empty( $result->Msg_text )
+			? $result->Msg_text
+			: false;
 	}
 
 	/** Upgrades **************************************************************/
@@ -878,7 +1064,7 @@ abstract class Table extends Base {
 			$tables  = 'tables';
 		}
 
-		// Set the table prefix and prefix the table name
+		// Set table prefix and prefix table name
 		$this->table_prefix  = $db->get_blog_prefix( $site_id );
 
 		// Get the prefixed table name
@@ -892,7 +1078,7 @@ abstract class Table extends Base {
 			$db->{$tables} = array();
 		}
 
-		// Add the table to the global table array
+		// Add table to the global table array
 		$db->{$tables}[] = $this->prefixed_name;
 
 		// Charset
@@ -907,7 +1093,7 @@ abstract class Table extends Base {
 	}
 
 	/**
-	 * Set the database version for the table.
+	 * Set table version in the database.
 	 *
 	 * @since 1.0.0
 	 *
@@ -930,7 +1116,7 @@ abstract class Table extends Base {
 	}
 
 	/**
-	 * Get the table version from the database.
+	 * Get table version from the database.
 	 *
 	 * @since 1.0.0
 	 */
@@ -941,7 +1127,7 @@ abstract class Table extends Base {
 	}
 
 	/**
-	 * Delete the table version from the database.
+	 * Delete table version from the database.
 	 *
 	 * @since 1.0.0
 	 */
