@@ -371,9 +371,7 @@ abstract class Table extends Base {
 		}
 
 		// Query statement
-		$sql      = "SHOW TABLES LIKE %s";
-		$like     = $db->esc_like( $this->table_name );
-		$prepared = $db->prepare( $sql, $like );
+		$prepared = $db->prepare( 'SHOW TABLES LIKE %s', $db->esc_like( $this->table_name ) );
 		$result   = $db->get_var( $prepared );
 
 		// Does the table exist?
@@ -387,7 +385,7 @@ abstract class Table extends Base {
 	 *
 	 * @since 2.1.0
 	 *
-	 * @return object
+	 * @return object|false
 	 */
 	public function status() {
 
@@ -400,9 +398,7 @@ abstract class Table extends Base {
 		}
 
 		// Query statement
-		$sql      = "SHOW TABLE STATUS LIKE %s";
-		$like     = $db->esc_like( $this->table_name );
-		$prepared = $db->prepare( $sql, $like );
+		$prepared = $db->prepare( 'SHOW TABLE STATUS LIKE %s', $db->esc_like( $this->table_name ) );
 		$query    = (array) $db->get_results( $prepared );
 		$result   = end( $query );
 
@@ -417,7 +413,7 @@ abstract class Table extends Base {
 	 *
 	 * @since 1.2.0
 	 *
-	 * @return mixed Array on success, False on failure
+	 * @return array|false Array on success, False on failure
 	 */
 	public function columns() {
 
@@ -430,8 +426,7 @@ abstract class Table extends Base {
 		}
 
 		// Query statement
-		$sql    = "SHOW FULL COLUMNS FROM {$this->table_name}";
-		$result = $db->get_results( $sql );
+		$result = $db->get_results( "SHOW FULL COLUMNS FROM {$this->table_name}" );
 
 		// Return the results
 		return $this->is_success( $result )
@@ -475,8 +470,7 @@ abstract class Table extends Base {
 		}
 
 		// Query statement
-		$query  = implode( ' ', array_filter( $sql ) );
-		$result = $db->query( $query );
+		$result = $db->query( implode( ' ', array_filter( $sql ) ) );
 
 		// Was the table created?
 		return $this->is_success( $result );
@@ -500,8 +494,7 @@ abstract class Table extends Base {
 		}
 
 		// Query statement
-		$sql    = "DROP TABLE {$this->table_name}";
-		$result = $db->query( $sql );
+		$result = $db->query( "DROP TABLE {$this->table_name}" );
 
 		// Did the table get dropped?
 		return $this->is_success( $result );
@@ -525,8 +518,7 @@ abstract class Table extends Base {
 		}
 
 		// Query statement
-		$sql    = "TRUNCATE TABLE {$this->table_name}";
-		$result = $db->query( $sql );
+		$result = $db->query( "TRUNCATE TABLE {$this->table_name}" );
 
 		// Did the table get truncated?
 		return $this->is_success( $result );
@@ -550,8 +542,7 @@ abstract class Table extends Base {
 		}
 
 		// Query statement
-		$sql    = "DELETE FROM {$this->table_name}";
-		$result = $db->query( $sql );
+		$result = $db->query( "DELETE FROM {$this->table_name}" );
 
 		// Return the results
 		return $result;
@@ -588,8 +579,7 @@ abstract class Table extends Base {
 
 		// Query statement
 		$table  = $this->apply_prefix( $table_name );
-		$sql    = "CREATE TABLE {$table} LIKE {$this->table_name}";
-		$result = $db->query( $sql );
+		$result = $db->query( "CREATE TABLE {$table} LIKE {$this->table_name}" );
 
 		// Did the table get cloned?
 		return $this->is_success( $result );
@@ -626,8 +616,7 @@ abstract class Table extends Base {
 
 		// Query statement
 		$table  = $this->apply_prefix( $table_name );
-		$sql    = "INSERT INTO {$table} SELECT * FROM {$this->table_name}";
-		$result = $db->query( $sql );
+		$result = $db->query( "INSERT INTO {$table} SELECT * FROM {$this->table_name}" );
 
 		// Did the table get copied?
 		return $this->is_success( $result );
@@ -651,8 +640,7 @@ abstract class Table extends Base {
 		}
 
 		// Query statement
-		$sql    = "SELECT COUNT(*) FROM {$this->table_name}";
-		$result = $db->get_var( $sql );
+		$result = $db->get_var( "SELECT COUNT(*) FROM {$this->table_name}" );
 
 		// 0 on error/empty, number of rows on success
 		return intval( $result );
@@ -687,8 +675,7 @@ abstract class Table extends Base {
 
 		// Query statement
 		$table  = $this->apply_prefix( $table_name );
-		$sql    = "RENAME TABLE {$this->table_name} TO {$table}";
-		$result = $db->query( $sql );
+		$result = $db->query( "RENAME TABLE {$this->table_name} TO {$table}" );
 
 		// Did the table get renamed?
 		return $this->is_success( $result );
@@ -714,11 +701,10 @@ abstract class Table extends Base {
 			return false;
 		}
 
+		$name = $this->sanitize_column_name( $name );
+
 		// Query statement
-		$sql      = "SHOW COLUMNS FROM {$this->table_name} LIKE %s";
-		$name     = $this->sanitize_column_name( $name );
-		$like     = $db->esc_like( $name );
-		$prepared = $db->prepare( $sql, $like );
+		$prepared = $db->prepare( "SHOW COLUMNS FROM {$this->table_name} LIKE %s", $db->esc_like( $name ) );
 		$result   = $db->query( $prepared );
 
 		// Does the column exist?
@@ -751,11 +737,10 @@ abstract class Table extends Base {
 			$column = 'Key_name';
 		}
 
+		$name = $this->sanitize_column_name( $name );
+
 		// Query statement
-		$sql      = "SHOW INDEXES FROM {$this->table_name} WHERE {$column} LIKE %s";
-		$name     = $this->sanitize_column_name( $name );
-		$like     = $db->esc_like( $name );
-		$prepared = $db->prepare( $sql, $like );
+		$prepared = $db->prepare( "SHOW INDEXES FROM {$this->table_name} WHERE {$column} LIKE %s", $db->esc_like( $name ) );
 		$result   = $db->query( $prepared );
 
 		// Does the index exist?
@@ -784,8 +769,7 @@ abstract class Table extends Base {
 		}
 
 		// Query statement
-		$sql    = "ANALYZE TABLE {$this->table_name}";
-		$query  = (array) $db->get_results( $sql );
+		$query  = (array) $db->get_results( "ANALYZE TABLE {$this->table_name}" );
 		$result = end( $query );
 
 		// Return message text
@@ -814,8 +798,7 @@ abstract class Table extends Base {
 		}
 
 		// Query statement
-		$sql    = "CHECK TABLE {$this->table_name}";
-		$query  = (array) $db->get_results( $sql );
+		$query  = (array) $db->get_results( "CHECK TABLE {$this->table_name}" );
 		$result = end( $query );
 
 		// Return message text
@@ -844,8 +827,7 @@ abstract class Table extends Base {
 		}
 
 		// Query statement
-		$sql    = "CHECKSUM TABLE {$this->table_name}";
-		$query  = (array) $db->get_results( $sql );
+		$query  = (array) $db->get_results( "CHECKSUM TABLE {$this->table_name}" );
 		$result = end( $query );
 
 		// Return checksum
@@ -874,8 +856,7 @@ abstract class Table extends Base {
 		}
 
 		// Query statement
-		$sql    = "OPTIMIZE TABLE {$this->table_name}";
-		$query  = (array) $db->get_results( $sql );
+		$query  = (array) $db->get_results( "OPTIMIZE TABLE {$this->table_name}" );
 		$result = end( $query );
 
 		// Return message text
@@ -905,8 +886,7 @@ abstract class Table extends Base {
 		}
 
 		// Query statement
-		$sql    = "REPAIR TABLE {$this->table_name}";
-		$query  = (array) $db->get_results( $sql );
+		$query  = (array) $db->get_results( "REPAIR TABLE {$this->table_name}" );
 		$result = end( $query );
 
 		// Return message text
