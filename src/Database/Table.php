@@ -148,7 +148,7 @@ abstract class Table extends Base {
 	 */
 	public function __construct() {
 
-		// Setup the database table
+		// Setup this database table
 		$this->setup();
 
 		// Bail if setup failed
@@ -223,7 +223,7 @@ abstract class Table extends Base {
 	/** Public Helpers ********************************************************/
 
 	/**
-	 * Maybe upgrade the database table. Handles creation & schema changes.
+	 * Maybe upgrade this database table. Handles creation & schema changes.
 	 *
 	 * Hooked to the `admin_init` action.
 	 *
@@ -270,7 +270,7 @@ abstract class Table extends Base {
 		// Get the current database version
 		$this->get_db_version();
 
-		// Is the database table up to date?
+		// Is this database table up to date?
 		$is_current = version_compare( $this->db_version, $version, '>=' );
 
 		// Return false if current, true if out of date
@@ -440,7 +440,7 @@ abstract class Table extends Base {
 	}
 
 	/**
-	 * Create the database table.
+	 * Create this database table.
 	 *
 	 * @since 1.0.0
 	 *
@@ -483,7 +483,7 @@ abstract class Table extends Base {
 	}
 
 	/**
-	 * Drop the database table.
+	 * Drop this database table.
 	 *
 	 * @since 1.0.0
 	 *
@@ -508,7 +508,7 @@ abstract class Table extends Base {
 	}
 
 	/**
-	 * Truncate the database table.
+	 * Truncate this database table.
 	 *
 	 * @since 1.0.0
 	 *
@@ -533,7 +533,7 @@ abstract class Table extends Base {
 	}
 
 	/**
-	 * Delete all items from the database table.
+	 * Delete all items from this database table.
 	 *
 	 * @since 1.0.0
 	 *
@@ -564,7 +564,7 @@ abstract class Table extends Base {
 	 *
 	 * @since 1.1.0
 	 *
-	 * @param string $new_table_name The name of the new table, without prefix
+	 * @param string $new_table_name The name of the new table, no prefix
 	 *
 	 * @return bool
 	 */
@@ -602,7 +602,7 @@ abstract class Table extends Base {
 	 *
 	 * @since 1.1.0
 	 *
-	 * @param string $new_table_name The name of the new table, without prefix
+	 * @param string $new_table_name The name of the new table, no prefix
 	 *
 	 * @return bool
 	 */
@@ -634,7 +634,7 @@ abstract class Table extends Base {
 	}
 
 	/**
-	 * Count the number of items in the database table.
+	 * Count the number of items in this database table.
 	 *
 	 * @since 1.0.0
 	 *
@@ -656,6 +656,42 @@ abstract class Table extends Base {
 
 		// 0 on error/empty, number of rows on success
 		return intval( $result );
+	}
+
+	/**
+	 * Rename this database table.
+	 *
+	 * @since 2.1.0
+	 *
+	 * @param string $new_table_name The new name of the current table, no prefix
+	 *
+	 * @return bool
+	 */
+	public function rename( $new_table_name = '' ) {
+
+		// Get the database interface
+		$db = $this->get_db();
+
+		// Bail if no database interface is available
+		if ( empty( $db ) ) {
+			return false;
+		}
+
+		// Sanitize the new table name
+		$table_name = $this->sanitize_table_name( $new_table_name );
+
+		// Bail if new table name is invalid
+		if ( empty( $table_name ) ) {
+			return false;
+		}
+
+		// Query statement
+		$table  = $this->apply_prefix( $table_name );
+		$sql    = "RENAME TABLE {$this->table_name} TO {$table}";
+		$result = $db->query( $sql );
+
+		// Did the table get renamed?
+		return $this->is_success( $result );
 	}
 
 	/**
@@ -729,7 +765,7 @@ abstract class Table extends Base {
 	/** Repair ****************************************************************/
 
 	/**
-	 * Analyze the database table.
+	 * Analyze this database table.
 	 *
 	 * See: https://dev.mysql.com/doc/refman/8.0/en/analyze-table.html
 	 *
@@ -759,7 +795,7 @@ abstract class Table extends Base {
 	}
 
 	/**
-	 * Check the database table.
+	 * Check this database table.
 	 *
 	 * See: https://dev.mysql.com/doc/refman/8.0/en/check-table.html
 	 *
@@ -789,7 +825,7 @@ abstract class Table extends Base {
 	}
 
 	/**
-	 * Get the Checksum the database table.
+	 * Get the Checksum this database table.
 	 *
 	 * See: https://dev.mysql.com/doc/refman/8.0/en/checksum-table.html
 	 *
@@ -819,7 +855,7 @@ abstract class Table extends Base {
 	}
 
 	/**
-	 * Optimize the database table.
+	 * Optimize this database table.
 	 *
 	 * See: https://dev.mysql.com/doc/refman/8.0/en/optimize-table.html
 	 *
@@ -849,7 +885,7 @@ abstract class Table extends Base {
 	}
 
 	/**
-	 * Repair the database table.
+	 * Repair this database table.
 	 *
 	 * See: https://dev.mysql.com/doc/refman/8.0/en/repair-table.html
 	 * Note: Not supported by InnoDB, the default engine in MySQL 8 and higher.
@@ -1008,7 +1044,7 @@ abstract class Table extends Base {
 			return;
 		}
 
-		// Sanitize the database table name
+		// Sanitize this database table name
 		$this->name = $this->sanitize_table_name( $this->name );
 
 		// Bail if database table name sanitization failed
