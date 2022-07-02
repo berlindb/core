@@ -371,9 +371,9 @@ abstract class Table extends Base {
 		}
 
 		// Query statement
-		$query    = "SHOW TABLES LIKE %s";
+		$sql      = "SHOW TABLES LIKE %s";
 		$like     = $db->esc_like( $this->table_name );
-		$prepared = $db->prepare( $query, $like );
+		$prepared = $db->prepare( $sql, $like );
 		$result   = $db->get_var( $prepared );
 
 		// Does the table exist?
@@ -400,9 +400,9 @@ abstract class Table extends Base {
 		}
 
 		// Query statement
-		$query    = "SHOW TABLE STATUS LIKE %s";
+		$sql      = "SHOW TABLE STATUS LIKE %s";
 		$like     = $db->esc_like( $this->table_name );
-		$prepared = $db->prepare( $query, $like );
+		$prepared = $db->prepare( $sql, $like );
 		$query    = (array) $db->get_results( $prepared );
 		$result   = end( $query );
 
