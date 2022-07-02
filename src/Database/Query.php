@@ -933,12 +933,9 @@ class Query extends Base {
 	 */
 	private function get_columns_field_by( $key = '', $values = array(), $field = '', $default = false ) {
 
-		// Default return value
-		$retval = array();
-
 		// Bail if no values
 		if ( empty( $values ) ) {
-			return $retval;
+			return array();
 		}
 
 		// Allow scalar values
@@ -950,6 +947,9 @@ class Query extends Base {
 		if ( empty( $field ) ) {
 			$field = $key;
 		}
+
+		// Default return value
+		$retval = array();
 
 		// Get the column fields
 		foreach ( $values as $value ) {
@@ -2358,9 +2358,6 @@ class Query extends Base {
 	 */
 	private function get_item_fields( $items = array(), $fields = array() ) {
 
-		// Default return value
-		$retval = $items;
-
 		// Maybe fallback to $query_vars
 		if ( empty( $fields ) ) {
 			$fields = $this->get_query_var( 'fields' );
@@ -2368,13 +2365,16 @@ class Query extends Base {
 
 		// Bail if no fields to get
 		if ( empty( $fields ) ) {
-			return $retval;
+			return $items;
 		}
 
 		// Maybe cast to array
 		if ( ! is_array( $fields ) ) {
 			$fields = (array) $fields;
 		}
+
+		// Default return value
+		$retval = $items;
 
 		// Get the primary column name
 		$primary = $this->get_primary_column_name();
@@ -3717,13 +3717,13 @@ class Query extends Base {
 	 */
 	private function get_non_cached_ids( $item_ids = array(), $group = '' ) {
 
-		// Default return value
-		$retval = array();
-
 		// Bail if no item IDs
 		if ( empty( $item_ids ) ) {
-			return $retval;
+			return array();
 		}
+
+		// Default return value
+		$retval = array();
 
 		// Loop through item IDs
 		foreach ( $item_ids as $id ) {

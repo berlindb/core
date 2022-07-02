@@ -165,7 +165,7 @@ class Column extends Base {
 	public $extra = '';
 
 	/**
-	 * Typically inherited from the database interface (wpdb).
+	 * Typically inherited from the database interface $db_global.
 	 *
 	 * By default, this will use the globally available database encoding. You
 	 * most likely do not want to change this; if you do, you already know what
@@ -179,7 +179,7 @@ class Column extends Base {
 	public $encoding = '';
 
 	/**
-	 * Typically inherited from the database interface (wpdb).
+	 * Typically inherited from the database interface $db_global.
 	 *
 	 * By default, this will use the globally available database collation. You
 	 * most likely do not want to change this; if you do, you already know what
@@ -442,10 +442,10 @@ class Column extends Base {
 	 *     @type bool     $zerofill       Is integer filled with zeroes?
 	 *     @type bool     $binary         Is data in a binary format?
 	 *     @type bool     $allow_null     Is null an allowed value?
-	 *     @type mixed    $default        Typically empty/null, or date value
+	 *     @type mixed    $default        Typically 0|'', null, or date value
 	 *     @type string   $extra          auto_increment, etc...
-	 *     @type string   $encoding       Typically inherited from wpdb
-	 *     @type string   $collation      Typically inherited from wpdb
+	 *     @type string   $encoding       Typically inherited from $db_global
+	 *     @type string   $collation      Typically inherited from $db_global
 	 *     @type string   $comment        Typically empty
 	 *     @type string   $pattern        Pattern used to format the value
 	 *     @type bool     $primary        Is this the primary column?
@@ -1096,7 +1096,6 @@ class Column extends Base {
 	 * updated to support different default values based on the environment.
 	 *
 	 * See: https://dev.mysql.com/doc/refman/8.0/en/sql-mode.html#sqlmode_allow_invalid_dates
-	 * See: wpdb::set_sql_mode()
 	 *
 	 * @since 1.0.0
 	 * @since 2.1.0 Add support for CURRENT_TIMESTAMP.
