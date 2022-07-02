@@ -793,6 +793,9 @@ class Date extends Base {
 	 */
 	protected function get_sql_for_clause( $query = array(), $parent_query = array() ) {
 
+		// Get the database interface
+		$db = $this->get_db();
+
 		// The sub-parts of a $where part.
 		$where_parts = array();
 
@@ -814,11 +817,11 @@ class Date extends Base {
 
 		// Range queries.
 		if ( ! empty( $query['after'] ) ) {
-			$where_parts[] = $this->get_db()->prepare( "{$column} {$gt} %s", $this->build_mysql_datetime( $query['after'], ! $inclusive, $now ) );
+			$where_parts[] = $db->prepare( "{$column} {$gt} %s", $this->build_mysql_datetime( $query['after'], ! $inclusive, $now ) );
 		}
 
 		if ( ! empty( $query['before'] ) ) {
-			$where_parts[] = $this->get_db()->prepare( "{$column} {$lt} %s", $this->build_mysql_datetime( $query['before'], $inclusive, $now ) );
+			$where_parts[] = $db->prepare( "{$column} {$lt} %s", $this->build_mysql_datetime( $query['before'], $inclusive, $now ) );
 		}
 
 		// Specific value queries.
@@ -958,6 +961,10 @@ class Date extends Base {
 	 */
 	public function build_value( $compare = '=', $value = null ) {
 
+		// Get the database interface
+		$db = $this->get_db();
+
+		// MB
 		if ( in_array( $compare, $this->multi_value_keys, true ) ) {
 			if ( ! is_array( $value ) ) {
 				$value = preg_split( '/[,\s]+/', $value );
@@ -970,25 +977,25 @@ class Date extends Base {
 			case 'IN':
 			case 'NOT IN':
 				$compare_string = '(' . substr( str_repeat( ',%s', count( $value ) ), 1 ) . ')';
-				$where          = $this->get_db()->prepare( $compare_string, $value );
+				$where          = $db->prepare( $compare_string, $value );
 				break;
 
 			case 'BETWEEN':
 			case 'NOT BETWEEN':
 				$value = array_slice( $value, 0, 2 );
-				$where = $this->get_db()->prepare( '%s AND %s', $value );
+				$where = $db->prepare( '%s AND %s', $value );
 				break;
 
 			case 'LIKE':
 			case 'NOT LIKE':
-				$value = '%' . $this->get_db()->esc_like( $value ) . '%';
-				$where = $this->get_db()->prepare( '%s', $value );
+				$value = '%' . $db->esc_like( $value ) . '%';
+				$where = $db->prepare( '%s', $value );
 				break;
 
 			// EXISTS with a value is interpreted as '='.
 			case 'EXISTS':
 				$compare = '=';
-				$where   = $this->get_db()->prepare( '%s', $value );
+				$where   = $db->prepare( '%s', $value );
 				break;
 
 			// 'value' is ignored for NOT EXISTS.
@@ -997,7 +1004,7 @@ class Date extends Base {
 				break;
 
 			default:
-				$where = $this->get_db()->prepare( '%s', $value );
+				$where = $db->prepare( '%s', $value );
 				break;
 		}
 
@@ -1213,6 +1220,9 @@ class Date extends Base {
 			return false;
 		}
 
+		// Get the database interface
+		$db = $this->get_db();
+
 		// Complex combined queries aren't supported for multi-value queries
 		if ( in_array( $compare, $this->multi_value_keys, true ) ) {
 			$retval = array();
@@ -1282,7 +1292,7 @@ class Date extends Base {
 		$query = "DATE_FORMAT( {$column}, %s ) {$compare} %f";
 
 		// Return the prepared SQL
-		return $this->get_db()->prepare( $query, $format, $time );
+		return $db->prepare( $query, $format, $time );
 	}
 
 	/**
