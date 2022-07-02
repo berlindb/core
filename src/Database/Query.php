@@ -127,19 +127,6 @@ class Query extends Base {
 	 */
 	private $schema = null;
 
-	/** Handlers **************************************************************/
-
-	/**
-	 * Query handlers.
-	 *
-	 * An array of special classes used to parse Magic $query_vars into
-	 * $query_clauses.
-	 *
-	 * @since 2.1.0
-	 * @var   array
-	 */
-	protected $query_handlers = array();
-
 	/** Clauses ***************************************************************/
 
 	/**
@@ -204,6 +191,17 @@ class Query extends Base {
 	 * @var   string
 	 */
 	protected $query_var_default_value = '';
+
+	/**
+	 * Query var parsers.
+	 *
+	 * An array of special classes used to parse Magic $query_vars into
+	 * $query_clauses.
+	 *
+	 * @since 2.1.0
+	 * @var   array
+	 */
+	protected $query_var_parsers = array();
 
 	/** Results ***************************************************************/
 
@@ -299,7 +297,7 @@ class Query extends Base {
 		$this->set_prefixes();
 		$this->set_schema();
 		$this->set_item_shape();
-		$this->set_query_handlers();
+		$this->set_query_var_parsers();
 		$this->set_query_var_defaults();
 		$this->set_query_clause_defaults();
 	}
@@ -392,13 +390,13 @@ class Query extends Base {
 	}
 
 	/**
-	 * Set query handlers.
+	 * Set query var parsers.
 	 *
 	 * @since 2.1.0
 	 */
-	private function set_query_handlers() {
-		if ( empty( $this->query_handlers ) ) {
-			$this->query_handlers = array(
+	private function set_query_var_parsers() {
+		if ( empty( $this->query_var_parsers ) ) {
+			$this->query_var_parsers = array(
 				'meta'    => __NAMESPACE__ . '\\Queries\\Meta',
 				'date'    => __NAMESPACE__ . '\\Queries\\Date',
 				'compare' => __NAMESPACE__ . '\\Queries\\Compare'
@@ -524,8 +522,8 @@ class Query extends Base {
 
 		/** Query Objects *****************************************************/
 
-		// Loop through query handlers
-		foreach ( array_keys( $this->query_handlers ) as $id ) {
+		// Loop through query var parsers
+		foreach ( array_keys( $this->query_var_parsers ) as $id ) {
 
 			// Set query key
 			$suffix    = '_query';
@@ -743,22 +741,22 @@ class Query extends Base {
 	}
 
 	/**
-	 * Return a new Query Handler object, if it exists.
+	 * Return a new query var parser object, if it exists.
 	 *
 	 * @since 2.1.0
 	 * @param string $query
 	 * @param array  $args
 	 * @return object
 	 */
-	private function get_query_handler( $query = '', $args = array() ) {
+	private function get_query_var_parser( $query = '', $args = array() ) {
 
 		// Bail if no query
-		if ( empty( $this->query_handlers[ $query ] ) ) {
+		if ( empty( $this->query_var_parsers[ $query ] ) ) {
 			return;
 		}
 
 		// Setup the class name using the namespace
-		$class = $this->query_handlers[ $query ];
+		$class = $this->query_var_parsers[ $query ];
 
 		// Bail if class does not exist
 		if ( ! class_exists( $class ) ) {
@@ -1383,7 +1381,7 @@ class Query extends Base {
 		$methods = array(
 			'parse_where_columns',
 			'parse_where_search',
-			'parse_where_query_handlers'
+			'parse_where_parsers'
 		);
 
 		// Default results
@@ -1623,25 +1621,25 @@ class Query extends Base {
 	}
 
 	/**
-	 * Parse join/where subclauses for query handler objects.
+	 * Parse join/where subclauses for query var parser objects.
 	 *
 	 * Used by parse_where().
 	 *
 	 * @since 2.1.0
 	 * @return array
 	 */
-	private function parse_where_query_handlers( $query_vars = array() ) {
+	private function parse_where_parsers( $query_vars = array() ) {
 
-		// Bail if no queries
-		if ( empty( $this->query_handlers ) ) {
+		// Bail if no query var parsers
+		if ( empty( $this->query_var_parsers ) ) {
 			return array(
 				'join'  => array(),
 				'where' => array()
 			);
 		}
 
-		// Get query handlers
-		$handlers = array_filter( array_keys( $this->query_handlers ) );
+		// Get query var parsers
+		$parsers = array_filter( array_keys( $this->query_var_parsers ) );
 
 		// Query clause arguments
 		$args = array(
@@ -1655,8 +1653,8 @@ class Query extends Base {
 		// Default values
 		$join = $where = array();
 
-		// Loop through queries
-		foreach ( $handlers as $id ) {
+		// Loop through parsers
+		foreach ( $parsers as $id ) {
 
 			// Skip
 			if ( empty( $id ) ) {
@@ -1676,11 +1674,11 @@ class Query extends Base {
 				$query_vars[ $key ][ 'alias'] = $args['table_alias'];
 			}
 
-			// Try to get the query handler
-			$handler = $this->get_query_handler( $id, $query_vars[ $key ] );
+			// Try to get the query var parser
+			$parser = $this->get_query_var_parser( $id, $query_vars[ $key ] );
 
-			// Skip if no query handler
-			if ( empty( $handler ) ) {
+			// Skip if no query var parser
+			if ( empty( $parser ) ) {
 				continue;
 			}
 
@@ -1688,7 +1686,7 @@ class Query extends Base {
 			$subclauses = false;
 
 			// Set the key
-			$this->{$key} = $handler;
+			$this->{$key} = $parser;
 
 			// Set the callback
 			$callback = array( $this->{$key}, 'get_sql' );
