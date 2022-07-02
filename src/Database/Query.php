@@ -22,30 +22,6 @@ defined( 'ABSPATH' ) || exit;
  * @since 1.0.0
  *
  * @see Query::__construct() for accepted arguments.
- *
- * @property string $prefix
- * @property string $table_name
- * @property string $table_alias
- * @property string $table_schema
- * @property string $item_name
- * @property string $item_name_plural
- * @property string $item_shape
- * @property string $cache_group
- * @property string $last_changed
- * @property array $schema
- * @property array $query_clauses
- * @property array $request_clauses
- * @property null|Queries\Meta $meta_query
- * @property null|Queries\Date $date_query
- * @property null|Queries\Compare $compare_query
- * @property array $query_vars
- * @property array $query_var_originals
- * @property array $query_var_defaults
- * @property string $query_var_default_value
- * @property array|int $items
- * @property int $found_items
- * @property int $max_num_pages
- * @property string $request
  */
 class Query extends Base {
 
@@ -151,6 +127,19 @@ class Query extends Base {
 	 */
 	private $schema = null;
 
+	/** Handlers **************************************************************/
+
+	/**
+	 * Query handlers.
+	 *
+	 * An array of special classes used to parse Magic $query_vars into
+	 * $query_clauses.
+	 *
+	 * @since 2.1.0
+	 * @var   array
+	 */
+	protected $query_handlers = array();
+
 	/** Clauses ***************************************************************/
 
 	/**
@@ -168,32 +157,6 @@ class Query extends Base {
 	 * @var   array
 	 */
 	protected $request_clauses = array();
-
-	/** Query Types ***********************************************************/
-
-	/**
-	 * Meta query container.
-	 *
-	 * @since 1.0.0
-	 * @var   null|object|Queries\Meta
-	 */
-	protected $meta_query = null;
-
-	/**
-	 * Date query container.
-	 *
-	 * @since 1.0.0
-	 * @var   null|object|Queries\Date
-	 */
-	protected $date_query = null;
-
-	/**
-	 * Compare query container.
-	 *
-	 * @since 1.0.0
-	 * @var   null|object|Queries\Compare
-	 */
-	protected $compare_query = null;
 
 	/** Query Variables *******************************************************/
 
@@ -336,6 +299,7 @@ class Query extends Base {
 		$this->set_prefixes();
 		$this->set_schema();
 		$this->set_item_shape();
+		$this->set_query_handlers();
 		$this->set_query_var_defaults();
 		$this->set_query_clause_defaults();
 	}
@@ -408,7 +372,7 @@ class Query extends Base {
 	private function set_schema() {
 
 		// Bail if no table schema
-		if ( ! class_exists( $this->table_schema ) ) {
+		if ( empty( $this->table_schema ) || ! class_exists( $this->table_schema ) ) {
 			return;
 		}
 
@@ -428,7 +392,22 @@ class Query extends Base {
 	}
 
 	/**
-	 * Set default query clauses.
+	 * Set query handlers.
+	 *
+	 * @since 2.1.0
+	 */
+	private function set_query_handlers() {
+		if ( empty( $this->query_handlers ) ) {
+			$this->query_handlers = array(
+				'meta'    => __NAMESPACE__ . '\\Queries\\Meta',
+				'date'    => __NAMESPACE__ . '\\Queries\\Date',
+				'compare' => __NAMESPACE__ . '\\Queries\\Compare'
+			);
+		}
+	}
+
+	/**
+	 * Set defaults for query (and also request) clauses.
 	 *
 	 * @since 2.1.0
 	 */
@@ -459,6 +438,7 @@ class Query extends Base {
 	 * Set default query vars based on columns.
 	 *
 	 * @since 1.0.0
+	 * @since 2.1.0
 	 */
 	private function set_query_var_defaults() {
 
@@ -497,42 +477,82 @@ class Query extends Base {
 			// Disable row count
 			'no_found_rows'     => true,
 
-			// Queries
-			'meta_query'        => null, // See Queries\Meta
-			'date_query'        => null, // See Queries\Date
-			'compare_query'     => null, // See Queries\Compare
-
 			// Caching
 			'update_item_cache' => true,
 			'update_meta_cache' => true
 		);
 
-		// Direct column names
-		$names = array_flip( $this->get_column_names() );
-		foreach ( $names as $name ) {
-			$this->query_var_defaults[ $name ] = $this->query_var_default_value;
+		/** Column Names ******************************************************/
+
+		// All column names
+		$names = $this->get_column_names();
+
+		// Bail early if no columns
+		if ( empty( $names ) ) {
+			return;
 		}
 
-		// Possible ins
-		$possible_ins = $this->get_columns( array( 'in' => true ), 'and', 'name' );
-		foreach ( $possible_ins as $in ) {
-			$key = "{$in}__in";
-			$this->query_var_defaults[ $key ] = $this->query_var_default_value;
+		// Fill with default value
+		$defaults = array_fill_keys( $names, $this->query_var_default_value );
+
+		/** Specials **********************************************************/
+
+		// Special column query attributes
+		$specials = array(
+			'in'         => '__in',
+			'not_in'     => '__not_in',
+			'date_query' => '_query'
+		);
+
+		// Loop through specials
+		foreach ( $specials as $column => $suffix ) {
+
+			// Columns
+			$filter  = array( $column => true );
+			$columns = $this->get_column_names( $filter );
+
+			// Skip if no columns
+			if ( empty( $columns ) ) {
+				continue;
+			}
+
+			// Add defaults
+			foreach ( $columns as $name ) {
+				$defaults[] = "{$name}{$suffix}";
+			}
 		}
 
-		// Possible not ins
-		$possible_not_ins = $this->get_columns( array( 'not_in' => true ), 'and', 'name' );
-		foreach ( $possible_not_ins as $in ) {
-			$key = "{$in}__not_in";
-			$this->query_var_defaults[ $key ] = $this->query_var_default_value;
+		/** Query Objects *****************************************************/
+
+		// Loop through query handlers
+		foreach ( array_keys( $this->query_handlers ) as $id ) {
+
+			// Set query key
+			$suffix    = '_query';
+			$query_key = strtolower( $id ) . $suffix;
+
+			// Columns
+			$filter  = array( $query_key => true );
+			$columns = $this->get_column_names( $filter );
+
+			// Skip if no columns
+			if ( empty( $columns ) ) {
+				continue;
+			}
+
+			// Add defaults
+			foreach ( $columns as $column ) {
+				$defaults[] = "{$name}{$suffix}";
+			}
 		}
 
-		// Possible dates
-		$possible_dates = $this->get_columns( array( 'date_query' => true ), 'and', 'name' );
-		foreach ( $possible_dates as $date ) {
-			$key = "{$date}_query";
-			$this->query_var_defaults[ $key ] = $this->query_var_default_value;
-		}
+		/** Defaults **********************************************************/
+
+		// Fill default keys with default value
+		$default_values = array_fill_keys( $defaults, $this->query_var_default_value );
+
+		// Merge defaults
+		$this->query_var_defaults = array_merge( $this->query_var_defaults, $default_values );
 	}
 
 	/**
@@ -703,11 +723,8 @@ class Query extends Base {
 			return false;
 		}
 
-		// Get all of the column names
-		$columns = $this->get_column_names();
-
-		// Return if column name exists
-		return isset( $columns[ $column_name ] );
+		// Return if column exists
+		return (bool) $this->get_column_by( array( 'name' => $column_name ) );
 	}
 
 	/** Private Getters *******************************************************/
@@ -726,42 +743,30 @@ class Query extends Base {
 	}
 
 	/**
-	 * Pass-through method to return a new Meta object.
+	 * Return a new Query Handler object, if it exists.
 	 *
-	 * @since 1.0.0
-	 *
-	 * @param array $args See Queries\Meta
-	 *
-	 * @return Queries\Meta
+	 * @since 2.1.0
+	 * @param string $query
+	 * @param array  $args
+	 * @return object
 	 */
-	private function get_meta_query( $args = array() ) {
-		return new Queries\Meta( $args );
-	}
+	private function get_query_handler( $query = '', $args = array() ) {
 
-	/**
-	 * Pass-through method to return a new Compare object.
-	 *
-	 * @since 1.0.0
-	 *
-	 * @param array $args See Queries\Compare
-	 *
-	 * @return Queries\Compare
-	 */
-	private function get_compare_query( $args = array() ) {
-		return new Queries\Compare( $args );
-	}
+		// Bail if no query
+		if ( empty( $this->query_handlers[ $query ] ) ) {
+			return;
+		}
 
-	/**
-	 * Pass-through method to return a new Queries\Date object.
-	 *
-	 * @since 1.0.0
-	 *
-	 * @param array $args See Queries\Date
-	 *
-	 * @return Queries\Date
-	 */
-	private function get_date_query( $args = array() ) {
-		return new Queries\Date( $args );
+		// Setup the class name using the namespace
+		$class = $this->query_handlers[ $query ];
+
+		// Bail if class does not exist
+		if ( ! class_exists( $class ) ) {
+			return;
+		}
+
+		// Return the query
+		return new $class( $args );
 	}
 
 	/**
@@ -803,11 +808,15 @@ class Query extends Base {
 	 * Return array of column names.
 	 *
 	 * @since 1.0.0
+	 * @since 2.1.0 Pass $args and $operator to filter names.
+	 *              No longer calls array_flip().
 	 *
+	 * @param  array  $args     Arguments to filter columns by.
+	 * @param  string $operator Optional. The logical operation to perform.
 	 * @return array
 	 */
-	private function get_column_names() {
-		return array_flip( $this->get_columns( array(), 'and', 'name' ) );
+	private function get_column_names( $args = array(), $operator = 'and' ) {
+		return $this->get_columns( $args, $operator, 'name' );
 	}
 
 	/**
@@ -924,12 +933,9 @@ class Query extends Base {
 	 */
 	private function get_columns_field_by( $key = '', $values = array(), $field = '', $default = false ) {
 
-		// Default return value
-		$retval = array();
-
 		// Bail if no values
 		if ( empty( $values ) ) {
-			return $retval;
+			return array();
 		}
 
 		// Allow scalar values
@@ -941,6 +947,9 @@ class Query extends Base {
 		if ( empty( $field ) ) {
 			$field = $key;
 		}
+
+		// Default return value
+		$retval = array();
 
 		// Get the column fields
 		foreach ( $values as $value ) {
@@ -1362,17 +1371,6 @@ class Query extends Base {
 	 */
 	private function parse_where_join( $args = array() ) {
 
-		// Get the database interface
-		$db = $this->get_db();
-
-		// Bail if no database interface is available
-		if ( empty( $db ) ) {
-			return array(
-				'where' => array(),
-				'join'  => array()
-			);
-		}
-
 		// Maybe fallback to $query_vars
 		if ( empty( $args ) && ! empty( $this->query_vars ) ) {
 			$args = $this->query_vars;
@@ -1381,14 +1379,69 @@ class Query extends Base {
 		// Parse arguments
 		$r = wp_parse_args( $args );
 
-		// Defaults
-		$where = $join = $date_query = array();
+		// Private WHERE methods
+		$methods = array(
+			'parse_where_columns',
+			'parse_where_search',
+			'parse_where_query_handlers'
+		);
 
-		// Get all of the columns
-		$columns = $this->get_columns();
+		// Default results
+		$results = array();
+
+		// Get all results
+		foreach ( $methods as $method ) {
+			$results[] = $this->{$method}( $r );
+		}
+
+		// Pluck join/where from results
+		$join  = wp_list_pluck( $results, 'join' );
+		$where = wp_list_pluck( $results, 'where' );
+
+		// Set join/where subclauses to merged results
+		return array(
+			'join'  => call_user_func_array( 'array_merge', $join ),
+			'where' => call_user_func_array( 'array_merge', $where )
+		);
+	}
+
+	/**
+	 * Parse join/where subclauses for all columns.
+	 *
+	 * Used by parse_where().
+	 *
+	 * @since 2.1.0
+	 * @return array
+	 */
+	private function parse_where_columns( $query_vars = array() ) {
+
+		// Defaults
+		$retval = array(
+			'join'  => array(),
+			'where' => array()
+		);
+
+		// Get the database interface
+		$db = $this->get_db();
+
+		// Bail if no database interface is available
+		if ( empty( $db ) ) {
+			return $retval;
+		}
+
+		// All columns
+		$all_columns = $this->get_columns();
+
+		// Bail if no columns
+		if ( empty( $all_columns ) ) {
+			return $retval;
+		}
+
+		// Default variable
+		$where = array();
 
 		// Loop through columns
-		foreach ( $columns as $column ) {
+		foreach ( $all_columns as $column ) {
 
 			// Get column name, pattern, and aliased name
 			$name    = $column->name;
@@ -1400,7 +1453,7 @@ class Query extends Base {
 
 				// Parse query variable
 				$where_id = $name;
-				$values   = $this->parse_query_var( $r, $where_id );
+				$values   = $this->parse_query_var( $query_vars, $where_id );
 
 				// Parse item for direct clause.
 				if ( false !== $values ) {
@@ -1425,7 +1478,7 @@ class Query extends Base {
 
 				// Parse query var
 				$where_id = "{$name}__in";
-				$values   = $this->parse_query_var( $r, $where_id );
+				$values   = $this->parse_query_var( $query_vars, $where_id );
 
 				// Parse item for an IN clause.
 				if ( false !== $values ) {
@@ -1450,7 +1503,7 @@ class Query extends Base {
 
 				// Parse query var
 				$where_id = "{$name}__not_in";
-				$values   = $this->parse_query_var( $r, $where_id );
+				$values   = $this->parse_query_var( $query_vars, $where_id );
 
 				// Parse item for a NOT IN clause.
 				if ( false !== $values ) {
@@ -1473,14 +1526,14 @@ class Query extends Base {
 			// date_query
 			if ( true === $column->date_query ) {
 				$where_id    = "{$name}_query";
-				$column_date = $this->parse_query_var( $r, $where_id );
+				$column_date = $this->parse_query_var( $query_vars, $where_id );
 
 				// Parse item
 				if ( false !== $column_date ) {
 
 					// Single
 					if ( 1 === count( $column_date ) ) {
-						$date_query[] = array(
+						$where['date_query'][] = array(
 							'column'    => $aliased,
 							'before'    => reset( $column_date ),
 							'inclusive' => true
@@ -1495,27 +1548,62 @@ class Query extends Base {
 						}
 
 						// Add clause to date query
-						$date_query[] = $column_date;
+						$where['date_query'][] = $column_date;
 					}
 				}
 			}
 		}
 
-		/** Search ************************************************************/
+		// Return join/where subclauses
+		return array(
+			'join'  => array(),
+			'where' => $where
+		);
+	}
+
+	/**
+	 * Parse join/where subclauses for search queries.
+	 *
+	 * Used by parse_where().
+	 *
+	 * @since 2.1.0
+	 * @return array
+	 */
+	private function parse_where_search( $query_vars = array() ) {
+
+		// Get searchable columns
+		$searchable = $this->get_columns(
+			array(
+				'searchable' => true
+			),
+			'and',
+			'name'
+		);
+
+		// Bail if no search
+		if ( empty( $searchable ) || empty( $query_vars['search'] ) ) {
+			return array(
+				'join'  => array(),
+				'where' => array()
+			);
+		}
+
+		// Default value
+		$where = array();
 
 		// Get names of searchable columns
 		$searchable = $this->get_columns( array( 'searchable' => true ), 'and', 'name' );
 
-		// Maybe search if columns are searchable.
-		if ( ! empty( $searchable ) && strlen( $r['search'] ) ) {
+		// Maybe search if columns are searchable
+		if ( ! empty( $searchable ) && strlen( $query_vars['search'] ) ) {
 
 			// Default to all searchable columns
 			$search_columns = $searchable;
 
 			// Intersect against known searchable columns
-			if ( ! empty( $r['search_columns'] ) ) {
+			if ( ! empty( $query_vars['search_columns'] ) ) {
 				$search_columns = array_intersect(
-					$r['search_columns'],
+					$query_vars['search_columns'],
 					$searchable
 				);
 			}
@@ -1524,92 +1612,117 @@ class Query extends Base {
 			$search_columns = $this->filter_search_columns( $search_columns );
 
 			// Add search query clause
-			$where['search'] = $this->get_search_sql( $r['search'], $search_columns );
+			$where['search'] = $this->get_search_sql( $query_vars['search'], $search_columns );
 		}
 
-		/** Query Classes *****************************************************/
-
-		// Get the primary column name
-		$primary = $this->get_primary_column_name();
-
-		// Get the meta type & table alias
-		$table   = $this->get_meta_type();
-		$alias   = $this->table_alias;
-
-		// Set the " AND " regex pattern
-		$and     = '/^\s*AND\s*/';
-
-		// Maybe perform a meta query.
-		$meta_query = $r['meta_query'];
-		if ( ! empty( $meta_query ) && is_array( $meta_query ) ) {
-			$this->meta_query = $this->get_meta_query( $meta_query );
-			$clauses          = $this->meta_query->get_sql( $table, $alias, $primary, $this );
-
-			// Not all objects have meta, so make sure this one exists
-			if ( false !== $clauses ) {
-
-				// Set join
-				if ( ! empty( $clauses['join'] ) ) {
-					$join['meta_query'] = $clauses['join'];
-				}
-
-				// Set where
-				if ( ! empty( $clauses['where'] ) ) {
-					$where['meta_query'] = preg_replace( $and, '', $clauses['where'] );
-				}
-			}
-		}
-
-		// Maybe perform a compare query.
-		$compare_query = $r['compare_query'];
-		if ( ! empty( $compare_query ) && is_array( $compare_query ) ) {
-			$this->compare_query = $this->get_compare_query( $compare_query );
-			$clauses             = $this->compare_query->get_sql( $table, $alias, $primary, $this );
-
-			// Not all objects can compare, so make sure this one exists
-			if ( false !== $clauses ) {
-
-				// Set join
-				if ( ! empty( $clauses['join'] ) ) {
-					$join['compare_query'] = $clauses['join'];
-				}
-
-				// Set where
-				if ( ! empty( $clauses['where'] ) ) {
-					$where['compare_query'] = preg_replace( $and, '', $clauses['where'] );
-				}
-			}
-		}
-
-		// Only do a date query with an array
-		$date_query = ! empty( $date_query )
-			? $date_query
-			: $r['date_query'];
-
-		// Maybe perform a date query
-		if ( ! empty( $date_query ) && is_array( $date_query ) ) {
-			$this->date_query = $this->get_date_query( $date_query );
-			$clauses          = $this->date_query->get_sql( $this->table_name, $alias, $primary, $this );
-
-			// Not all objects are dates, so make sure this one exists
-			if ( false !== $clauses ) {
-
-				// Set join
-				if ( ! empty( $clauses['join'] ) ) {
-					$join['date_query'] = $clauses['join'];
-				}
-
-				// Set where
-				if ( ! empty( $clauses['where'] ) ) {
-					$where['date_query'] = preg_replace( $and, '', $clauses['where'] );
-				}
-			}
-		}
-
-		// Return where & join, removing possible empties
+		// Return join/where
 		return array(
-			'where' => array_filter( $where ),
-			'join'  => array_filter( $join  )
+			'join'  => array(),
+			'where' => $where
+		);
+	}
+
+	/**
+	 * Parse join/where subclauses for query handler objects.
+	 *
+	 * Used by parse_where().
+	 *
+	 * @since 2.1.0
+	 * @return array
+	 */
+	private function parse_where_query_handlers( $query_vars = array() ) {
+
+		// Bail if no queries
+		if ( empty( $this->query_handlers ) ) {
+			return array(
+				'join'  => array(),
+				'where' => array()
+			);
+		}
+
+		// Get query handlers
+		$handlers = array_filter( array_keys( $this->query_handlers ) );
+
+		// Query clause arguments
+		$args = array(
+			'primary_table'  => $this->table_name,
+			'primary_alias'  => $this->table_alias,
+			'primary_column' => $this->get_primary_column_name(),
+			'meta_type'      => $this->get_meta_type(),
+			'query'          => $this
+		);
+
+		// Default values
+		$join = $where = array();
+
+		// Loop through queries
+		foreach ( $handlers as $id ) {
+
+			// Skip
+			if ( empty( $id ) ) {
+				continue;
+			}
+
+			// Build the key
+			$key = strtolower( $id ) . '_query';
+
+			// Skip if no query vars
+			if ( empty( $query_vars[ $key ] ) || ! is_array( $query_vars[ $key ] ) ) {
+				continue;
+			}
+
+			// Add table alias to primary clause if not already set
+			if ( empty( $query_vars[ $key ][ 'alias'] ) ) {
+				$query_vars[ $key ][ 'alias'] = $args['table_alias'];
+			}
+
+			// Try to get the query handler
+			$handler = $this->get_query_handler( $id, $query_vars[ $key ] );
+
+			// Skip if no query handler
+			if ( empty( $handler ) ) {
+				continue;
+			}
+
+			// Default no subclauses
+			$subclauses = false;
+
+			// Set the key
+			$this->{$key} = $handler;
+
+			// Set the callback
+			$callback = array( $this->{$key}, 'get_sql' );
+
+			// Try to get the SQL subclauses
+			if ( is_callable( $callback ) ) {
+				$subclauses = call_user_func( $callback, array(
+					$args['meta_type'],
+					$args['primary_table'],
+					$args['primary_column'],
+					$args['query']
+				) );
+			}
+
+			// Skip if no SQL subclauses
+			if ( false === $subclauses ) {
+				continue;
+			}
+
+			// Set join
+			if ( ! empty( $subclauses['join'] ) ) {
+				$join[ $key ] = $subclauses['join'];
+			}
+
+			// Set where (removing " AND " from subclauses)
+			if ( ! empty( $subclauses['where'] ) ) {
+				$where[ $key ] = preg_replace( '/^\s*AND\s*/', '', $subclauses['where'] );
+			}
+		}
+
+		// Return join/where subclauses
+		return array(
+			'join'  => $join,
+			'where' => $where
 		);
 	}
 
@@ -2245,9 +2358,6 @@ class Query extends Base {
 	 */
 	private function get_item_fields( $items = array(), $fields = array() ) {
 
-		// Default return value
-		$retval = $items;
-
 		// Maybe fallback to $query_vars
 		if ( empty( $fields ) ) {
 			$fields = $this->get_query_var( 'fields' );
@@ -2255,13 +2365,16 @@ class Query extends Base {
 
 		// Bail if no fields to get
 		if ( empty( $fields ) ) {
-			return $retval;
+			return $items;
 		}
 
 		// Maybe cast to array
 		if ( ! is_array( $fields ) ) {
 			$fields = (array) $fields;
 		}
+
+		// Default return value
+		$retval = $items;
 
 		// Get the primary column name
 		$primary = $this->get_primary_column_name();
@@ -2474,7 +2587,7 @@ class Query extends Base {
 		}
 
 		// Slice data that has columns, and cut out non-keys for meta
-		$columns = $this->get_column_names();
+		$columns = array_flip( $this->get_column_names() );
 		$data    = array_merge( $item, $data );
 		$meta    = array_diff_key( $data, $columns );
 		$save    = array_intersect_key( $data, $columns );
@@ -2630,7 +2743,7 @@ class Query extends Base {
 		);
 
 		// Slice data that has columns, and cut out non-keys for meta
-		$columns = $this->get_column_names();
+		$columns = array_flip( $this->get_column_names() );
 		$data    = array_diff_assoc( $data, $item );
 		$meta    = array_diff_key( $data, $columns );
 		$save    = array_intersect_key( $data, $columns );
@@ -3604,13 +3717,13 @@ class Query extends Base {
 	 */
 	private function get_non_cached_ids( $item_ids = array(), $group = '' ) {
 
-		// Default return value
-		$retval = array();
-
 		// Bail if no item IDs
 		if ( empty( $item_ids ) ) {
-			return $retval;
+			return array();
 		}
+
+		// Default return value
+		$retval = array();
 
 		// Loop through item IDs
 		foreach ( $item_ids as $id ) {

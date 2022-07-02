@@ -51,7 +51,7 @@ class Schema extends Base {
 	 * @since 1.0.0
 	 * @var   array
 	 */
-	public $columns = array();
+	protected $columns = array();
 
 	/**
 	 * Array of database Index objects.
@@ -59,7 +59,7 @@ class Schema extends Base {
 	 * @since 2.1.0
 	 * @var   array
 	 */
-	public $indexes = array();
+	protected $indexes = array();
 
 	/** Public Methods ********************************************************/
 
@@ -176,7 +176,7 @@ class Schema extends Base {
 			$retval = $data;
 		}
 
-		// Bail if no
+		// Bail if no item to add
 		if ( empty( $retval ) ) {
 			return false;
 		}
@@ -273,13 +273,13 @@ class Schema extends Base {
 	 */
 	private function get_items_create_string( $type = 'columns' ) {
 
-		// Default return value
-		$retval = '';
-
 		// Bail if no items to get strings from
 		if ( empty( $this->{$type} ) || ! is_array( $this->{$type} ) ) {
-			return $retval;
+			return '';
 		}
+
+		// Default return value
+		$retval  = '';
 
 		// Improve readability
 		$indent  = '  ';
