@@ -1408,7 +1408,7 @@ class Query extends Base {
 	/**
 	 * Parse join/where subclauses for all columns.
 	 *
-	 * Used by parse_where().
+	 * Used by parse_where_join().
 	 *
 	 * @since 2.1.0
 	 * @return array
@@ -1564,21 +1564,15 @@ class Query extends Base {
 	/**
 	 * Parse join/where subclauses for search queries.
 	 *
-	 * Used by parse_where().
+	 * Used by parse_where_join().
 	 *
 	 * @since 2.1.0
 	 * @return array
 	 */
 	private function parse_where_search( $query_vars = array() ) {
 
-		// Get searchable columns
-		$searchable = $this->get_columns(
-			array(
-				'searchable' => true
-			),
-			'and',
-			'name'
-		);
+		// Get names of searchable columns
+		$searchable = $this->get_columns( array( 'searchable' => true ), 'and', 'name' );
 
 		// Bail if no search
 		if ( empty( $searchable ) || empty( $query_vars['search'] ) ) {
@@ -1591,29 +1585,22 @@ class Query extends Base {
 		// Default value
 		$where = array();
 
-		// Get names of searchable columns
-		$searchable = $this->get_columns( array( 'searchable' => true ), 'and', 'name' );
+		// Default to all searchable columns
+		$search_columns = $searchable;
 
-		// Maybe search if columns are searchable
-		if ( ! empty( $searchable ) && strlen( $query_vars['search'] ) ) {
-
-			// Default to all searchable columns
-			$search_columns = $searchable;
-
-			// Intersect against known searchable columns
-			if ( ! empty( $query_vars['search_columns'] ) ) {
-				$search_columns = array_intersect(
-					$query_vars['search_columns'],
-					$searchable
-				);
-			}
-
-			// Filter search columns
-			$search_columns = $this->filter_search_columns( $search_columns );
-
-			// Add search query clause
-			$where['search'] = $this->get_search_sql( $query_vars['search'], $search_columns );
+		// Intersect against known searchable columns
+		if ( ! empty( $query_vars['search_columns'] ) ) {
+			$search_columns = array_intersect(
+				$query_vars['search_columns'],
+				$searchable
+			);
 		}
+
+		// Filter search columns
+		$search_columns = $this->filter_search_columns( $search_columns );
+
+		// Add search query clause
+		$where['search'] = $this->get_search_sql( $query_vars['search'], $search_columns );
 
 		// Return join/where
 		return array(
@@ -1625,7 +1612,7 @@ class Query extends Base {
 	/**
 	 * Parse join/where subclauses for query var parser objects.
 	 *
-	 * Used by parse_where().
+	 * Used by parse_where_join().
 	 *
 	 * @since 2.1.0
 	 * @return array
@@ -1731,14 +1718,15 @@ class Query extends Base {
 	 *
 	 * @since 2.1.0
 	 *
-	 * @param int|string|array $query_vars
-	 * @param string           $key
+	 * @param array  $query_vars
+	 * @param string $key
+	 *
 	 * @return int|string|array False if not set or default.
 	 *                          Value if object or array.
 	 *                          Attempts to parse a comma-separated string of
 	 *                          possible keys or numbers.
 	 */
-	private function parse_query_var( $query_vars = '', $key = '' ) {
+	private function parse_query_var( $query_vars = array(), $key = '' ) {
 
 		// Bail if no query vars exist for that ID
 		if ( ! isset( $query_vars[ $key ] ) ) {
