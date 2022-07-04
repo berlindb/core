@@ -591,8 +591,9 @@ class Query extends Base {
 	 */
 	private function set_items( $item_ids = array() ) {
 
-		// Shape item IDs
-		$item_ids = array_map( array( $this, 'shape_item_id' ), $item_ids );
+		// Validate primary column values
+		$callback = array( $this, 'shape_item_id' );
+		$item_ids = array_map( $callback, $item_ids );
 
 		// Prime item caches
 		$this->prime_item_caches( $item_ids );
@@ -602,7 +603,8 @@ class Query extends Base {
 	}
 
 	/**
-	 * Populates found_items and max_num_pages properties for the current query
+	 * Populates found_items for the current query.
+	 *
 	 * if the limit clause was used.
 	 *
 	 * @since 1.0.0
@@ -643,7 +645,7 @@ class Query extends Base {
 		 * This second query uses most of the previously parsed $request_clauses
 		 * and overrides a few to correct the SQL syntax.
 		 *
-		 * @since 2.1.0 No longer uses FOUND_ROWS()
+		 * @since 2.1.0 Performs a COUNT(*) query using $request_clauses.
 		 */
 		} elseif ( ! $this->get_query_var( 'no_found_rows' ) && $this->get_query_var( 'number' ) ) {
 
@@ -2295,6 +2297,36 @@ class Query extends Base {
 	/** Private Shapers *******************************************************/
 
 	/**
+	 * Shape an item from the database into the type of object it always wanted
+	 * to be when it grew up.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @param mixed ID of item, or row from database
+	 * @return mixed False on error, Object of single-object class type on success
+	 */
+	private function shape_item( $item = 0 ) {
+
+		// Get the item from an ID
+		if ( is_numeric( $item ) ) {
+			$item = $this->get_item( $item );
+		}
+
+		// Return the item if it's already shaped
+		if ( $item instanceof $this->item_shape ) {
+			return $item;
+		}
+
+		// Shape the item as needed
+		$item = ! empty( $this->item_shape )
+			? new $this->item_shape( $item )
+			: (object) $item;
+
+		// Return the item object
+		return $item;
+	}
+
+	/**
 	 * Shape items into their most relevant objects.
 	 *
 	 * This will try to use item_shape, but will fallback to a private
@@ -2342,6 +2374,62 @@ class Query extends Base {
 
 		// Return shaped items
 		return $retval;
+	}
+
+	/**
+	 * Validate the primary column value of an item.
+	 *
+	 * Accepts an object, array, or numeric value.
+	 *
+	 * @since 1.0.0
+	 * @since 2.1.0 Uses validate_item_field()
+	 *
+	 * @param  array|object|scalar $item
+	 * @return int|string
+	 */
+	private function shape_item_id( $item = 0 ) {
+
+		// Default return value
+		$retval  = $item;
+
+		// Get the primary column name
+		$primary = $this->get_primary_column_name();
+
+		// Object item
+		if ( is_object( $item ) && isset( $item->{$primary} ) ) {
+			$retval = $item->{$primary};
+
+		// Array item
+		} elseif ( is_array( $item ) && isset( $item[ $primary ] ) ) {
+			$retval = $item[ $primary ];
+		}
+
+		// Return the validated item ID
+		return $this->validate_item_field( $retval, $primary );
+	}
+
+	/**
+	 * Validate a single field of an item.
+	 *
+	 * Calls Column::validate() on the column.
+	 *
+	 * @since 2.1.0
+	 * @param mixed  $value       Value to validate.
+	 * @param string $column_name Name of column.
+	 * @return mixed A validated value
+	 */
+	private function validate_item_field( $value = '', $column_name = '' ) {
+
+		// Get the column
+		$column = $this->get_column_by( array( 'name' => $column_name ) );
+
+		// Bail if no column found
+		if ( empty( $column ) ) {
+			return false;
+		}
+
+		// Validate
+		return $column->validate( $value );
 	}
 
 	/**
@@ -2394,60 +2482,6 @@ class Query extends Base {
 
 		// Return the item fields
 		return $retval;
-	}
-
-	/**
-	 * Shape an item ID from an object, array, or numeric value.
-	 *
-	 * @since 1.0.0
-	 * @since 2.1.0 Uses validate_item_field() instead of intval.
-	 *
-	 * @param  array|object|scalar $item
-	 * @return int|string
-	 */
-	private function shape_item_id( $item = 0 ) {
-
-		// Default return value
-		$retval  = $item;
-
-		// Get the primary column name
-		$primary = $this->get_primary_column_name();
-
-		// Object item
-		if ( is_object( $item ) && isset( $item->{$primary} ) ) {
-			$retval = $item->{$primary};
-
-		// Array item
-		} elseif ( is_array( $item ) && isset( $item[ $primary ] ) ) {
-			$retval = $item[ $primary ];
-		}
-
-		// Return the validated item ID
-		return $this->validate_item_field( $retval, $primary );
-	}
-
-	/**
-	 * Validate a single field of an item.
-	 *
-	 * Calls Column::validate() on the column.
-	 *
-	 * @since 2.1.0
-	 * @param mixed  $value       Value to validate.
-	 * @param string $column_name Name of column.
-	 * @return mixed A validated value
-	 */
-	private function validate_item_field( $value = '', $column_name = '' ) {
-
-		// Get the column
-		$column = $this->get_column_by( array( 'name' => $column_name ) );
-
-		// Bail if no column found
-		if ( empty( $column ) ) {
-			return false;
-		}
-
-		// Validate
-		return $column->validate( $value );
 	}
 
 	/** Queries ***************************************************************/
@@ -2870,36 +2904,6 @@ class Query extends Base {
 
 		// Return
 		return $retval;
-	}
-
-	/**
-	 * Shape an item from the database into the type of object it always wanted
-	 * to be when it grew up.
-	 *
-	 * @since 1.0.0
-	 *
-	 * @param mixed ID of item, or row from database
-	 * @return mixed False on error, Object of single-object class type on success
-	 */
-	private function shape_item( $item = 0 ) {
-
-		// Get the item from an ID
-		if ( is_numeric( $item ) ) {
-			$item = $this->get_item( $item );
-		}
-
-		// Return the item if it's already shaped
-		if ( $item instanceof $this->item_shape ) {
-			return $item;
-		}
-
-		// Shape the item as needed
-		$item = ! empty( $this->item_shape )
-			? new $this->item_shape( $item )
-			: (object) $item;
-
-		// Return the item object
-		return $item;
 	}
 
 	/**
@@ -3706,9 +3710,9 @@ class Query extends Base {
 	 * Get array of non-cached item IDs.
 	 *
 	 * @since 1.0.0
-	 * @since 2.1.0 No longer uses shape_item_id()
+	 * @since 2.1.0 $item_ids expected to be shaped
 	 *
-	 * @param array  $item_ids Array of item IDs
+	 * @param array  $item_ids Array of shaped item IDs
 	 * @param string $group    Cache group. Defaults to $this->cache_group
 	 *
 	 * @return array
@@ -3919,7 +3923,7 @@ class Query extends Base {
 		 * @since 2.1.0 Supports MySQL 8 by removing FOUND_ROWS() and uses
 		 *              $request_clauses instead.
 		 *
-		 * @param string $query SQL query. Default 'SELECT FOUND_ROWS()'.
+		 * @param string $query SQL query.
 		 * @param Query  &$this Current instance passed by reference.
 		 */
 		return (string) apply_filters_ref_array(
