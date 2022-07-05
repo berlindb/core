@@ -1752,9 +1752,9 @@ class Query extends Base {
 			||
 			is_array( $value )
 			||
-			is_numeric( $value )
-			||
 			is_int( $value )
+			||
+			is_numeric( $value )
 			||
 			is_bool( $value )
 		) {
