@@ -123,12 +123,17 @@ class Date {
 	use \BerlinDB\Database\Traits\Parser;
 
 	/**
-	 * Array of first-order keys.
+	 * Determines and validates what first-order keys to use.
+	 *
+	 * Use first $first_keys if passed and valid.
 	 *
 	 * @since 3.0.0
-	 * @var array
+	 *
+	 * @param array $first_keys Array of first-order keys.
+	 *
+	 * @return array The first-order keys.
 	 */
-	public function get_first_keys() {
+	protected function get_first_keys( $first_keys = array() ) {
 		return array(
 			'after',
 			'before',

@@ -87,29 +87,29 @@ class In {
 		// Loop through ins.
 		foreach ( $ins as $column => $query_var ) {
 
+			// Parse query var
+			$values = $this->caller( 'parse_query_var', $clause, $column );
+
+			// Parse item for an IN clause.
+			if ( false === $values ) {
+				continue;
+			}
+
 			// Get pattern and aliased name
 			$name    = str_replace( '__not_in', '', $column );
 			$pattern = $this->caller( 'get_column_field', array( 'name' => $name ), 'pattern', '%s' );
 			$aliased = $this->caller( 'get_column_name_aliased', $name );
 
-			// Parse query var
-			$values = $this->caller( 'parse_query_var', $clause, $column );
+			// Convert single item arrays to literal column comparisons
+			if ( 1 === count( $values ) ) {
+				$statement      = "{$aliased} = {$pattern}";
+				$column_value   = reset( $values );
+				$where[ $name ] = $db->prepare( $statement, $column_value );
 
-			// Parse item for an IN clause.
-			if ( false !== $values ) {
-
-				// Convert single item arrays to literal column comparisons
-				if ( 1 === count( $values ) ) {
-					$statement          = "{$aliased} = {$pattern}";
-					$where_id           = $column;
-					$column_value       = reset( $values );
-					$where[ $where_id ] = $db->prepare( $statement, $column_value );
-
-				// Implode
-				} else {
-					$in_values          = $this->caller( 'get_in_sql', $column, $values, true, $pattern );
-					$where[ $where_id ] = "{$aliased} IN {$in_values}";
-				}
+			// Implode
+			} else {
+				$in_values        = $this->caller( 'get_in_sql', $column, $values, true, $pattern );
+				$where[ $column ] = "{$aliased} IN {$in_values}";
 			}
 		}
 
@@ -119,161 +119,4 @@ class In {
 			'where' => $where
 		);
 	}
-
-	/**
-	 * Parse join/where subclauses for all columns.
-	 *
-	 * Used by parse_where_join().
-	 *
-	 * @since 3.0.0
-	 * @return array
-	 */
-	private function parse_where_columns( $query_vars = array() ) {
-
-		// Defaults
-		$retval = array(
-			'join'  => array(),
-			'where' => array()
-		);
-
-		// Get the database interface
-		$db = $this->get_db();
-
-		// Bail if no database interface is available
-		if ( empty( $db ) ) {
-			return $retval;
-		}
-
-		// All columns
-		$all_columns = $this->get_columns();
-
-		// Bail if no columns
-		if ( empty( $all_columns ) ) {
-			return $retval;
-		}
-
-		// Default variable
-		$where = array();
-
-		// Loop through columns
-		foreach ( $all_columns as $column ) {
-
-			// Get column name, pattern, and aliased name
-			$name    = $column->name;
-			$pattern = $this->get_column_field( array( 'name' => $name ), 'pattern', '%s' );
-			$aliased = $this->get_column_name_aliased( $name );
-
-			// Literal column comparison
-			if ( false !== $column->by ) {
-
-				// Parse query variable
-				$where_id = $name;
-				$values   = $this->parse_query_var( $query_vars, $where_id );
-
-				// Parse item for direct clause.
-				if ( false !== $values ) {
-
-					// Convert single item arrays to literal column comparisons
-					if ( 1 === count( $values ) ) {
-						$statement          = "{$aliased} = {$pattern}";
-						$column_value       = reset( $values );
-						$where[ $where_id ] = $db->prepare( $statement, $column_value );
-
-					// Implode
-					} else {
-						$where_id           = "{$where_id}__in";
-						$in_values          = $this->get_in_sql( $name, $values, true, $pattern );
-						$where[ $where_id ] = "{$aliased} IN {$in_values}";
-					}
-				}
-			}
-
-			// __in
-			if ( true === $column->in ) {
-
-				// Parse query var
-				$where_id = "{$name}__in";
-				$values   = $this->parse_query_var( $query_vars, $where_id );
-
-				// Parse item for an IN clause.
-				if ( false !== $values ) {
-
-					// Convert single item arrays to literal column comparisons
-					if ( 1 === count( $values ) ) {
-						$statement          = "{$aliased} = {$pattern}";
-						$where_id           = $name;
-						$column_value       = reset( $values );
-						$where[ $where_id ] = $db->prepare( $statement, $column_value );
-
-					// Implode
-					} else {
-						$in_values          = $this->get_in_sql( $name, $values, true, $pattern );
-						$where[ $where_id ] = "{$aliased} IN {$in_values}";
-					}
-				}
-			}
-
-			// __not_in
-			if ( true === $column->not_in ) {
-
-				// Parse query var
-				$where_id = "{$name}__not_in";
-				$values   = $this->parse_query_var( $query_vars, $where_id );
-
-				// Parse item for a NOT IN clause.
-				if ( false !== $values ) {
-
-					// Convert single item arrays to literal column comparisons
-					if ( 1 === count( $values ) ) {
-						$statement          = "{$aliased} != {$pattern}";
-						$where_id           = $name;
-						$column_value       = reset( $values );
-						$where[ $where_id ] = $db->prepare( $statement, $column_value );
-
-					// Implode
-					} else {
-						$in_values          = $this->get_in_sql( $name, $values, true, $pattern );
-						$where[ $where_id ] = "{$aliased} NOT IN {$in_values}";
-					}
-				}
-			}
-
-			// date_query
-			if ( true === $column->date_query ) {
-				$where_id    = "{$name}_query";
-				$column_date = $this->parse_query_var( $query_vars, $where_id );
-
-				// Parse item
-				if ( false !== $column_date ) {
-
-					// Single
-					if ( 1 === count( $column_date ) ) {
-						$where['date_query'][] = array(
-							'column'    => $aliased,
-							'before'    => reset( $column_date ),
-							'inclusive' => true
-						);
-
-					// Multi
-					} else {
-
-						// Auto-fill column if empty
-						if ( empty( $column_date['column'] ) ) {
-							$column_date['column'] = $aliased;
-						}
-
-						// Add clause to date query
-						$where['date_query'][] = $column_date;
-					}
-				}
-			}
-		}
-
-		// Return join/where subclauses
-		return array(
-			'join'  => array(),
-			'where' => $where
-		);
-	}
-
 }

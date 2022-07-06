@@ -87,11 +87,6 @@ class NotIn {
 		// Loop through ins.
 		foreach ( $ins as $column => $query_var ) {
 
-			// Get pattern and aliased name
-			$name    = str_replace( '__not_in', '', $column );
-			$pattern = $this->caller( 'get_column_field', array( 'name' => $name ), 'pattern', '%s' );
-			$aliased = $this->caller( 'get_column_name_aliased', $name );
-
 			// Parse query var
 			$values = $this->caller( 'parse_query_var', $clause, $column );
 
@@ -100,17 +95,21 @@ class NotIn {
 				continue;
 			}
 
+			// Get pattern and aliased name
+			$name    = str_replace( '__not_in', '', $column );
+			$pattern = $this->caller( 'get_column_field', array( 'name' => $name ), 'pattern', '%s' );
+			$aliased = $this->caller( 'get_column_name_aliased', $name );
+
 			// Convert single item arrays to literal column comparisons
 			if ( 1 === count( $values ) ) {
-				$statement          = "{$aliased} != {$pattern}";
-				$where_id           = $column;
-				$column_value       = reset( $values );
-				$where[ $where_id ] = $db->prepare( $statement, $column_value );
+				$statement      = "{$aliased} != {$pattern}";
+				$column_value   = reset( $values );
+				$where[ $name ] = $db->prepare( $statement, $column_value );
 
 			// Implode
 			} else {
 				$in_values          = $this->caller( 'get_in_sql', $column, $values, true, $pattern );
-				$where[ $where_id ] = "{$aliased} NOT IN {$in_values}";
+				$where[ $column ] = "{$aliased} NOT IN {$in_values}";
 			}
 		}
 
