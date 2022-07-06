@@ -8,7 +8,7 @@
  * @license     https://opensource.org/licenses/MIT MIT
  * @since       1.0.0
  */
-namespace BerlinDB\Database;
+namespace BerlinDB\Database\Traits;
 
 // Exit if accessed directly
 defined( 'ABSPATH' ) || exit;
@@ -20,11 +20,11 @@ defined( 'ABSPATH' ) || exit;
  * classes that extend it, starting with a magic getter, but likely expanding
  * into a magic call handler and others.
  *
- * @since 1.0.0
+ * @since 3.0.0
  *
  * @property array<string, mixed> $args
  */
-class Base {
+trait Base {
 
 	/**
 	 * The name of the PHP global that contains the primary database interface.
@@ -62,7 +62,7 @@ class Base {
 	/** Public ****************************************************************/
 
 	/**
-	 * Magic isset'ter for immutability.
+	 * Magic isset().
 	 *
 	 * @since 1.0.0
 	 *
@@ -84,7 +84,7 @@ class Base {
 	}
 
 	/**
-	 * Magic getter for immutability.
+	 * Magic get().
 	 *
 	 * @since 1.0.0
 	 *
@@ -126,7 +126,7 @@ class Base {
 	 * Maybe append the prefix to string.
 	 *
 	 * @since 1.0.0
-	 * @since 2.1.0 Prevents double prefixing
+	 * @since 3.0.0 Prevents double prefixing
 	 *
 	 * @param string $string
 	 * @param string $sep
@@ -220,7 +220,7 @@ class Base {
 	 * - No trailing underscores
 	 *
 	 * @since 1.0.0
-	 * @since 2.1.0 Allow uppercase letters
+	 * @since 3.0.0 Allow uppercase letters
 	 *
 	 * @param string $name The name of the database table
 	 *
@@ -270,7 +270,7 @@ class Base {
 	 * - No double underscores
 	 * - No trailing underscores
 	 *
-	 * @since 2.1.0
+	 * @since 3.0.0
 	 *
 	 * @param string $name The name of the database column
 	 *
@@ -311,7 +311,7 @@ class Base {
 	 * the object variable values, for later comparison, reuse, or resetting
 	 * back to a previous state.
 	 *
-	 * @since 2.1.0
+	 * @since 3.0.0
 	 * @param array $args
 	 */
 	protected function stash_args( $args = array() ) {
@@ -325,7 +325,7 @@ class Base {
 	 * Return the global database interface.
 	 *
 	 * @since 1.0.0
-	 * @since 2.1.0 Improved PHP8 support, remove $GLOBALS superglobal usage
+	 * @since 3.0.0 Improved PHP8 support, remove $GLOBALS superglobal usage
 	 *
 	 * @return bool|\wpdb Database interface, or False if not set
 	 */
@@ -365,7 +365,7 @@ class Base {
 	 *       pass falsy values on success.
 	 *
 	 * @since 1.0.0
-	 * @since 2.1.0 Minor refactor to improve readability.
+	 * @since 3.0.0 Minor refactor to improve readability.
 	 *
 	 * @param mixed $result Optional. Default false. Any value to check.
 	 * @return bool

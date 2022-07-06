@@ -17,13 +17,52 @@ defined( 'ABSPATH' ) || exit;
  * Base class used for each column for a custom table.
  *
  * @since 1.0.0
- * @since 2.1.0 Column::args[] stashes parsed & class arguments.
+ * @since 3.0.0 Column::args[] stashes parsed & class arguments.
  *
- * @see Column::__construct() for accepted arguments.
+ * @param array|string $args {
+ *     Optional. Array or query string of order query parameters. Default empty.
+ *
+ *     @type string   $name           Name of database column
+ *     @type string   $type           Type of database column
+ *     @type int      $length         Length of database column
+ *     @type bool     $unsigned       Is integer unsigned?
+ *     @type bool     $zerofill       Is integer filled with zeroes?
+ *     @type bool     $binary         Is data in a binary format?
+ *     @type bool     $allow_null     Is null an allowed value?
+ *     @type mixed    $default        Typically 0|'', null, or date value
+ *     @type string   $extra          auto_increment, etc...
+ *     @type string   $encoding       Typically inherited from $db_global
+ *     @type string   $collation      Typically inherited from $db_global
+ *     @type string   $comment        Typically empty
+ *     @type string   $pattern        Pattern used to format the value
+ *     @type bool     $primary        Is this the primary column?
+ *     @type bool     $created        Is this the column used as a created date?
+ *     @type bool     $modified       Is this the column used as a modified date?
+ *     @type bool     $uuid           Is this the column used as a universally unique identifier?
+ *     @type bool     $searchable     Is this column searchable?
+ *     @type bool     $sortable       Is this column used in orderby?
+ *     @type bool     $date_query     Is this column a datetime?
+ *     @type bool     $in             Is __in supported?
+ *     @type bool     $not_in         Is __not_in supported?
+ *     @type bool     $cache_key      Is this column queried independently?
+ *     @type bool     $transition     Does this column transition between changes?
+ *     @type string   $validate       A callback function used to validate on save.
+ *     @type array    $caps           Array of capabilities to check.
+ *     @type array    $aliases        Array of possible column name aliases.
+ *     @type array    $relationships  Array of columns in other tables this column relates to.
+ * }
  */
-class Column extends Base {
+class Column {
 
-	/** Table Attributes ******************************************************/
+	/**
+	 * Use the following traits:
+	 *
+	 * @since 3.0.0
+	 */
+	use Traits\Base;
+	use Traits\Boot;
+
+	/** Attributes ************************************************************/
 
 	/**
 	 * Name for the database column.
@@ -158,8 +197,8 @@ class Column extends Base {
 	 * See: https://dev.mysql.com/doc/refman/8.0/en/data-type-defaults.html
 	 *
 	 * @since 1.0.0
-	 * @since 2.1.0 Allowed values checked via sanitize_extra()
-	 * @since 2.1.0 Special values checked via special_args()
+	 * @since 3.0.0 Allowed values checked via sanitize_extra()
+	 * @since 3.0.0 Special values checked via special_args()
 	 * @var   string Default empty string.
 	 */
 	public $extra = '';
@@ -425,98 +464,16 @@ class Column extends Base {
 	 */
 	public $relationships = array();
 
-	/** Methods ***************************************************************/
-
-	/**
-	 * Sets up the order query, based on the query vars passed.
-	 *
-	 * @since 1.0.0
-	 *
-	 * @param array|string $args {
-	 *     Optional. Array or query string of order query parameters. Default empty.
-	 *
-	 *     @type string   $name           Name of database column
-	 *     @type string   $type           Type of database column
-	 *     @type int      $length         Length of database column
-	 *     @type bool     $unsigned       Is integer unsigned?
-	 *     @type bool     $zerofill       Is integer filled with zeroes?
-	 *     @type bool     $binary         Is data in a binary format?
-	 *     @type bool     $allow_null     Is null an allowed value?
-	 *     @type mixed    $default        Typically 0|'', null, or date value
-	 *     @type string   $extra          auto_increment, etc...
-	 *     @type string   $encoding       Typically inherited from $db_global
-	 *     @type string   $collation      Typically inherited from $db_global
-	 *     @type string   $comment        Typically empty
-	 *     @type string   $pattern        Pattern used to format the value
-	 *     @type bool     $primary        Is this the primary column?
-	 *     @type bool     $created        Is this the column used as a created date?
-	 *     @type bool     $modified       Is this the column used as a modified date?
-	 *     @type bool     $uuid           Is this the column used as a universally unique identifier?
-	 *     @type bool     $searchable     Is this column searchable?
-	 *     @type bool     $sortable       Is this column used in orderby?
-	 *     @type bool     $date_query     Is this column a datetime?
-	 *     @type bool     $in             Is __in supported?
-	 *     @type bool     $not_in         Is __not_in supported?
-	 *     @type bool     $cache_key      Is this column queried independently?
-	 *     @type bool     $transition     Does this column transition between changes?
-	 *     @type string   $validate       A callback function used to validate on save.
-	 *     @type array    $caps           Array of capabilities to check.
-	 *     @type array    $aliases        Array of possible column name aliases.
-	 *     @type array    $relationships  Array of columns in other tables this column relates to.
-	 * }
-	 */
-	public function __construct( $args = array() ) {
-
-		// Parse arguments
-		$r = $this->parse_args( $args );
-
-		// Maybe set variables from arguments
-		if ( ! empty( $r ) ) {
-			$this->set_vars( $r );
-		}
-	}
-
-	/** Argument Handlers *****************************************************/
-
-	/**
-	 * Parse column arguments.
-	 *
-	 * @since 1.0.0
-	 * @since 2.1.0 Arguments are stashed. Bails if $args is empty.
-	 * @param array $args Default empty array.
-	 * @return array
-	 */
-	private function parse_args( $args = array() ) {
-
-		// Stash the arguments
-		$this->stash_args( $args );
-
-		// Bail if no arguments
-		if ( empty( $args ) ) {
-			return array();
-		}
-
-		// Parse arguments
-		$r = wp_parse_args( $args, $this->args['class'] );
-
-		// Force some arguments for special column types
-		$r = $this->special_args( $r );
-
-		// Set the arguments before they are validated & sanitized
-		$this->set_vars( $r );
-
-		// Return array
-		return $this->validate_args( $r );
-	}
-
 	/**
 	 * Validate arguments after they are parsed.
 	 *
-	 * @since 1.0.0
+	 * @since 1.0.0 Private.
+	 * @since 3.0.0 Protected.
+	 *
 	 * @param array $args Default empty array.
 	 * @return array
 	 */
-	private function validate_args( $args = array() ) {
+	protected function validate_args( $args = array() ) {
 
 		// Sanitization callbacks
 		$callbacks = array(
@@ -589,11 +546,11 @@ class Column extends Base {
 	 * See: https://dev.mysql.com/doc/refman/8.0/en/data-type-defaults.html
 	 *
 	 * @since 1.0.0
-	 * @since 2.1.0 Added support for SERIAL "extra" values.
+	 * @since 3.0.0 Added support for SERIAL "extra" values.
 	 * @param array $args Default empty array.
 	 * @return array
 	 */
-	private function special_args( $args = array() ) {
+	protected function special_args( $args = array() ) {
 
 		// Handle specific "extra" aliases
 		if ( ! empty( $args['extra'] ) ) {
@@ -650,7 +607,7 @@ class Column extends Base {
 	/**
 	 * Return if a column type is a bool.
 	 *
-	 * @since 2.1.0
+	 * @since 3.0.0
 	 * @return bool True if bool type only.
 	 */
 	public function is_bool() {
@@ -662,7 +619,7 @@ class Column extends Base {
 	/**
 	 * Return if a column type is a date.
 	 *
-	 * @since 2.1.0
+	 * @since 3.0.0
 	 * @return bool True if any date or time.
 	 */
 	public function is_date_time() {
@@ -678,7 +635,7 @@ class Column extends Base {
 	/**
 	 * Return if a column type is an integer.
 	 *
-	 * @since 2.1.0
+	 * @since 3.0.0
 	 * @return bool True if int.
 	 */
 	public function is_int() {
@@ -694,7 +651,7 @@ class Column extends Base {
 	/**
 	 * Return if a column type is decimal.
 	 *
-	 * @since 2.1.0
+	 * @since 3.0.0
 	 * @return bool True if float.
 	 */
 	public function is_decimal() {
@@ -738,7 +695,7 @@ class Column extends Base {
 	 *
 	 * For binary strings (blobs) use is_binary().
 	 *
-	 * @since 2.1.0
+	 * @since 3.0.0
 	 * @return bool True if text.
 	 */
 	public function is_text() {
@@ -759,7 +716,7 @@ class Column extends Base {
 	/**
 	 * Return if a column type is binary.
 	 *
-	 * @since 2.1.0
+	 * @since 3.0.0
 	 * @return bool True if binary.
 	 */
 	public function is_binary() {
@@ -783,7 +740,7 @@ class Column extends Base {
 	 * Return if this column is of a certain type.
 	 *
 	 * @since 1.0.0
-	 * @since 2.1.0 Empty $type returns false.
+	 * @since 3.0.0 Empty $type returns false.
 	 * @param array[string] $type Default empty string. The type to check. Also
 	 *                            accepts an array.
 	 * @return bool True if type matches.
@@ -810,7 +767,7 @@ class Column extends Base {
 	/**
 	 * Return if this column is of a certain type.
 	 *
-	 * @since 2.1.0
+	 * @since 3.0.0
 	 * @param array[string] $extra Default empty string. The extra to check.
 	 *                             Also accepts an array.
 	 * @return bool True if extra matches.
@@ -885,7 +842,7 @@ class Column extends Base {
 	/**
 	 * Sanitize the extra string.
 	 *
-	 * @since 2.1.0
+	 * @since 3.0.0
 	 * @param string $value
 	 * @return string
 	 */
@@ -920,7 +877,7 @@ class Column extends Base {
 	 * Sanitize the default value.
 	 *
 	 * @since 1.0.0
-	 * @since 2.1.0 Uses validate()
+	 * @since 3.0.0 Uses validate()
 	 * @param int|string|null $default
 	 * @return int|string|null
 	 */
@@ -932,7 +889,7 @@ class Column extends Base {
 	 * Sanitize the pattern string.
 	 *
 	 * @since 1.0.0
-	 * @since 2.1.0 Falls back to using is_ methods if invalid param
+	 * @since 3.0.0 Falls back to using is_ methods if invalid param
 	 * @param string $pattern Default '%s'. Allowed values: %s, %d, $f
 	 * @return string Default '%s'.
 	 */
@@ -974,7 +931,7 @@ class Column extends Base {
 	 * calculated based on varying column properties.
 	 *
 	 * @since 1.0.0
-	 * @since 2.1.0 Explicit support for decimal, int, and numeric types.
+	 * @since 3.0.0 Explicit support for decimal, int, and numeric types.
 	 * @param string $callback Default empty string. A callable PHP function
 	 *                         name or method.
 	 * @return string The most appropriate callback function for the value.
@@ -1023,7 +980,7 @@ class Column extends Base {
 	 * Used by Column::sanitize_default() and Query to prevent invalid and
 	 * unexpected values from being saved in the database.
 	 *
-	 * @since 2.1.0
+	 * @since 3.0.0
 	 * @param int|string|null $value   Default empty string. Value to validate.
 	 * @param int|string|null $default Default empty string. Fallback if invalid.
 	 * @return int|string|null
@@ -1052,7 +1009,7 @@ class Column extends Base {
 	 *
 	 * Will return the $default if $allow_null is false.
 	 *
-	 * @since 2.1.0
+	 * @since 3.0.0
 	 * @param int|string|null $value Default empty string.
 	 * @return int|string|null
 	 */
@@ -1098,7 +1055,7 @@ class Column extends Base {
 	 * See: https://dev.mysql.com/doc/refman/8.0/en/sql-mode.html#sqlmode_allow_invalid_dates
 	 *
 	 * @since 1.0.0
-	 * @since 2.1.0 Add support for CURRENT_TIMESTAMP.
+	 * @since 3.0.0 Add support for CURRENT_TIMESTAMP.
 	 * @param string $value Default ''. A datetime value that needs validating.
 	 * @return string A valid datetime value.
 	 */
@@ -1150,7 +1107,7 @@ class Column extends Base {
 	 * be done inside of the application layer and outside of MySQL.
 	 *
 	 * @since 1.0.0
-	 * @since 2.1.0 Uses: validate_numeric().
+	 * @since 3.0.0 Uses: validate_numeric().
 	 * @param int|string $value    Default empty string. The decimal value to validate.
 	 * @param int        $decimals Default 9. The number of decimal points to accept.
 	 * @return float Formatted to the number of decimals specified
@@ -1175,7 +1132,7 @@ class Column extends Base {
 	 * Uses number_format() (without a thousands separator) which does rounding
 	 * to the last decimal if the value is longer than specified.
 	 *
-	 * @since 2.1.0
+	 * @since 3.0.0
 	 * @param int|string $value    Default empty string. The numeric value to validate.
 	 * @param int|bool   $decimals Default false. Decimal position will be used, or 0.
 	 * @return float
@@ -1228,7 +1185,7 @@ class Column extends Base {
 	 * Uses: validate_numeric() to guard against non-numeric, invalid values
 	 *       being cast to a 1 when a fallback to $default is expected.
 	 *
-	 * @since 2.1.0
+	 * @since 3.0.0
 	 * @param int $value Default zero.
 	 * @return int
 	 */
@@ -1292,7 +1249,7 @@ class Column extends Base {
 	 * Return a string representation of this column's properties as part of
 	 * the "CREATE" string of a Table.
 	 *
-	 * @since 2.1.0
+	 * @since 3.0.0
 	 * @return string
 	 */
 	public function get_create_string() {

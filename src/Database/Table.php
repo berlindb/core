@@ -30,7 +30,17 @@ defined( 'ABSPATH' ) || exit;
  *
  * @since 1.0.0
  */
-abstract class Table extends Base {
+class Table {
+
+	/**
+	 * Use the following traits:
+	 *
+	 * @since 3.0.0
+	 */
+	use Traits\Base;
+	use Traits\Boot;
+
+	/** Attributes ************************************************************/
 
 	/**
 	 * Table name, without the global table prefix.
@@ -126,7 +136,7 @@ abstract class Table extends Base {
 	 * By default, tables do not have comments. This is unused by any other
 	 * relative code, but you can include less than 1024 characters here.
 	 *
-	 * @since 2.1.0
+	 * @since 3.0.0
 	 * @var   string
 	 */
 	protected $comment = '';
@@ -139,14 +149,12 @@ abstract class Table extends Base {
 	 */
 	protected $upgrades = array();
 
-	/** Methods ***************************************************************/
-
 	/**
-	 * Hook into queries, admin screens, and more!
+	 * Called after initialization.
 	 *
-	 * @since 1.0.0
+	 * @since 3.0.0
 	 */
-	public function __construct() {
+	protected function init() {
 
 		// Setup this database table
 		$this->setup();
@@ -159,8 +167,8 @@ abstract class Table extends Base {
 		// Add table to the database interface
 		$this->set_db_interface();
 
-		// Set the database schema
-		$this->set_schema();
+		// Add the database schema
+		$this->add_schema();
 
 		// Add hooks
 		$this->add_hooks();
@@ -170,6 +178,65 @@ abstract class Table extends Base {
 			$this->maybe_upgrade();
 		}
 	}
+
+	/** Argument Handlers *****************************************************/
+
+	/**
+	 * Validate arguments after they are parsed.
+	 *
+	 * @since 3.0.0
+	 * @param array $args Default empty array.
+	 * @return array
+	 */
+	protected function validate_args( $args = array() ) {
+
+		// Sanitization callbacks
+		$callbacks = array(
+
+			// Table
+			'name'              => array( $this, 'sanitize_table_name' ),
+			'description'       => 'wp_kses_data',
+			'version'           => 'wp_kses_data',
+			'global'            => 'wp_validate_boolean',
+			'db_version_key'    => 'wp_kses_data',
+			'db_version'        => 'wp_kses_data',
+			'table_prefix'      => array( $this, 'sanitize_table_name' ),
+			'table_name'        => array( $this, 'sanitize_table_name' ),
+			'prefixed_name'     => array( $this, 'sanitize_table_name' ),
+			'schema'            => '',
+			'charset_collation' => 'wp_kses_data',
+			'comment'           => array( $this, 'sanitize_extra' ),
+
+			// Extras
+			'upgrades'          => ''
+		);
+
+		// Default return arguments
+		$r = array();
+
+		// Loop through and try to execute callbacks
+		foreach ( $args as $key => $value ) {
+
+			// Callback is callable
+			if ( isset( $callbacks[ $key ] ) && is_callable( $callbacks[ $key ] ) ) {
+				$r[ $key ] = call_user_func( $callbacks[ $key ], $value );
+
+			/**
+			 * Key has no validation method.
+			 *
+			 * Trust that the value has been validated. This may change in a
+			 * future version.
+			 */
+			} else {
+				$r[ $key ] = $value;
+			}
+		}
+
+		// Return sanitized arguments
+		return $r;
+	}
+
+	/** Magic *****************************************************************/
 
 	/**
  	 * Compatibility for clone() method for PHP versions less than 7.0.
@@ -188,15 +255,6 @@ abstract class Table extends Base {
  			call_user_func_array( array( $this, '_clone' ), $args );
  		}
  	}
-
-	/** Abstract **************************************************************/
-
-	/**
-	 * Setup this database table.
-	 *
-	 * @since 1.0.0
-	 */
-	protected abstract function set_schema();
 
 	/** Multisite *************************************************************/
 
@@ -385,7 +443,7 @@ abstract class Table extends Base {
 	 *
 	 * See: https://dev.mysql.com/doc/refman/8.0/en/show-table-status.html
 	 *
-	 * @since 2.1.0
+	 * @since 3.0.0
 	 *
 	 * @return object
 	 */
@@ -456,8 +514,16 @@ abstract class Table extends Base {
 			return false;
 		}
 
-		// Bail if schema not initialized (tables need at least 1 column)
-		if ( empty( $this->schema ) ) {
+		// Bail if no schema to call
+		if ( ! is_callable( array( $this->schema, 'get_create_table_string' ) ) ) {
+			return false;
+		}
+
+		// Get the "CREATE TABLE" string
+		$create_table_string = $this->schema->get_create_table_string();
+
+		// Bail if no create string.
+		if ( empty( $create_table_string ) ) {
 			return false;
 		}
 
@@ -465,7 +531,7 @@ abstract class Table extends Base {
 		$sql = array(
 			'CREATE TABLE',
 			$this->table_name,
-			"( {$this->schema} )",
+			"( {$create_table_string} )",
 			$this->charset_collation,
 		);
 
@@ -661,7 +727,7 @@ abstract class Table extends Base {
 	/**
 	 * Rename this database table.
 	 *
-	 * @since 2.1.0
+	 * @since 3.0.0
 	 *
 	 * @param string $new_table_name The new name of the current table, no prefix
 	 *
@@ -698,7 +764,7 @@ abstract class Table extends Base {
 	 * Check if column already exists.
 	 *
 	 * @since 1.0.0
-	 * @since 2.1.0 Uses sanitize_column_name().
+	 * @since 3.0.0 Uses sanitize_column_name().
 	 *
 	 * @param string $name Column name to check.
 	 *
@@ -729,7 +795,7 @@ abstract class Table extends Base {
 	 * Check if index already exists.
 	 *
 	 * @since 1.0.0
-	 * @since 2.1.0 Uses sanitize_column_name().
+	 * @since 3.0.0 Uses sanitize_column_name().
 	 *
 	 * @param string $name   Index name to check.
 	 * @param string $column Column name to compare.
@@ -769,7 +835,7 @@ abstract class Table extends Base {
 	 *
 	 * See: https://dev.mysql.com/doc/refman/8.0/en/analyze-table.html
 	 *
-	 * @since 2.1.0
+	 * @since 3.0.0
 	 *
 	 * @return bool|string
 	 */
@@ -799,7 +865,7 @@ abstract class Table extends Base {
 	 *
 	 * See: https://dev.mysql.com/doc/refman/8.0/en/check-table.html
 	 *
-	 * @since 2.1.0
+	 * @since 3.0.0
 	 *
 	 * @return bool|string
 	 */
@@ -829,7 +895,7 @@ abstract class Table extends Base {
 	 *
 	 * See: https://dev.mysql.com/doc/refman/8.0/en/checksum-table.html
 	 *
-	 * @since 2.1.0
+	 * @since 3.0.0
 	 *
 	 * @return bool|string
 	 */
@@ -859,7 +925,7 @@ abstract class Table extends Base {
 	 *
 	 * See: https://dev.mysql.com/doc/refman/8.0/en/optimize-table.html
 	 *
-	 * @since 2.1.0
+	 * @since 3.0.0
 	 *
 	 * @return bool|string
 	 */
@@ -890,7 +956,7 @@ abstract class Table extends Base {
 	 * See: https://dev.mysql.com/doc/refman/8.0/en/repair-table.html
 	 * Note: Not supported by InnoDB, the default engine in MySQL 8 and higher.
 	 *
-	 * @since 2.1.0
+	 * @since 3.0.0
 	 *
 	 * @return bool|string
 	 */
@@ -1171,6 +1237,15 @@ abstract class Table extends Base {
 		$this->db_version = $this->is_global()
 			? delete_network_option( get_main_network_id(), $this->db_version_key )
 			:         delete_option(                        $this->db_version_key );
+	}
+
+	/**
+	 * Add the schema class.
+	 *
+	 * @since 3.0.0
+	 */
+	private function add_schema() {
+		$this->schema = new $this->schema;
 	}
 
 	/**
