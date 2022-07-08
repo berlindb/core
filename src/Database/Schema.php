@@ -33,6 +33,30 @@ class Schema extends Base {
 	protected $columns = array();
 
 	/**
+	 * Array of database column objects as array.
+	 *
+	 * @since 3.0.0
+	 * @var   array
+	 */
+	protected $columns_array = array();
+
+	/**
+	 * Table name, without the global table prefix.
+	 *
+	 * @since 3.0.0
+	 * @var   string
+	 */
+	public $table_name = '';
+
+	/**
+	 * Query class used for REST integration.
+	 *
+	 * @since 3.0.0
+	 * @var   string
+	 */
+	public $query_class = '';
+
+	/**
 	 * Invoke new column objects based on array of column data.
 	 *
 	 * @since 1.0.0
@@ -55,7 +79,24 @@ class Schema extends Base {
 			} elseif ( $column instanceof Column ) {
 				$this->columns[] = $column;
 			}
+
+			$this->columns_array[] = $column;
 		}
+
+		$global_rest_methods = array();
+
+		if ( isset( $this->rest[ 'crud' ] ) && $this->rest[ 'crud' ] ) {
+			$this->rest[ 'create' ] = true;
+			$this->rest[ 'read' ] = true;
+			$this->rest[ 'update' ] = true;
+			$this->rest[ 'delete' ] = true;
+		}
+
+		$global_rest_methods[ 'create' ] = isset( $this->rest[ 'create' ] ) && $this->rest[ 'create' ];
+		$global_rest_methods[ 'shows_all' ] = isset( $this->rest[ 'shows_all' ] ) && $this->rest[ 'shows_all' ];
+		$global_rest_methods[ 'enable_search' ] = isset( $this->rest[ 'enable_search' ] ) && $this->rest[ 'enable_search' ];
+
+		new Rest( $this->columns_array, $global_rest_methods, $this->table_name, $this->query_class );
 	}
 
 	/**
