@@ -1214,7 +1214,7 @@ abstract class Table extends Base {
 	 * @return bool
 	 */
 	private function is_global() {
-		return ( true === $this->global );
+		return $this->global;
 	}
 
 	/**
