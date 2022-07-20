@@ -154,6 +154,9 @@ class Rest extends Base {
 				array(
 					'methods' => \WP_REST_Server::CREATABLE,
 					'callback' => array( $this, 'create' ),
+					'permission_callback' => function () {
+						return \apply_filters( 'berlindb_rest_' . $this->table_name . '_create_permission', true, $this );
+					},
 					'args' => array(
 						$this->table_name => array(
 							'description' => 'Object',
@@ -170,6 +173,9 @@ class Rest extends Base {
 				array(
 					'methods' => \WP_REST_Server::READABLE,
 					'callback' => array( $this, 'read_all' ),
+					'permission_callback' => function () {
+						return \apply_filters( 'berlindb_rest_' . $this->table_name . '_all_permission', true, $this );
+					},
 					'args' => $this->generate_rest_args()
 				)
 			);
@@ -181,7 +187,7 @@ class Rest extends Base {
 					array(
 					'methods' => \WP_REST_Server::READABLE,
 					'permission_callback' => function () {
-						return \apply_filters( 'berlindb_rest_' . $this->table_name . '_search', true, $this );
+						return \apply_filters( 'berlindb_rest_' . $this->table_name . '_search_permission', true, $this );
 					},
 					'callback' => array( $this, 'search' ),
 					'args' => \wp_parse_args( $this->generate_rest_args(), array(
@@ -206,6 +212,9 @@ class Rest extends Base {
 				'/(?P<' . $column[ 'name' ] .'>\d+)',
 				array(
 					'methods' => \WP_REST_Server::READABLE,
+					'permission_callback' => function () {
+						return \apply_filters( 'berlindb_rest_' . $column[ 'name' ] . '_' . $this->table_name . '_read_permission', true, $this );
+					},
 					'callback' => function( \WP_REST_Request $request ) use ( $column ) {
 						$this->read( $request, $column );
 					},
@@ -224,7 +233,7 @@ class Rest extends Base {
 					array(
 					'methods' => \WP_REST_Server::EDITABLE,
 					'permission_callback' => function () use ( $column ) {
-						return \apply_filters( 'berlindb_rest_' . $this->table_name . '_update', true, $column, $this );
+						return \apply_filters( 'berlindb_rest_' . $this->table_name . '_update_permission', true, $column, $this );
 					},
 					'callback' => function( \WP_REST_Request $request ) use ( $column ) {
 						$this->update( $request, $column );
@@ -245,7 +254,7 @@ class Rest extends Base {
 					array(
 					'methods' => 'DELETE',
 					'permission_callback' => function () use ( $column ) {
-						return \apply_filters( 'berlindb_rest_' . $this->table_name . '_delete', true, $column, $this );
+						return \apply_filters( 'berlindb_rest_' . $this->table_name . '_delete_permission', true, $column, $this );
 					},
 					'callback' => function( \WP_REST_Request $request ) use ( $column ) {
 						$this->delete( $request, $column );
