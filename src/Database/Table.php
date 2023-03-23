@@ -1158,8 +1158,8 @@ abstract class Table extends Base {
 	 */
 	private function get_db_version() {
 		$this->db_version = $this->is_global()
-			? get_network_option( get_main_network_id(), $this->db_version_key, false )
-			:         get_option(                        $this->db_version_key, false );
+			? get_network_option( get_main_network_id(), $this->db_version_key, 1 )
+			:         get_option(                        $this->db_version_key, 1 );
 	}
 
 	/**
