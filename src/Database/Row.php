@@ -26,31 +26,17 @@ defined( 'ABSPATH' ) || exit;
  *
  * @since 1.0.0
  */
-class Row extends Base {
+class Row {
 
 	/**
-	 * Construct a database object.
+	 * Use the following traits:
 	 *
-	 * @since 1.0.0
-	 *
-	 * @param mixed $item Null by default, Array/Object if not
+	 * @since 3.0.0
 	 */
-	public function __construct( $item = null ) {
-		if ( ! empty( $item ) ) {
-			$this->init( $item );
-		}
-	}
+	use Traits\Base;
+	use Traits\Boot;
 
-	/**
-	 * Initialize class properties based on data array.
-	 *
-	 * @since 1.0.0
-	 *
-	 * @param array $data
-	 */
-	private function init( $data = array() ) {
-		$this->set_vars( $data );
-	}
+	/** Methods ***************************************************************/
 
 	/**
 	 * Determines whether the current row exists.
