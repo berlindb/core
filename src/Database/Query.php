@@ -115,6 +115,15 @@ class Query extends Base {
 	 */
 	protected $item_shape = '\\BerlinDB\\Database\\Row';
 
+    /**
+     * Name of class used to turn IDs into first-class objects for the current request.
+     *
+     *  This is used when looping through return values to guarantee their shape.
+     *
+     * @var mixed
+     */
+    protected $current_item_shape;
+
 	/** Cache *****************************************************************/
 
 	/**
@@ -420,6 +429,9 @@ class Query extends Base {
 		if ( empty( $this->item_shape ) || ! class_exists( $this->item_shape ) ) {
 			$this->item_shape = __NAMESPACE__ . '\\Row';
 		}
+        if ( empty( $this->current_item_shape ) || ! class_exists( $this->current_item_shape ) ) {
+            $this->current_item_shape = $this->item_shape;
+        }
 	}
 
 	/**
@@ -1555,8 +1567,10 @@ class Query extends Base {
 
 		// Force to stdClass if querying for fields
 		if ( ! empty( $this->query_vars['fields'] ) ) {
-			$this->item_shape = 'stdClass';
-		}
+			$this->current_item_shape = 'stdClass';
+		} else {
+            $this->current_item_shape = $this->item_shape;
+        }
 
 		// Default return value
 		$retval = array();
@@ -2071,13 +2085,13 @@ class Query extends Base {
 		}
 
 		// Return the item if it's already shaped
-		if ( $item instanceof $this->item_shape ) {
+		if ( $item instanceof $this->current_item_shape ) {
 			return $item;
 		}
 
 		// Shape the item as needed
-		$item = ! empty( $this->item_shape )
-			? new $this->item_shape( $item )
+		$item = ! empty( $this->current_item_shape )
+			? new $this->current_item_shape( $item )
 			: (object) $item;
 
 		// Return the item object
