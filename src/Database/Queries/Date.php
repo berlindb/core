@@ -395,9 +395,7 @@ class Date extends Base {
 			? esc_sql( $this->validate_column( $query['column'] ) )
 			: $this->column;
 
-		if (!empty($this->table_alias)) {
-			$retval = $this->table_alias . '.' . $retval;
-		} elseif (!empty($this->table_name)) {
+		if (!empty($this->table_name)) {
 			$retval = $this->table_name . '.' . $retval;
 		}
 
