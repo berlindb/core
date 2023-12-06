@@ -154,16 +154,10 @@ class Date extends Base {
 
 	
 	/**
-	 * @since 3.2.6
+	 * @since 2.0.2
 	 * @var string|null Table name
 	 */
 	public $table_name = null;
-
-	/**
-	 * @since 3.2.6
-	 * @var string|null Table alias
-	 */
-	public $table_alias = null;
 
 	/**
 	 * Constructor.
@@ -664,9 +658,8 @@ class Date extends Base {
 	 *
 	 * @return string MySQL WHERE clauses.
 	 */
-	public function get_sql( $table_name = null, $table_alias = null ) {
-		$this->table_name  = $this->sanitize_table_name( $table_name );
-		$this->table_alias = $this->sanitize_table_name( $table_alias );
+	public function get_sql( $type, $primary_table, $primary_id_column, $context = null ) {
+		$this->table_name  = $this->sanitize_table_name( $primary_table );
 		$sql               = $this->get_sql_clauses();
 
 		/**
