@@ -1781,7 +1781,7 @@ class Query extends Base {
 	 * @since 1.0.0
 	 *
 	 * @param array $data
-	 * @return bool
+	 * @return int|false Item ID if successful, false if not
 	 */
 	public function add_item( $data = array() ) {
 
@@ -1878,7 +1878,7 @@ class Query extends Base {
 	 *
 	 * @param int $item_id
 	 * @param array $data
-	 * @return bool
+	 * @return int|false Item ID if successful, false if not
 	 */
 	public function copy_item( $item_id = 0, $data = array() ) {
 
