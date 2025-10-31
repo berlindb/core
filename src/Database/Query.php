@@ -1314,6 +1314,7 @@ class Query extends Base {
 		// If counting, override some other $query_vars
 		if ( $this->get_query_var( 'count' ) ) {
 			$this->query_vars['number']            = false;
+			$this->query_vars['fields']            = '';
 			$this->query_vars['orderby']           = '';
 			$this->query_vars['no_found_rows']     = true;
 			$this->query_vars['update_item_cache'] = false;
