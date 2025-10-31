@@ -92,6 +92,15 @@ class Query extends Base {
 	 */
 	protected $item_shape = __NAMESPACE__ . '\\Row';
 
+	/**
+	 * Name of class used to turn IDs into first-class objects for the current request.
+	 *
+	 * This is used when looping through return values to guarantee their shape.
+	 *
+	 * @var mixed
+	 */
+	protected $current_item_shape = '';
+
 	/** Cache *****************************************************************/
 
 	/**
@@ -384,8 +393,15 @@ class Query extends Base {
 	 * @since 1.0.0
 	 */
 	private function set_item_shape() {
+		
+		// Item shape
 		if ( empty( $this->item_shape ) || ! class_exists( $this->item_shape ) ) {
 			$this->item_shape = __NAMESPACE__ . '\\Row';
+		}
+
+		// Current item during shaping (might be stdClass)
+		if ( empty( $this->current_item_shape ) || ! class_exists( $this->current_item_shape ) ) {
+			$this->current_item_shape = $this->item_shape;
 		}
 	}
 
@@ -2300,14 +2316,21 @@ class Query extends Base {
 			$item = $this->get_item( $item );
 		}
 
-		// Return the item if it's already shaped
-		if ( $item instanceof $this->item_shape ) {
-			return $item;
+		if ( ! empty( $this->current_item_shape ) ) {
+
+			// Return the item if it's already shaped
+			if ( $item instanceof $this->current_item_shape ) {
+				return $item;
+			} else {
+				
+			}
+		} else {
+			
 		}
 
 		// Shape the item as needed
-		$item = ! empty( $this->item_shape )
-			? new $this->item_shape( $item )
+		$item = ! empty( $this->current_item_shape )
+			? new $this->current_item_shape( $item )
 			: (object) $item;
 
 		// Return the item object
@@ -2339,8 +2362,10 @@ class Query extends Base {
 
 		// Force to stdClass if querying for fields
 		if ( ! empty( $fields ) ) {
-			$this->item_shape = 'stdClass';
-		}
+			$this->current_item_shape = 'stdClass';
+		} else {
+            $this->current_item_shape = $this->item_shape;
+        }
 
 		// Default return value
 		$retval = array();
@@ -2565,7 +2590,7 @@ class Query extends Base {
 	 * @since 1.0.0
 	 *
 	 * @param array $data
-	 * @return bool|int
+	 * @return int|false Item ID if successful, false if not
 	 */
 	public function add_item( $data = array() ) {
 
@@ -2677,7 +2702,7 @@ class Query extends Base {
 	 *
 	 * @param int|string $item_id
 	 * @param array $data
-	 * @return bool|int
+	 * @return int|false Item ID if successful, false if not
 	 */
 	public function copy_item( $item_id = 0, $data = array() ) {
 

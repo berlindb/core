@@ -24,6 +24,7 @@ defined( 'ABSPATH' ) || exit;
  *
  * @property array<string, mixed> $args
  */
+#[\AllowDynamicProperties]
 class Base {
 
 	/**
