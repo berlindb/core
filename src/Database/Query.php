@@ -904,31 +904,30 @@ class Query extends Base {
 	 * @return array Array of columns.
 	 */
 	private function get_columns( $args = array(), $operator = 'and', $field = false ) {
-		static $columns = null;
 
-		// Setup columns
-		if ( null === $columns ) {
+		// Default columns
+		$columns = array();
 
-			// Default columns
-			$columns = array();
+		// Prefer to get Columns from Schema
+		if ( ! empty( $this->schema->columns ) ) {
+			$columns = $this->schema->columns;
 
-			// Legacy columns
-			if ( ! empty( $this->columns ) ) {
-				$columns = $this->columns;
-			}
+		// Legacy column parameter support (from 1.0.0)
+		} elseif ( ! empty( $this->columns ) ) {
+			$columns = $this->columns;
+		}
 
-			// Columns from Schema
-			if ( ! empty( $this->schema->columns ) ) {
-				$columns = $this->schema->columns;
-			}
+		// Bail if no columns to filter
+		if ( empty( $columns ) ) {
+			return $columns;
 		}
 
 		// Filter columns
-		$filter = wp_filter_object_list( $columns, $args, $operator, $field );
+		$retval = wp_filter_object_list( $columns, $args, $operator, $field );
 
 		// Return columns or empty array
-		return ! empty( $filter )
-			? array_values( $filter )
+		return ! empty( $retval )
+			? array_values( $retval )
 			: array();
 	}
 
