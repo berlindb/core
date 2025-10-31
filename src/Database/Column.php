@@ -409,6 +409,9 @@ class Column extends Base {
 	 */
 	public function __construct( $args = array() ) {
 
+		// Setup the defaults
+		$this->set_defaults();
+
 		// Parse arguments
 		$r = $this->parse_args( $args );
 
@@ -538,7 +541,7 @@ class Column extends Base {
 		foreach ( $args as $key => $value ) {
 
 			// Callback is callable
-			if ( isset( $callbacks[ $key ] ) && is_callable( $callbacks[ $key ] ) ) {
+			if ( ! empty( $callbacks[ $key ] ) && is_callable( $callbacks[ $key ] ) ) {
 				$r[ $key ] = call_user_func( $callbacks[ $key ], $value );
 
 			// Callback is malformed so just let it through to avoid breakage
@@ -721,7 +724,7 @@ class Column extends Base {
 	private function sanitize_validation( $callback = '' ) {
 
 		// Return callback if it's callable
-		if ( is_callable( $callback ) ) {
+		if ( ! empty( $callback ) && is_callable( $callback ) ) {
 			return $callback;
 		}
 

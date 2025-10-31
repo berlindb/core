@@ -26,6 +26,15 @@ defined( 'ABSPATH' ) || exit;
 class Base {
 
 	/**
+	 * The private data object used to store class attributes, so that magic
+	 * methods work as intended.
+	 *
+	 * @since 1.1.0
+	 * @var   object
+	 */
+	private $data;
+
+	/**
 	 * The name of the PHP global that contains the primary database interface.
 	 *
 	 * For example, WordPress traditionally uses 'wpdb', but other applications
@@ -61,7 +70,7 @@ class Base {
 	/** Public ****************************************************************/
 
 	/**
-	 * Magic isset'ter for immutability.
+	 * Magic isset method.
 	 *
 	 * @since 1.0.0
 	 *
@@ -70,20 +79,23 @@ class Base {
 	 */
 	public function __isset( $key = '' ) {
 
-		// No more uppercase ID properties ever
-		if ( 'ID' === $key ) {
-			$key = 'id';
+		// Validate the key
+		$key = $this->validate_key( $key );
+
+		// Bail if invalid key
+		if ( empty( $key ) ) {
+			return false;
 		}
 
 		// Class method to try and call
-		$method = "get_{$key}";
+		$method = "__get_{$key}";
 
-		// Return property if exists
+		// Return true if method exists
 		if ( method_exists( $this, $method ) ) {
 			return true;
 
-		// Return get method results if exists
-		} elseif ( property_exists( $this, $key ) ) {
+		// Return true if data exists
+		} elseif ( isset( $this->data->{$key} ) ) {
 			return true;
 		}
 
@@ -92,34 +104,101 @@ class Base {
 	}
 
 	/**
-	 * Magic getter for immutability.
+	 * Magic unset method.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param string $key User meta key to unset.
+	 */
+	public function __unset( $key = '' ) {
+
+		// Validate the key
+		$key = $this->validate_key( $key );
+
+		// Bail if invalid key
+		if ( empty( $key ) ) {
+			return false;
+		}
+
+		// Maybe unset from data array
+		if ( isset( $this->data->{$key} ) ) {
+			unset( $this->data->{$key} );
+		}
+	}
+
+	/**
+	 * Magic set method.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param string $key
+	 * @return mixed
+	 */
+	public function __set( $key = '', $value = '' ) {
+
+		// Validate the key
+		$key = $this->validate_key( $key );
+
+		// Bail if invalid key
+		if ( empty( $key ) ) {
+			return false;
+		}
+
+		// Class method to try and call
+		$method = "__set_{$key}";
+
+		// Maybe override the value
+		if ( method_exists( $this, $method ) ) {
+			$value = call_user_func( array( $this, $method ), $value );
+		}
+
+		// Set the key to the value
+		$this->data->{$key} = $value;
+	}
+
+	/**
+	 * Magic get method.
 	 *
 	 * @since 1.0.0
 	 *
 	 * @param string $key
 	 * @return mixed
 	 */
-	public function __get( $key = '' ) {
+	public function &__get( $key = '' ) {
 
-		// No more uppercase ID properties ever
-		if ( 'ID' === $key ) {
-			$key = 'id';
+		// Validate the key
+		$key = $this->validate_key( $key );
+
+		// Bail if invalid key
+		if ( empty( $key ) ) {
+			return false;
 		}
+
+		// Default return value
+		$retval = null;
 
 		// Class method to try and call
-		$method = "get_{$key}";
+		$method = "__get_{$key}";
 
-		// Return property if exists
+		// Return from method if exists
 		if ( method_exists( $this, $method ) ) {
-			return call_user_func( array( $this, $method ) );
+			$retval = call_user_func( array( $this, $method ) );
 
-		// Return get method results if exists
-		} elseif ( property_exists( $this, $key ) ) {
-			return $this->{$key};
+		// Return from data array if set
+		} elseif ( isset( $this->data->{$key} ) ) {
+			$retval = $this->data->{$key};
 		}
 
-		// Return null if not exists
-		return null;
+		// Return if not null
+		if ( ! is_null( $retval ) ) {
+			return $retval;
+		}
+
+		// Set key to null, so array operations work correctly
+		$this->data->{$key} = $retval;
+
+		// Return variable byref
+		return $this->data->{$key};
 	}
 
 	/**
@@ -130,7 +209,28 @@ class Base {
 	 * @return array Array version of the given object.
 	 */
 	public function to_array() {
-		return get_object_vars( $this );
+		return get_object_vars( $this->data );
+	}
+
+	/**
+	 * Get this objects default properties and set them up in the private data
+	 * array. Use this in the Constructor in any class that extends this class.
+	 *
+	 * @since 1.1.0
+	 */
+	public function set_defaults() {
+
+		// Get the hard-coded object variables
+		$r = get_object_vars( $this );
+
+		// Data is private, so don't set it recursively
+		unset( $r['data'] );
+
+		// Set those vars
+		$this->set_vars( $r );
+
+		// Unset those vars
+		$this->unset_vars( $r );
 	}
 
 	/** Protected *************************************************************/
@@ -253,6 +353,11 @@ class Base {
 	/**
 	 * Set class variables from arguments.
 	 *
+	 * This method accepts a key/value array of class variables to set, and is
+	 * used by set_defaults() to prepare a class for magic property overrides.
+	 *
+	 * It can also be called directly to set multiple class variables.
+	 *
 	 * @since 1.0.0
 	 * @param array $args
 	 */
@@ -268,9 +373,44 @@ class Base {
 			$args = (array) $args;
 		}
 
+		// Set empty class
+		$this->data = new \stdClass();
+
 		// Set all properties
 		foreach ( $args as $key => $value ) {
-			$this->{$key} = $value;
+			$this->data->{$key} = $value;
+		}
+	}
+
+	/**
+	 * Unset class variables from arguments.
+	 *
+	 * This method accepts a key/value array of class variables to unset, and is
+	 * used by set_defaults() to prepare a class for magic property overrides.
+	 *
+	 * It can also be called directly to unset multiple class variables.
+	 *
+	 * @since 1.0.0
+	 * @param array $args
+	 */
+	protected function unset_vars( $args = array() ) {
+
+		// Bail if no vars to clean
+		if ( empty( $args ) ) {
+			return;
+		}
+
+		// Cast to an array
+		if ( ! is_array( $args ) ) {
+			$args = (array) $args;
+		}
+
+		// Get keys
+		$keys = array_keys( $args );
+
+		// Cleanup class properties
+		foreach ( $keys as $key ) {
+			unset( $this->{$key} );
 		}
 	}
 
@@ -289,7 +429,7 @@ class Base {
 		$retval = false;
 
 		// Look for a commonly used global database interface
-		if ( isset( $GLOBALS[ $this->db_global ] ) ) {
+		if ( ! empty( $this->db_global ) && isset( $GLOBALS[ $this->db_global ] ) ) {
 			$retval = $GLOBALS[ $this->db_global ];
 		}
 
@@ -340,5 +480,36 @@ class Base {
 
 		// Return the result
 		return (bool) $retval;
+	}
+
+	/** Private ***************************************************************/
+
+	/**
+	 * Validate a data key.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @param string $key
+	 * @return boolean|string
+	 */
+	private function validate_key( $key = '' ) {
+
+		// Bail if empty key
+		if ( empty( $key ) ) {
+			return false;
+		}
+
+		// Bail if setting data
+		if ( 'data' === $key ) {
+			return false;
+		}
+
+		// No more uppercase ID properties ever
+		if ( 'ID' === $key ) {
+			return 'id';
+		}
+
+		// Return the original key
+		return $key;
 	}
 }
