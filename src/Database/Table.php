@@ -466,7 +466,7 @@ abstract class Table extends Base {
 
 		// Required parts
 		$sql = array(
-			'CREATE TABLE',
+			'CREATE TABLE IF NOT EXISTS',
 			$this->table_name,
 			"( {$this->schema} )",
 			$this->charset_collation,
@@ -503,7 +503,7 @@ abstract class Table extends Base {
 		}
 
 		// Query statement
-		$sql    = "DROP TABLE {$this->table_name}";
+		$sql    = "DROP TABLE IF EXISTS {$this->table_name}";
 		$result = $db->query( $sql );
 
 		// Did the table get dropped?
@@ -512,6 +512,9 @@ abstract class Table extends Base {
 
 	/**
 	 * Truncate this database table.
+	 *
+	 * Note: TRUNCATE does not support IF EXISTS syntax in MySQL/MariaDB.
+	 * See: https://bugs.mysql.com/bug.php?id=61890
 	 *
 	 * @since 1.0.0
 	 *
@@ -591,7 +594,7 @@ abstract class Table extends Base {
 
 		// Query statement
 		$table  = $this->apply_prefix( $table_name );
-		$sql    = "CREATE TABLE {$table} LIKE {$this->table_name}";
+		$sql    = "CREATE TABLE IF NOT EXISTS {$table} LIKE {$this->table_name}";
 		$result = $db->query( $sql );
 
 		// Did the table get cloned?
