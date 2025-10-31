@@ -30,4 +30,4 @@ This project helps avoid those issues by (somewhat magically) limiting how much 
 
 ----
 
-This organization was created by (and is managed by) <a href="https://sandhillsdev.com">Sandhills Development, LLC</a>, where we aim to craft superior experiences through ingenuity, with <a href="https://sandhillsdev.com/commitments/">deep commitment</a> to (and appreciation for) the human element.
+This organization was created by <a href="https://github.com/JJJ">John James Jacoby</a> while working at <a href="https://sandhillsdev.com">Sandhills Development, LLC</a>.
