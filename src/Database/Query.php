@@ -429,9 +429,10 @@ class Query extends Base {
 		if ( empty( $this->item_shape ) || ! class_exists( $this->item_shape ) ) {
 			$this->item_shape = __NAMESPACE__ . '\\Row';
 		}
-        if ( empty( $this->current_item_shape ) || ! class_exists( $this->current_item_shape ) ) {
-            $this->current_item_shape = $this->item_shape;
-        }
+
+		if ( empty( $this->current_item_shape ) || ! class_exists( $this->current_item_shape ) ) {
+			$this->current_item_shape = $this->item_shape;
+		}
 	}
 
 	/**
@@ -1569,8 +1570,8 @@ class Query extends Base {
 		if ( ! empty( $this->query_vars['fields'] ) ) {
 			$this->current_item_shape = 'stdClass';
 		} else {
-            $this->current_item_shape = $this->item_shape;
-        }
+			$this->current_item_shape = $this->item_shape;
+		}
 
 		// Default return value
 		$retval = array();
