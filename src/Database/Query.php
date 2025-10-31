@@ -2315,16 +2315,9 @@ class Query extends Base {
 			$item = $this->get_item( $item );
 		}
 
-		if ( ! empty( $this->current_item_shape ) ) {
-
-			// Return the item if it's already shaped
-			if ( $item instanceof $this->current_item_shape ) {
-				return $item;
-			} else {
-				
-			}
-		} else {
-			
+		// Return the item if it's already shaped
+		if ( $item instanceof $this->current_item_shape ) {
+			return $item;
 		}
 
 		// Shape the item as needed
