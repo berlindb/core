@@ -56,7 +56,7 @@ If you are using BerlinDB in a commercial product, please consider [becoming a s
 
 ## Created By
 
-- [@JJJ](https://twitter.com/JJJ) - https://jjj.blog
+- [@JJJ](https://x.com/JJJ) - https://jjj.blog
 
 ## Credits
 
@@ -65,4 +65,4 @@ This organization is currently managed by <a href="https://jjj.software">Triple 
 Special thanks to:
 - <a href="https://sandhillsdev.com">Sandhills Development, LLC</a>
 - <a href="https://awesomemotive.com">Awesome Motive, Inc.</a>
-- All of JJJ's generous sponsors 💛
+- <a href="https://github.com/sponsors/JJJ/">JJJ's GitHub Sponsors</a>
