@@ -4,10 +4,13 @@
  *
  * @package     Database
  * @subpackage  Base
- * @copyright   Copyright (c) 2021
+ * @copyright   2021-2022 - JJJ and all BerlinDB contributors
  * @license     https://opensource.org/licenses/MIT MIT
  * @since       1.0.0
  */
+
+declare( strict_types = 1 );
+
 namespace BerlinDB\Database;
 
 // Exit if accessed directly
@@ -21,6 +24,8 @@ defined( 'ABSPATH' ) || exit;
  * into a magic call handler and others.
  *
  * @since 1.0.0
+ *
+ * @property array<string, mixed> $args
  */
 #[\AllowDynamicProperties]
 class Base {
@@ -28,12 +33,12 @@ class Base {
 	/**
 	 * The name of the PHP global that contains the primary database interface.
 	 *
-	 * For example, WordPress traditionally uses 'wpdb', but other applications
-	 * may use something else, or you may be doing something really cool that
+	 * For example, WordPress uses 'wpdb', but other applications will use
+	 * something else, or you may be doing something really cool that
 	 * requires a custom interface.
 	 *
-	 * A future version of this utility may abstract this out entirely, so
-	 * custom calls to the get_db() should be avoided if at all possible.
+	 * A future version of BerlinDB will abstract this to a new class, so
+	 * custom calls to the get_db() in your own code should be avoided.
 	 *
 	 * @since 1.0.0
 	 * @var   string
@@ -70,25 +75,16 @@ class Base {
 	 */
 	public function __isset( $key = '' ) {
 
-		// No more uppercase ID properties ever
-		if ( 'ID' === $key ) {
-			$key = 'id';
-		}
-
 		// Class method to try and call
 		$method = "get_{$key}";
 
-		// Return property if exists
-		if ( method_exists( $this, $method ) ) {
-			return true;
-
-		// Return get method results if exists
-		} elseif ( property_exists( $this, $key ) ) {
+		// Return callable method exists
+		if ( is_callable( array( $this, $method ) ) ) {
 			return true;
 		}
 
-		// Return false if not exists
-		return false;
+		// Return property if exists
+		return property_exists( $this, $key );
 	}
 
 	/**
@@ -101,19 +97,14 @@ class Base {
 	 */
 	public function __get( $key = '' ) {
 
-		// No more uppercase ID properties ever
-		if ( 'ID' === $key ) {
-			$key = 'id';
-		}
-
 		// Class method to try and call
 		$method = "get_{$key}";
 
-		// Return property if exists
-		if ( method_exists( $this, $method ) ) {
+		// Return get method results if callable
+		if ( is_callable( array( $this, $method ) ) ) {
 			return call_user_func( array( $this, $method ) );
 
-		// Return get method results if exists
+		// Return property value if exists
 		} elseif ( property_exists( $this, $key ) ) {
 			return $this->{$key};
 		}
@@ -139,15 +130,37 @@ class Base {
 	 * Maybe append the prefix to string.
 	 *
 	 * @since 1.0.0
+	 * @since 2.1.0 Prevents double prefixing
 	 *
 	 * @param string $string
 	 * @param string $sep
 	 * @return string
 	 */
 	protected function apply_prefix( $string = '', $sep = '_' ) {
-		return ! empty( $this->prefix )
-			? "{$this->prefix}{$sep}{$string}"
-			: $string;
+
+		// Bail if not a string
+		if ( ! is_string( $string ) ) {
+			return '';
+		}
+
+		// Trim spaces off the ends
+		$retval = trim( $string );
+
+		// Bail if no prefix
+		if ( empty( $this->prefix ) ) {
+			return $retval;
+		}
+
+		// Setup new prefix
+		$new_prefix = $this->prefix . $sep;
+
+		// Bail if already prefixed
+		if ( 0 === strpos( $string, $new_prefix ) ) {
+			return $retval;
+		}
+
+		// Return prefixed string
+		return $new_prefix . $retval;
 	}
 
 	/**
@@ -162,19 +175,19 @@ class Base {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param string $string
-	 * @param string $sep
+	 * @param string $string Default empty string.
+	 * @param string $sep    Default "_".
 	 * @return string
 	 */
 	protected function first_letters( $string = '', $sep = '_' ) {
 
-		// Set empty default return value
-		$retval = '';
-
 		// Bail if empty or not a string
 		if ( empty( $string ) || ! is_string( $string ) ) {
-			return $retval;
+			return '';
 		}
+
+		// Default return value
+		$retval  = '';
 
 		// Trim spaces off the ends
 		$unspace = trim( $string );
@@ -182,7 +195,7 @@ class Base {
 		// Only non-accented table names (avoid truncation)
 		$accents = remove_accents( $unspace );
 
-		// Only lowercase letters are allowed
+		// Convert to lowercase
 		$lower   = strtolower( $accents );
 
 		// Explode into parts
@@ -211,10 +224,11 @@ class Base {
 	 * - No trailing underscores
 	 *
 	 * @since 1.0.0
+	 * @since 2.1.0 Allow uppercase letters
 	 *
 	 * @param string $name The name of the database table
 	 *
-	 * @return string Sanitized database table name
+	 * @return bool|string Sanitized database table name on success, False on error
 	 */
 	protected function sanitize_table_name( $name = '' ) {
 
@@ -229,25 +243,45 @@ class Base {
 		// Only non-accented table names (avoid truncation)
 		$accents = remove_accents( $unspace );
 
-		// Only lowercase characters, hyphens, and dashes (avoid index corruption)
-		$lower   = sanitize_key( $accents );
+		// Only upper & lower case letters, numbers, hyphens, and underscores
+		$replace = preg_replace( '/[^a-zA-Z0-9_\-]/', '', $accents );
 
 		// Replace hyphens with single underscores
-		$under   = str_replace( '-',  '_', $lower );
+		$under   = str_replace( '-',  '_', $replace );
 
-		// Single underscores only
+		// Replace double underscores with singles
 		$single  = str_replace( '__', '_', $under );
 
 		// Remove trailing underscores
 		$clean   = trim( $single, '_' );
 
-		// Bail if table name was garbaged
-		if ( empty( $clean ) ) {
-			return false;
-		}
+		// Bail if table name was garbaged or return the cleaned table name
+		return empty( $clean )
+			? false
+			: $clean;
+	}
 
-		// Return the cleaned table name
-		return $clean;
+	/**
+	 * Sanitize a column name string.
+	 *
+	 * Used to make sure that a column name value meets MySQL expectations.
+	 *
+	 * Applies the following formatting to a string:
+	 * - Trim whitespace
+	 * - No accents
+	 * - No special characters
+	 * - No hyphens
+	 * - No double underscores
+	 * - No trailing underscores
+	 *
+	 * @since 2.1.0
+	 *
+	 * @param string $name The name of the database column
+	 *
+	 * @return bool|string Sanitized database column name on success, False on error
+	 */
+	protected function sanitize_column_name( $name = '' ) {
+		return $this->sanitize_table_name( $name );
 	}
 
 	/**
@@ -275,39 +309,51 @@ class Base {
 	}
 
 	/**
+	 * Stash arguments and class variables.
+	 *
+	 * This is used to stash a copy of the original constructor arguments and
+	 * the object variable values, for later comparison, reuse, or resetting
+	 * back to a previous state.
+	 *
+	 * @since 2.1.0
+	 * @param array $args
+	 */
+	protected function stash_args( $args = array() ) {
+		$this->args = array(
+			'param' => $args,
+			'class' => get_object_vars( $this )
+		);
+	}
+
+	/**
 	 * Return the global database interface.
 	 *
-	 * See: https://core.trac.wordpress.org/ticket/31556
-	 *
 	 * @since 1.0.0
+	 * @since 2.1.0 Improved PHP8 support, remove $GLOBALS superglobal usage
 	 *
-	 * @return \wpdb Database interface, or False if not set
+	 * @return bool|\wpdb Database interface, or False if not set
 	 */
 	protected function get_db() {
+		global ${$this->db_global};
 
-		// Default database return value (might change)
+		// Default return value
 		$retval = false;
 
-		// Look for a commonly used global database interface
-		if ( isset( $GLOBALS[ $this->db_global ] ) ) {
-			$retval = $GLOBALS[ $this->db_global ];
+		// Look for the global database interface
+		if ( ! is_null( ${$this->db_global} ) ) {
+			$retval = ${$this->db_global};
 		}
 
 		/*
-		 * Developer note:
+		 * Note: If you are here because this method is returning false for you,
+		 * that means a database Table or Query are being invoked too early in
+		 * the lifecycle of the application.
 		 *
-		 * It should be impossible for a database table to be interacted with
-		 * before the primary database interface is setup.
+		 * In WordPress, that means before require_wp_db() creates the $wpdb
+		 * global (inside of the wp-settings.php file) and you may want to
+		 * hook your custom code into 'admin_init' or 'plugins_loaded' instead.
 		 *
-		 * However, because applications are complicated, it is unsafe to assume
-		 * anything, so this silently returns false instead of halting everything.
-		 *
-		 * If you are here because this method is returning false for you, that
-		 * means the database table is being invoked too early in the lifecycle
-		 * of the application.
-		 *
-		 * In WordPress, that means before the $wpdb global is created; in other
-		 * environments, you will need to adjust accordingly.
+		 * The decision to return false here is likely to change in the future.
 		 */
 
 		// Return the database interface
@@ -317,25 +363,31 @@ class Base {
 	/**
 	 * Check if an operation succeeded.
 	 *
-	 * @since 1.0.0
+	 * Note: While "0" or "''" may be the return value of a successful result,
+	 *       for the purposes of database queries and this method, it isn't.
+	 *       When using this method, take care that your possible results do not
+	 *       pass falsy values on success.
 	 *
-	 * @param mixed $result
+	 * @since 1.0.0
+	 * @since 2.1.0 Minor refactor to improve readability.
+	 *
+	 * @param mixed $result Optional. Default false. Any value to check.
 	 * @return bool
 	 */
 	protected function is_success( $result = false ) {
 
-		// Bail if no row exists
-		if ( empty( $result ) ) {
-			$retval = false;
+		// Default return value
+		$retval = false;
 
-		// Bail if an error occurred
-		} elseif ( is_wp_error( $result ) ) {
-			$this->last_error = $result;
-			$retval           = false;
-
-		// No errors
-		} else {
+		// Non-empty is success
+		if ( ! empty( $result ) ) {
 			$retval = true;
+
+			// But Error is still fail, so stash it
+			if ( is_wp_error( $result ) ) {
+				$this->last_error = $result;
+				$retval           = false;
+			}
 		}
 
 		// Return the result

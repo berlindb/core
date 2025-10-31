@@ -4,10 +4,13 @@
  *
  * @package     Database
  * @subpackage  Row
- * @copyright   Copyright (c) 2021
+ * @copyright   2021-2022 - JJJ and all BerlinDB contributors
  * @license     https://opensource.org/licenses/MIT MIT
  * @since       1.0.0
  */
+
+declare( strict_types = 1 );
+
 namespace BerlinDB\Database;
 
 // Exit if accessed directly
@@ -33,7 +36,7 @@ class Row extends Base {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param mixed Null by default, Array/Object if not
+	 * @param mixed $item Null by default, Array/Object if not
 	 */
 	public function __construct( $item = null ) {
 		if ( ! empty( $item ) ) {

@@ -4,10 +4,13 @@
  *
  * @package     Database
  * @subpackage  Date
- * @copyright   Copyright (c) 2021
+ * @copyright   2021-2022 - JJJ and all BerlinDB contributors
  * @license     https://opensource.org/licenses/MIT MIT
  * @since       1.0.0
  */
+
+declare( strict_types = 1 );
+
 namespace BerlinDB\Database\Queries;
 
 // Exit if accessed directly
@@ -65,7 +68,7 @@ class Date extends Base {
 	 * The value comparison operator. Can be changed via the query arguments.
 	 *
 	 * @since 1.0.0
-	 * @var   array
+	 * @var   string
 	 */
 	public $compare = '=';
 
@@ -73,7 +76,7 @@ class Date extends Base {
 	 * The start of week operator. Can be changed via the query arguments.
 	 *
 	 * @since 1.1.0
-	 * @var   array
+	 * @var   int
 	 */
 	public $start_of_week = 0;
 
@@ -152,12 +155,13 @@ class Date extends Base {
 		'AND'
 	);
 
-	
 	/**
+	 * Name of the database table to query
+	 *
 	 * @since 2.0.2
-	 * @var string|null Table name
+	 * @var   string
 	 */
-	public $table_name = null;
+	public $table_name = '';
 
 	/**
 	 * Constructor.
@@ -186,7 +190,7 @@ class Date extends Base {
 	 *         @type array  ...$0 {
 	 *             Optional. An array of first-order clause parameters, or another fully-formed date query.
 	 *
-	 *             @type string|array $before {
+	 *             @type array|string $before {
 	 *                 Optional. Date to retrieve posts before. Accepts `strtotime()`-compatible string,
 	 *                 or array of 'year', 'month', 'day' values.
 	 *
@@ -196,7 +200,7 @@ class Date extends Base {
 	 *                 @type string $day   Optional when passing array.The day of the month.
 	 *                                     Default (string:empty)|(array:1). Accepts numbers 1-31.
 	 *             }
-	 *             @type string|array $after {
+	 *             @type array|string $after {
 	 *                 Optional. Date to retrieve posts after. Accepts `strtotime()`-compatible string,
 	 *                 or array of 'year', 'month', 'day' values.
 	 *
@@ -367,7 +371,7 @@ class Date extends Base {
 	 *
 	 * @param array $query A date query or a date subquery.
 	 *
-	 * @return string The current unix timestamp.
+	 * @return int The current unix timestamp.
 	 */
 	public function get_now( $query = array() ) {
 
@@ -395,8 +399,9 @@ class Date extends Base {
 			? esc_sql( $this->validate_column( $query['column'] ) )
 			: $this->column;
 
-		if (!empty($this->table_name)) {
-			$retval = $this->table_name . '.' . $retval;
+		// Maybe concat table name & column
+		if ( ! empty( $this->table_name ) ) {
+			$retval = "{$this->table_name}.{$retval}";
 		}
 
 		return $retval;
@@ -446,7 +451,7 @@ class Date extends Base {
 	 *
 	 * @param array $query A date query or a date subquery.
 	 *
-	 * @return string The comparison operator.
+	 * @return int The comparison operator.
 	 */
 	public function get_start_of_week( $query = array() ) {
 
@@ -513,7 +518,7 @@ class Date extends Base {
 				$_year = $date_query['year'];
 			}
 
-			$max_days_of_year = gmdate( 'z', gmmktime( 0, 0, 0, 12, 31, $_year ) ) + 1;
+			$max_days_of_year = (int) gmdate( 'z', gmmktime( 0, 0, 0, 12, 31, $_year ) ) + 1;
 
 		// Otherwise we use the max of 366 (leap-year)
 		} else {
@@ -654,21 +659,23 @@ class Date extends Base {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @return string MySQL WHERE clauses.
+	 * @return array MySQL WHERE clauses.
 	 */
 	public function get_sql( $type, $primary_table, $primary_id_column, $context = null ) {
-		$this->table_name  = $this->sanitize_table_name( $primary_table );
-		$sql               = $this->get_sql_clauses();
+
+		// Table name is the primary table
+		$this->table_name = $this->sanitize_table_name( $primary_table );
+		$sql              = $this->get_sql_clauses();
 
 		/**
 		 * Filters the date query clauses.
 		 *
 		 * @since 1.0.0
 		 *
-		 * @param string $sql Clauses of the date query.
-		 * @param Date   $this  The Date query instance.
+		 * @param array $sql      Clauses of the date query.
+		 * @param Date  $instance The Date query instance.
 		 */
-		return apply_filters( 'get_date_sql', $sql, $this );
+		return (array) apply_filters( 'get_date_sql', $sql, $this );
 	}
 
 	/**
@@ -693,7 +700,7 @@ class Date extends Base {
 			$sql['where'] = ' AND ' . $sql['where'];
 		}
 
-		return apply_filters( 'get_date_sql_clauses', $sql, $this );
+		return (array) apply_filters( 'get_date_sql_clauses', $sql, $this );
 	}
 
 	/**
@@ -785,7 +792,7 @@ class Date extends Base {
 		}
 
 		// Filter and return
-		return apply_filters( 'get_date_sql_for_query', $sql, $query, $depth, $this );
+		return (array) apply_filters( 'get_date_sql_for_query', $sql, $query, $depth, $this );
 	}
 
 	/**
@@ -804,6 +811,9 @@ class Date extends Base {
 	 * }
 	 */
 	protected function get_sql_for_clause( $query = array(), $parent_query = array() ) {
+
+		// Get the database interface
+		$db = $this->get_db();
 
 		// The sub-parts of a $where part.
 		$where_parts = array();
@@ -826,11 +836,11 @@ class Date extends Base {
 
 		// Range queries.
 		if ( ! empty( $query['after'] ) ) {
-			$where_parts[] = $this->get_db()->prepare( "{$column} {$gt} %s", $this->build_mysql_datetime( $query['after'], ! $inclusive, $now ) );
+			$where_parts[] = $db->prepare( "{$column} {$gt} %s", $this->build_mysql_datetime( $query['after'], ! $inclusive, $now ) );
 		}
 
 		if ( ! empty( $query['before'] ) ) {
-			$where_parts[] = $this->get_db()->prepare( "{$column} {$lt} %s", $this->build_mysql_datetime( $query['before'], $inclusive, $now ) );
+			$where_parts[] = $db->prepare( "{$column} {$lt} %s", $this->build_mysql_datetime( $query['before'], $inclusive, $now ) );
 		}
 
 		// Specific value queries.
@@ -905,9 +915,9 @@ class Date extends Base {
 	 * @since 1.0.0
 	 *
 	 * @param string $compare The compare operator to use
-	 * @param string|array $value The value
+	 * @param array|int|string $value The value
 	 *
-	 * @return string|false|int The value to be used in SQL or false on error.
+	 * @return string|bool|int The value to be used in SQL or false on error.
 	 */
 	public function build_numeric_value( $compare = '=', $value = null ) {
 
@@ -964,12 +974,16 @@ class Date extends Base {
 	 * @since 1.0.0
 	 *
 	 * @param string $compare The compare operator to use
-	 * @param string|array $value The value
+	 * @param array|string $value The value
 	 *
 	 * @return string|false|int The value to be used in SQL or false on error.
 	 */
 	public function build_value( $compare = '=', $value = null ) {
 
+		// Get the database interface
+		$db = $this->get_db();
+
+		// MB
 		if ( in_array( $compare, $this->multi_value_keys, true ) ) {
 			if ( ! is_array( $value ) ) {
 				$value = preg_split( '/[,\s]+/', $value );
@@ -982,25 +996,25 @@ class Date extends Base {
 			case 'IN':
 			case 'NOT IN':
 				$compare_string = '(' . substr( str_repeat( ',%s', count( $value ) ), 1 ) . ')';
-				$where          = $this->get_db()->prepare( $compare_string, $value );
+				$where          = $db->prepare( $compare_string, $value );
 				break;
 
 			case 'BETWEEN':
 			case 'NOT BETWEEN':
 				$value = array_slice( $value, 0, 2 );
-				$where = $this->get_db()->prepare( '%s AND %s', $value );
+				$where = $db->prepare( '%s AND %s', $value );
 				break;
 
 			case 'LIKE':
 			case 'NOT LIKE':
-				$value = '%' . $this->get_db()->esc_like( $value ) . '%';
-				$where = $this->get_db()->prepare( '%s', $value );
+				$value = '%' . $db->esc_like( $value ) . '%';
+				$where = $db->prepare( '%s', $value );
 				break;
 
 			// EXISTS with a value is interpreted as '='.
 			case 'EXISTS':
 				$compare = '=';
-				$where   = $this->get_db()->prepare( '%s', $value );
+				$where   = $db->prepare( '%s', $value );
 				break;
 
 			// 'value' is ignored for NOT EXISTS.
@@ -1009,7 +1023,7 @@ class Date extends Base {
 				break;
 
 			default:
-				$where = $this->get_db()->prepare( '%s', $value );
+				$where = $db->prepare( '%s', $value );
 				break;
 		}
 
@@ -1025,12 +1039,12 @@ class Date extends Base {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param string|array $datetime       An array of parameters or a strtotime() string
-	 * @param bool         $default_to_max Whether to round up incomplete dates. Supported by values
-	 *                                     of $datetime that are arrays, or string values that are a
-	 *                                     subset of MySQL date format ('Y', 'Y-m', 'Y-m-d', 'Y-m-d H:i').
-	 *                                     Default: false.
-	 * @param string|int   $now            The current unix timestamp.
+	 * @param array|int|string $datetime       An array of parameters or a strtotime() string
+	 * @param bool             $default_to_max Whether to round up incomplete dates. Supported by values
+	 *                                         of $datetime that are arrays, or string values that are a
+	 *                                         subset of MySQL date format ('Y', 'Y-m', 'Y-m-d', 'Y-m-d H:i').
+	 *                                         Default: false.
+	 * @param string|int   $now                The current unix timestamp.
 	 *
 	 * @return string|false A MySQL format date/time or false on failure
 	 */
@@ -1225,6 +1239,9 @@ class Date extends Base {
 			return false;
 		}
 
+		// Get the database interface
+		$db = $this->get_db();
+
 		// Complex combined queries aren't supported for multi-value queries
 		if ( in_array( $compare, $this->multi_value_keys, true ) ) {
 			$retval = array();
@@ -1294,7 +1311,7 @@ class Date extends Base {
 		$query = "DATE_FORMAT( {$column}, %s ) {$compare} %f";
 
 		// Return the prepared SQL
-		return $this->get_db()->prepare( $query, $format, $time );
+		return $db->prepare( $query, $format, $time );
 	}
 
 	/**
