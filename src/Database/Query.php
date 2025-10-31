@@ -2848,10 +2848,8 @@ class Query extends Base {
 	 */
 	private function update_last_changed_cache( $group = '' ) {
 
-		// Fallback to microtime
-		if ( empty( $this->last_changed ) ) {
-			$this->set_last_changed();
-		}
+		// Set last_changed to current microtime
+		$this->set_last_changed();
 
 		// Set the last changed time for this cache group
 		$this->cache_set( 'last_changed', $this->last_changed, $group );
