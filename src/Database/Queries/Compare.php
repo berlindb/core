@@ -165,7 +165,7 @@ class Compare extends Meta {
 
 			// Maybe add column, compare, & where to chunks
 			if ( ! empty( $where ) ) {
-				$sql_chunks['where'][] = "{$column} {$compare} {$where}";
+				$sql_chunks['where'][] = "{$this->primary_table}.{$column} {$compare} {$where}";
 			}
 		}
 
