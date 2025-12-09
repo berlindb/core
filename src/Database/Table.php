@@ -244,13 +244,24 @@ abstract class Table extends Base {
 			return;
 		}
 
-		// Upgrade
-		if ( $this->exists() ) {
-			$this->upgrade();
+		// Try to acquire the upgrade lock
+		if ( ! $this->create_lock() ) {
+			return;
+		}
 
-		// Install
-		} else {
-			$this->install();
+		// Upgrade or install, always release the lock afterward
+		try {
+			// Upgrade
+			if ( $this->exists() ) {
+				$this->upgrade();
+
+			// Install
+			} else {
+				$this->install();
+			}
+		} finally {
+			// Always release the lock, even if an exception occurred
+			$this->release_lock();
 		}
 	}
 
@@ -314,6 +325,60 @@ abstract class Table extends Base {
 		$this->get_db_version();
 
 		return $this->db_version;
+	}
+
+	/**
+	 * Create an upgrade lock.
+	 *
+	 * Prevents multiple upgrade processes from running simultaneously on the
+	 * same table. Uses a transient with a 15-minute expiration to ensure the
+	 * lock is automatically released even if the upgrade process fails.
+	 *
+	 * @since 2.2.0
+	 *
+	 * @return bool True if the lock was created, false if a lock already exists.
+	 */
+	public function create_lock() {
+
+		// Generate a unique lock key for this table
+		$lock_key = $this->db_version_key . '_upgrade_lock';
+
+		// Try to set the lock transient
+		// If the transient already exists, set_transient will return false
+		if ( $this->is_global() ) {
+			$lock_set = set_site_transient( $lock_key, time(), 15 * MINUTE_IN_SECONDS );
+		} else {
+			$lock_set = set_transient( $lock_key, time(), 15 * MINUTE_IN_SECONDS );
+		}
+
+		// Return whether the lock was successfully created
+		return (bool) $lock_set;
+	}
+
+	/**
+	 * Release the upgrade lock.
+	 *
+	 * Removes the transient that was set by create_lock(), allowing other
+	 * upgrade processes to proceed.
+	 *
+	 * @since 2.2.0
+	 *
+	 * @return bool True if the lock was released, false otherwise.
+	 */
+	public function release_lock() {
+
+		// Generate the same lock key used in create_lock()
+		$lock_key = $this->db_version_key . '_upgrade_lock';
+
+		// Delete the lock transient
+		if ( $this->is_global() ) {
+			$deleted = delete_site_transient( $lock_key );
+		} else {
+			$deleted = delete_transient( $lock_key );
+		}
+
+		// Return whether the lock was successfully released
+		return (bool) $deleted;
 	}
 
 	/**
