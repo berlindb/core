@@ -357,9 +357,9 @@ abstract class Table extends Base {
 
 		// Create the lock transient
 		if ( $this->is_global() ) {
-			$lock_set = set_site_transient( $lock_key, time(), 15 * MINUTE_IN_SECONDS );
+			$lock_set = set_site_transient( $lock_key, time(), 900 );
 		} else {
-			$lock_set = set_transient( $lock_key, time(), 15 * MINUTE_IN_SECONDS );
+			$lock_set = set_transient( $lock_key, time(), 900 );
 		}
 
 		// Return whether the lock was successfully created
