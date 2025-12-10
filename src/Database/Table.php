@@ -343,8 +343,19 @@ abstract class Table extends Base {
 		// Generate a unique lock key for this table
 		$lock_key = $this->db_version_key . '_upgrade_lock';
 
-		// Try to set the lock transient
-		// If the transient already exists, set_transient will return false
+		// Check if a lock already exists
+		if ( $this->is_global() ) {
+			$lock_exists = get_site_transient( $lock_key );
+		} else {
+			$lock_exists = get_transient( $lock_key );
+		}
+
+		// If a lock already exists, return false
+		if ( false !== $lock_exists ) {
+			return false;
+		}
+
+		// Create the lock transient
 		if ( $this->is_global() ) {
 			$lock_set = set_site_transient( $lock_key, time(), 15 * MINUTE_IN_SECONDS );
 		} else {
