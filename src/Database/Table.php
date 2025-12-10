@@ -245,7 +245,7 @@ abstract class Table extends Base {
 		}
 
 		// Try to acquire the upgrade lock
-		if ( ! $this->create_lock() ) {
+		if ( ! $this->create_upgrade_lock() ) {
 			return;
 		}
 
@@ -261,7 +261,7 @@ abstract class Table extends Base {
 			}
 		} finally {
 			// Always release the lock, even if an exception occurred
-			$this->release_lock();
+			$this->release_upgrade_lock();
 		}
 	}
 
@@ -338,7 +338,7 @@ abstract class Table extends Base {
 	 *
 	 * @return bool True if the lock was created, false if a lock already exists.
 	 */
-	public function create_lock() {
+	public function create_upgrade_lock() {
 
 		// Generate a unique lock key for this table
 		$lock_key = $this->db_version_key . '_upgrade_lock';
@@ -369,16 +369,16 @@ abstract class Table extends Base {
 	/**
 	 * Release the upgrade lock.
 	 *
-	 * Removes the transient that was set by create_lock(), allowing other
+	 * Removes the transient that was set by create_upgrade_lock(), allowing other
 	 * upgrade processes to proceed.
 	 *
 	 * @since 2.2.0
 	 *
 	 * @return bool True if the lock was released, false otherwise.
 	 */
-	public function release_lock() {
+	public function release_upgrade_lock() {
 
-		// Generate the same lock key used in create_lock()
+		// Generate the same lock key used in create_upgrade_lock()
 		$lock_key = $this->db_version_key . '_upgrade_lock';
 
 		// Delete the lock transient
