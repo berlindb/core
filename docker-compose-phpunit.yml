@@ -20,7 +20,7 @@ services:
     command: bin/run-tests-internal.sh
 
   mysql:
-    image: mariadb:10.2
+    image: mariadb:${MARIADB_VERSION:-10.2}
     environment:
       MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
     healthcheck:

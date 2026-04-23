@@ -12,7 +12,7 @@ bin/run-tests.sh
 ```
 
 See `bin/run-tests.sh --help` for available options (PHP version, WP version,
-PHPUnit filter passthrough).
+MariaDB version, PHPUnit filter passthrough).
 
 For manual local runs (requires PHP 7.4+, MySQL, SVN, and Composer):
 
