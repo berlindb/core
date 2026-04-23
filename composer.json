@@ -1,6 +1,7 @@
 {
   "name": "berlindb/core",
   "description": "A collection of PHP classes and functions that aims to provide an ORM-like experience and interface to WordPress database tables.",
+  "version": "2.1.0",
   "type": "library",
   "license": "MIT",
   "autoload": {
@@ -10,7 +11,15 @@
   },
   "require-dev": {
     "szepeviktor/phpstan-wordpress": "^0.7.7",
-    "phpstan/extension-installer": "^1.1"
+    "phpstan/extension-installer": "^1.1",
+    "phpunit/phpunit": "^9.6",
+    "yoast/phpunit-polyfills": "^1.1.0",
+    "yoast/wp-test-utils": "^1.2"
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "BerlinDB\\Tests\\": "tests/"
+    }
   },
   "config": {
     "allow-plugins": {

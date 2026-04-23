@@ -274,7 +274,7 @@ abstract class Table extends Base {
 		$this->get_db_version();
 
 		// Is this database table up to date?
-		$is_current = version_compare( $this->db_version, $version, '>=' );
+		$is_current = version_compare( (string) $this->db_version, (string) $version, '>=' );
 
 		// Return false if current, true if out of date
 		return ( true === $is_current )
@@ -310,10 +310,10 @@ abstract class Table extends Base {
 	 *
 	 * @return string
 	 */
-	public function get_version() {
+	public function get_version(): string {
 		$this->get_db_version();
 
-		return $this->db_version;
+		return (string) $this->db_version;
 	}
 
 	/**
@@ -978,7 +978,7 @@ abstract class Table extends Base {
 
 		// Loop through all upgrades, and pick out the ones that need doing
 		foreach ( $this->upgrades as $version => $callback ) {
-			if ( true === version_compare( $version, $this->db_version, '>' ) ) {
+			if ( true === version_compare( (string) $version, (string) $this->db_version, '>' ) ) {
 				$upgrades[ $version ] = $callback;
 			}
 		}
