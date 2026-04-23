@@ -15,16 +15,17 @@ services:
       DB_HOST: mysql
       DB_NAME: berlindb_tests
       DB_USER: root
-      DB_PASS: ""
+      DB_PASS: "wordpress"
       WP_VERSION: "${WP_VERSION:-latest}"
     command: bin/run-tests-internal.sh
 
   mysql:
     image: mariadb:${MARIADB_VERSION:-10.2}
     environment:
-      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+      MYSQL_ROOT_PASSWORD: "wordpress"
+      MARIADB_ROOT_PASSWORD: "wordpress"
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "--silent"]
+      test: ["CMD-SHELL", "healthcheck.sh --connect --innodb_initialized 2>/dev/null || mysqladmin ping -h 127.0.0.1 -pwordpress --silent"]
       interval: 5s
       timeout: 5s
       retries: 12
