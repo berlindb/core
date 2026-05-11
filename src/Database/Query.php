@@ -1268,6 +1268,7 @@ class Query extends Base {
 		}
 
 		// Fill an array of patterns to match the number of values
+		$values   = (array) $values;
 		$count    = count( $values );
 		$patterns = array_fill( 0, $count, $pattern );
 
@@ -1741,10 +1742,10 @@ class Query extends Base {
 	 * @param array  $query_vars
 	 * @param string $key
 	 *
-	 * @return int|string|array False if not set or default.
-	 *                          Value if object or array.
-	 *                          Attempts to parse a comma-separated string of
-	 *                          possible keys or numbers.
+	 * @return bool|int|string|array False if not set or default.
+	 *                               Value if object or array.
+	 *                               Attempts to parse a comma-separated string
+	 *                               of possible keys or numbers.
 	 */
 	private function parse_query_var( $query_vars = array(), $key = '' ) {
 
@@ -1790,7 +1791,7 @@ class Query extends Base {
 
 			// Bail if string is over 100 chars long
 			if ( strlen( $value ) > 100 ) {
-				return $value;
+				return array( $value );
 			}
 
 			// Contains comma?
@@ -1805,7 +1806,7 @@ class Query extends Base {
 			$space = strpos( $value, ' ' );
 
 			// Bail if space is before comma
-			if ( $space < $comma ) {
+			if ( ( false !== $space ) && ( $space < $comma ) ) {
 				return array( $value );
 			}
 
