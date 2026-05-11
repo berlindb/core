@@ -3402,13 +3402,11 @@ class Query extends Base {
 
 		// Remove unset columns (sentinel values) so identical logical queries
 		// produce identical cache keys across instances.
-		$sentinel = $this->query_var_default_value;
-		$slice    = array_filter(
-			$slice,
-			function ( $v ) use ( $sentinel ) {
-				return $v !== $sentinel;
+		foreach ( $slice as $key => $value ) {
+			if ( $value === $this->query_var_default_value ) {
+				unset( $slice[ $key ] );
 			}
-		);
+		}
 
 		// Setup key & last_changed.
 		$key          = md5( serialize( $slice ) );
