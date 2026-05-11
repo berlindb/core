@@ -40,7 +40,7 @@ The code in this repository represents the cumulative effort of dozens of indivi
 * Sugar Calendar (<a href="https://github.com/sugarcalendar/sugar-event-calendar-lite">2.0 and higher</a>)
 * Restrict Content Pro (<a href="https://github.com/restrictcontentpro">3.1 and higher</a>)
 
-## Contributions
+These projects all require custom database tables to achieve their goals (and to meet the expectations that their users have in them) to perform and scale flawlessly in a highly available WordPress based web application.
 
 Interested in contributing? See the [contributing guide](/CONTRIBUTING.md).
 
@@ -48,21 +48,4 @@ Interested in contributing? See the [contributing guide](/CONTRIBUTING.md).
 
 Have a question? [Open a new issue](https://github.com/berlindb/core/issues/new) and someone will try to help.
 
-## License
-
-MIT. Please enjoy this code freely & openly, [as is](/LICENSE).
-
-If you are using BerlinDB in a commercial product, please consider [becoming a sponsor](https://github.com/sponsors/jjj?frequency=recurring&sponsor=jjj).
-
-## Created By
-
-- [@JJJ](https://twitter.com/JJJ) - https://jjj.blog
-
-## Credits
-
-This organization is currently managed by <a href="https://jjj.software">Triple J Software, Inc.</a>.
-
-Special thanks to:
-- <a href="https://sandhillsdev.com">Sandhills Development, LLC</a>
-- <a href="https://awesomemotive.com">Awesome Motive, Inc.</a>
-- All of JJJ's generous sponsors 💛
+This organization was created by <a href="https://github.com/JJJ">John James Jacoby</a> while working at <a href="https://sandhillsdev.com">Sandhills Development, LLC</a>.

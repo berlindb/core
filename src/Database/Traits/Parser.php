@@ -26,7 +26,7 @@ trait Parser {
 	 * Query class responsible for constructing this parser.
 	 *
 	 * @since 3.0.0
-	 * @var null|Query
+	 * @var \BerlinDB\Database\Query|null
 	 */
 	public $caller = null;
 

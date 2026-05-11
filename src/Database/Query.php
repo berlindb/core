@@ -125,6 +125,15 @@ class Query {
 	 */
 	protected $item_shape = __NAMESPACE__ . '\\Row';
 
+    /**
+     * Name of class used to turn IDs into first-class objects for the current request.
+     *
+     * This is used when looping through return values to guarantee their shape.
+     *
+     * @var mixed
+     */
+    protected $current_item_shape;
+
 	/** Cache *****************************************************************/
 
 	/**
@@ -385,6 +394,10 @@ class Query {
 	private function set_item_shape() {
 		if ( empty( $this->item_shape ) || ! class_exists( $this->item_shape ) ) {
 			$this->item_shape = __NAMESPACE__ . '\\Row';
+		}
+
+		if ( empty( $this->current_item_shape ) || ! class_exists( $this->current_item_shape ) ) {
+			$this->current_item_shape = $this->item_shape;
 		}
 	}
 
@@ -2054,13 +2067,13 @@ class Query {
 		}
 
 		// Return the item if it's already shaped
-		if ( $item instanceof $this->item_shape ) {
+		if ( $item instanceof $this->current_item_shape ) {
 			return $item;
 		}
 
 		// Shape the item as needed
-		$item = ! empty( $this->item_shape )
-			? new $this->item_shape( $item )
+		$item = ! empty( $this->current_item_shape )
+			? new $this->current_item_shape( $item )
 			: (object) $item;
 
 		// Return the item object
@@ -2092,7 +2105,9 @@ class Query {
 
 		// Force to stdClass if querying for fields
 		if ( ! empty( $fields ) ) {
-			$this->item_shape = 'stdClass';
+			$this->current_item_shape = 'stdClass';
+		} else {
+			$this->current_item_shape = $this->item_shape;
 		}
 
 		// Default return value
@@ -2318,7 +2333,7 @@ class Query {
 	 * @since 1.0.0
 	 *
 	 * @param array $data
-	 * @return bool|int
+	 * @return int|false Item ID if successful, false if not
 	 */
 	public function add_item( $data = array() ) {
 
@@ -2430,7 +2445,7 @@ class Query {
 	 *
 	 * @param int|string $item_id
 	 * @param array $data
-	 * @return bool|int
+	 * @return int|false Item ID if successful, false if not
 	 */
 	public function copy_item( $item_id = 0, $data = array() ) {
 
@@ -3412,10 +3427,8 @@ class Query {
 	 */
 	private function update_last_changed_cache( $group = '' ) {
 
-		// Fallback to microtime
-		if ( empty( $this->last_changed ) ) {
-			$this->set_last_changed();
-		}
+		// Set last_changed to current microtime
+		$this->set_last_changed();
 
 		// Set the last changed time for this cache group
 		$this->cache_set( 'last_changed', $this->last_changed, $group );
@@ -3636,7 +3649,7 @@ class Query {
 		 *
 		 * @since 1.0.0
 		 *
-		 * @param array $retval An array of items.
+		 * @param array $items An array of items.
 		 * @param Query &$this  Current instance passed by reference.
 		 */
 		return (array) apply_filters_ref_array(
@@ -3664,7 +3677,7 @@ class Query {
 		 * @since 3.0.0 Supports MySQL 8 by removing FOUND_ROWS() and uses
 		 *              $request_clauses instead.
 		 *
-		 * @param string $query SQL query.
+		 * @param string $sql   SQL query.
 		 * @param Query  &$this Current instance passed by reference.
 		 */
 		return (string) apply_filters_ref_array(
@@ -3715,7 +3728,7 @@ class Query {
 	 * @param array  $where_cols Where clauses. Each key-value pair in the array
 	 *                           represents a column and a comparison.
 	 * @param int    $limit      Optional. LIMIT value. Default 25.
-	 * @param null   $offset     Optional. OFFSET value. Default null.
+	 * @param mixed  $offset     Optional. OFFSET value. Default null.
 	 * @param string $output     Optional. Any of ARRAY_A | ARRAY_N | OBJECT | OBJECT_K constants.
 	 *                           Default OBJECT.
 	 *                           With one of the first three, return an array of

@@ -318,7 +318,7 @@ class Date {
 				: '2012';
 
 			// Check the date.
-			if ( checkdate( $date_query['month'], $date_query['day'], $year ) ) {
+			if ( ! checkdate( $date_query['month'], $date_query['day'], $year ) ) {
 				$valid = false;
 			}
 		}
@@ -358,6 +358,10 @@ class Date {
 		$compare       = $this->get_compare( $clause );
 		$start_of_week = $this->get_start_of_week( $clause );
 		$inclusive     = ! empty( $clause['inclusive'] );
+
+		// Qualify the column with the primary table alias via the caller Query,
+		// falling back to the bare column name if no caller is set.
+		$column = $this->caller( 'get_column_name_aliased', $column ) ?? $column;
 
 		// Assign greater-than and less-than values.
 		$lt = '<';
