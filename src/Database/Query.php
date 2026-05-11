@@ -509,8 +509,8 @@ class Query extends Base {
 			return;
 		}
 
-		// Fill with default value
-		$defaults = array_fill_keys( $names, $this->query_var_default_value );
+		// Use column names as start of defaults
+		$defaults = $names;
 
 		/** Specials **********************************************************/
 
@@ -558,7 +558,7 @@ class Query extends Base {
 			}
 
 			// Add defaults
-			foreach ( $columns as $column ) {
+			foreach ( $columns as $name ) {
 				$defaults[] = "{$name}{$suffix}";
 			}
 		}
@@ -1679,7 +1679,7 @@ class Query extends Base {
 
 			// Add table alias to primary clause if not already set
 			if ( empty( $query_vars[ $key ][ 'alias'] ) ) {
-				$query_vars[ $key ][ 'alias'] = $args['table_alias'];
+				$query_vars[ $key ][ 'alias'] = $args['primary_alias'];
 			}
 
 			// Try to get the query var parser
@@ -1701,12 +1701,13 @@ class Query extends Base {
 
 			// Try to get the SQL subclauses
 			if ( is_callable( $callback ) ) {
-				$subclauses = call_user_func( $callback, array(
+				$subclauses = call_user_func(
+					$callback,
 					$args['meta_type'],
 					$args['primary_table'],
 					$args['primary_column'],
 					$args['query']
-				) );
+				);
 			}
 
 			// Skip if no SQL subclauses
