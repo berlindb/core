@@ -115,14 +115,15 @@ class Query extends Base {
 	 */
 	protected $item_shape = '\\BerlinDB\\Database\\Row';
 
-    /**
-     * Name of class used to turn IDs into first-class objects for the current request.
-     *
-     *  This is used when looping through return values to guarantee their shape.
-     *
-     * @var mixed
-     */
-    protected $current_item_shape;
+	/**
+	 * Name of class used to turn IDs into first-class objects for the current request.
+	 *
+	 * This is used when looping through return values to guarantee their shape.
+	 *
+	 * @since 1.0.0
+	 * @var   mixed
+	 */
+	protected $current_item_shape;
 
 	/** Cache *****************************************************************/
 
