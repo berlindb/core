@@ -152,7 +152,7 @@ class Date extends Base {
 		'AND'
 	);
 
-	
+
 	/**
 	 * @since 2.0.2
 	 * @var string|null Table name
