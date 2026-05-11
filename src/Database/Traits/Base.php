@@ -24,7 +24,6 @@ defined( 'ABSPATH' ) || exit;
  *
  * @property array<string, mixed> $args
  */
-#[\AllowDynamicProperties]
 trait Base {
 
 	/**
