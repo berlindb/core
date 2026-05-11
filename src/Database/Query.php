@@ -396,7 +396,7 @@ class Query extends Base {
 	 * @since 1.0.0
 	 */
 	private function set_item_shape() {
-		
+
 		// Item shape
 		if ( empty( $this->item_shape ) || ! class_exists( $this->item_shape ) ) {
 			$this->item_shape = __NAMESPACE__ . '\\Row';
@@ -3395,17 +3395,25 @@ class Query extends Base {
 	 */
 	private function get_cache_key( $group = '' ) {
 
-		// Slice $query_vars by default keys
+		// Slice $query_vars by default keys.
 		$slice = wp_array_slice_assoc( $this->query_vars, array_keys( $this->query_var_defaults ) );
 
-		// Unset "fields" so it does not effect the cache key
+		// Unset "fields" so it does not affect the cache key.
 		unset( $slice['fields'] );
 
-		// Setup key & last_changed
+		// Remove unset columns (sentinel values) so identical logical queries
+		// produce identical cache keys across instances.
+		foreach ( $slice as $key => $value ) {
+			if ( $value === $this->query_var_default_value ) {
+				unset( $slice[ $key ] );
+			}
+		}
+
+		// Setup key & last_changed.
 		$key          = md5( serialize( $slice ) );
 		$last_changed = $this->get_last_changed_cache( $group );
 
-		// Return the concatenated cache key
+		// Return the concatenated cache key.
 		return "get_{$this->item_name_plural}:{$key}:{$last_changed}";
 	}
 
