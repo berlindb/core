@@ -40,6 +40,8 @@ The code in this repository represents the cumulative effort of dozens of indivi
 * Sugar Calendar (<a href="https://github.com/sugarcalendar/sugar-event-calendar-lite">2.0 and higher</a>)
 * Restrict Content Pro (<a href="https://github.com/restrictcontentpro">3.1 and higher</a>)
 
+These projects all require custom database tables to achieve their goals (and to meet the expectations that their users have in them) to perform and scale flawlessly in a highly available WordPress based web application.
+
 ## Contributions
 
 Interested in contributing? See the [contributing guide](/CONTRIBUTING.md).

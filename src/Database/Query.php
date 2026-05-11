@@ -125,6 +125,15 @@ class Query {
 	 */
 	protected $item_shape = __NAMESPACE__ . '\\Row';
 
+    /**
+     * Name of class used to turn IDs into first-class objects for the current request.
+     *
+     *  This is used when looping through return values to guarantee their shape.
+     *
+     * @var mixed
+     */
+    protected $current_item_shape;
+
 	/** Cache *****************************************************************/
 
 	/**
@@ -385,6 +394,10 @@ class Query {
 	private function set_item_shape() {
 		if ( empty( $this->item_shape ) || ! class_exists( $this->item_shape ) ) {
 			$this->item_shape = __NAMESPACE__ . '\\Row';
+		}
+
+		if ( empty( $this->current_item_shape ) || ! class_exists( $this->current_item_shape ) ) {
+			$this->current_item_shape = $this->item_shape;
 		}
 	}
 
@@ -2318,7 +2331,7 @@ class Query {
 	 * @since 1.0.0
 	 *
 	 * @param array $data
-	 * @return bool|int
+	 * @return int|false Item ID if successful, false if not
 	 */
 	public function add_item( $data = array() ) {
 
@@ -2430,7 +2443,7 @@ class Query {
 	 *
 	 * @param int|string $item_id
 	 * @param array $data
-	 * @return bool|int
+	 * @return int|false Item ID if successful, false if not
 	 */
 	public function copy_item( $item_id = 0, $data = array() ) {
 
@@ -3412,10 +3425,8 @@ class Query {
 	 */
 	private function update_last_changed_cache( $group = '' ) {
 
-		// Fallback to microtime
-		if ( empty( $this->last_changed ) ) {
-			$this->set_last_changed();
-		}
+		// Set last_changed to current microtime
+		$this->set_last_changed();
 
 		// Set the last changed time for this cache group
 		$this->cache_set( 'last_changed', $this->last_changed, $group );
