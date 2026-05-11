@@ -3388,25 +3388,45 @@ class Query extends Base {
 	/**
 	 * Get cache key from $query_vars and $query_var_defaults.
 	 *
+	 * Performs the following operations to create a consistent cache-key:
+	 * - Removes the "fields" query_var, because whole objects/items are cached
+	 * - Removes unknown or unregistered query_var keys
+	 * - Sorts query_vars by query_var_default keys
+	 * - Removes query_vars with default values
+	 * - Serializes and md5 hashes query_vars
+	 * - Combines plural name, key, and last_changed for cache group
+	 *
 	 * @since 1.0.0
+	 * @since 2.1.0 Correctly removes unique query_var_default_value values
 	 *
 	 * @param string $group
 	 * @return string
 	 */
 	private function get_cache_key( $group = '' ) {
 
-		// Slice $query_vars by default keys.
-		$slice = wp_array_slice_assoc( $this->query_vars, array_keys( $this->query_var_defaults ) );
+		// Default slice.
+		$slice = array();
 
-		// Unset "fields" so it does not affect the cache key.
-		unset( $slice['fields'] );
+		// Slice query_vars by query_var_defaults keys, ordered by defaults.
+		foreach ( $this->query_var_defaults as $key => $_default ) {
 
-		// Remove unset columns (sentinel values) so identical logical queries
-		// produce identical cache keys across instances.
-		foreach ( $slice as $key => $value ) {
-			if ( $value === $this->query_var_default_value ) {
-				unset( $slice[ $key ] );
+			// Skip "fields" so single-item shape does not affect the cache key.
+			if ( 'fields' === $key ) {
+				continue;
 			}
+
+			// Skip if no query_var array key exists, allowing null values.
+			if ( ! array_key_exists( $key, $this->query_vars ) ) {
+				continue;
+			}
+
+			// Skip default random query_var values.
+			if ( $this->query_vars[ $key ] === $this->query_var_default_value ) {
+				continue;
+			}
+
+			// Add key & value to slice.
+			$slice[ $key ] = $this->query_vars[ $key ];
 		}
 
 		// Setup key & last_changed.
