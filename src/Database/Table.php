@@ -244,13 +244,27 @@ abstract class Table extends Base {
 			return;
 		}
 
-		// Upgrade
-		if ( $this->exists() ) {
-			$this->upgrade();
+		// Try to acquire the upgrade lock
+		if ( ! $this->create_upgrade_lock() ) {
+			return;
+		}
 
-		// Install
-		} else {
-			$this->install();
+		// Upgrade or install, always release the lock afterward
+		try {
+
+			// Upgrade
+			if ( $this->exists() ) {
+				$this->upgrade();
+
+			// Install
+			} else {
+				$this->install();
+			}
+
+		} finally {
+
+			// Always release the lock, even if an exception occurred
+			$this->release_upgrade_lock();
 		}
 	}
 
@@ -1174,6 +1188,65 @@ abstract class Table extends Base {
 		$this->db_version = $this->is_global()
 			? delete_network_option( get_main_network_id(), $this->db_version_key )
 			:         delete_option(                        $this->db_version_key );
+	}
+
+	/**
+	 * Create an upgrade lock.
+	 *
+	 * Prevents multiple upgrade processes from running simultaneously on the
+	 * same table. Uses a transient with a 15-minute expiration to ensure the
+	 * lock is automatically released even if the upgrade process fails.
+	 *
+	 * @since 2.2.0
+	 *
+	 * @return bool True if the lock was created, false if a lock already exists.
+	 */
+	private function create_upgrade_lock() {
+
+		// Generate a unique lock key for this table
+		$lock_key = $this->db_version_key . '_upgrade_lock';
+
+		// Check if a lock already exists
+		$lock_exists = $this->is_global()
+			? get_site_transient( $lock_key )
+			: get_transient( $lock_key );
+
+		// If a lock already exists, return false
+		if ( false !== $lock_exists ) {
+			return false;
+		}
+
+		// Create the lock transient
+		$lock_set = $this->is_global()
+			? set_site_transient( $lock_key, time(), 900 )
+			: set_transient( $lock_key, time(), 900 );
+
+		// Return whether the lock was successfully created
+		return (bool) $lock_set;
+	}
+
+	/**
+	 * Release the upgrade lock.
+	 *
+	 * Removes the transient that was set by create_upgrade_lock(), allowing other
+	 * upgrade processes to proceed.
+	 *
+	 * @since 2.2.0
+	 *
+	 * @return bool True if the lock was released, false otherwise.
+	 */
+	private function release_upgrade_lock() {
+
+		// Generate the same lock key used in create_upgrade_lock()
+		$lock_key = $this->db_version_key . '_upgrade_lock';
+
+		// Delete the lock transient
+		$deleted = $this->is_global()
+			? delete_site_transient( $lock_key )
+			: delete_transient( $lock_key );
+
+		// Return whether the lock was successfully released
+		return (bool) $deleted;
 	}
 
 	/**
