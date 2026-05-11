@@ -25,7 +25,7 @@ services:
       MYSQL_ROOT_PASSWORD: "wordpress"
       MARIADB_ROOT_PASSWORD: "wordpress"
     healthcheck:
-      test: ["CMD-SHELL", "healthcheck.sh --connect --innodb_initialized 2>/dev/null || mysqladmin ping -h 127.0.0.1 -pwordpress --silent"]
+      test: ["CMD-SHELL", "healthcheck.sh --connect --innodb_initialized 2>/dev/null || mysqladmin ping -h 127.0.0.1 -pwordpress --silent --ssl=FALSE"]
       interval: 5s
       timeout: 5s
       retries: 12

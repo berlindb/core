@@ -2570,8 +2570,8 @@ class Query extends Base {
 				return false;
 			}
 
-			// Update item cache(s)
-			$this->update_item_cache( $retval );
+			// Update item cache(s) — read path, do not bump last_changed.
+			$this->update_item_cache( $retval, false );
 		}
 
 		// Reduce the item
@@ -3539,8 +3539,8 @@ class Query extends Base {
 				$prepare = sprintf( $query, $ids );
 				$results = $db->get_results( $prepare );
 
-				// Update item cache(s)
-				$this->update_item_cache( $results );
+				// Update item cache(s) — read path, do not bump last_changed.
+				$this->update_item_cache( $results, false );
 			}
 		}
 
@@ -3580,7 +3580,7 @@ class Query extends Base {
 	 * @param int|object|array $items Primary ID if int. Row if object. Array
 	 *                                of objects if array.
 	 */
-	private function update_item_cache( $items = array() ) {
+	private function update_item_cache( $items = array(), $bump_last_changed = true ) {
 
 		// Maybe query for single item
 		if ( is_scalar( $items ) ) {
@@ -3624,8 +3624,11 @@ class Query extends Base {
 			}
 		}
 
-		// Update last changed
-		$this->update_last_changed_cache();
+		// Only bump last_changed for mutations; read-path warming must not
+		// invalidate the list cache that was just stored.
+		if ( $bump_last_changed ) {
+			$this->update_last_changed_cache();
+		}
 	}
 
 	/**
