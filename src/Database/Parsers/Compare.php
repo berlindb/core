@@ -3,7 +3,7 @@
  * Compare Query Var Parser Class.
  *
  * @package     Database
- * @subpackage  Compare
+ * @subpackage  Parsers
  * @copyright   2021-2022 - JJJ and all BerlinDB contributors
  * @license     https://opensource.org/licenses/MIT MIT
  * @since       1.0.0
@@ -14,15 +14,28 @@ namespace BerlinDB\Database\Parsers;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Class used for generating SQL for compare clauses.
+ * Class used for generating SQL for arbitrary column comparison clauses.
  *
- * This class is used to generate the SQL when a `compare` argument is passed to
- * the `Base` query class. It extends `Meta` so the `compare` key accepts
- * the same parameters as the ones passed to `Meta`.
+ * This class generates SQL when `key` and `value` arguments are passed,
+ * supporting all standard comparison operators via the `compare` key.
+ * It extends `Meta` to reuse its JOIN and value-building infrastructure.
  *
  * @since 3.0.0
  */
 class Compare extends Meta {
+
+	/**
+	 * Determines and validates what first-order keys to use.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param array $first_keys Array of first-order keys.
+	 *
+	 * @return array The first-order keys.
+	 */
+	protected function get_first_keys( $first_keys = array() ) {
+		return array( 'key', 'value' );
+	}
 
 	/**
 	 * Generate SQL WHERE clauses for a first-order query clause.
@@ -33,8 +46,8 @@ class Compare extends Meta {
 	 *
 	 * @param array  $clause       Query clause (passed by reference).
 	 * @param array  $parent_query Parent query array.
-	 * @param string $clause_key   Optional. The array key used to name the clause in the original `$meta_query`
-	 *                             parameters. If not provided, a key will be generated automatically.
+	 * @param string $clause_key   Optional. The array key used to name the clause in the original
+	 *                             query parameters. If not provided, a key will be generated automatically.
 	 * @return array {
 	 *     Array containing WHERE SQL clauses to append to a first-order query.
 	 *
@@ -80,9 +93,10 @@ class Compare extends Meta {
 
 		/** Build the WHERE clause ********************************************/
 
-		// Column name and value.
+		// Column name (sanitised) and value.
 		if ( array_key_exists( 'key', $clause ) && array_key_exists( 'value', $clause ) ) {
-			$column = $this->sanitize_column_name( $clause['key'] );
+			$name   = $this->sanitize_column_name( $clause['key'] );
+			$column = $this->caller( 'get_column_name_aliased', $name ) ?? $name;
 			$where  = $this->build_value( $compare, $clause['value'], '%s' );
 
 			// Maybe add column, compare, & where to return value.
@@ -92,8 +106,7 @@ class Compare extends Meta {
 		}
 
 		/*
-		 * Multiple WHERE clauses (for meta_key and meta_value) should
-		 * be joined in parentheses.
+		 * Multiple WHERE clauses should be joined in parentheses.
 		 */
 		if ( 1 < count( $retval['where'] ) ) {
 			$retval['where'] = array( '( ' . implode( ' AND ', $retval['where'] ) . ' )' );

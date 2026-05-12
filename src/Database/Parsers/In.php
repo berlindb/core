@@ -3,7 +3,7 @@
  * In Query Var Parser Class.
  *
  * @package     Database
- * @subpackage  Compare
+ * @subpackage  Parsers
  * @copyright   2021-2022 - JJJ and all BerlinDB contributors
  * @license     https://opensource.org/licenses/MIT MIT
  * @since       3.0.0
@@ -14,17 +14,14 @@ namespace BerlinDB\Database\Parsers;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Class used for generating SQL for NOT IN clauses.
+ * Class used for generating SQL for IN clauses.
  *
- * This class is used to generate the SQL when a `compare` argument is passed to
- * the `Base` query class. It extends `Meta` so the `compare` key accepts
- * the same parameters as the ones passed to `Meta`.
+ * This class handles the `{column}__in` query vars, generating SQL IN
+ * clauses for columns where the `in` schema property is true.
  *
  * @since 3.0.0
  */
-class In {
-
-	use \BerlinDB\Database\Traits\Parser;
+class In extends Base {
 
 	/**
 	 * Determines and validates what first-order keys to use.
@@ -57,8 +54,8 @@ class In {
 	 *
 	 * @param array  $clause       Query clause (passed by reference).
 	 * @param array  $parent_query Parent query array.
-	 * @param string $clause_key   Optional. The array key used to name the clause in the original `$meta_query`
-	 *                             parameters. If not provided, a key will be generated automatically.
+	 * @param string $clause_key   Optional. The array key used to name the clause in the original
+	 *                             query parameters. If not provided, a key will be generated automatically.
 	 * @return array {
 	 *     Array containing WHERE SQL clauses to append to a first-order query.
 	 *
@@ -96,7 +93,7 @@ class In {
 			}
 
 			// Get pattern and aliased name
-			$name    = str_replace( '__not_in', '', $column );
+			$name    = str_replace( '__in', '', $column );
 			$pattern = $this->caller( 'get_column_field', array( 'name' => $name ), 'pattern', '%s' );
 			$aliased = $this->caller( 'get_column_name_aliased', $name );
 

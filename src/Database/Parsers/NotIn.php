@@ -3,7 +3,7 @@
  * Not In Parser Class.
  *
  * @package     Database
- * @subpackage  Compare
+ * @subpackage  Parsers
  * @copyright   2021-2022 - JJJ and all BerlinDB contributors
  * @license     https://opensource.org/licenses/MIT MIT
  * @since       3.0.0
@@ -14,17 +14,14 @@ namespace BerlinDB\Database\Parsers;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Class used for generating SQL for IN clauses.
+ * Class used for generating SQL for NOT IN clauses.
  *
- * This class is used to generate the SQL when a `compare` argument is passed to
- * the `Base` query class. It extends `Meta` so the `compare` key accepts
- * the same parameters as the ones passed to `Meta`.
+ * This class handles the `{column}__not_in` query vars, generating SQL NOT IN
+ * clauses for columns where the `not_in` schema property is true.
  *
  * @since 3.0.0
  */
-class NotIn {
-
-	use \BerlinDB\Database\Traits\Parser;
+class NotIn extends Base {
 
 	/**
 	 * Determines and validates what first-order keys to use.
@@ -57,8 +54,8 @@ class NotIn {
 	 *
 	 * @param array  $clause       Query clause (passed by reference).
 	 * @param array  $parent_query Parent query array.
-	 * @param string $clause_key   Optional. The array key used to name the clause in the original `$meta_query`
-	 *                             parameters. If not provided, a key will be generated automatically.
+	 * @param string $clause_key   Optional. The array key used to name the clause in the original
+	 *                             query parameters. If not provided, a key will be generated automatically.
 	 * @return array {
 	 *     Array containing WHERE SQL clauses to append to a first-order query.
 	 *

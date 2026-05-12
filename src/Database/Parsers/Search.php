@@ -19,9 +19,7 @@ defined( 'ABSPATH' ) || exit;
  *
  * @since 3.0.0
  */
-class Search {
-
-	use \BerlinDB\Database\Traits\Parser;
+class Search extends Base {
 
 	/**
 	 * Determines and validates what first-order keys to use.
@@ -36,10 +34,10 @@ class Search {
 	 */
 	protected function get_first_keys( $first_keys = array() ) {
 		$first_keys = array();
-		$not_ins    = (array) $this->caller( 'get_columns', array( array( 'searchable' => true ), 'and', 'name' ) );
+		$columns    = (array) $this->caller( 'get_columns', array( 'searchable' => true ), 'and', 'name' );
 
-		foreach ( $not_ins as $not_in ) {
-			$first_keys[] = "{$not_in}_search";
+		foreach ( $columns as $column ) {
+			$first_keys[] = "{$column}_search";
 		}
 
 		return $first_keys;
@@ -54,8 +52,8 @@ class Search {
 	 *
 	 * @param array  $clause       Query clause (passed by reference).
 	 * @param array  $parent_query Parent query array.
-	 * @param string $clause_key   Optional. The array key used to name the clause in the original `$meta_query`
-	 *                             parameters. If not provided, a key will be generated automatically.
+	 * @param string $clause_key   Optional. The array key used to name the clause in the original
+	 *                             query parameters. If not provided, a key will be generated automatically.
 	 * @return array {
 	 *     Array containing WHERE SQL clauses to append to a first-order query.
 	 *
@@ -89,8 +87,15 @@ class Search {
 		// Filter search columns
 		$search_columns = $this->filter_search_columns( $search_columns );
 
+		// Strip the _search suffix and get the aliased SQL column names.
+		$sql_columns = array();
+		foreach ( $search_columns as $key ) {
+			$name          = str_replace( '_search', '', $key );
+			$sql_columns[] = $this->caller( 'get_column_name_aliased', $name ) ?? $name;
+		}
+
 		// Add search query clause
-		$where['search'] = $this->get_search_sql( $clause['search'], $search_columns );
+		$where['search'] = $this->get_search_sql( $clause['search'], $sql_columns );
 
 		// Return join/where
 		return array(
@@ -160,6 +165,11 @@ class Search {
 	 * @return array
 	 */
 	public function filter_search_columns( $search_columns = array() ) {
+
+		// Bail if no caller to fire the filter through.
+		if ( empty( $this->caller ) ) {
+			return $search_columns;
+		}
 
 		/**
 		 * Filters the columns to search by.

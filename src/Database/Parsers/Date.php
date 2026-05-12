@@ -118,9 +118,7 @@ defined( 'ABSPATH' ) || exit;
  *     }
  * }
  */
-class Date {
-
-	use \BerlinDB\Database\Traits\Parser;
+class Date extends Base {
 
 	/**
 	 * Determines and validates what first-order keys to use.

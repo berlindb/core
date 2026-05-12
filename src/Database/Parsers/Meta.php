@@ -84,11 +84,7 @@ defined( 'ABSPATH' ) || exit;
  *     }
  * }
  */
-class Meta {
-
-	use \BerlinDB\Database\Traits\Parser {
-		get_sql as get_trait_sql;
-	}
+class Meta extends Base {
 
 	/**
 	 * Database table to query for the metadata.
@@ -252,8 +248,8 @@ class Meta {
 		$this->primary_table  = $this->sanitize_table_name( $primary_table );
 		$this->primary_column = $this->sanitize_column_name( $primary_column );
 
-		// Return parent.
-		return $this->get_trait_sql( $type, $primary_table, $primary_column );
+		// Delegate to the base implementation.
+		return parent::get_sql( $type, $primary_table, $primary_column );
 	}
 
 	/**
