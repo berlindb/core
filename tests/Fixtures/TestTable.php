@@ -56,7 +56,7 @@ final class TestTable extends Table {
 	 * @var array
 	 */
 	protected $upgrades = array(
-		'202604230.1' => '__202604230',
+		'202604231' => '__202604231',
 	);
 
 	/**
@@ -85,7 +85,7 @@ final class TestTable extends Table {
 	 * @since 2.1.0
 	 * @return bool
 	 */
-	protected function __202604230() {
+	protected function __202604231() {
 		if ( ! $this->column_exists( 'notes' ) ) {
 			$result = $this->get_db()->query(
 				"ALTER TABLE {$this->table_name} ADD COLUMN notes longtext NOT NULL default ''"
@@ -103,5 +103,15 @@ final class TestTable extends Table {
 	 */
 	public function get_db_version_key() {
 		return $this->db_version_key;
+	}
+
+	/**
+	 * Expose the schema version constant for test assertions.
+	 *
+	 * @since 2.1.0
+	 * @return string
+	 */
+	public function get_schema_version(): string {
+		return $this->version;
 	}
 }

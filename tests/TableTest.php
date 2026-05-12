@@ -170,14 +170,27 @@ class TableTest extends TestCase {
 	// Upgrade flow
 	// -------------------------------------------------------------------------
 
+	/**
+	 * Test that an upgrade callback runs and performs its intended schema change.
+	 *
+	 * This indirectly tests that the upgrade() method correctly detects the
+	 * need for an upgrade, runs the callback, and updates the stored version.
+	 *
+	 * Because the upgrade process is triggered by get_version() when the stored
+	 * version is less than the current schema version, this test manually sets
+	 * the stored version to a known pre-upgrade value before calling upgrade().
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_upgrade_runs_callback_and_adds_column() {
-		// The upgrades array has key '202604230.1' > stored version '202604230',
-		// so upgrade() finds it as pending and runs __202604230 which adds
-		// a 'notes' column.
+		$this->assertFalse( self::$table->column_exists( 'notes' ) );
+
+		update_option( self::$table->get_db_version_key(), self::$table->get_schema_version() );
+		self::$table->get_version();
 		self::$table->upgrade();
 
 		$this->assertTrue( self::$table->column_exists( 'notes' ) );
-		$this->assertSame( '202604230.1', self::$table->get_version() );
+		$this->assertSame( '202604231', self::$table->get_version() );
 	}
 
 	// -------------------------------------------------------------------------
