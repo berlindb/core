@@ -128,24 +128,23 @@ class Meta extends Base {
 	public $table_aliases = array();
 
 	/**
-	 * Determines and validates what first-order keys to use.
+	 * Determines what first-order keys this parser recognises.
 	 *
-	 * Use first $first_keys if passed and valid.
+	 * Overrides the Parser trait default to fix the set of keys for meta
+	 * queries: 'key', 'value', and 'meta_query'.
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array $first_keys Array of first-order keys.
+	 * @param array $first_keys Unused. Subclass always returns a fixed set.
 	 *
 	 * @return array The first-order keys.
 	 */
 	protected function get_first_keys( $first_keys = array() ) {
-		$first_keys = array(
+		return array(
 			'key',
 			'value',
-			'meta_query'
+			'meta_query',
 		);
-
-		return $first_keys;
 	}
 
 	/**
@@ -153,8 +152,8 @@ class Meta extends Base {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array $qv     The query variables.
-	 * @param Query $caller Query class.
+	 * @param array                          $qv     The query variables.
+	 * @param \BerlinDB\Database\Query|null  $caller The parent Query instance, or null.
 	 */
 	public function parse_query_vars( $qv = array(), $caller = null ) {
 
@@ -182,7 +181,7 @@ class Meta extends Base {
 			$simple_meta_query['value'] = $qv['meta_value'];
 		}
 
-		// Already exists?
+		// Check for an existing meta_query argument.
 		$existing_meta_query = isset( $qv['meta_query'] ) && is_array( $qv['meta_query'] )
 			? $qv['meta_query']
 			: array();
@@ -263,17 +262,15 @@ class Meta extends Base {
 	 * @param array  $parent_query Parent query array.
 	 * @param string $clause_key   Optional. The array key used to name the clause in the original `$meta_query`
 	 *                             parameters. If not provided, a key will be generated automatically.
-	 * @return string[] {
-	 *     Array containing JOIN and WHERE SQL clauses to append to a first-order query.
+	 * @return array {
+	 *     Array containing JOIN and WHERE SQL clause fragments for a first-order query.
+	 *     Both values are arrays of strings; the caller merges them into final SQL.
 	 *
-	 *     @type string $join  SQL fragment to append to the main JOIN clause.
-	 *     @type string $where SQL fragment to append to the main WHERE clause.
+	 *     @type string[] $join  JOIN fragments to append to the main JOIN clause.
+	 *     @type string[] $where WHERE fragments to append to the main WHERE clause.
 	 * }
 	 */
 	public function get_sql_for_clause( &$clause = array(), $parent_query = array(), $clause_key = '' ) {
-
-		// Get the database interface.
-		$db = $this->get_db();
 
 		// Default return value.
 		$retval = array(
@@ -281,14 +278,16 @@ class Meta extends Base {
 			'join'  => array(),
 		);
 
-		return $retval;
+		// Get the database interface.
+		$db = $this->get_db();
+
+		// Bail if no database.
+		if ( empty( $db ) ) {
+			return $retval;
+		}
 
 		// Default column.
 		$column = 'meta_key';
-
-		$hello = $this->get_first_order_clauses( $clause );
-
-		//var_dump( $hello );
 
 		/** Compare ***********************************************************/
 
@@ -301,8 +300,8 @@ class Meta extends Base {
 		}
 
 		// Operators.
-		$non_numeric_operators = wp_filter_object_list( $this->operators, array( 'numeric' => false ), 'AND', 'compare' );
-		$numeric_operators     = wp_filter_object_list( $this->operators, array( 'numeric' => true  ), 'AND', 'compare' );
+		$non_numeric_operators = $this->get_operators( array( 'numeric' => false ) );
+		$numeric_operators     = $this->get_operators( array( 'numeric' => true  ) );
 
 		// Fallback if bad comparison.
 		if ( ! in_array( $clause['compare'], $non_numeric_operators, true ) && ! in_array( $clause['compare'], $numeric_operators, true ) ) {
@@ -310,6 +309,10 @@ class Meta extends Base {
 		}
 
 		$meta_compare = $clause['compare'];
+
+		// Resolve the SQL operator (may differ from the compare identifier).
+		$operator         = $this->get_operator( $meta_compare );
+		$meta_sql_compare = $operator ? $operator->get_sql_compare() : $meta_compare;
 
 		/** Compare Key *******************************************************/
 
@@ -338,7 +341,7 @@ class Meta extends Base {
 		 */
 		$alias = $this->find_compatible_table_alias( $clause, $parent_query );
 
-		// No compatible alias, sooo make one!
+		// No compatible alias, so make one!
 		if ( false === $alias ) {
 			$i     = count( $this->table_aliases );
 			$alias = ! empty( $i )
@@ -378,11 +381,8 @@ class Meta extends Base {
 		$clause['alias'] = $alias;
 
 		// Determine the data type.
-		$_meta_type      = isset( $clause['type'] )
-			? $clause['type']
-			: '';
-		$meta_type       = $this->get_cast_for_type( $_meta_type );
-		$clause['cast']  = $meta_type;
+		$meta_type      = $this->get_cast_for_type( $clause['type'] ?? '' );
+		$clause['cast'] = $meta_type;
 
 		/**
 		 * Fallback for clause keys is the table alias.
@@ -415,7 +415,12 @@ class Meta extends Base {
 			} else {
 
 				// Get negative operators.
-				$neg = wp_filter_object_list( $this->operators, array( 'positive' => false ), 'AND', 'compare' );
+				$neg = $this->get_operators( array( 'positive' => false ) );
+
+				// Initialize subquery fragments; only populated for negative compare_key operators.
+				$subquery_alias             = '';
+				$meta_compare_string_start  = '';
+				$meta_compare_string_end    = '';
 
 				/**
 				 * In joined clauses negative operators have to be nested into a
@@ -436,8 +441,8 @@ class Meta extends Base {
 
 					// Setup start & end of meta compare SQL.
 					$meta_compare_string_start  = 'NOT EXISTS (';
-					$meta_compare_string_start .= "SELECT 1 FROM {$db->postmeta} {$subquery_alias} ";
-					$meta_compare_string_start .= "WHERE {$subquery_alias}.post_ID = {$alias}.post_ID ";
+					$meta_compare_string_start .= "SELECT 1 FROM {$this->meta_table} {$subquery_alias} ";
+					$meta_compare_string_start .= "WHERE {$subquery_alias}.{$this->meta_column} = {$alias}.{$this->meta_column} ";
 					$meta_compare_string_end    = 'LIMIT 1';
 					$meta_compare_string_end   .= ')';
 				}
@@ -464,13 +469,13 @@ class Meta extends Base {
 
 					case 'RLIKE':
 					case 'REGEXP':
-						$operator = $meta_compare_key;
+						$regex_op = $meta_compare_key;
 						if ( isset( $clause['type_key'] ) && 'BINARY' === strtoupper( $clause['type_key'] ) ) {
 							$cast = 'BINARY';
 						} else {
 							$cast = '';
 						}
-						$where = $db->prepare( "{$alias}.{$column} {$operator} {$cast} %s", trim( $clause['key'] ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+						$where = $db->prepare( "{$alias}.{$column} {$regex_op} {$cast} %s", trim( $clause['key'] ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 						break;
 
 					case '!=':
@@ -491,8 +496,6 @@ class Meta extends Base {
 						break;
 
 					case 'NOT REGEXP':
-						$operator = $meta_compare_key;
-
 						if ( isset( $clause['type_key'] ) && ( 'BINARY' === strtoupper( $clause['type_key'] ) ) ) {
 							$cast = 'BINARY';
 						} else {
@@ -523,11 +526,11 @@ class Meta extends Base {
 
 				// Default.
 				if ( 'CHAR' === $meta_type ) {
-					$retval['where'][] = "{$alias}.{$column} {$meta_compare} {$where}";
+					$retval['where'][] = "{$alias}.{$column} {$meta_sql_compare} {$where}";
 
 				// CAST().
 				} else {
-					$retval['where'][] = "CAST({$alias}.{$column} AS {$meta_type}) {$meta_compare} {$where}";
+					$retval['where'][] = "CAST({$alias}.{$column} AS {$meta_type}) {$meta_sql_compare} {$where}";
 				}
 			}
 		}

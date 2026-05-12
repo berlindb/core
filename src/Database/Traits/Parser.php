@@ -109,134 +109,10 @@ trait Parser {
 	/**
 	 * Array of operators.
 	 *
-	 * Each operator includes an array of attributes to help group them in
-	 * various ways that are relevant to how parsing happens.
-	 *
 	 * @since 3.0.0
 	 * @var array
 	 */
-	public $operators = array(
-
-		// =
-		array(
-			'compare'  => '=',
-			'positive' => true,
-			'multi'    => false,
-			'numeric'  => false
-		),
-		array(
-			'compare'  => '!=',
-			'positive' => false,
-			'multi'    => false,
-			'numeric'  => false
-		),
-
-		// >
-		array(
-			'compare'  => '>',
-			'positive' => true,
-			'multi'    => false,
-			'numeric'  => true
-		),
-		array(
-			'compare'  => '>=',
-			'positive' => true,
-			'multi'    => false,
-			'numeric'  => true
-		),
-
-		// <
-		array(
-			'compare'  => '<',
-			'positive' => true,
-			'multi'    => false,
-			'numeric'  => true
-		),
-		array(
-			'compare'  => '<=',
-			'positive' => true,
-			'multi'    => false,
-			'numeric'  => true
-		),
-
-		// LIKE
-		array(
-			'compare'  => 'LIKE',
-			'positive' => true,
-			'multi'    => false,
-			'numeric'  => false
-		),
-		array(
-			'compare'  => 'NOT LIKE',
-			'positive' => false,
-			'multi'    => false,
-			'numeric'  => false
-		),
-
-		// IN
-		array(
-			'compare'  => 'IN',
-			'positive' => true,
-			'multi'    => true,
-			'numeric'  => false
-		),
-		array(
-			'compare'  => 'NOT IN',
-			'positive' => false,
-			'multi'    => true,
-			'numeric'  => false
-		),
-
-		// BETWEEN
-		array(
-			'compare'  => 'BETWEEN',
-			'positive' => true,
-			'multi'    => true,
-			'numeric'  => true
-		),
-		array(
-			'compare'  => 'NOT BETWEEN',
-			'positive' => false,
-			'multi'    => true,
-			'numeric'  => true
-		),
-
-		// EXISTS
-		array(
-			'compare'  => 'EXISTS',
-			'positive' => true,
-			'multi'    => false,
-			'numeric'  => false
-		),
-		array(
-			'compare'  => 'NOT EXISTS',
-			'positive' => false,
-			'multi'    => false,
-			'numeric'  => false
-		),
-
-		// REGEXP
-		array(
-			'compare'  => 'REGEXP',
-			'positive' => true,
-			'multi'    => false,
-			'numeric'  => false
-		),
-		array(
-			'compare'  => 'NOT REGEXP',
-			'positive' => false,
-			'multi'    => false,
-			'numeric'  => false
-		),
-
-		// RLIKE
-		array(
-			'compare'  => 'RLIKE',
-			'positive' => true,
-			'multi'    => false,
-			'numeric'  => false
-		)
-	);
+	public $operators = array();
 
 	/**
 	 * Supported multi-value comparison types.
@@ -308,6 +184,9 @@ trait Parser {
 		$this->set_caller( $caller );
 		$this->set_first_keys( array() );
 
+		// Set the operators.
+		$this->set_operators();
+
 		// Set default class attributes from query.
 		$this->now           = $this->get_now( $query_vars );
 		$this->column        = $this->get_column( $query_vars );
@@ -344,6 +223,52 @@ trait Parser {
 	 */
 	protected function set_first_keys( $first_keys = array() ) {
 		$this->first_keys = $this->get_first_keys( $first_keys );
+	}
+
+	/**
+	 * Return all operator instances, built once per request.
+	 *
+	 * Instantiates each concrete Operator class from the Operators/ directory
+	 * and caches the result statically so the cost is paid only once.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @return \BerlinDB\Database\Operators\Base[]
+	 */
+	protected function set_operators() {
+		static $instances = null;
+
+		if ( null === $instances ) {
+
+			// Known classes.
+			$classes = array(
+				'BerlinDB\\Database\\Operators\\Between',
+				'BerlinDB\\Database\\Operators\\Equal',
+				'BerlinDB\\Database\\Operators\\Exists',
+				'BerlinDB\\Database\\Operators\\GreaterThan',
+				'BerlinDB\\Database\\Operators\\GreaterThanOrEqual',
+				'BerlinDB\\Database\\Operators\\In',
+				'BerlinDB\\Database\\Operators\\LessThan',
+				'BerlinDB\\Database\\Operators\\LessThanOrEqual',
+				'BerlinDB\\Database\\Operators\\Like',
+				'BerlinDB\\Database\\Operators\\NotBetween',
+				'BerlinDB\\Database\\Operators\\NotEqual',
+				'BerlinDB\\Database\\Operators\\NotExists',
+				'BerlinDB\\Database\\Operators\\NotIn',
+				'BerlinDB\\Database\\Operators\\NotLike',
+				'BerlinDB\\Database\\Operators\\NotRegexp',
+				'BerlinDB\\Database\\Operators\\Regexp',
+				'BerlinDB\\Database\\Operators\\Rlike',
+			);
+
+			// Instantiate the classes.
+			$instances = array_map( static function ( $class ) {
+				return new $class();
+			}, $classes );
+		}
+
+		// Set operators.
+		$this->operators = $instances;
 	}
 
 	/**
@@ -515,18 +440,51 @@ trait Parser {
 	}
 
 	/**
-	 * Get $operators, possibly filtered & plucked.
+	 * Get operators, possibly filtered & plucked.
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array       $filter Optional. An array of key => value arguments to match
-	 *                            against each object. Default empty array.
-	 * @param bool|string $field  Optional. A field from the object to place instead
-	 *                            of the entire object. Default false.
+	 * @param array       $filter Optional. Key => value pairs to match against each
+	 *                            operator's properties. Default empty array.
+	 * @param bool|string $field  Optional. A property name to pluck from each operator
+	 *                            instead of returning the full object. Default 'compare'.
 	 * @return array
 	 */
 	public function get_operators( $filter = array(), $field = 'compare' ) {
 		return wp_filter_object_list( $this->operators, $filter, 'and', $field );
+	}
+
+	/**
+	 * Get a single operator instance by an array of property arguments.
+	 *
+	 * Mirrors Query::get_column_by(). Passes $args into get_operators() with
+	 * no field pluck so full objects are returned, then returns the first match.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param array $args Key => value pairs to match against operator properties.
+	 *
+	 * @return \BerlinDB\Database\Operators\Base|false The first matching operator, or false.
+	 */
+	protected function get_operator_by( $args = array() ) {
+		$filter = $this->get_operators( $args, false );
+
+		return ! empty( $filter )
+			? reset( $filter )
+			: false;
+	}
+
+	/**
+	 * Get a single operator instance by its compare string.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param string $compare The SQL operator string, e.g. '=', 'IN', 'NOT LIKE'.
+	 *
+	 * @return \BerlinDB\Database\Operators\Base|false The matching operator, or false.
+	 */
+	protected function get_operator( $compare = '' ) {
+		return $this->get_operator_by( array( 'compare' => $compare ) );
 	}
 
 	/**
@@ -868,7 +826,7 @@ trait Parser {
 		}
 
 		// Get all comparison operators.
-		$all_compares = $this->$this->get_operators();
+		$all_compares = $this->get_operators();
 
 		// Fallback to equals
 		if ( ! in_array( $clause['compare'], $all_compares, true ) ) {
@@ -885,6 +843,10 @@ trait Parser {
 		// Get comparison from clause
 		$compare = $clause['compare'];
 
+		// Resolve the SQL operator (may differ from the compare identifier).
+		$operator    = $this->get_operator( $compare );
+		$sql_compare = $operator ? $operator->get_sql_compare() : $compare;
+
 		/** Build the WHERE clause ********************************************/
 
 		// Column name and value.
@@ -894,7 +856,7 @@ trait Parser {
 
 			// Maybe add column, compare, & where to return value.
 			if ( ! empty( $where ) ) {
-				$retval['where'][] = "{$column} {$compare} {$where}";
+				$retval['where'][] = "{$column} {$sql_compare} {$where}";
 			}
 		}
 
@@ -979,6 +941,8 @@ trait Parser {
 		return preg_replace( '/[^a-zA-Z0-9_$\.]/', '', $column );
 	}
 
+	/** Builders **************************************************************/
+
 	/**
 	 * Builds and validates a value string based on the comparison operator.
 	 *
@@ -1055,70 +1019,15 @@ trait Parser {
 	 */
 	protected function build_value( $compare = '=', $value = null, $pattern = '%s' ) {
 
-		// Get the database interface.
-		$db = $this->get_db();
+		// Look up the operator instance for this compare string.
+		$operator = $this->get_operator( $compare );
 
-		// Bail if no database.
-		if ( empty( $db ) ) {
-			return '';
+		// Fall back to Equal for any unrecognised compare string.
+		if ( false === $operator ) {
+			$operator = $this->get_operator( '=' );
 		}
 
-		// Maybe split value by commas & spaces if multi.
-		if ( is_scalar( $value ) ) {
-
-			// Trim empties.
-			$value = trim( $value );
-
-			// Get multi-value comparison operators.
-			$mvk   = $this->get_operators( array( 'multi' => true ) );
-
-			/**
-			 * Maybe split value by commas or spaces to support certain multi-
-			 * value compare keys with values like: "100, 200".
-			 */
-			if ( in_array( $compare, $mvk, true ) ) {
-				$value = preg_split( '/[,\s]+/', $value );
-			}
-		}
-
-		// Compare.
-		switch ( $compare ) {
-			case 'IN':
-			case 'NOT IN':
-				$in     = '(' . substr( str_repeat( ",{$pattern}", count( $value ) ), 1 ) . ')';
-				$retval = $db->prepare( $in, $value );
-				break;
-
-			case 'BETWEEN':
-			case 'NOT BETWEEN':
-				$value  = array_slice( $value, 0, 2 );
-				$retval = $db->prepare( "{$pattern} AND {$pattern}", $value );
-				break;
-
-			case 'LIKE':
-			case 'NOT LIKE':
-				$value  = '%' . $db->esc_like( $value ) . '%';
-				$retval = $db->prepare( $pattern, $value );
-				break;
-
-			// EXISTS with a value is interpreted as '='.
-			case 'EXISTS':
-				$compare = '=';
-				$retval  = $db->prepare( $pattern, $value );
-				break;
-
-			// 'value' is ignored for NOT EXISTS.
-			case 'NOT EXISTS':
-				$retval = '';
-				break;
-
-			default:
-				$retval = $db->prepare( $pattern, $value );
-				break;
-		}
-
-		// Return
-		return $retval;
+		return $operator->get_sql( $value, $pattern );
 	}
 
 	/**
@@ -1558,6 +1467,17 @@ trait Parser {
 		return $retval;
 	}
 
+	/**
+	 * Call a method on the caller if it exists.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param string $method Method name.
+	 * @param array  ...$args Optional. Arguments to pass to the method.
+	 *
+	 * @return mixed|null The return value of the called method, or null if no
+	 *                    caller or method does not exist.
+	 */
 	protected function caller( $method = '', ...$args ) {
 
 		// Bail if no caller

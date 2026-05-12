@@ -6,7 +6,7 @@
  * @subpackage  Date
  * @copyright   2021-2022 - JJJ and all BerlinDB contributors
  * @license     https://opensource.org/licenses/MIT MIT
- * @since       1.0.0
+ * @since       3.0.0
  */
 namespace BerlinDB\Database\Parsers;
 

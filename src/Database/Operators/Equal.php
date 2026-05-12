@@ -1,0 +1,54 @@
+<?php
+/**
+ * Equal Operator.
+ *
+ * @package     Database
+ * @subpackage  Operators
+ * @copyright   2021-2022 - JJJ and all BerlinDB contributors
+ * @license     https://opensource.org/licenses/MIT MIT
+ * @since       3.0.0
+ */
+namespace BerlinDB\Database\Operators;
+
+defined( 'ABSPATH' ) || exit;
+
+/**
+ * Equality operator (=).
+ *
+ * The default comparison operator. Generates a value fragment prepared for
+ * use in `{column} = {value}` expressions.
+ *
+ * @since 3.0.0
+ */
+class Equal extends Base {
+
+	/**
+	 * @since 3.0.0
+	 * @var string
+	 */
+	protected $name = 'Equal';
+
+	/**
+	 * @since 3.0.0
+	 * @var string
+	 */
+	protected $compare = '=';
+
+	/**
+	 * @since 3.0.0
+	 * @var bool
+	 */
+	protected $positive = true;
+
+	/**
+	 * @since 3.0.0
+	 * @var bool
+	 */
+	protected $multi = false;
+
+	/**
+	 * @since 3.0.0
+	 * @var bool
+	 */
+	protected $numeric = false;
+}

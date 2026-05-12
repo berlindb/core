@@ -6,7 +6,7 @@
  * @subpackage  Parsers
  * @copyright   2021-2022 - JJJ and all BerlinDB contributors
  * @license     https://opensource.org/licenses/MIT MIT
- * @since       1.0.0
+ * @since       3.0.0
  */
 namespace BerlinDB\Database\Parsers;
 
@@ -18,11 +18,11 @@ defined( 'ABSPATH' ) || exit;
  *
  * This class generates SQL when `key` and `value` arguments are passed,
  * supporting all standard comparison operators via the `compare` key.
- * It extends `Meta` to reuse its JOIN and value-building infrastructure.
+ * All required methods are provided by the Traits\Parser trait via Base.
  *
  * @since 3.0.0
  */
-class Compare extends Meta {
+class Compare extends Base {
 
 	/**
 	 * Determines and validates what first-order keys to use.
@@ -42,7 +42,7 @@ class Compare extends Meta {
 	 *
 	 * "First-order" means that it's an array with a 'key' or 'value'.
 	 *
-	 * @since 1.0.0
+	 * @since 3.0.0
 	 *
 	 * @param array  $clause       Query clause (passed by reference).
 	 * @param array  $parent_query Parent query array.
@@ -91,6 +91,10 @@ class Compare extends Meta {
 		// Get comparison from clause
 		$compare = $clause['compare'];
 
+		// Resolve the SQL operator (may differ from the compare identifier).
+		$operator    = $this->get_operator( $compare );
+		$sql_compare = $operator ? $operator->get_sql_compare() : $compare;
+
 		/** Build the WHERE clause ********************************************/
 
 		// Column name (sanitised) and value.
@@ -101,7 +105,7 @@ class Compare extends Meta {
 
 			// Maybe add column, compare, & where to return value.
 			if ( ! empty( $where ) ) {
-				$retval['where'][] = "{$column} {$compare} {$where}";
+				$retval['where'][] = "{$column} {$sql_compare} {$where}";
 			}
 		}
 

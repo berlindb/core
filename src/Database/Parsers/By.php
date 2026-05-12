@@ -1,6 +1,6 @@
 <?php
 /**
- * In Query Var Parser Class.
+ * By Query Var Parser Class.
  *
  * @package     Database
  * @subpackage  Parsers

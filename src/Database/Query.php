@@ -447,7 +447,7 @@ class Query {
 					'column_filter' => array( 'searchable' => true ),
 					'column_suffix' => '_search',
 					'class_name'    => __NAMESPACE__ . '\\Parsers\\Search',
-					'default'       => null,
+					'default'       => '',
 				),
 
 				// Date
@@ -1424,15 +1424,30 @@ class Query {
 				 * for now we can kludge it in.
 				 */
 				if ( is_array( $query_vars[ $parser['query_var'] ] ) && empty( $query_vars[ $parser['query_var'] ][ 'alias'] ) ) {
-					$query_vars[ $parser['query_var'] ][ 'alias'] = $args['table_alias'];
+					$query_vars[ $parser['query_var'] ][ 'alias'] = $args['primary_alias'];
 				}
 
 				/**
-				 * Maybe narrow the scope to just this $query_var, if not
-				 * default $query_var value.
+				 * Narrow the scope to just this parser's query_var sub-array,
+				 * but only when the user has explicitly set it to an array value
+				 * (i.e. not the default sentinel and not a scalar). This restricts
+				 * narrowing to Meta, Date, and Compare parsers, which expect an
+				 * array of clauses (e.g. meta_query, date_query, compare_query).
+				 *
+				 * By has a null query_var so this branch never fires.
+				 * In/NotIn: users set {col}__in at the top level; in_query stays
+				 *   at its sentinel so the sentinel check below stays false.
+				 * Search: uses a scalar 'search' key at the top level of
+				 *   $query_vars; it needs the full array so its clause handler
+				 *   can read $clause['search'] and $clause['search_columns'].
+				 *   The is_array() guard keeps it on the full $query_vars.
 				 */
-				if ( $this->query_var_default_value !== $query_vars[ $parser['query_var'] ] ) {
-					//$qv = $query_vars[ $parser['query_var'] ];
+				if (
+					$this->query_var_default_value !== $query_vars[ $parser['query_var'] ]
+					&&
+					is_array( $query_vars[ $parser['query_var'] ] )
+				) {
+					$qv = $query_vars[ $parser['query_var'] ];
 				}
 			}
 

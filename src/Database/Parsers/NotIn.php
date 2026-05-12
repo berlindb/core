@@ -1,6 +1,6 @@
 <?php
 /**
- * Not In Parser Class.
+ * Not In Query Var Parser Class.
  *
  * @package     Database
  * @subpackage  Parsers
