@@ -22,6 +22,36 @@ defined( 'ABSPATH' ) || exit;
 class Search extends Base {
 
 	/**
+	 * @since 3.0.0
+	 * @var string
+	 */
+	protected $name = 'search';
+
+	/**
+	 * @since 3.0.0
+	 * @var string|null
+	 */
+	protected $query_var = 'search';
+
+	/**
+	 * @since 3.0.0
+	 * @var array
+	 */
+	protected $column_filter = array( 'searchable' => true );
+
+	/**
+	 * @since 3.0.0
+	 * @var string
+	 */
+	protected $column_suffix = '_search';
+
+	/**
+	 * @since 3.0.0
+	 * @var string
+	 */
+	protected $default = '';
+
+	/**
 	 * Determines and validates what first-order keys to use.
 	 *
 	 * Use first $first_keys if passed and valid.

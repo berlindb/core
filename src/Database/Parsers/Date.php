@@ -121,6 +121,36 @@ defined( 'ABSPATH' ) || exit;
 class Date extends Base {
 
 	/**
+	 * @since 3.0.0
+	 * @var string
+	 */
+	protected $name = 'date';
+
+	/**
+	 * @since 3.0.0
+	 * @var string|null
+	 */
+	protected $query_var = 'date_query';
+
+	/**
+	 * @since 3.0.0
+	 * @var array
+	 */
+	protected $column_filter = array( 'date_query' => true );
+
+	/**
+	 * @since 3.0.0
+	 * @var string
+	 */
+	protected $column_suffix = '_query';
+
+	/**
+	 * @since 3.0.0
+	 * @var mixed
+	 */
+	protected $default = null;
+
+	/**
 	 * Determines and validates what first-order keys to use.
 	 *
 	 * Use first $first_keys if passed and valid.

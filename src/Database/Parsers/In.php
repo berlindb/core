@@ -24,6 +24,36 @@ defined( 'ABSPATH' ) || exit;
 class In extends Base {
 
 	/**
+	 * @since 3.0.0
+	 * @var string
+	 */
+	protected $name = 'in';
+
+	/**
+	 * @since 3.0.0
+	 * @var string|null
+	 */
+	protected $query_var = 'in_query';
+
+	/**
+	 * @since 3.0.0
+	 * @var array
+	 */
+	protected $column_filter = array( 'in' => true );
+
+	/**
+	 * @since 3.0.0
+	 * @var string
+	 */
+	protected $column_suffix = '__in';
+
+	/**
+	 * @since 3.0.0
+	 * @var mixed
+	 */
+	protected $default = null;
+
+	/**
 	 * Determines and validates what first-order keys to use.
 	 *
 	 * Use first $first_keys if passed and valid.

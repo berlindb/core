@@ -27,6 +27,50 @@ abstract class Base {
 	use \BerlinDB\Database\Traits\Parser;
 
 	/**
+	 * Internal identifier for this parser.
+	 *
+	 * @since 3.0.0
+	 * @var string
+	 */
+	protected $name = '';
+
+	/**
+	 * Top-level query var key this parser consumes, or null when the parser
+	 * operates directly on per-column query vars (e.g. By).
+	 *
+	 * @since 3.0.0
+	 * @var string|null
+	 */
+	protected $query_var = null;
+
+	/**
+	 * Column filter passed to get_column_names() to select relevant columns.
+	 * An empty array means all columns are considered.
+	 *
+	 * @since 3.0.0
+	 * @var array
+	 */
+	protected $column_filter = array();
+
+	/**
+	 * Suffix appended to each matching column name to form the per-column
+	 * query var key (e.g. '_search', '__in').
+	 *
+	 * @since 3.0.0
+	 * @var string
+	 */
+	protected $column_suffix = '';
+
+	/**
+	 * Default value for the query var. Null defers to
+	 * Query::$query_var_default_value.
+	 *
+	 * @since 3.0.0
+	 * @var mixed
+	 */
+	protected $default = null;
+
+	/**
 	 * Generate SQL JOIN and WHERE clauses for a first-order query clause.
 	 *
 	 * "First-order" means that it's an array with a recognised first-order key

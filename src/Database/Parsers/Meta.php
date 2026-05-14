@@ -87,6 +87,36 @@ defined( 'ABSPATH' ) || exit;
 class Meta extends Base {
 
 	/**
+	 * @since 3.0.0
+	 * @var string
+	 */
+	protected $name = 'meta';
+
+	/**
+	 * @since 3.0.0
+	 * @var string|null
+	 */
+	protected $query_var = 'meta_query';
+
+	/**
+	 * @since 3.0.0
+	 * @var array
+	 */
+	protected $column_filter = array( 'primary' => true );
+
+	/**
+	 * @since 3.0.0
+	 * @var string
+	 */
+	protected $column_suffix = '_meta';
+
+	/**
+	 * @since 3.0.0
+	 * @var mixed
+	 */
+	protected $default = null;
+
+	/**
 	 * Database table to query for the metadata.
 	 *
 	 * @since 3.0.0

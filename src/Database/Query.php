@@ -236,15 +236,29 @@ class Query {
 	protected $query_var_default_value = '';
 
 	/**
-	 * Query var parsers.
+	 * Ordered list of fully-qualified Parser class names.
 	 *
-	 * An array of special classes used to parse Magic $query_vars into
-	 * $query_clauses.
+	 * Each entry must be the name of a class that extends Parsers\Base and
+	 * declares its own descriptor properties ($name, $query_var, etc.).
+	 * Subclasses can override this property before sunrise() runs to replace
+	 * or extend the default set of parsers.
 	 *
 	 * @since 3.0.0
-	 * @var   array
+	 * @var   string[]
 	 */
 	protected $query_var_parsers = array();
+
+	/**
+	 * Map of instantiated parser descriptor objects, keyed by parser name.
+	 *
+	 * Populated during set_query_var_defaults() from $query_var_parsers.
+	 * Each value is a no-args instance of a Parsers\Base subclass, used to
+	 * read descriptor properties and as the source for parse_where_parsers().
+	 *
+	 * @since 3.0.0
+	 * @var   \BerlinDB\Database\Parsers\Base[]
+	 */
+	protected $parsers = array();
 
 	/** Results ***************************************************************/
 
@@ -403,83 +417,23 @@ class Query {
 	}
 
 	/**
-	 * Set query var parsers.
+	 * Populate $query_var_parsers with the default set of Parser class names.
+	 *
+	 * Only runs when $query_var_parsers is empty, so a subclass can replace
+	 * the entire list by declaring the property before sunrise() is called.
 	 *
 	 * @since 3.0.0
 	 */
 	private function set_query_var_parsers() {
 		if ( empty( $this->query_var_parsers ) ) {
 			$this->query_var_parsers = array(
-
-				// By
-				array(
-					'name'          => 'by',
-					'query_var'     => null,
-					'column_filter' => array(),
-					'column_suffix' => '',
-					'class_name'    => __NAMESPACE__ . '\\Parsers\\By',
-					'default'       => null,
-				),
-
-				// In
-				array(
-					'name'          => 'in',
-					'query_var'     => 'in_query',
-					'column_filter' => array( 'in' => true ),
-					'column_suffix' => '__in',
-					'class_name'    => __NAMESPACE__ . '\\Parsers\\In',
-					'default'       => null,
-				),
-
-				// Not In
-				array(
-					'name'          => 'not_in',
-					'query_var'     => 'not_in_query',
-					'column_filter' => array( 'not_in' => true ),
-					'column_suffix' => '__not_in',
-					'class_name'    => __NAMESPACE__ . '\\Parsers\\NotIn',
-					'default'       => null,
-				),
-
-				// Searchable
-				array(
-					'name'          => 'search',
-					'query_var'     => 'search',
-					'column_filter' => array( 'searchable' => true ),
-					'column_suffix' => '_search',
-					'class_name'    => __NAMESPACE__ . '\\Parsers\\Search',
-					'default'       => '',
-				),
-
-				// Date
-				array(
-					'name'          => 'date',
-					'query_var'     => 'date_query',
-					'column_filter' => array( 'date_query' => true ),
-					'column_suffix' => '_query',
-					'class_name'    => __NAMESPACE__ . '\\Parsers\\Date',
-					'default'       => null,
-				),
-
-				// Meta
-				array(
-					'name'          => 'meta',
-					'query_var'     => 'meta_query',
-					'column_filter' => array( 'primary' => true ),
-					'column_suffix' => '_meta',
-					'class_name'    => __NAMESPACE__ . '\\Parsers\\Meta',
-					'default'       => null,
-				),
-
-				// Compare
-				array(
-					'name'          => 'compare',
-					'query_var'     => 'compare_query',
-					'column_filter' => array( 'primary' => true ),
-					'column_suffix' => '_compare',
-					'class_name'    => __NAMESPACE__ . '\\Parsers\\Compare',
-					'default'       => null,
-				),
+				__NAMESPACE__ . '\\Parsers\\By',
+				__NAMESPACE__ . '\\Parsers\\In',
+				__NAMESPACE__ . '\\Parsers\\NotIn',
+				__NAMESPACE__ . '\\Parsers\\Search',
+				__NAMESPACE__ . '\\Parsers\\Date',
+				__NAMESPACE__ . '\\Parsers\\Meta',
+				__NAMESPACE__ . '\\Parsers\\Compare',
 			);
 		}
 	}
@@ -561,47 +515,36 @@ class Query {
 		$this->parsers = array();
 
 		// Loop through query var parsers
-		foreach ( $this->query_var_parsers as $parser ) {
-
-			// Parse arguments
-			$r = wp_parse_args( $parser, array(
-				'name'          => '',
-				'query_var'     => null,
-				'column_filter' => array(),
-				'column_suffix' => '',
-				'class_name'    => '',
-				'default'       => null,
-			) );
-
-			// Get the parser class name.
-			$class = $r['class_name'];
+		foreach ( $this->query_var_parsers as $class ) {
 
 			// Skip if no class.
 			if ( ! class_exists( $class ) ) {
 				continue;
 			}
 
+			// Instantiate to read descriptor properties.
+			$parser = new $class;
+
 			// Setup the parser.
-			$this->parsers[ $r['name'] ] = new $class;
+			$this->parsers[ $parser->name ] = $parser;
 
 			// Maybe add query var alone
-			if ( ! empty( $r['query_var'] ) ) {
-				$key                              = $r['query_var'];
-				$this->query_var_defaults[ $key ] = ( null === $r['default'] )
+			if ( ! empty( $parser->query_var ) ) {
+				$this->query_var_defaults[ $parser->query_var ] = ( null === $parser->default )
 					? $this->query_var_default_value
-					: $r['default'];
+					: $parser->default;
 			}
 
 			// Get column names.
-			$columns = $this->get_column_names( $r['column_filter'] );
+			$columns = $this->get_column_names( $parser->column_filter );
 
 			// Add to defaults
 			if ( ! empty( $columns ) ) {
 				foreach ( $columns as $column ) {
-					$key                              = "{$column}{$r['column_suffix']}";
-					$this->query_var_defaults[ $key ] = ( null === $r['default'] )
+					$key                              = "{$column}{$parser->column_suffix}";
+					$this->query_var_defaults[ $key ] = ( null === $parser->default )
 						? $this->query_var_default_value
-						: $r['default'];
+						: $parser->default;
 				}
 			}
 		}
@@ -1378,8 +1321,8 @@ class Query {
 	 */
 	private function parse_where_parsers( $query_vars = array() ) {
 
-		// Bail if no query var parsers
-		if ( empty( $this->query_var_parsers ) ) {
+		// Bail if no parsers
+		if ( empty( $this->parsers ) ) {
 			return array(
 				'join'  => array(),
 				'where' => array()
@@ -1400,23 +1343,16 @@ class Query {
 		$join = $where = array();
 
 		// Loop through parsers
-		foreach ( $this->query_var_parsers as $parser ) {
+		foreach ( $this->parsers as $key => $descriptor ) {
 
-			// Skip if no name.
-			if ( empty( $parser['name'] ) ) {
-				continue;
-			}
-
-			// Skip if no class.
-			if ( ! class_exists( $parser['class_name'] ) ) {
-				continue;
-			}
+			// Derive the class from the already-instantiated descriptor.
+			$class = get_class( $descriptor );
 
 			// Default to all $query_vars.
 			$qv = $query_vars;
 
 			// Check if $query_vars contains the query_var for this parser
-			if ( ! is_null( $parser['query_var'] ) && ! empty( $query_vars[ $parser['query_var'] ] ) ) {
+			if ( ! is_null( $descriptor->query_var ) && ! empty( $query_vars[ $descriptor->query_var ] ) ) {
 
 				/**
 				 * Maybe add table alias to primary clause if not already set.
@@ -1424,8 +1360,8 @@ class Query {
 				 * This will likely be a requirement in a future version, but
 				 * for now we can kludge it in.
 				 */
-				if ( is_array( $query_vars[ $parser['query_var'] ] ) && empty( $query_vars[ $parser['query_var'] ][ 'alias'] ) ) {
-					$query_vars[ $parser['query_var'] ][ 'alias'] = $args['primary_alias'];
+				if ( is_array( $query_vars[ $descriptor->query_var ] ) && empty( $query_vars[ $descriptor->query_var ][ 'alias'] ) ) {
+					$query_vars[ $descriptor->query_var ][ 'alias'] = $args['primary_alias'];
 				}
 
 				/**
@@ -1444,17 +1380,13 @@ class Query {
 				 *   The is_array() guard keeps it on the full $query_vars.
 				 */
 				if (
-					$this->query_var_default_value !== $query_vars[ $parser['query_var'] ]
+					$this->query_var_default_value !== $query_vars[ $descriptor->query_var ]
 					&&
-					is_array( $query_vars[ $parser['query_var'] ] )
+					is_array( $query_vars[ $descriptor->query_var ] )
 				) {
-					$qv = $query_vars[ $parser['query_var'] ];
+					$qv = $query_vars[ $descriptor->query_var ];
 				}
 			}
-
-			// Set the key from the name
-			$key   = $parser['name'];
-			$class = $parser['class_name'];
 
 			// Try to get the query var parser
 			$new_parser = new $class( $qv, $this );

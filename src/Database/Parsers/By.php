@@ -25,6 +25,36 @@ defined( 'ABSPATH' ) || exit;
 class By extends Base {
 
 	/**
+	 * @since 3.0.0
+	 * @var string
+	 */
+	protected $name = 'by';
+
+	/**
+	 * @since 3.0.0
+	 * @var string|null
+	 */
+	protected $query_var = null;
+
+	/**
+	 * @since 3.0.0
+	 * @var array
+	 */
+	protected $column_filter = array();
+
+	/**
+	 * @since 3.0.0
+	 * @var string
+	 */
+	protected $column_suffix = '';
+
+	/**
+	 * @since 3.0.0
+	 * @var mixed
+	 */
+	protected $default = null;
+
+	/**
 	 * Determines and validates what first-order keys to use.
 	 *
 	 * Use first $first_keys if passed and valid.

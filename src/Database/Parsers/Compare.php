@@ -25,6 +25,36 @@ defined( 'ABSPATH' ) || exit;
 class Compare extends Base {
 
 	/**
+	 * @since 3.0.0
+	 * @var string
+	 */
+	protected $name = 'compare';
+
+	/**
+	 * @since 3.0.0
+	 * @var string|null
+	 */
+	protected $query_var = 'compare_query';
+
+	/**
+	 * @since 3.0.0
+	 * @var array
+	 */
+	protected $column_filter = array( 'primary' => true );
+
+	/**
+	 * @since 3.0.0
+	 * @var string
+	 */
+	protected $column_suffix = '_compare';
+
+	/**
+	 * @since 3.0.0
+	 * @var mixed
+	 */
+	protected $default = null;
+
+	/**
 	 * Determines and validates what first-order keys to use.
 	 *
 	 * @since 3.0.0
