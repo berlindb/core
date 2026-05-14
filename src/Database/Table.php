@@ -646,7 +646,7 @@ class Table {
 
 		// Maybe append comment
 		if ( ! empty( $this->comment ) ) {
-			$sql[] = "COMMENT='{$this->comment}'";
+			$sql[] = "COMMENT='" . addslashes( $this->comment ) . "'";
 		}
 
 		// Query statement

@@ -209,7 +209,7 @@ class Index {
 
 		// Optionally specify comment if set.
 		if ( '' !== $this->comment ) {
-			$sql .= ' COMMENT ' . "'{$this->comment}'";
+			$sql .= ' COMMENT ' . "'" . addslashes( $this->comment ) . "'";
 		}
 
 		return $sql;
