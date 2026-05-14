@@ -6,7 +6,7 @@
  * @subpackage  Index
  * @copyright   2021-2026 - JJJ and all BerlinDB contributors
  * @license     https://opensource.org/licenses/MIT MIT
- * @since       1.0.0
+ * @since       3.0.0
  */
 namespace BerlinDB\Database;
 
@@ -17,18 +17,19 @@ defined( 'ABSPATH' ) || exit;
  *
  * Mirrors Column class, but for index registration & management.
  *
- * @since 1.0.0
+ * @since 3.0.0
  *
  * @param array|string $args {
+ *
  *     Optional. Array or query string of index parameters. Default empty.
  *
- *     @type string        $name        Name of the index
- *     @type string        $type        Index type: primary, unique, key, fulltext
- *     @type array         $columns     Array of column names included in this index
- *     @type bool          $unique      Is this index unique?
- *     @type string        $method      Index method: BTREE, HASH, etc
- *     @type string        $comment     Optional comment for the index
- *     @type string        $using       USING clause for index type (optional)
+ *     @type string   $name      Name of the index.
+ *     @type string   $type      Index type: primary, unique, key, fulltext.
+ *     @type array    $columns   Array of column names included in this index.
+ *     @type bool     $unique    Is this index unique?
+ *     @type string   $method    Index method: BTREE, HASH, etc.
+ *     @type string   $comment   Optional comment for the index.
+ *     @type string   $using     USING clause for index type (optional).
  * }
  */
 class Index {
@@ -40,97 +41,185 @@ class Index {
 
 	/**
 	 * Name for the database index.
-	 * @var string
+	 *
+	 * @since 3.0.0
+	 * @var   string Default empty string.
 	 */
 	public $name = '';
 
 	/**
-	 * Index type (primary, unique, key, fulltext)
-	 * @var string
+	 * Index type (primary, unique, key, fulltext).
+	 *
+	 * @since 3.0.0
+	 * @var   string Default 'key'.
 	 */
 	public $type = 'key';
 
 	/**
 	 * Array of columns the index consists of.
-	 * @var array
+	 *
+	 * @since 3.0.0
+	 * @var   array  Default empty array.
 	 */
 	public $columns = array();
 
 	/**
 	 * Is this index unique?
-	 * @var bool
+	 *
+	 * @since 3.0.0
+	 * @var   bool   Default false.
 	 */
 	public $unique = false;
 
 	/**
 	 * Index method (BTREE, HASH, etc.)
-	 * @var string
+	 *
+	 * @since 3.0.0
+	 * @var   string Default 'BTREE'.
 	 */
 	public $method = 'BTREE';
 
 	/**
 	 * Optional comment for the index.
-	 * @var string
+	 *
+	 * @since 3.0.0
+	 * @var   string Default empty string.
 	 */
 	public $comment = '';
 
 	/**
 	 * Optional USING clause for advanced index type specification.
-	 * @var string
+	 *
+	 * @since 3.0.0
+	 * @var   string Default empty string.
 	 */
 	public $using = '';
 
-	/** Argument validation *************************************/
-	protected function validate_args($args = array()) {
+	/** Argument validation ***************************************************/
+
+	/**
+	* Normalize and sanitize all arguments passed to Index.
+	*
+	* @since 3.0.0
+	*
+	* @param array $args
+	*
+	* @return array
+	*/
+	protected function validate_args( $args = array() ) {
+
+		// Array of callbacks for specific keys.
 		$callbacks = array(
-			'name'    => array($this, 'sanitize_index_name'),
+			'name'    => array( $this, 'sanitize_index_name' ),
 			'type'    => 'strtolower',
 			'unique'  => 'wp_validate_boolean',
 			'method'  => 'strtoupper',
 			'comment' => 'wp_kses_data',
 			'using'   => 'strtoupper',
-			'columns' => array($this, 'sanitize_columns'),
+			'columns' => array( $this, 'sanitize_columns' ),
 		);
+
+		// Default values for all keys.
 		$r = array();
-		foreach ($args as $key => $value) {
-			if (isset($callbacks[$key]) && is_callable($callbacks[$key])) {
-				$r[$key] = call_user_func($callbacks[$key], $value);
+
+		// Loop through each argument, sanitize if possible.
+		foreach ( $args as $key => $value ) {
+
+			// If a callback is set for this key, use it.
+			if ( isset( $callbacks[ $key ] ) && is_callable( $callbacks[ $key ] ) ) {
+				$r[ $key ] = call_user_func( $callbacks[ $key ], $value );
+
+			// Otherwise assign the value as-is.
 			} else {
-				$r[$key] = $value;
+				$r[ $key ] = $value;
 			}
 		}
+
+		// Return validated arguments.
 		return $r;
 	}
 
-	/** Get CREATE clause for this index. */
+	/** Public Helpers ********************************************************/
+
+	/**
+	* Get the CREATE clause for this index.
+	*
+	* @since 3.0.0
+	*
+	* @return string
+	*/
 	public function get_create_string() {
-		if (empty($this->name) || empty($this->columns)) return '';
-		$columns = array_map(function($col) { return "`$col`"; }, $this->columns);
-		$type = strtoupper($this->type);
-		$sql = '';
-		if ($type === 'PRIMARY') {
-			$sql = 'PRIMARY KEY (' . implode(', ', $columns) . ')';
-		} elseif ($this->unique || $type === 'UNIQUE') {
-			$sql = 'UNIQUE KEY `'.$this->name.'` (' . implode(', ', $columns) . ')';
-		} elseif ($type === 'FULLTEXT') {
-			$sql = 'FULLTEXT KEY `'.$this->name.'` (' . implode(', ', $columns) . ')';
-		} else {
-			$sql = 'KEY `'.$this->name.'` (' . implode(', ', $columns) . ')';
+
+		// If name or columns are empty, no valid CREATE syntax can be constructed.
+		if ( empty( $this->name ) || empty( $this->columns ) ) {
+			return '';
 		}
-		if (!empty($this->method)) {
+
+		// Prepare the column list as back-ticked for SQL.
+		$columns = array_map( function( $col ) {
+			return "`$col`";
+		}, $this->columns );
+
+		// Standardize the index type and prepare base SQL fragment.
+		$type = strtoupper( $this->type );
+		$sql  = '';
+
+		// Choose the SQL clause based on type.
+		if ( 'PRIMARY' === $type ) {
+			$sql = 'PRIMARY KEY (' . implode( ', ', $columns ) . ')';
+
+		} elseif ( true === $this->unique || 'UNIQUE' === $type ) {
+			$sql = 'UNIQUE KEY `' . $this->name . '` (' . implode( ', ', $columns ) . ')';
+
+		} elseif ( 'FULLTEXT' === $type ) {
+			$sql = 'FULLTEXT KEY `' . $this->name . '` (' . implode( ', ', $columns ) . ')';
+
+		} else {
+			$sql = 'KEY `' . $this->name . '` (' . implode( ', ', $columns ) . ')';
+		}
+
+		// Optionally specify index method if set.
+		if ( '' !== $this->method ) {
 			$sql .= ' USING ' . $this->method;
 		}
-		if (!empty($this->comment)) {
+
+		// Optionally specify comment if set.
+		if ( '' !== $this->comment ) {
 			$sql .= ' COMMENT ' . "'{$this->comment}'";
 		}
+
 		return $sql;
 	}
 
-	/** Sanitizers ****************************/
-	private function sanitize_index_name($name = '') {
-		return strtolower(preg_replace('/[^a-zA-Z0-9_]+/', '_', $name));
+	/** Private Sanitizers ****************************************************/
+
+	/**
+	* Sanitize the index name.
+	*
+	* @since 3.0.0
+	*
+	* @param string $name
+	* @return string
+	*/
+	private function sanitize_index_name( $name = '' ) {
+
+		// Only allow alphanumeric and underscores; convert everything else to
+		// underscore and lowercase.
+		return strtolower( preg_replace( '/[^a-zA-Z0-9_]+/', '_', $name ) );
 	}
-	private function sanitize_columns($columns = array()) {
-		return array_values(array_filter((array) $columns, 'is_string'));
+
+	/**
+	* Sanitize the columns array.
+	*
+	* @since 3.0.0
+	*
+	* @param array $columns
+	* @return array
+	*/
+	private function sanitize_columns( $columns = array() ) {
+
+		// Filter to ensure only string column names, remove empty ones and
+		// reset array keys.
+		return array_values( array_filter( (array) $columns, 'is_string' ) );
 	}
 }
