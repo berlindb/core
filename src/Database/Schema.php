@@ -30,6 +30,7 @@ defined( 'ABSPATH' ) || exit;
  * @since 1.0.0
  * @since 3.0.0 Added Index support, validation, and item mutation methods.
  */
+#[\AllowDynamicProperties]
 class Schema {
 
 	/**
@@ -796,7 +797,10 @@ class Schema {
 				$index_column = $this->sanitize_index_name( $index_column );
 
 				if ( empty( $index_column ) || ! isset( $column_names[ $index_column ] ) ) {
-					$errors[] = "Index {$index_name} references unknown column " . ( empty( $index_column ) ? '(invalid)' : $index_column ) . '.';
+					$errors[] = "Index {$index_name} references unknown column " . ( empty( $index_column )
+						? '(invalid)'
+						: $index_column
+					) . '.';
 				}
 			}
 		}
