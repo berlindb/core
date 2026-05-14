@@ -130,7 +130,8 @@ class Query {
      *
      * This is used when looping through return values to guarantee their shape.
      *
-     * @var mixed
+	 * @since 2.0.0
+     * @var   mixed
      */
     protected $current_item_shape;
 
@@ -2071,7 +2072,7 @@ class Query {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param mixed ID of item, or row from database
+	 * @param mixed $item ID of item, or row from database
 	 * @return mixed False on error, Object of single-object class type on success
 	 */
 	private function shape_item( $item = 0 ) {
