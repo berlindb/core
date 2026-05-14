@@ -4,7 +4,7 @@
  *
  * @package     Database
  * @subpackage  Schema
- * @copyright   2021-2022 - JJJ and all BerlinDB contributors
+ * @copyright   2021-2026 - JJJ and all BerlinDB contributors
  * @license     https://opensource.org/licenses/MIT MIT
  * @since       1.0.0
  */
@@ -14,14 +14,21 @@ namespace BerlinDB\Database;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * A base database table schema class, which houses the collection of columns
- * that a table is made out of.
+ * A base database table schema class, which houses the Column and Index
+ * collections that define a database table's structure.
  *
  * This class is intended to be extended for each unique database table,
  * including global tables for multisite, and users tables.
  *
+ * Subclasses may pre-populate the $columns and $indexes arrays as arrays of
+ * Column/Index argument arrays (legacy style), or call add_column() and
+ * add_index() explicitly. Both approaches are fully supported.
+ *
+ * Use get_create_table_string() to generate the SQL body for a CREATE TABLE
+ * statement. Validation runs automatically before SQL is produced.
+ *
  * @since 1.0.0
- * @since 3.0.0 Added variables for Column & Index
+ * @since 3.0.0 Added Index support, validation, and item mutation methods.
  */
 class Schema {
 
@@ -38,6 +45,8 @@ class Schema {
 	/**
 	 * Schema Column class.
 	 *
+	 * Override in a subclass to use a custom Column implementation.
+	 *
 	 * @since 3.0.0
 	 * @var   string
 	 */
@@ -45,6 +54,8 @@ class Schema {
 
 	/**
 	 * Schema Index class.
+	 *
+	 * Override in a subclass to use a custom Index implementation.
 	 *
 	 * @since 3.0.0
 	 * @var   string
@@ -56,23 +67,30 @@ class Schema {
 	/**
 	 * Array of database Column objects.
 	 *
+	 * May be pre-populated in a subclass as an array of Column argument arrays
+	 * for legacy compatibility. setup() will hydrate them into Column objects.
+	 *
 	 * @since 1.0.0
-	 * @var   array
+	 * @var   Column[]
 	 */
 	protected $columns = array();
 
 	/**
 	 * Array of database Index objects.
 	 *
+	 * May be pre-populated in a subclass as an array of Index argument arrays
+	 * for legacy compatibility. setup() will hydrate them into Index objects.
+	 *
 	 * @since 3.0.0
-	 * @var   array
+	 * @var   Index[]
 	 */
 	protected $indexes = array();
 
 	/** Public Methods ********************************************************/
 
 	/**
-	 * Early setup for Legacy $columns support.
+	 * Early lifecycle hook, called by Traits\Boot before class properties are
+	 * assigned. Used to hydrate any $columns or $indexes pre-set by a subclass.
 	 *
 	 * @since 3.0.0
 	 */
@@ -81,7 +99,8 @@ class Schema {
 	}
 
 	/**
-	 * Late setup for modern $columns & $index support.
+	 * Late lifecycle hook, called by Traits\Boot after class properties are
+	 * assigned. Ensures $columns and $indexes are always hydrated into objects.
 	 *
 	 * @since 3.0.0
 	 */
@@ -100,29 +119,32 @@ class Schema {
 	 */
 	public function setup() {
 
-		// Legacy support for pre-set $columns array
+		// Legacy support for pre-set $columns array.
 		if ( ! empty( $this->columns ) && is_array( $this->columns ) ) {
 			$this->setup_items( 'columns', $this->columns );
 		}
 
-		// Legacy support for pre-set $indexes array
+		// Legacy support for pre-set $indexes array.
 		if ( ! empty( $this->indexes ) && is_array( $this->indexes ) ) {
 			$this->setup_items( 'indexes', $this->indexes );
 		}
 	}
 
 	/**
-	 * Clear some part of the schema.
+	 * Clear items from the schema.
 	 *
-	 * Will clear all items if nothing is passed.
+	 * Pass a valid item type to clear only that collection. Pass an empty string
+	 * (the default) to clear both columns and indexes at once.
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string $type The type of items to clear.
+	 * @param string $type Optional. Item collection type to clear. Accepts
+	 *                     'columns', 'indexes', or their singular aliases.
+	 *                     Default empty string clears everything.
 	 */
 	public function clear( $type = '' ) {
 
-		// Clearing specific
+		// Clearing a specific collection.
 		if ( ! empty( $type ) ) {
 			$type = $this->validate_item_type( $type );
 
@@ -131,7 +153,7 @@ class Schema {
 				$this->{$type} = array();
 			}
 
-		// Clearing everything
+		// Clearing everything.
 		} else {
 			$this->columns = array();
 			$this->indexes = array();
@@ -139,14 +161,15 @@ class Schema {
 	}
 
 	/**
-	 * Add an item to a specific items array.
+	 * Add an item to a specific collection.
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string       $type Item type to add.
-	 * @param array|object $data Data to pass into class constructor.
+	 * @param string            $type Item collection type. Accepts 'columns' or
+	 *                                'indexes' (and their singular aliases).
+	 * @param array|Column|Index $data Argument array or existing object.
 	 *
-	 * @return object|false
+	 * @return Column|Index|false The added item object, or false on failure.
 	 */
 	public function add_item( $type = 'columns', $data = array() ) {
 
@@ -169,15 +192,15 @@ class Schema {
 		// Instantiate from array/object data.
 		$retval = $this->create_item( $class, $data );
 
-		// Bail if no item to add
+		// Bail if no item to add.
 		if ( empty( $retval ) ) {
 			return false;
 		}
 
-		// Add item to array
+		// Add item to array.
 		$this->{$type}[] = $retval;
 
-		// Return the item
+		// Return the item.
 		return $retval;
 	}
 
@@ -188,9 +211,10 @@ class Schema {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string $type Item collection type. Accepts 'columns' or 'indexes'.
+	 * @param string $type Item collection type. Accepts 'columns' or 'indexes'
+	 *                     (and their singular aliases).
 	 *
-	 * @return array
+	 * @return Column[]|Index[]
 	 */
 	public function get_items( $type = 'columns' ) {
 		$type = $this->validate_item_type( $type );
@@ -209,12 +233,17 @@ class Schema {
 	/**
 	 * Get a schema item by name.
 	 *
+	 * For the 'indexes' type, the reserved name 'primary' matches the first
+	 * index whose type is 'primary', regardless of its $name property.
+	 *
 	 * @since 3.0.0
 	 *
-	 * @param string $type Item collection type. Accepts 'columns' or 'indexes'.
-	 * @param string $name Item name to find.
+	 * @param string $type Item collection type. Accepts 'columns' or 'indexes'
+	 *                     (and their singular aliases).
+	 * @param string $name Normalized item name to find. For indexes, also
+	 *                     accepts 'primary' to match the primary key.
 	 *
-	 * @return object|false
+	 * @return Column|Index|false The matching item object, or false if not found.
 	 */
 	public function get_item( $type = 'columns', $name = '' ) {
 		$type = $this->validate_item_type( $type );
@@ -226,15 +255,9 @@ class Schema {
 
 		foreach ( $this->get_items( $type ) as $item ) {
 
-			// Handle primary indexes that do not require a name.
-			if ( 'indexes' === $type ) {
-				$item_type = isset( $item->type )
-					? strtolower( trim( (string) $item->type ) )
-					: '';
-
-				if ( 'primary' === $item_type && 'primary' === $name ) {
-					return $item;
-				}
+			// PRIMARY indexes are addressable by the "primary" name.
+			if ( 'indexes' === $type && 'primary' === $name && $this->is_primary_index( $item ) ) {
+				return $item;
 			}
 
 			$item_name = isset( $item->name )
@@ -254,10 +277,11 @@ class Schema {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string $type Item collection type. Accepts 'columns' or 'indexes'.
-	 * @param string $name Item name to check.
+	 * @param string $type Item collection type. Accepts 'columns' or 'indexes'
+	 *                     (and their singular aliases).
+	 * @param string $name Item name to check. Accepts 'primary' for indexes.
 	 *
-	 * @return bool
+	 * @return bool True if the item exists, false if not.
 	 */
 	public function has_item( $type = 'columns', $name = '' ) {
 		return ( false !== $this->get_item( $type, $name ) );
@@ -266,12 +290,17 @@ class Schema {
 	/**
 	 * Remove an item from a collection by name.
 	 *
+	 * For the 'indexes' type, passing 'primary' removes the first index whose
+	 * type is 'primary', regardless of its $name property.
+	 *
 	 * @since 3.0.0
 	 *
-	 * @param string $type Item collection type. Accepts 'columns' or 'indexes'.
-	 * @param string $name Item name.
+	 * @param string $type Item collection type. Accepts 'columns' or 'indexes'
+	 *                     (and their singular aliases).
+	 * @param string $name Normalized item name to remove. For indexes, also
+	 *                     accepts 'primary' to target the primary key.
 	 *
-	 * @return bool True if an item was removed, false if not.
+	 * @return bool True if one or more items were removed, false if not.
 	 */
 	public function remove_item( $type = 'columns', $name = '' ) {
 		$type = $this->validate_item_type( $type );
@@ -285,9 +314,7 @@ class Schema {
 
 		foreach ( $this->{$type} as $key => $item ) {
 
-			$is_primary = ( 'indexes' === $type )
-				&& isset( $item->type )
-				&& ( 'primary' === strtolower( trim( (string) $item->type ) ) );
+			$is_primary = ( 'indexes' === $type ) && $this->is_primary_index( $item );
 
 			$item_name = isset( $item->name )
 				? $this->normalize_item_name( $item->name )
@@ -307,16 +334,17 @@ class Schema {
 	}
 
 	/**
-	 * Set all items in a collection.
+	 * Replace all items in a collection.
 	 *
-	 * Replaces any existing collection values.
+	 * Clears the existing collection and rebuilds it from the provided values.
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string $type  Item collection type. Accepts 'columns' or 'indexes'.
-	 * @param array  $items Item values or objects.
+	 * @param string              $type  Item collection type. Accepts 'columns'
+	 *                                   or 'indexes' (and their singular aliases).
+	 * @param array[]|Column[]|Index[] $items Array of argument arrays or item objects.
 	 *
-	 * @return array
+	 * @return Column[]|Index[]
 	 */
 	public function set_items( $type = 'columns', $items = array() ) {
 		return $this->setup_items( $type, $items );
@@ -325,14 +353,18 @@ class Schema {
 	/** Private Internals *****************************************************/
 
 	/**
-	 * Setup an array of items.
+	 * Clear and rebuild a collection from raw data.
+	 *
+	 * This is the internal implementation for set_items(). It clears the target
+	 * collection first, then instantiates each value through create_item().
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string $type   Type of items to setup.
-	 * @param array  $values Array of values to convert to objects.
+	 * @param string              $type   Item collection type. Accepts 'columns'
+	 *                                    or 'indexes' (and their singular aliases).
+	 * @param array[]|Column[]|Index[] $values Array of argument arrays or item objects.
 	 *
-	 * @return array Array of items that were setup.
+	 * @return Column[]|Index[] The newly built collection.
 	 */
 	private function setup_items( $type = 'columns', $values = array() ) {
 
@@ -355,7 +387,7 @@ class Schema {
 		// Clear items for type.
 		$this->clear( $type );
 
-		// Bail if no values
+		// Bail if no values.
 		if ( empty( $values ) || ! is_array( $values ) ) {
 			return array();
 		}
@@ -369,25 +401,26 @@ class Schema {
 			}
 		}
 
-		// Return the items
+		// Return the items.
 		return $this->{$type};
 	}
 
 	/**
-	 * Get item class name from item type.
+	 * Get the item class name for a given collection type.
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string $type Item type.
+	 * @param string $type Item collection type. Accepts 'columns' or 'indexes'
+	 *                     (and their singular aliases).
 	 *
-	 * @return string|false Class object, or false if type is not valid.
+	 * @return string|false Fully-qualified class name string, or false on failure.
 	 */
 	private function get_item_class( $type = 'columns' ) {
 
-		// Validate the item type and fallback to columns.
+		// Validate the item type.
 		$type = $this->validate_item_type( $type );
 
-		// Default to columns if type is not valid.
+		// Bail if type is not valid.
 		if ( empty( $type ) ) {
 			return false;
 		}
@@ -398,14 +431,17 @@ class Schema {
 	}
 
 	/**
-	 * Create a schema item instance from array/object data.
+	 * Create a schema item instance from array or existing object data.
+	 *
+	 * Accepts an argument array (passed to the class constructor) or an already
+	 * instantiated object of the correct class (returned as-is).
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string       $class Item class name.
-	 * @param array|object $data  Item data.
+	 * @param string            $class Fully-qualified class name to instantiate.
+	 * @param array|Column|Index $data  Argument array or existing item object.
 	 *
-	 * @return object|false
+	 * @return Column|Index|false The item object, or false on failure.
 	 */
 	private function create_item( $class = '', $data = array() ) {
 
@@ -433,13 +469,19 @@ class Schema {
 	}
 
 	/**
-	 * Return the SQL for an item type used in a "CREATE TABLE" query.
+	 * Build the SQL fragment for a collection, for use inside a CREATE TABLE
+	 * statement.
+	 *
+	 * Calls get_create_string() on each item and joins non-empty results with
+	 * commas and newlines, each indented by two spaces.
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string $type Type of item.
+	 * @param string $type Item collection type. Accepts 'columns' or 'indexes'
+	 *                     (and their singular aliases).
 	 *
-	 * @return string Calls get_create_string() on every item.
+	 * @return string Comma-and-newline-separated SQL clause fragments, or empty
+	 *               string if the collection is empty or the type is invalid.
 	 */
 	private function get_items_create_string( $type = 'columns' ) {
 
@@ -451,18 +493,18 @@ class Schema {
 			return '';
 		}
 
-		// Bail if no items to get strings from
+		// Bail if no items to get strings from.
 		if ( empty( $this->{$type} ) || ! is_array( $this->{$type} ) ) {
 			return '';
 		}
 
-		// Improve readability
+		// Two-space indent for readability inside CREATE TABLE.
 		$indent  = '  ';
 
-		// Default strings
+		// Accumulate SQL fragments.
 		$strings = array();
 
-		// Loop through items...
+		// Build a SQL fragment for each item.
 		foreach ( $this->{$type} as $item ) {
 			if ( method_exists( $item, 'get_create_string' ) ) {
 				$string = $item->get_create_string();
@@ -473,7 +515,7 @@ class Schema {
 			}
 		}
 
-		// Return the SQL
+		// Return the SQL.
 		return implode( ",\n", $strings );
 	}
 
@@ -486,20 +528,20 @@ class Schema {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array|object $data Data to pass into the column class constructor.
+	 * @param array|Column $data Argument array or existing Column object.
 	 *
-	 * @return object|false
+	 * @return Column|false The added Column object, or false on failure.
 	 */
 	public function add_column( $data = array() ) {
 		return $this->add_item( 'columns', $data );
 	}
 
 	/**
-	 * Get columns in this schema.
+	 * Get all columns in this schema.
 	 *
 	 * @since 3.0.0
 	 *
-	 * @return array
+	 * @return Column[]
 	 */
 	public function get_columns() {
 		return $this->get_items( 'columns' );
@@ -510,9 +552,9 @@ class Schema {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string $name Column name.
+	 * @param string $name Column name (case-insensitive).
 	 *
-	 * @return object|false
+	 * @return Column|false The matching Column object, or false if not found.
 	 */
 	public function get_column( $name = '' ) {
 		return $this->get_item( 'columns', $name );
@@ -523,9 +565,9 @@ class Schema {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string $name Column name.
+	 * @param string $name Column name (case-insensitive).
 	 *
-	 * @return bool
+	 * @return bool True if the column exists, false if not.
 	 */
 	public function has_column( $name = '' ) {
 		return $this->has_item( 'columns', $name );
@@ -536,9 +578,9 @@ class Schema {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array $columns Column values or objects.
+	 * @param array[]|Column[] $columns Array of argument arrays or Column objects.
 	 *
-	 * @return array
+	 * @return Column[]
 	 */
 	public function set_columns( $columns = array() ) {
 		return $this->set_items( 'columns', $columns );
@@ -549,9 +591,9 @@ class Schema {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string $name Column name.
+	 * @param string $name Column name (case-insensitive).
 	 *
-	 * @return bool
+	 * @return bool True if the column was removed, false if not found.
 	 */
 	public function remove_column( $name = '' ) {
 		return $this->remove_item( 'columns', $name );
@@ -564,20 +606,20 @@ class Schema {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array|object $data Data to pass into the index class constructor.
+	 * @param array|Index $data Argument array or existing Index object.
 	 *
-	 * @return object|false
+	 * @return Index|false The added Index object, or false on failure.
 	 */
 	public function add_index( $data = array() ) {
 		return $this->add_item( 'indexes', $data );
 	}
 
 	/**
-	 * Get indexes in this schema.
+	 * Get all indexes in this schema.
 	 *
 	 * @since 3.0.0
 	 *
-	 * @return array
+	 * @return Index[]
 	 */
 	public function get_indexes() {
 		return $this->get_items( 'indexes' );
@@ -586,11 +628,13 @@ class Schema {
 	/**
 	 * Get an index in this schema by name.
 	 *
+	 * Pass 'primary' to retrieve the primary key index.
+	 *
 	 * @since 3.0.0
 	 *
-	 * @param string $name Index name.
+	 * @param string $name Index name (case-insensitive), or 'primary'.
 	 *
-	 * @return object|false
+	 * @return Index|false The matching Index object, or false if not found.
 	 */
 	public function get_index( $name = '' ) {
 		return $this->get_item( 'indexes', $name );
@@ -601,9 +645,9 @@ class Schema {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string $name Index name.
+	 * @param string $name Index name (case-insensitive), or 'primary'.
 	 *
-	 * @return bool
+	 * @return bool True if the index exists, false if not.
 	 */
 	public function has_index( $name = '' ) {
 		return $this->has_item( 'indexes', $name );
@@ -614,9 +658,9 @@ class Schema {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array $indexes Index values or objects.
+	 * @param array[]|Index[] $indexes Array of argument arrays or Index objects.
 	 *
-	 * @return array
+	 * @return Index[]
 	 */
 	public function set_indexes( $indexes = array() ) {
 		return $this->set_items( 'indexes', $indexes );
@@ -625,25 +669,28 @@ class Schema {
 	/**
 	 * Remove an index by name.
 	 *
+	 * Pass 'primary' to remove the primary key index.
+	 *
 	 * @since 3.0.0
 	 *
-	 * @param string $name Index name.
+	 * @param string $name Index name (case-insensitive), or 'primary'.
 	 *
-	 * @return bool
+	 * @return bool True if the index was removed, false if not found.
 	 */
 	public function remove_index( $name = '' ) {
 		return $this->remove_item( 'indexes', $name );
 	}
 
 	/**
-	 * Return the SQL used for all items in a "CREATE TABLE" query.
+	 * Return the SQL body for a "CREATE TABLE" statement.
 	 *
-	 * This does not include the "CREATE TABLE" directive itself, and is only
-	 * used to generate the SQL inside of that kind of query.
+	 * Combines the column and index SQL fragments into a single string ready
+	 * to be placed inside the parentheses of a CREATE TABLE query. Validation
+	 * runs first; returns an empty string if the schema is not valid.
 	 *
 	 * @since 3.0.0
 	 *
-	 * @return string
+	 * @return string SQL body string, or empty string if invalid or empty.
 	 */
 	public function get_create_table_string() {
 
@@ -652,16 +699,15 @@ class Schema {
 			return '';
 		}
 
-		// Get strings
+		// Build SQL fragments for each collection.
 		$strings = array(
 			$this->get_items_create_string( 'columns' ),
 			$this->get_items_create_string( 'indexes' )
 		);
 
-		// Format
+		// Join non-empty fragments.
 		$retval = implode( ",\n", array_filter( $strings ) );
 
-		// Return
 		return $retval;
 	}
 
@@ -670,12 +716,21 @@ class Schema {
 	/**
 	 * Return validation errors for this schema.
 	 *
+	 * Checks for:
+	 * - Columns missing a name.
+	 * - Duplicate column names.
+	 * - Indexes missing a name (non-primary).
+	 * - Duplicate index names.
+	 * - Indexes referencing columns not present in the schema.
+	 * - Indexes with no columns defined.
+	 * - More than one primary key defined (across columns and indexes).
+	 *
 	 * @since 3.0.0
 	 *
-	 * @return array
+	 * @return string[] Array of human-readable error strings. Empty if valid.
 	 */
 	public function get_validation_errors() {
-		$errors = array();
+		$errors  = array();
 		$columns = $this->get_columns();
 		$indexes = $this->get_indexes();
 
@@ -707,11 +762,7 @@ class Schema {
 
 		foreach ( $indexes as $index ) {
 
-			$index_type = isset( $index->type )
-				? strtolower( trim( (string) $index->type ) )
-				: '';
-
-			$is_primary = ( 'primary' === $index_type );
+			$is_primary = $this->is_primary_index( $index );
 
 			$index_name = $is_primary
 				? 'primary'
@@ -762,20 +813,44 @@ class Schema {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @return bool
+	 * @return bool True if there are no validation errors, false otherwise.
 	 */
 	public function is_valid() {
 		return empty( $this->get_validation_errors() );
 	}
 
 	/**
-	 * Validate and normalize item type names.
+	 * Check whether a given item is a primary index.
+	 *
+	 * Centralizes the repeated inline logic of inspecting an item's $type
+	 * property and comparing it to 'primary' (case-insensitively).
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string $type Item type to validate.
+	 * @param object $item Index item object.
 	 *
-	 * @return string Normalized type or empty string.
+	 * @return bool True if the item's type is 'primary', false otherwise.
+	 */
+	private function is_primary_index( $item ) {
+		$type = isset( $item->type )
+			? strtolower( trim( (string) $item->type ) )
+			: '';
+
+		return ( 'primary' === $type );
+	}
+
+	/**
+	 * Validate and normalize an item type string.
+	 *
+	 * Accepts both plural and singular forms. Returns the canonical plural form,
+	 * or an empty string if the value is not recognized.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param string $type Item type. Accepts 'columns', 'column', 'indexes', or
+	 *                     'index' (case-insensitive).
+	 *
+	 * @return string Normalized type ('columns' or 'indexes'), or empty string.
 	 */
 	private function validate_item_type( $type = '' ) {
 
@@ -797,13 +872,17 @@ class Schema {
 	}
 
 	/**
-	 * Normalize an item name for comparisons.
+	 * Normalize an item name for safe, consistent comparisons.
+	 *
+	 * Lowercases the value, trims surrounding whitespace, then replaces any
+	 * character outside [a-z0-9_] with an underscore. The result is suitable
+	 * for use as a SQL identifier key in comparisons throughout this class.
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string $name Name to normalize.
+	 * @param string $name Raw name string.
 	 *
-	 * @return string
+	 * @return string Normalized name, or empty string if input was blank.
 	 */
 	private function normalize_item_name( $name = '' ) {
 		$name = strtolower( trim( (string) $name ) );
