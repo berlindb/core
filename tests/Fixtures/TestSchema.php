@@ -36,7 +36,8 @@ class TestSchema extends Schema {
 			'length'   => '20',
 			'unsigned' => true,
 			'extra'    => 'auto_increment',
-			'primary'  => true,
+			'default'  => false,
+			'cache_key'=> true,
 			'sortable' => true,
 		),
 
@@ -98,6 +99,24 @@ class TestSchema extends Schema {
 		// UUID column — exercises special_args() UUID branch.
 		array(
 			'uuid' => true,
+		),
+	);
+
+	/**
+	 * Index definitions.
+	 *
+	 * @since 3.0.0
+	 * @var array
+	 */
+	public $indexes = array(
+		array(
+			'type'    => 'primary',
+			'columns' => array( 'id' ),
+		),
+		array(
+			'name'    => 'status',
+			'type'    => 'key',
+			'columns' => array( 'status' ),
 		),
 	);
 }

@@ -71,7 +71,9 @@ class QueryCacheTest extends TestCase {
 		$query_b = new TestQuery( $args );
 
 		$get_key = new \ReflectionMethod( TestQuery::class, 'get_cache_key' );
-		$get_key->setAccessible( true );
+		if ( PHP_VERSION_ID < 80100 ) {
+			$get_key->setAccessible( true );
+		}
 
 		$key_a = $get_key->invoke( $query_a );
 		$key_b = $get_key->invoke( $query_b );

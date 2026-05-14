@@ -792,7 +792,7 @@ class Column {
 		$extras = array_map( 'strtoupper', $extra );
 
 		// Return if match
-		return (bool) in_array( strtolower( $this->extra ), $extras, true );
+		return (bool) in_array( strtoupper( $this->extra ), $extras, true );
 	}
 
 	/** Private Sanitizers ****************************************************/
@@ -1324,7 +1324,7 @@ class Column {
 		}
 
 		// Default supplied, so trust it (for now...)
-		if ( ! empty( $this->default ) ) {
+		if ( ! empty( $this->default ) && ! $this->is_extra( 'AUTO_INCREMENT' ) ) {
 			$create[] = "default '{$this->default}'";
 
 		// allow_null with literal null defaults to null

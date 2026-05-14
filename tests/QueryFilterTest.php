@@ -231,7 +231,9 @@ class QueryFilterTest extends TestCase {
 		// max_num_pages is private, so __get returns null for it (PHP's recursion
 		// guard prevents access from the parent Base::__get context). Use Reflection.
 		$prop = new \ReflectionProperty( \BerlinDB\Database\Query::class, 'max_num_pages' );
-		$prop->setAccessible( true );
+		if ( PHP_VERSION_ID < 80100 ) {
+			$prop->setAccessible( true );
+		}
 		$this->assertGreaterThan( 1, $prop->getValue( self::$query ) );
 	}
 }

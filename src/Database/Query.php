@@ -1162,7 +1162,12 @@ class Query {
 	 *
 	 * @return string Escaped/prepared SQL, possibly wrapped in parenthesis.
 	 */
-	private function get_in_sql( $column_name = '', $values = array(), $wrap = true, $pattern = '' ) {
+	public function get_in_sql( $column_name = '', $values = array(), $wrap = true, $pattern = '' ) {
+
+		// Allow parser-style query var names like "status__in".
+		if ( is_string( $column_name ) && ( '__in' === substr( $column_name, -4 ) ) ) {
+			$column_name = substr( $column_name, 0, -4 );
+		}
 
 		// Bail if no values or invalid column
 		if ( empty( $values ) || ! $this->is_valid_column( $column_name ) ) {

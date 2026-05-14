@@ -26,6 +26,14 @@ use BerlinDB\Database\Table;
 final class TestTable extends Table {
 
 	/**
+	 * Schema class used by the table.
+	 *
+	 * @since 3.0.0
+	 * @var string
+	 */
+	protected $schema = TestSchema::class;
+
+	/**
 	 * Table name (without wpdb prefix).
 	 *
 	 * @since 2.1.0
@@ -58,24 +66,6 @@ final class TestTable extends Table {
 	protected $upgrades = array(
 		'202604231' => '__202604231',
 	);
-
-	/**
-	 * Set the table schema as a raw SQL string.
-	 *
-	 * @since 2.1.0
-	 */
-	protected function set_schema() {
-		$this->schema =
-			'id bigint(20) unsigned NOT NULL auto_increment,' .
-			"name varchar(200) NOT NULL default ''," .
-			"status varchar(20) NOT NULL default 'active'," .
-			'priority bigint(20) unsigned NOT NULL default 0,' .
-			'date_created datetime NOT NULL default CURRENT_TIMESTAMP,' .
-			'date_modified datetime NOT NULL default CURRENT_TIMESTAMP,' .
-			"uuid varchar(100) NOT NULL default ''," .
-			'PRIMARY KEY (id),' .
-			'KEY status (status)';
-	}
 
 	/**
 	 * Upgrade to version 2: add a notes column.

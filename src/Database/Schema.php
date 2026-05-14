@@ -169,13 +169,24 @@ class Schema {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string            $type Item collection type. Accepts 'columns' or
-	 *                                'indexes' (and their singular aliases).
-	 * @param array|Column|Index $data Argument array or existing object.
+	 * Supports both signatures:
+	 * - add_item( $type, $data )
+	 * - add_item( $type, $class, $data )
+	 *
+	 * @since 3.0.0
+	 * @since 3.0.1 Supports legacy 3-argument signature for backwards compatibility.
+	 *
+	 * @param string                  $type          Item collection type. Accepts
+	 *                                               'columns' or 'indexes' (and
+	 *                                               their singular aliases).
+	 * @param string|array|Column|Index $class_or_data Class name (legacy signature)
+	 *                                               or item data (current signature).
+	 * @param array|Column|Index      $data          Optional item data when using
+	 *                                               the legacy signature.
 	 *
 	 * @return Column|Index|false The added item object, or false on failure.
 	 */
-	public function add_item( $type = 'columns', $data = array() ) {
+	public function add_item( $type = 'columns', $class_or_data = array(), $data = array() ) {
 
 		// Normalize and validate item type.
 		$type = $this->validate_item_type( $type );
@@ -187,6 +198,13 @@ class Schema {
 
 		// Default class by normalized type.
 		$class = $this->get_item_class( $type );
+
+		// Resolve arguments for current and legacy signatures.
+		if ( is_string( $class_or_data ) && class_exists( $class_or_data ) ) {
+			$class = $class_or_data;
+		} else {
+			$data = $class_or_data;
+		}
 
 		// Bail if class is not valid.
 		if ( empty( $class ) || ! class_exists( $class ) ) {

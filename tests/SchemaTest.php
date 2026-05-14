@@ -41,19 +41,47 @@ class SchemaTest extends TestCase {
 		$this->assertCount( 7, self::$schema->columns );
 	}
 
-	public function test_exactly_one_primary_column_exists() {
-		$primary = array_filter( self::$schema->columns, static function ( $col ) {
+	public function test_primary_column_is_named_id() {
+		$schema = new TestSchema();
+		$schema->clear();
+
+		$schema->add_item( 'columns', array(
+			'name'     => 'id',
+			'type'     => 'bigint',
+			'length'   => '20',
+			'unsigned' => true,
+			'primary'  => true,
+		) );
+
+		$schema->add_item( 'columns', array(
+			'name'   => 'name',
+			'type'   => 'varchar',
+			'length' => '200',
+		) );
+
+		$primary = array_filter( $schema->columns, static function ( $col ) {
 			return true === $col->primary;
+		} );
+
+		$this->assertCount( 1, $primary );
+
+		$col = reset( $primary );
+		$this->assertSame( 'id', $col->name );
+	}
+
+	public function test_exactly_one_primary_index_exists() {
+		$primary = array_filter( self::$schema->indexes, static function ( $index ) {
+			return 'primary' === strtolower( (string) $index->type );
 		} );
 		$this->assertCount( 1, $primary );
 	}
 
-	public function test_primary_column_is_named_id() {
-		$primary = array_filter( self::$schema->columns, static function ( $col ) {
-			return true === $col->primary;
+	public function test_primary_index_targets_id() {
+		$primary = array_filter( self::$schema->indexes, static function ( $index ) {
+			return 'primary' === strtolower( (string) $index->type );
 		} );
-		$col = reset( $primary );
-		$this->assertSame( 'id', $col->name );
+		$index = reset( $primary );
+		$this->assertContains( 'id', (array) $index->columns );
 	}
 
 	public function test_searchable_columns_include_name() {
@@ -129,8 +157,8 @@ class SchemaTest extends TestCase {
 		$this->assertEmpty( $schema->indexes );
 	}
 
-	public function test_add_item_appends_a_column_object() {
-		$schema      = new TestSchema();
+	public function test_add_item_with_legacy_signature_appends_a_column_object() {
+		$schema       = new TestSchema();
 		$count_before = count( $schema->columns );
 		$result       = $schema->add_item( 'columns', Column::class, array(
 			'name'   => 'extra_col',
@@ -141,9 +169,21 @@ class SchemaTest extends TestCase {
 		$this->assertCount( $count_before + 1, $schema->columns );
 	}
 
+	public function test_add_item_with_current_signature_appends_a_column_object() {
+		$schema       = new TestSchema();
+		$count_before = count( $schema->columns );
+		$result       = $schema->add_item( 'columns', array(
+			'name'   => 'extra_col_two',
+			'type'   => 'varchar',
+			'length' => '50',
+		) );
+		$this->assertInstanceOf( Column::class, $result );
+		$this->assertCount( $count_before + 1, $schema->columns );
+	}
+
 	public function test_add_item_returns_false_for_empty_data() {
 		$schema = new TestSchema();
-		$result = $schema->add_item( 'columns', Column::class, array() );
+		$result = $schema->add_item( 'columns', array() );
 		$this->assertFalse( $result );
 	}
 }
