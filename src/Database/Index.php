@@ -150,8 +150,8 @@ class Index {
 	*/
 	public function get_create_string() {
 
-		// If name or columns are empty, no valid CREATE syntax can be constructed.
-		if ( empty( $this->name ) || empty( $this->columns ) ) {
+		// Bail if no columns are provided.
+		if ( empty( $this->columns ) ) {
 			return '';
 		}
 
@@ -163,24 +163,47 @@ class Index {
 		// Standardize the index type and prepare base SQL fragment.
 		$type = strtoupper( $this->type );
 		$sql  = '';
+		$csql = implode( ', ', $columns );
 
 		// Choose the SQL clause based on type.
 		if ( 'PRIMARY' === $type ) {
-			$sql = 'PRIMARY KEY (' . implode( ', ', $columns ) . ')';
+			$sql = 'PRIMARY KEY (' . $csql . ')';
 
 		} elseif ( true === $this->unique || 'UNIQUE' === $type ) {
-			$sql = 'UNIQUE KEY `' . $this->name . '` (' . implode( ', ', $columns ) . ')';
+
+			// Bail if no name.
+			if ( empty( $this->name ) ) {
+				return '';
+			}
+
+			$sql = 'UNIQUE KEY `' . $this->name . '` (' . $csql . ')';
 
 		} elseif ( 'FULLTEXT' === $type ) {
-			$sql = 'FULLTEXT KEY `' . $this->name . '` (' . implode( ', ', $columns ) . ')';
+
+			// Bail if no name.
+			if ( empty( $this->name ) ) {
+				return '';
+			}
+
+			$sql = 'FULLTEXT KEY `' . $this->name . '` (' . $csql . ')';
 
 		} else {
-			$sql = 'KEY `' . $this->name . '` (' . implode( ', ', $columns ) . ')';
+
+			// Bail if no name.
+			if ( empty( $this->name ) ) {
+				return '';
+			}
+
+			$sql = 'KEY `' . $this->name . '` (' . $csql . ')';
 		}
 
-		// Optionally specify index method if set.
-		if ( '' !== $this->method ) {
-			$sql .= ' USING ' . $this->method;
+		// Optionally specify index method if set (prefer explicit "using").
+		$algorithm = ! empty( $this->using )
+			? $this->using
+			: $this->method;
+
+		if ( '' !== $algorithm ) {
+			$sql .= ' USING ' . $algorithm;
 		}
 
 		// Optionally specify comment if set.
@@ -218,8 +241,14 @@ class Index {
 	*/
 	private function sanitize_columns( $columns = array() ) {
 
-		// Filter to ensure only string column names, remove empty ones and
-		// reset array keys.
-		return array_values( array_filter( (array) $columns, 'is_string' ) );
+		$columns = array_filter( (array) $columns, 'is_string' );
+
+		// Normalize and sanitize column names for safe identifier usage.
+		$columns = array_map( function( $column ) {
+			return strtolower( preg_replace( '/[^a-zA-Z0-9_]+/', '_', $column ) );
+		}, $columns );
+
+		// Remove empty values and reset array keys.
+		return array_values( array_filter( $columns ) );
 	}
 }

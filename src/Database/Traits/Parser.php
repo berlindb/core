@@ -176,7 +176,7 @@ trait Parser {
 	 *         }
 	 *     }
 	 * }
-	 * @param Query $caller The Query class that invoked this parser.
+	 * @param \BerlinDB\Database\Query|null $caller The Query class that invoked this parser, or null.
 	 */
 	public function init( $query_vars = array(), $caller = null ) {
 
@@ -208,7 +208,7 @@ trait Parser {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param Query $caller
+	 * @param \BerlinDB\Database\Query $caller
 	 */
 	protected function set_caller( $caller = null ) {
 		$this->caller = $caller;
@@ -226,50 +226,16 @@ trait Parser {
 	}
 
 	/**
-	 * Return all operator instances, built once per request.
+	 * Populate $this->operators with one shared instance of Operator classes.
 	 *
-	 * Instantiates each concrete Operator class from the Operators/ directory
-	 * and caches the result statically so the cost is paid only once.
+	 * Declared abstract here so that static analysis tools can see the
+	 * dependency. Implemented in Parsers\Base as a concrete method so that
+	 * the static cache is scoped to that class definition and shared across
+	 * all subclasses (a true per-process singleton).
 	 *
 	 * @since 3.0.0
-	 *
-	 * @return \BerlinDB\Database\Operators\Base[]
 	 */
-	protected function set_operators() {
-		static $instances = null;
-
-		if ( null === $instances ) {
-
-			// Known classes.
-			$classes = array(
-				'BerlinDB\\Database\\Operators\\Between',
-				'BerlinDB\\Database\\Operators\\Equal',
-				'BerlinDB\\Database\\Operators\\Exists',
-				'BerlinDB\\Database\\Operators\\GreaterThan',
-				'BerlinDB\\Database\\Operators\\GreaterThanOrEqual',
-				'BerlinDB\\Database\\Operators\\In',
-				'BerlinDB\\Database\\Operators\\LessThan',
-				'BerlinDB\\Database\\Operators\\LessThanOrEqual',
-				'BerlinDB\\Database\\Operators\\Like',
-				'BerlinDB\\Database\\Operators\\NotBetween',
-				'BerlinDB\\Database\\Operators\\NotEqual',
-				'BerlinDB\\Database\\Operators\\NotExists',
-				'BerlinDB\\Database\\Operators\\NotIn',
-				'BerlinDB\\Database\\Operators\\NotLike',
-				'BerlinDB\\Database\\Operators\\NotRegexp',
-				'BerlinDB\\Database\\Operators\\Regexp',
-				'BerlinDB\\Database\\Operators\\Rlike',
-			);
-
-			// Instantiate the classes.
-			$instances = array_map( static function ( $class ) {
-				return new $class();
-			}, $classes );
-		}
-
-		// Set operators.
-		$this->operators = $instances;
-	}
+	abstract protected function set_operators();
 
 	/**
 	 * Recursive-friendly query sanitizer.
@@ -518,9 +484,20 @@ trait Parser {
 	 * @return string The comparison operator.
 	 */
 	protected function get_column( $query = array() ) {
-		return ! empty( $query['column'] )
-			? esc_sql( $this->validate_column( $query['column'] ) )
-			: $this->column;
+
+		// If a column is passed, sanitize and return it.
+		if ( ! empty( $query['column'] ) ) {
+
+			// Sanitize the column name.
+			$sanitized = $this->sanitize_column_name( $query['column'] );
+
+			// Return
+			return $sanitized
+				? esc_sql( $sanitized )
+				: $this->column;
+		}
+
+		return $this->column;
 	}
 
 	/**
@@ -926,19 +903,6 @@ trait Parser {
 
 		// Return if valid or not.
 		return $valid;
-	}
-
-	/**
-	 * Validates a column name parameter.
-	 *
-	 * Keeps upper & lower case letters, numbers, periods, and underscores.
-	 *
-	 * @since 3.0.0
-	 * @param string $column The user-supplied column name.
-	 * @return string A validated column name value.
-	 */
-	protected function validate_column( $column = '' ) {
-		return preg_replace( '/[^a-zA-Z0-9_$\.]/', '', $column );
 	}
 
 	/** Builders **************************************************************/

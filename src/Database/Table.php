@@ -498,6 +498,111 @@ class Table {
 	}
 
 	/**
+	 * Get indexes from table.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @return mixed Array on success, False on failure
+	 */
+	public function indexes() {
+
+		// Get the database interface
+		$db = $this->get_db();
+
+		// Bail if no database interface is available
+		if ( empty( $db ) ) {
+			return false;
+		}
+
+		// Query statement
+		$sql    = "SHOW INDEXES FROM {$this->table_name}";
+		$result = $db->get_results( $sql );
+
+		// Return the results
+		return $this->is_success( $result )
+			? $result
+			: false;
+	}
+
+	/**
+	 * Add an index to this database table.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param array|Index $args Index arguments or an Index object.
+	 *
+	 * @return bool
+	 */
+	public function add_index( $args = array() ) {
+
+		// Get the database interface
+		$db = $this->get_db();
+
+		// Bail if no database interface is available
+		if ( empty( $db ) ) {
+			return false;
+		}
+
+		// Create index object from arguments.
+		$index = ( $args instanceof Index )
+			? $args
+			: new Index( $args );
+
+		// Get index SQL create string.
+		$index_sql = $index->get_create_string();
+
+		// Bail if no valid SQL was generated.
+		if ( empty( $index_sql ) ) {
+			return false;
+		}
+
+		// Query statement
+		$sql    = "ALTER TABLE {$this->table_name} ADD {$index_sql}";
+		$result = $db->query( $sql );
+
+		// Was the index added?
+		return $this->is_success( $result );
+	}
+
+	/**
+	 * Drop an index from this database table.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param string $name Index name.
+	 *
+	 * @return bool
+	 */
+	public function drop_index( $name = '' ) {
+
+		// Get the database interface
+		$db = $this->get_db();
+
+		// Bail if no database interface is available
+		if ( empty( $db ) ) {
+			return false;
+		}
+
+		// Sanitize the index name
+		$name = $this->sanitize_column_name( $name );
+
+		// Bail if index name is invalid
+		if ( empty( $name ) ) {
+			return false;
+		}
+
+		// Query statement
+		$sql = ( 'primary' === strtolower( $name ) )
+			? "ALTER TABLE {$this->table_name} DROP PRIMARY KEY"
+			: "ALTER TABLE {$this->table_name} DROP INDEX `{$name}`";
+
+		$result = $db->query( $sql );
+
+		// Was the index dropped?
+		return $this->is_success( $result );
+	}
+
+	/**
 	 * Create this database table.
 	 *
 	 * @since 1.0.0
@@ -514,13 +619,16 @@ class Table {
 			return false;
 		}
 
+		// Narrow schema to object before calling methods on it.
+		$schema = $this->schema;
+
 		// Bail if no schema to call
-		if ( ! is_callable( array( $this->schema, 'get_create_table_string' ) ) ) {
+		if ( ! is_object( $schema ) || ! is_callable( array( $schema, 'get_create_table_string' ) ) ) {
 			return false;
 		}
 
 		// Get the "CREATE TABLE" string
-		$create_table_string = $this->schema->get_create_table_string();
+		$create_table_string = $schema->get_create_table_string();
 
 		// Bail if no create string.
 		if ( empty( $create_table_string ) ) {

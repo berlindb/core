@@ -70,6 +70,55 @@ abstract class Base {
 	 */
 	protected $default = null;
 
+	/** Methods ***************************************************************/
+
+	/**
+	 * Populate $this->operators with one shared instance per Operator class.
+	 *
+	 * Defined here on the concrete base class (not in Traits\Parser) so that
+	 * the static cache is scoped to this class definition and shared across
+	 * all subclasses, giving a true per-process singleton. A static variable
+	 * inside a trait method gets one copy per using class, which would cause
+	 * all 17 operators to be re-instantiated for each of the 7 parser classes.
+	 *
+	 * @since 3.0.0
+	 */
+	protected function set_operators() {
+		static $instances = null;
+
+		if ( null === $instances ) {
+
+			// Known classes.
+			$classes = array(
+				'BerlinDB\\Database\\Operators\\Between',
+				'BerlinDB\\Database\\Operators\\Equal',
+				'BerlinDB\\Database\\Operators\\Exists',
+				'BerlinDB\\Database\\Operators\\GreaterThan',
+				'BerlinDB\\Database\\Operators\\GreaterThanOrEqual',
+				'BerlinDB\\Database\\Operators\\In',
+				'BerlinDB\\Database\\Operators\\LessThan',
+				'BerlinDB\\Database\\Operators\\LessThanOrEqual',
+				'BerlinDB\\Database\\Operators\\Like',
+				'BerlinDB\\Database\\Operators\\NotBetween',
+				'BerlinDB\\Database\\Operators\\NotEqual',
+				'BerlinDB\\Database\\Operators\\NotExists',
+				'BerlinDB\\Database\\Operators\\NotIn',
+				'BerlinDB\\Database\\Operators\\NotLike',
+				'BerlinDB\\Database\\Operators\\NotRegexp',
+				'BerlinDB\\Database\\Operators\\Regexp',
+				'BerlinDB\\Database\\Operators\\Rlike',
+			);
+
+			// Instantiate the classes.
+			$instances = array_map( static function ( $class ) {
+				return new $class();
+			}, $classes );
+		}
+
+		// Set operators.
+		$this->operators = $instances;
+	}
+
 	/**
 	 * Generate SQL JOIN and WHERE clauses for a first-order query clause.
 	 *

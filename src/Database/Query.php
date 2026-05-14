@@ -823,8 +823,15 @@ class Query {
 			}
 
 			// Columns from Schema
-			if ( ! empty( $this->schema->columns ) ) {
-				$columns = $this->schema->columns;
+			if ( is_object( $this->schema ) && is_callable( array( $this->schema, 'get_columns' ) ) ) {
+
+				// Get the columns from the schema object method.
+				$schema_columns = $this->schema->get_columns();
+
+				// Use column objects from the schema if not empty.
+				if ( ! empty( $schema_columns ) ) {
+					$columns = $schema_columns;
+				}
 			}
 		}
 
@@ -1020,7 +1027,7 @@ class Query {
 		 *
 		 * @since 1.0.0
 		 *
-		 * @param Query &$this Current instance passed by reference.
+		 * @param \BerlinDB\Database\Query &$this Current instance passed by reference.
 		 */
 		do_action_ref_array(
 			$this->apply_prefix( "pre_get_{$this->item_name_plural}" ),
@@ -1226,7 +1233,7 @@ class Query {
 		 *
 		 * @since 1.0.0
 		 *
-		 * @param Query &$this Current instance passed by reference.
+		 * @param \BerlinDB\Database\Query &$this Current instance passed by reference.
 		 */
 		do_action_ref_array(
 			$this->apply_prefix( "parse_{$this->item_name_plural}_query" ),
@@ -3571,7 +3578,7 @@ class Query {
 		 * @since 1.0.0
 		 *
 		 * @param array $item  The item as an array.
-		 * @param Query &$this Current instance passed by reference.
+		 * @param \BerlinDB\Database\Query &$this Current instance passed by reference.
 		 */
 		return (array) apply_filters_ref_array(
 			$this->apply_prefix( "filter_{$this->item_name}_item" ),
@@ -3598,7 +3605,7 @@ class Query {
 		 * @since 1.0.0
 		 *
 		 * @param array $items An array of items.
-		 * @param Query &$this  Current instance passed by reference.
+		 * @param \BerlinDB\Database\Query &$this Current instance passed by reference.
 		 */
 		return (array) apply_filters_ref_array(
 			$this->apply_prefix( "the_{$this->item_name_plural}" ),
@@ -3626,7 +3633,7 @@ class Query {
 		 *              $request_clauses instead.
 		 *
 		 * @param string $sql   SQL query.
-		 * @param Query  &$this Current instance passed by reference.
+		 * @param \BerlinDB\Database\Query &$this Current instance passed by reference.
 		 */
 		return (string) apply_filters_ref_array(
 			$this->apply_prefix( "found_{$this->item_name_plural}_query" ),
@@ -3653,7 +3660,7 @@ class Query {
 		 * @since 1.0.0
 		 *
 		 * @param array $clauses An array of query clauses.
-		 * @param Query &$this   Current instance passed by reference.
+		 * @param \BerlinDB\Database\Query &$this Current instance passed by reference.
 		 */
 		return (array) apply_filters_ref_array(
 			$this->apply_prefix( "{$this->item_name_plural}_query_clauses" ),
