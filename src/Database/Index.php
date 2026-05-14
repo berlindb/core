@@ -217,21 +217,6 @@ class Index {
 	/** Private Sanitizers ****************************************************/
 
 	/**
-	* Sanitize the index name.
-	*
-	* @since 3.0.0
-	*
-	* @param string $name
-	* @return string
-	*/
-	private function sanitize_index_name( $name = '' ) {
-
-		// Only allow alphanumeric and underscores; convert everything else to
-		// underscore and lowercase.
-		return strtolower( preg_replace( '/[^a-zA-Z0-9_]+/', '_', $name ) );
-	}
-
-	/**
 	* Sanitize the columns array.
 	*
 	* @since 3.0.0
@@ -244,11 +229,11 @@ class Index {
 		$columns = array_filter( (array) $columns, 'is_string' );
 
 		// Normalize and sanitize column names for safe identifier usage.
-		$columns = array_map( function( $column ) {
-			return strtolower( preg_replace( '/[^a-zA-Z0-9_]+/', '_', $column ) );
-		}, $columns );
+		$columns = array_map( array( $this, 'sanitize_index_name' ), $columns );
 
-		// Remove empty values and reset array keys.
-		return array_values( array_filter( $columns ) );
+		// Remove failed sanitization results and reset array keys.
+		return array_values( array_filter( $columns, function( $column ) {
+			return ! empty( $column );
+		} ) );
 	}
 }

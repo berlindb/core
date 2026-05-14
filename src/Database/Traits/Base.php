@@ -282,6 +282,60 @@ trait Base {
 	}
 
 	/**
+	 * Sanitize an index name string.
+	 *
+	 * Used to make sure that an index name value meets MySQL expectations.
+	 *
+	 * Applies the following formatting to a string:
+	 * - Trim whitespace
+	 * - Lowercase only
+	 * - No accents
+	 * - No special characters
+	 * - No hyphens
+	 * - No double underscores
+	 * - No trailing underscores
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param string $name The name of the database index.
+	 *
+	 * @return bool|string Sanitized database index name on success, False on error
+	 */
+	protected function sanitize_index_name( $name = '' ) {
+
+		// Bail if empty or not a string
+		if ( empty( $name ) || ! is_string( $name ) ) {
+			return false;
+		}
+
+		// Trim spaces off the ends
+		$unspace = trim( $name );
+
+		// Only non-accented index names (avoid truncation)
+		$accents = remove_accents( $unspace );
+
+		// Convert to lowercase
+		$lower   = strtolower( $accents );
+
+		// Only lower case letters, numbers, hyphens, and underscores
+		$replace = preg_replace( '/[^a-z0-9_\-]/', '_', $lower );
+
+		// Replace hyphens with single underscores
+		$under   = str_replace( '-', '_', $replace );
+
+		// Replace double underscores with singles
+		$single  = str_replace( '__', '_', $under );
+
+		// Remove trailing underscores
+		$clean   = trim( $single, '_' );
+
+		// Bail if index name was garbaged or return the cleaned index name
+		return empty( $clean )
+			? false
+			: $clean;
+	}
+
+	/**
 	 * Set class variables from arguments.
 	 *
 	 * @since 1.0.0

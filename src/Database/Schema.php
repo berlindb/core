@@ -247,7 +247,7 @@ class Schema {
 	 */
 	public function get_item( $type = 'columns', $name = '' ) {
 		$type = $this->validate_item_type( $type );
-		$name = $this->normalize_item_name( $name );
+		$name = $this->sanitize_index_name( $name );
 
 		if ( empty( $type ) || empty( $name ) ) {
 			return false;
@@ -261,8 +261,8 @@ class Schema {
 			}
 
 			$item_name = isset( $item->name )
-				? $this->normalize_item_name( $item->name )
-				: '';
+				? $this->sanitize_index_name( $item->name )
+				: false;
 
 			if ( ! empty( $item_name ) && $name === $item_name ) {
 				return $item;
@@ -304,7 +304,7 @@ class Schema {
 	 */
 	public function remove_item( $type = 'columns', $name = '' ) {
 		$type = $this->validate_item_type( $type );
-		$name = $this->normalize_item_name( $name );
+		$name = $this->sanitize_index_name( $name );
 
 		if ( empty( $type ) || empty( $name ) || ! is_array( $this->{$type} ) ) {
 			return false;
@@ -317,8 +317,8 @@ class Schema {
 			$is_primary = ( 'indexes' === $type ) && $this->is_primary_index( $item );
 
 			$item_name = isset( $item->name )
-				? $this->normalize_item_name( $item->name )
-				: '';
+				? $this->sanitize_index_name( $item->name )
+				: false;
 
 			if ( ( $is_primary && 'primary' === $name ) || ( ! empty( $item_name ) && $name === $item_name ) ) {
 				unset( $this->{$type}[ $key ] );
@@ -741,8 +741,8 @@ class Schema {
 		foreach ( $columns as $column ) {
 
 			$column_name = isset( $column->name )
-				? $this->normalize_item_name( $column->name )
-				: '';
+				? $this->sanitize_index_name( $column->name )
+				: false;
 
 			if ( empty( $column_name ) ) {
 				$errors[] = 'Schema column is missing a valid name.';
@@ -766,7 +766,7 @@ class Schema {
 
 			$index_name = $is_primary
 				? 'primary'
-				: ( isset( $index->name ) ? $this->normalize_item_name( $index->name ) : '' );
+				: ( isset( $index->name ) ? $this->sanitize_index_name( $index->name ) : false );
 
 			if ( empty( $index_name ) ) {
 				$errors[] = 'Schema index is missing a valid name.';
@@ -793,10 +793,10 @@ class Schema {
 			}
 
 			foreach ( $index_columns as $index_column ) {
-				$index_column = $this->normalize_item_name( $index_column );
+				$index_column = $this->sanitize_index_name( $index_column );
 
 				if ( empty( $index_column ) || ! isset( $column_names[ $index_column ] ) ) {
-					$errors[] = "Index {$index_name} references unknown column {$index_column}.";
+					$errors[] = "Index {$index_name} references unknown column " . ( empty( $index_column ) ? '(invalid)' : $index_column ) . '.';
 				}
 			}
 		}
@@ -869,25 +869,6 @@ class Schema {
 		return isset( $types[ $type ] )
 			? $types[ $type ]
 			: '';
-	}
-
-	/**
-	 * Normalize an item name for safe, consistent comparisons.
-	 *
-	 * Lowercases the value, trims surrounding whitespace, then replaces any
-	 * character outside [a-z0-9_] with an underscore. The result is suitable
-	 * for use as a SQL identifier key in comparisons throughout this class.
-	 *
-	 * @since 3.0.0
-	 *
-	 * @param string $name Raw name string.
-	 *
-	 * @return string Normalized name, or empty string if input was blank.
-	 */
-	private function normalize_item_name( $name = '' ) {
-		$name = strtolower( trim( (string) $name ) );
-
-		return preg_replace( '/[^a-z0-9_]+/', '_', $name );
 	}
 
 	/** Deprecated ************************************************************/
