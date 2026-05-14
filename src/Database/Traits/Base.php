@@ -8,6 +8,8 @@
  * @license     https://opensource.org/licenses/MIT MIT
  * @since       1.0.0
  */
+declare( strict_types = 1 );
+
 namespace BerlinDB\Database\Traits;
 
 // Exit if accessed directly

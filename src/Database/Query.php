@@ -8,6 +8,9 @@
  * @license     https://opensource.org/licenses/MIT MIT
  * @since       1.0.0
  */
+
+declare( strict_types = 1 );
+
 namespace BerlinDB\Database;
 
 // Exit if accessed directly
@@ -408,10 +411,13 @@ class Query {
 	 * @since 1.0.0
 	 */
 	private function set_item_shape() {
+
+		// Item shape
 		if ( empty( $this->item_shape ) || ! class_exists( $this->item_shape ) ) {
 			$this->item_shape = __NAMESPACE__ . '\\Row';
 		}
 
+		// Current item during shaping (might be stdClass)
 		if ( empty( $this->current_item_shape ) || ! class_exists( $this->current_item_shape ) ) {
 			$this->current_item_shape = $this->item_shape;
 		}
@@ -1177,6 +1183,7 @@ class Query {
 		}
 
 		// Fill an array of patterns to match the number of values
+		$values   = (array) $values;
 		$count    = count( $values );
 		$patterns = array_fill( 0, $count, $pattern );
 
@@ -1223,6 +1230,7 @@ class Query {
 		// If counting, override some other $query_vars
 		if ( $this->get_query_var( 'count' ) ) {
 			$this->query_vars['number']            = false;
+			$this->query_vars['fields']            = '';
 			$this->query_vars['orderby']           = '';
 			$this->query_vars['no_found_rows']     = true;
 			$this->query_vars['update_item_cache'] = false;
@@ -1445,10 +1453,10 @@ class Query {
 	 * @param array  $query_vars
 	 * @param string $key
 	 *
-	 * @return int|string|array False if not set or default.
-	 *                          Value if object or array.
-	 *                          Attempts to parse a comma-separated string of
-	 *                          possible keys or numbers.
+	 * @return bool|int|string|array False if not set or default.
+	 *                               Value if object or array.
+	 *                               Attempts to parse a comma-separated string
+	 *                               of possible keys or numbers.
 	 */
 	public function parse_query_var( $query_vars = array(), $key = '' ) {
 
@@ -1476,9 +1484,9 @@ class Query {
 			||
 			is_array( $value )
 			||
-			is_numeric( $value )
-			||
 			is_int( $value )
+			||
+			is_numeric( $value )
 			||
 			is_bool( $value )
 		) {
@@ -1494,7 +1502,7 @@ class Query {
 
 			// Bail if string is over 100 chars long
 			if ( strlen( $value ) > 100 ) {
-				return $value;
+				return array( $value );
 			}
 
 			// Contains comma?
@@ -1509,7 +1517,7 @@ class Query {
 			$space = strpos( $value, ' ' );
 
 			// Bail if space is before comma
-			if ( $space < $comma ) {
+			if ( ( false !== $space ) && ( $space < $comma ) ) {
 				return array( $value );
 			}
 
@@ -2272,8 +2280,8 @@ class Query {
 				return false;
 			}
 
-			// Update item cache(s)
-			$this->update_item_cache( $retval );
+			// Update item cache(s) — read path, do not bump last_changed.
+			$this->update_item_cache( $retval, false );
 		}
 
 		// Reduce the item
@@ -3090,24 +3098,52 @@ class Query {
 	/**
 	 * Get cache key from $query_vars and $query_var_defaults.
 	 *
+	 * Performs the following operations to create a consistent cache-key:
+	 * - Removes the "fields" query_var, because whole objects/items are cached
+	 * - Removes unknown or unregistered query_var keys
+	 * - Sorts query_vars by query_var_default keys
+	 * - Removes query_vars with default values
+	 * - Serializes and md5 hashes query_vars
+	 * - Combines plural name, key, and last_changed for cache group
+	 *
 	 * @since 1.0.0
+	 * @since 2.1.0 Correctly removes unique query_var_default_value values
 	 *
 	 * @param string $group
 	 * @return string
 	 */
 	private function get_cache_key( $group = '' ) {
 
-		// Slice $query_vars by default keys
-		$slice = wp_array_slice_assoc( $this->query_vars, array_keys( $this->query_var_defaults ) );
+		// Default slice.
+		$slice = array();
 
-		// Unset "fields" so it does not effect the cache key
-		unset( $slice['fields'] );
+		// Slice query_vars by query_var_defaults keys, ordered by defaults.
+		foreach ( $this->query_var_defaults as $key => $_default ) {
 
-		// Setup key & last_changed
+			// Skip "fields" so single-item shape does not affect the cache key.
+			if ( 'fields' === $key ) {
+				continue;
+			}
+
+			// Skip if no query_var array key exists, allowing null values.
+			if ( ! array_key_exists( $key, $this->query_vars ) ) {
+				continue;
+			}
+
+			// Skip default random query_var values.
+			if ( $this->query_vars[ $key ] === $this->query_var_default_value ) {
+				continue;
+			}
+
+			// Add key & value to slice.
+			$slice[ $key ] = $this->query_vars[ $key ];
+		}
+
+		// Setup key & last_changed.
 		$key          = md5( serialize( $slice ) );
 		$last_changed = $this->get_last_changed_cache( $group );
 
-		// Return the concatenated cache key
+		// Return the concatenated cache key.
 		return "get_{$this->item_name_plural}:{$key}:{$last_changed}";
 	}
 
@@ -3233,8 +3269,8 @@ class Query {
 				$prepare = sprintf( $query, $ids );
 				$results = $db->get_results( $prepare );
 
-				// Update item cache(s)
-				$this->update_item_cache( $results );
+				// Update item cache(s) — read path, do not bump last_changed.
+				$this->update_item_cache( $results, false );
 			}
 		}
 
@@ -3274,7 +3310,7 @@ class Query {
 	 * @param int|object|array $items Primary ID if int. Row if object. Array
 	 *                                of objects if array.
 	 */
-	private function update_item_cache( $items = array() ) {
+	private function update_item_cache( $items = array(), $bump_last_changed = true ) {
 
 		// Maybe query for single item
 		if ( is_scalar( $items ) ) {
@@ -3318,8 +3354,11 @@ class Query {
 			}
 		}
 
-		// Update last changed
-		$this->update_last_changed_cache();
+		// Only bump last_changed for mutations; read-path warming must not
+		// invalidate the list cache that was just stored.
+		if ( $bump_last_changed ) {
+			$this->update_last_changed_cache();
+		}
 	}
 
 	/**
