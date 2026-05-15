@@ -69,6 +69,7 @@ trait Casts {
 	public function get_casts() {
 
 		if ( ! isset( $this->casts ) || ! is_array( $this->casts ) ) {
+			$this->casts = array();
 			return array();
 		}
 
