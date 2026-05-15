@@ -349,23 +349,25 @@ class RowCastingTest extends TestCase {
 
 		// Test various values cast as boolean.
 		$test_cases = array(
-			array( 'value' => 1, 'expected' => true ),
-			array( 'value' => 0, 'expected' => false ),
-			array( 'value' => '1', 'expected' => true ),
-			array( 'value' => '0', 'expected' => false ),
+			array( 'value' => 1,     'expected' => true ),
+			array( 'value' => 0,     'expected' => false ),
+			array( 'value' => '1',   'expected' => true ),
+			array( 'value' => '0',   'expected' => false ),
 			array( 'value' => 'yes', 'expected' => true ),
-			array( 'value' => 'no', 'expected' => false ),
-			array( 'value' => true, 'expected' => true ),
+			array( 'value' => 'no',  'expected' => false ),
+			array( 'value' => true,  'expected' => true ),
 			array( 'value' => false, 'expected' => false ),
 		);
 
 		foreach ( $test_cases as $case ) {
-			$attributes = array( 'id' => $case['value'] );
-			$casted = $row->apply_attribute_casts( $attributes, 'get' );
+			$casted = $row->apply_attribute_casts(
+				array( 'is_enabled' => $case['value'] ),
+				'get',
+				array( 'is_enabled' => 'bool' )
+			);
 
-			// Note: 'id' might have its own cast, so we test the casting logic itself
-			// by using a field that uses boolean cast if available.
-			$this->assertTrue( is_bool( (bool) $case['value'] ) );
+			$this->assertSame( $case['expected'], $casted['is_enabled'] );
+			$this->assertIsBool( $casted['is_enabled'] );
 		}
 	}
 
