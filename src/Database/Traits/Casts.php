@@ -67,12 +67,7 @@ trait Casts {
 	 * @return array
 	 */
 	public function get_casts() {
-
-		if ( ! isset( $this->casts ) || ! is_array( $this->casts ) ) {
-			$this->casts = array();
-		}
-
-		return $this->sanitize_cast_map( $this->casts );
+		return $this->sanitize_cast_map( $this->ensure_casts_initialized() );
 	}
 
 	/**
@@ -140,9 +135,7 @@ trait Casts {
 			return;
 		}
 
-		$existing_casts = ( isset( $this->casts ) && is_array( $this->casts ) )
-			? $this->sanitize_cast_map( $this->casts )
-			: array();
+		$existing_casts = $this->sanitize_cast_map( $this->ensure_casts_initialized() );
 
 		// Rebuild merged map cumulatively: existing schema casts, then new schema casts, then row-defined overrides.
 		$this->casts = array_merge( $existing_casts, $schema_casts, $this->row_defined_casts );
@@ -196,6 +189,21 @@ trait Casts {
 		}
 
 		return $retval;
+	}
+
+	/**
+	 * Ensure casts storage exists as an array.
+	 *
+	 * @since 3.0.0
+	 * @return array
+	 */
+	private function ensure_casts_initialized() {
+
+		if ( ! isset( $this->casts ) || ! is_array( $this->casts ) ) {
+			$this->casts = array();
+		}
+
+		return $this->casts;
 	}
 
 	/**
