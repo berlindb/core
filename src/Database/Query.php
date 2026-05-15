@@ -143,7 +143,7 @@ class Query {
 	 * Cached row shape instance used for cast_item().
 	 *
 	 * @since 3.0.0
-	 * @var   mixed
+	 * @var   object|null
 	 */
 	private $cast_item_shape = null;
 
