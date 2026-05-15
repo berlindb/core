@@ -10,7 +10,8 @@
     }
   },
   "require-dev": {
-    "szepeviktor/phpstan-wordpress": "^0.7.7",
+    "szepeviktor/phpstan-wordpress": "^2.0.3",
+    "phpstan/phpstan": "^2",
     "phpstan/extension-installer": "^1.1",
     "phpunit/phpunit": "^9.6",
     "yoast/phpunit-polyfills": "^1.1.0",

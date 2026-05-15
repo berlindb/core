@@ -207,8 +207,8 @@ class Search extends Base {
 		 * @since 1.0.0
 		 * @since 3.0.0 Uses apply_filters_ref_array() instead of apply_filters()
 		 *
-		 * @param array $search_columns Array of column names to be searched.
-		 * @param \BerlinDB\Database\Query &$this Current instance passed by reference.
+		 * @param array                    $search_columns Array of column names to be searched.
+		 * @param \BerlinDB\Database\Query $query          Current query instance.
 		 */
 		return (array) apply_filters_ref_array(
 			$this->apply_prefix( "{$this->caller->item_name_plural}_search_columns" ),

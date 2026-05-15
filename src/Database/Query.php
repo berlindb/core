@@ -129,15 +129,15 @@ class Query {
 	 */
 	protected $item_shape = __NAMESPACE__ . '\\Row';
 
-    /**
-     * Name of class used to turn IDs into first-class objects for the current request.
-     *
-     * This is used when looping through return values to guarantee their shape.
-     *
+	/**
+	 * Name of class used to turn IDs into first-class objects for the current request.
+	 *
+	 * This is used when looping through return values to guarantee their shape.
+	 *
 	 * @since 2.0.0
-     * @var   mixed
-     */
-    protected $current_item_shape;
+	 * @var   mixed
+	 */
+	protected $current_item_shape;
 
 	/** Cache *****************************************************************/
 
@@ -1588,9 +1588,9 @@ class Query {
 	 * @since 3.0.0 Moved COUNT() SQL to parse_count() and uses parse_groupby()
 	 *              when counting to satisfy MySQL 8 and higher.
 	 *
-	 * @param string[] $fields
+	 * @param string|string[] $fields
 	 * @param bool     $count
-	 * @param string[] $groupby
+	 * @param string|string[] $groupby
 	 * @param bool     $alias
 	 * @return string
 	 */
@@ -1736,11 +1736,6 @@ class Query {
 		// Maybe prepend table alias to key
 		foreach ( $intersect as $key ) {
 			$names[] = $this->get_column_name_aliased( $key, $alias );
-		}
-
-		// Bail if nothing to groupby
-		if ( empty( $names ) && ! empty( $before ) ) {
-			return '';
 		}
 
 		// Format column names
@@ -3622,8 +3617,8 @@ class Query {
 		 *
 		 * @since 1.0.0
 		 *
-		 * @param array $item  The item as an array.
-		 * @param \BerlinDB\Database\Query &$this Current instance passed by reference.
+		 * @param array                    $item  The item as an array.
+		 * @param \BerlinDB\Database\Query $query Current query instance.
 		 */
 		return (array) apply_filters_ref_array(
 			$this->apply_prefix( "filter_{$this->item_name}_item" ),
@@ -3649,8 +3644,8 @@ class Query {
 		 *
 		 * @since 1.0.0
 		 *
-		 * @param array $items An array of items.
-		 * @param \BerlinDB\Database\Query &$this Current instance passed by reference.
+		 * @param array                    $items An array of items.
+		 * @param \BerlinDB\Database\Query $query Current query instance.
 		 */
 		return (array) apply_filters_ref_array(
 			$this->apply_prefix( "the_{$this->item_name_plural}" ),
@@ -3677,8 +3672,8 @@ class Query {
 		 * @since 3.0.0 Supports MySQL 8 by removing FOUND_ROWS() and uses
 		 *              $request_clauses instead.
 		 *
-		 * @param string $sql   SQL query.
-		 * @param \BerlinDB\Database\Query &$this Current instance passed by reference.
+		 * @param string                   $sql   SQL query.
+		 * @param \BerlinDB\Database\Query $query Current query instance.
 		 */
 		return (string) apply_filters_ref_array(
 			$this->apply_prefix( "found_{$this->item_name_plural}_query" ),
@@ -3704,8 +3699,8 @@ class Query {
 		 *
 		 * @since 1.0.0
 		 *
-		 * @param array $clauses An array of query clauses.
-		 * @param \BerlinDB\Database\Query &$this Current instance passed by reference.
+		 * @param array                    $clauses An array of query clauses.
+		 * @param \BerlinDB\Database\Query $query   Current query instance.
 		 */
 		return (array) apply_filters_ref_array(
 			$this->apply_prefix( "{$this->item_name_plural}_query_clauses" ),
