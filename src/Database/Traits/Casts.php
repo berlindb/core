@@ -140,8 +140,12 @@ trait Casts {
 			return;
 		}
 
+		$existing_casts = ( isset( $this->casts ) && is_array( $this->casts ) )
+			? $this->sanitize_cast_map( $this->casts )
+			: array();
+
 		// Rebuild merged map cumulatively: existing schema casts, then new schema casts, then row-defined overrides.
-		$this->casts = array_merge( $this->get_casts(), $schema_casts, $this->row_defined_casts );
+		$this->casts = array_merge( $existing_casts, $schema_casts, $this->row_defined_casts );
 
 		// Apply schema casts only to known row properties not already overridden.
 		foreach ( $schema_casts as $field => $cast ) {

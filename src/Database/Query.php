@@ -2806,7 +2806,7 @@ class Query {
 		}
 
 		// Reuse cached shape instance when possible.
-		if ( ! ( $this->cast_item_shape instanceof $this->item_shape ) ) {
+		if ( ! is_object( $this->cast_item_shape ) || ! is_a( $this->cast_item_shape, $this->item_shape ) ) {
 			$this->cast_item_shape = new $this->item_shape;
 		}
 
