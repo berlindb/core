@@ -9,19 +9,19 @@ Ensure perform reliably and scale effortlessly in highly available WordPress bas
 ## Mission
 The primary mission of BerlinDB is to democratize data storage.
 
-### Phase 1 - 2022
+### Phase 1
 Minimize the effort required to perform routine & repetitive database interactions.
 
-### Phase 2 - 2022
+### Phase 2
 Achieve platform agnosticism through smart abstractions and interoperability layers.
 
-### Phase 3 - 2022
+### Phase 3
 Generate the custom code that is necessary from any existing database table structure.
 
-### Phase 4 - 2023
+### Phase 4
 Automate database table structure changes for a seamless upgrade/rollback experience.
 
-### Phase 5 - 2023
+### Phase 5
 Manage all database connections to directly support reads, writes, clones, splitting, and sharding.
 
 ## Name

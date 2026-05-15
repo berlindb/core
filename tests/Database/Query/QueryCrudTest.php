@@ -114,6 +114,41 @@ class QueryCrudTest extends TestCase {
 		$this->assertSame( 'inactive', $item->status );
 	}
 
+	public function test_get_item_uses_row_cast_override_for_priority() {
+		$id   = self::$query->add_item( array( 'name' => 'Widget A', 'priority' => '42' ) );
+		$item = self::$query->get_item( $id );
+
+		$this->assertIsInt( $item->priority );
+		$this->assertSame( 42, $item->priority );
+	}
+
+	public function test_settings_array_cast_round_trips_between_php_and_db() {
+		global $wpdb;
+
+		$settings = array(
+			'color'   => 'blue',
+			'enabled' => true,
+		);
+
+		$id = self::$query->add_item( array(
+			'name'     => 'Widget With Settings',
+			'settings' => $settings,
+		) );
+
+		$this->assertIsInt( $id );
+
+		$table = $wpdb->berlindb_test_widgets;
+		$raw   = $wpdb->get_var( $wpdb->prepare( "SELECT settings FROM {$table} WHERE id = %d", $id ) );
+
+		$this->assertIsString( $raw );
+		$this->assertJson( $raw );
+
+		$item = self::$query->get_item( $id );
+		$this->assertIsArray( $item->settings );
+		$this->assertSame( 'blue', $item->settings['color'] );
+		$this->assertTrue( $item->settings['enabled'] );
+	}
+
 	public function test_get_item_returns_false_for_nonexistent_id() {
 		$result = self::$query->get_item( 999999 );
 		$this->assertFalse( $result );

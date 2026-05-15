@@ -38,7 +38,7 @@ class SchemaTest extends TestCase {
 	}
 
 	public function test_column_count_matches_definition() {
-		$this->assertCount( 7, self::$schema->columns );
+		$this->assertCount( 8, self::$schema->columns );
 	}
 
 	public function test_primary_column_is_named_id() {

@@ -19,6 +19,13 @@ use BerlinDB\Database\Row;
  */
 class TestRow extends Row {
 
+	/** @var array<string,string> */
+	public $casts = array(
+		'id'       => 'int',
+		'priority' => 'int',
+		'settings' => 'array',
+	);
+
 	/** @var array<string,mixed> */
 	public $args = array();
 
@@ -33,6 +40,9 @@ class TestRow extends Row {
 
 	/** @var int */
 	public $priority = 0;
+
+	/** @var array<string,mixed> */
+	public $settings = array();
 
 	/** @var string */
 	public $date_created = '';

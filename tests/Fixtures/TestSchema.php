@@ -71,9 +71,18 @@ class TestSchema extends Schema {
 			'length'   => '20',
 			'unsigned' => true,
 			'default'  => '0',
+			'cast'     => 'string',
 			'sortable' => true,
 			'in'       => true,
 			'not_in'   => true,
+		),
+
+		// JSON settings payload.
+		array(
+			'name'    => 'settings',
+			'type'    => 'longtext',
+			'default' => '',
+			'cast'    => 'json',
 		),
 
 		// Auto-set creation timestamp.

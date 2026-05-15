@@ -973,6 +973,19 @@ class Query {
 	}
 
 	/**
+	 * Get a map of schema-level column casts.
+	 *
+	 * @since 3.0.0
+	 * @return array
+	 */
+	private function get_columns_casts() {
+		$names = $this->get_columns( array(), 'and', 'name' );
+		$casts = $this->get_columns_field_by( 'name', $names, 'cast' );
+
+		return array_combine( $names, $casts );
+	}
+
+	/**
 	 * Get a single database row by any column and value, skipping cache.
 	 *
 	 * @since 1.0.0
@@ -2035,10 +2048,19 @@ class Query {
 			return $item;
 		}
 
-		// Shape the item as needed
-		$item = ! empty( $this->current_item_shape )
-			? new $this->current_item_shape( $item )
-			: (object) $item;
+		// Shape the item as needed.
+		if ( ! empty( $this->current_item_shape ) ) {
+
+			$item = new $this->current_item_shape( $item );
+
+			// Apply schema casts for non-stdClass rows.
+			if ( ( 'stdClass' !== $this->current_item_shape ) && is_callable( array( $item, 'apply_schema_casts' ) ) ) {
+				$item->apply_schema_casts( $this->get_columns_casts() );
+			}
+
+		} else {
+			$item = (object) $item;
+		}
 
 		// Return the item object
 		return $item;
@@ -2364,6 +2386,9 @@ class Query {
 			$save[ $modified->name ] = $time;
 		}
 
+		// Cast outbound values prior to capability reduction and validation.
+		$save = $this->cast_item( $save );
+
 		// Reduce & validate
 		$reduce = $this->reduce_item( 'insert', $save );
 		$save   = $this->validate_item( $reduce );
@@ -2515,6 +2540,9 @@ class Query {
 		if ( ! empty( $modified ) ) {
 			$save[ $modified->name ] = $this->get_current_time();
 		}
+
+		// Cast outbound values prior to capability reduction and validation.
+		$save = $this->cast_item( $save );
 
 		// Reduce & validate
 		$reduce = $this->reduce_item( 'update', $save );
@@ -2726,6 +2754,39 @@ class Query {
 
 		// Return
 		return $retval;
+	}
+
+	/**
+	 * Cast item values for database persistence.
+	 *
+	 * Uses the row shape when it supports apply_attribute_casts().
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param array $item
+	 * @return array
+	 */
+	private function cast_item( $item = array() ) {
+
+		// Bail if malformed.
+		if ( empty( $item ) || ! is_array( $item ) ) {
+			return $item;
+		}
+
+		// Bail if no shape.
+		if ( empty( $this->item_shape ) || ! class_exists( $this->item_shape ) ) {
+			return $item;
+		}
+
+		$shape = new $this->item_shape;
+
+		// Bail if shape has no casting support.
+		if ( ! is_callable( array( $shape, 'apply_attribute_casts' ) ) ) {
+			return $item;
+		}
+
+		// Return casted values.
+		return $shape->apply_attribute_casts( $item, 'set', $this->get_columns_casts() );
 	}
 
 	/**

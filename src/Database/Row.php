@@ -39,8 +39,18 @@ class Row {
 	 */
 	use Traits\Base;
 	use Traits\Boot;
+	use Traits\Casts;
 
 	/** Methods ***************************************************************/
+
+	/**
+	 * Late lifecycle hook.
+	 *
+	 * @since 3.0.0
+	 */
+	protected function init() {
+		$this->init_casts();
+	}
 
 	/**
 	 * Determines whether the current row exists.
