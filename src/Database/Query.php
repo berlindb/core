@@ -425,6 +425,11 @@ class Query {
 			$this->item_shape = __NAMESPACE__ . '\\Row';
 		}
 
+		// Invalidate cached cast shape when item shape changes.
+		if ( ! ( $this->cast_item_shape instanceof $this->item_shape ) ) {
+			$this->cast_item_shape = null;
+		}
+
 		// Current item during shaping (might be stdClass)
 		if ( empty( $this->current_item_shape ) || ! class_exists( $this->current_item_shape ) ) {
 			$this->current_item_shape = $this->item_shape;

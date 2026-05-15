@@ -137,7 +137,7 @@ trait Casts {
 
 		$existing_casts = $this->sanitize_cast_map( $this->ensure_casts_initialized() );
 
-		// Rebuild merged map cumulatively: existing schema casts, then new schema casts, then row-defined overrides.
+		// Rebuild merged map cumulatively from existing merged casts, then new schema casts, then row-defined overrides.
 		$this->casts = array_merge( $existing_casts, $schema_casts, $this->row_defined_casts );
 
 		// Apply schema casts only to known row properties not already overridden.
