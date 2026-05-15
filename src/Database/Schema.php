@@ -173,16 +173,13 @@ class Schema {
 	 * - add_item( $type, $data )
 	 * - add_item( $type, $class, $data )
 	 *
-	 * @since 3.0.0
-	 * @since 3.0.1 Supports legacy 3-argument signature for backwards compatibility.
-	 *
-	 * @param string                  $type          Item collection type. Accepts
-	 *                                               'columns' or 'indexes' (and
-	 *                                               their singular aliases).
+	 * @param string                    $type          Item collection type. Accepts
+	 *                                                 'columns' or 'indexes' (and
+	 *                                                 their singular aliases).
 	 * @param string|array|Column|Index $class_or_data Class name (legacy signature)
-	 *                                               or item data (current signature).
-	 * @param array|Column|Index      $data          Optional item data when using
-	 *                                               the legacy signature.
+	 *                                                 or item data (current signature).
+	 * @param array|Column|Index        $data          Optional item data when using
+	 *                                                 the legacy signature.
 	 *
 	 * @return Column|Index|false The added item object, or false on failure.
 	 */
