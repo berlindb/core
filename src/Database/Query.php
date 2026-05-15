@@ -139,6 +139,14 @@ class Query {
 	 */
 	protected $current_item_shape;
 
+	/**
+	 * Cached row shape instance used for cast_item().
+	 *
+	 * @since 3.0.0
+	 * @var   mixed
+	 */
+	private $cast_item_shape = null;
+
 	/** Cache *****************************************************************/
 
 	/**
@@ -2773,20 +2781,41 @@ class Query {
 			return $item;
 		}
 
-		// Bail if no shape.
-		if ( empty( $this->item_shape ) || ! class_exists( $this->item_shape ) ) {
-			return $item;
-		}
-
-		$shape = new $this->item_shape;
+		$shape = $this->get_cast_item_shape();
 
 		// Bail if shape has no casting support.
-		if ( ! is_callable( array( $shape, 'apply_attribute_casts' ) ) ) {
+		if ( empty( $shape ) ) {
 			return $item;
 		}
 
 		// Return casted values.
 		return $shape->apply_attribute_casts( $item, 'set', $this->get_columns_casts() );
+	}
+
+	/**
+	 * Get a cached shape instance for outbound casting.
+	 *
+	 * @since 3.0.0
+	 * @return object|null
+	 */
+	private function get_cast_item_shape() {
+
+		// Bail if no shape.
+		if ( empty( $this->item_shape ) || ! class_exists( $this->item_shape ) ) {
+			return null;
+		}
+
+		// Reuse cached shape instance when possible.
+		if ( ! is_object( $this->cast_item_shape ) || ! ( $this->cast_item_shape instanceof $this->item_shape ) ) {
+			$this->cast_item_shape = new $this->item_shape;
+		}
+
+		// Bail if shape has no casting support.
+		if ( ! is_callable( array( $this->cast_item_shape, 'apply_attribute_casts' ) ) ) {
+			return null;
+		}
+
+		return $this->cast_item_shape;
 	}
 
 	/**

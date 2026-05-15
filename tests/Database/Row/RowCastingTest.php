@@ -21,14 +21,14 @@ use Yoast\WPTestUtils\WPIntegration\TestCase;
 class RowCastingTest extends TestCase {
 
 	/**
-	 * Test schema cast only (no row override).
+	 * Test row cast without schema casts.
 	 *
-	 * Schema defines priority as 'string', row has no override.
-	 * Property should be cast as string.
+	 * TestRow defines priority as 'int'. Without schema casts,
+	 * the row-defined cast should apply.
 	 *
 	 * @since 3.0.0
 	 */
-	public function test_schema_cast_only_applied_to_property() {
+	public function test_row_cast_applied_without_schema_casts() {
 
 		$row = new TestRow( array( 'priority' => 123 ) );
 
@@ -104,6 +104,8 @@ class RowCastingTest extends TestCase {
 		$casts = $row->get_casts();
 		$this->assertArrayHasKey( 'data1', $casts );
 		$this->assertSame( 'int', $casts['data1'] );
+		$this->assertArrayHasKey( 'data2', $casts );
+		$this->assertSame( 'int', $casts['data2'] );
 	}
 
 	/**

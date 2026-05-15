@@ -24,14 +24,6 @@ defined( 'ABSPATH' ) || exit;
 trait Casts {
 
 	/**
-	 * Field => cast map for this row.
-	 *
-	 * @since 3.0.0
-	 * @var   array
-	 */
-	public $casts = array();
-
-	/**
 	 * Row-defined cast definitions (from class definition, immutable).
 	 *
 	 * @since 3.0.0
@@ -75,6 +67,11 @@ trait Casts {
 	 * @return array
 	 */
 	public function get_casts() {
+
+		if ( ! isset( $this->casts ) || ! is_array( $this->casts ) ) {
+			return array();
+		}
+
 		return $this->sanitize_cast_map( $this->casts );
 	}
 
@@ -143,8 +140,8 @@ trait Casts {
 			return;
 		}
 
-		// Rebuild merged map: schema first, then row-defined overrides take precedence.
-		$this->casts = array_merge( $schema_casts, $this->row_defined_casts );
+		// Rebuild merged map cumulatively: existing schema casts, then new schema casts, then row-defined overrides.
+		$this->casts = array_merge( $this->get_casts(), $schema_casts, $this->row_defined_casts );
 
 		// Apply schema casts only to known row properties not already overridden.
 		foreach ( $schema_casts as $field => $cast ) {
