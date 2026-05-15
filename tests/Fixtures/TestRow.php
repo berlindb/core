@@ -19,6 +19,9 @@ use BerlinDB\Database\Row;
  */
 class TestRow extends Row {
 
+	/** @var array<string,mixed> */
+	public $args = array();
+
 	/** @var int */
 	public $id = 0;
 
