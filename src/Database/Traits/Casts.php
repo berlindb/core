@@ -70,7 +70,6 @@ trait Casts {
 
 		if ( ! isset( $this->casts ) || ! is_array( $this->casts ) ) {
 			$this->casts = array();
-			return array();
 		}
 
 		return $this->sanitize_cast_map( $this->casts );
