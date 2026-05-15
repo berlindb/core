@@ -41,18 +41,18 @@ class RowCastingTest extends TestCase {
 	 * Test schema cast applied post-instantiation.
 	 *
 	 * A minimal row (no row-defined casts) loads from DB.
-	 * After apply_schema_casts(), property should be cast.
+	 * After merge_schema_casts(), property should be cast.
 	 *
 	 * @since 3.0.0
 	 */
-	public function test_apply_schema_casts_transforms_property() {
+	public function test_merge_schema_casts_transforms_property() {
 
 		// Create a minimal row without any casts defined.
 		$row = new \BerlinDB\Database\Row();
 		$row->priority = 123;
 
 		// Apply schema casts (simulating Query behavior).
-		$row->apply_schema_casts( array( 'priority' => 'string' ) );
+		$row->merge_schema_casts( array( 'priority' => 'string' ) );
 
 		// Property should now be cast as string.
 		$this->assertSame( '123', $row->priority );
@@ -71,8 +71,8 @@ class RowCastingTest extends TestCase {
 
 		$row = new TestRow( array( 'priority' => '123' ) );
 
-		// apply_schema_casts() with 'string' cast.
-		$row->apply_schema_casts( array( 'priority' => 'string' ) );
+		// merge_schema_casts() with 'string' cast.
+		$row->merge_schema_casts( array( 'priority' => 'string' ) );
 
 		// Row override ('int') should take precedence over schema ('string').
 		$this->assertSame( 123, $row->priority );
@@ -80,19 +80,19 @@ class RowCastingTest extends TestCase {
 	}
 
 	/**
-	 * Test multiple calls to apply_schema_casts updates cast map.
+	 * Test multiple calls to merge_schema_casts updates cast map.
 	 *
 	 * Subsequent calls should update the cast map for fields without row overrides.
 	 *
 	 * @since 3.0.0
 	 */
-	public function test_apply_schema_casts_updates_map_on_repopulation() {
+	public function test_merge_schema_casts_updates_map_on_repopulation() {
 
 		// Minimal row with no casts defined.
 		$row = new \BerlinDB\Database\Row();
 
 		// First call: add data1 and data2 to schema casts.
-		$row->apply_schema_casts( array( 'data1' => 'string', 'data2' => 'int' ) );
+		$row->merge_schema_casts( array( 'data1' => 'string', 'data2' => 'int' ) );
 		$casts = $row->get_casts();
 		$this->assertArrayHasKey( 'data1', $casts );
 		$this->assertSame( 'string', $casts['data1'] );
@@ -100,7 +100,7 @@ class RowCastingTest extends TestCase {
 		$this->assertSame( 'int', $casts['data2'] );
 
 		// Second call: update data1 to int (should replace schema cast).
-		$row->apply_schema_casts( array( 'data1' => 'int' ) );
+		$row->merge_schema_casts( array( 'data1' => 'int' ) );
 		$casts = $row->get_casts();
 		$this->assertArrayHasKey( 'data1', $casts );
 		$this->assertSame( 'int', $casts['data1'] );
@@ -121,11 +121,11 @@ class RowCastingTest extends TestCase {
 		$row = new TestRow( array( 'priority' => '123' ) );
 
 		// First schema call: try to cast as 'string'.
-		$row->apply_schema_casts( array( 'priority' => 'string' ) );
+		$row->merge_schema_casts( array( 'priority' => 'string' ) );
 		$this->assertSame( 123, $row->priority );
 
 		// Second schema call: try to cast as 'float'.
-		$row->apply_schema_casts( array( 'priority' => 'float' ) );
+		$row->merge_schema_casts( array( 'priority' => 'float' ) );
 
 		// Row override ('int') should still be in effect.
 		$this->assertSame( 123, $row->priority );
@@ -165,11 +165,37 @@ class RowCastingTest extends TestCase {
 		$row = new TestRow();
 
 		// Apply cast for non-existent field.
-		$row->apply_schema_casts( array( 'nonexistent_field' => 'int' ) );
+		$row->merge_schema_casts( array( 'nonexistent_field' => 'int' ) );
 
 		// Should not throw error and should still be in cast map.
 		$casts = $row->get_casts();
 		$this->assertArrayHasKey( 'nonexistent_field', $casts );
+	}
+
+	/**
+	 * Test declared casts remain distinct from the effective cast map.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_declared_casts_remain_distinct_from_effective_map() {
+
+		$row = new TestRow( array( 'priority' => '123' ) );
+		$row->merge_schema_casts( array(
+			'priority' => 'string',
+			'status'   => 'bool',
+		) );
+
+		$this->assertSame(
+			array(
+				'id'       => 'int',
+				'priority' => 'int',
+				'settings' => 'array',
+			),
+			$row->get_declared_casts()
+		);
+
+		$this->assertSame( 'int', $row->get_casts()['priority'] );
+		$this->assertSame( 'bool', $row->get_casts()['status'] );
 	}
 
 	/**
@@ -287,7 +313,7 @@ class RowCastingTest extends TestCase {
 			$this->assertSame( 'a1b2-c3d4', $casted['uuid'] );
 
 			$default_row->uuid = 'F00D-BEEF';
-			$default_row->apply_schema_casts( array( 'uuid' => 'uuid_lower' ) );
+			$default_row->merge_schema_casts( array( 'uuid' => 'uuid_lower' ) );
 			$this->assertSame( 'f00d-beef', $default_row->uuid );
 
 		} finally {
@@ -310,7 +336,7 @@ class RowCastingTest extends TestCase {
 			$this->assertSame( 'dead-beef', $casted['uuid'] );
 
 			$prefixed_row->uuid = 'CAFE-BABE';
-			$prefixed_row->apply_schema_casts( array( 'uuid' => 'uuid_lower' ) );
+			$prefixed_row->merge_schema_casts( array( 'uuid' => 'uuid_lower' ) );
 
 			$this->assertSame( 'cafe-babe', $prefixed_row->uuid );
 
@@ -322,7 +348,7 @@ class RowCastingTest extends TestCase {
 	/**
 	 * Test empty schema casts.
 	 *
-	 * Calling apply_schema_casts with empty array should be safe.
+	 * Calling merge_schema_casts with empty array should be safe.
 	 *
 	 * @since 3.0.0
 	 */
@@ -331,7 +357,7 @@ class RowCastingTest extends TestCase {
 		$row = new TestRow( array( 'priority' => '123' ) );
 
 		// Apply empty schema casts.
-		$row->apply_schema_casts( array() );
+		$row->merge_schema_casts( array() );
 
 		// Row should be unchanged.
 		$this->assertSame( 123, $row->priority );
@@ -355,6 +381,10 @@ class RowCastingTest extends TestCase {
 			array( 'value' => 0,     'expected' => false ),
 			array( 'value' => '1',   'expected' => true ),
 			array( 'value' => '0',   'expected' => false ),
+			array( 'value' => 'true', 'expected' => true ),
+			array( 'value' => 'false', 'expected' => false ),
+			array( 'value' => 'on',  'expected' => true ),
+			array( 'value' => 'off', 'expected' => false ),
 			array( 'value' => 'yes', 'expected' => true ),
 			array( 'value' => 'no',  'expected' => false ),
 			array( 'value' => true,  'expected' => true ),
@@ -417,5 +447,27 @@ class RowCastingTest extends TestCase {
 			$this->assertIsString( $field );
 			$this->assertTrue( is_scalar( $cast ) || is_callable( $cast ) );
 		}
+	}
+
+	/**
+	 * Test effective cast storage is sanitized during initialization.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_cast_storage_is_sanitized_during_initialization() {
+
+		$row = new class() extends \BerlinDB\Database\Row {
+			protected $declared_casts = array(
+				'priority' => ' int ',
+				123        => 'string',
+				'invalid'  => '',
+			);
+
+			public $priority = 0;
+		};
+
+		$this->assertSame( array( 'priority' => 'int' ), $row->get_declared_casts() );
+		$this->assertSame( array( 'priority' => 'int' ), $row->get_casts() );
+		$this->assertSame( array( 'priority' => 'int' ), $row->casts );
 	}
 }

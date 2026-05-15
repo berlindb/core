@@ -2045,6 +2045,7 @@ class Query {
 	 * to be when it grew up.
 	 *
 	 * @since 1.0.0
+	 * @since 3.0.0 Attempts to cast item values.
 	 *
 	 * @param mixed $item ID of item, or row from database
 	 * @return mixed False on error, Object of single-object class type on success
@@ -2066,9 +2067,9 @@ class Query {
 
 			$item = new $this->current_item_shape( $item );
 
-			// Apply schema casts for non-stdClass rows.
-			if ( ( 'stdClass' !== $this->current_item_shape ) && is_callable( array( $item, 'apply_schema_casts' ) ) ) {
-				$item->apply_schema_casts( $this->get_columns_casts() );
+			// Merge schema casts for non-stdClass rows.
+			if ( ( 'stdClass' !== $this->current_item_shape ) && is_callable( array( $item, 'merge_schema_casts' ) ) ) {
+				$item->merge_schema_casts( $this->get_columns_casts() );
 			}
 
 		} else {

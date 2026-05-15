@@ -20,7 +20,7 @@ use BerlinDB\Database\Row;
 class TestRow extends Row {
 
 	/** @var array<string,string> */
-	public $casts = array(
+	protected $declared_casts = array(
 		'id'       => 'int',
 		'priority' => 'int',
 		'settings' => 'array',

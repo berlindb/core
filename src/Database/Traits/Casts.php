@@ -24,12 +24,25 @@ defined( 'ABSPATH' ) || exit;
 trait Casts {
 
 	/**
-	 * Row-defined cast definitions (from class definition, immutable).
+	 * Effective cast map for this row instance.
+	 *
+	 * This is the runtime cast map after sanitization and any schema-level
+	 * merges have been applied.
 	 *
 	 * @since 3.0.0
 	 * @var   array
 	 */
-	private $row_defined_casts = array();
+	protected $casts = array();
+
+	/**
+	 * Row-defined cast definitions from the class definition.
+	 *
+	 * Row subclasses should override this property to declare their cast map.
+	 *
+	 * @since 3.0.0
+	 * @var   array
+	 */
+	protected $declared_casts = array();
 
 	/**
 	 * Initialize casting and apply inbound casts to row properties.
@@ -38,36 +51,40 @@ trait Casts {
 	 * @return void
 	 */
 	protected function init_casts() {
-
-		$casts = $this->sanitize_cast_map( $this->get_casts() );
+		$declared_casts = $this->sanitize_cast_map( $this->declared_casts );
 
 		// Store row-defined casts (immutable from class definition).
-		$this->row_defined_casts = $casts;
+		$this->declared_casts = $declared_casts;
 
-		// Cache the merged cast map on the row instance.
-		$this->casts = $casts;
+		// Cache the effective cast map on the row instance.
+		$this->set_casts( $declared_casts );
 
 		// Bail if no casts.
-		if ( empty( $casts ) ) {
+		if ( empty( $declared_casts ) ) {
 			return;
 		}
 
-		// Apply inbound casts only to known row properties.
-		foreach ( $casts as $field => $cast ) {
-			if ( property_exists( $this, $field ) || isset( $this->{$field} ) ) {
-				$this->{$field} = $this->cast_attribute_value( $this->{$field}, $cast, 'get', $field );
-			}
-		}
+		$this->apply_casts_to_properties( $declared_casts );
 	}
 
 	/**
-	 * Return the row cast map.
+	 * Return the effective cast map for this row.
 	 *
 	 * @since 3.0.0
 	 * @return array
 	 */
 	public function get_casts() {
-		return $this->sanitize_cast_map( $this->ensure_casts_initialized() );
+		return $this->casts;
+	}
+
+	/**
+	 * Return the row-defined cast map from the class definition.
+	 *
+	 * @since 3.0.0
+	 * @return array
+	 */
+	public function get_declared_casts() {
+		return $this->declared_casts;
 	}
 
 	/**
@@ -115,7 +132,7 @@ trait Casts {
 	}
 
 	/**
-	 * Apply schema-defined casts to row properties.
+	 * Merge schema-defined casts into the row's effective cast map.
 	 *
 	 * Called explicitly by Query after row instantiation to apply schema defaults.
 	 * Row-level casts take permanent precedence over schema casts.
@@ -126,30 +143,52 @@ trait Casts {
 	 * @param array $schema_casts Schema-provided cast definitions.
 	 * @return void
 	 */
-	public function apply_schema_casts( $schema_casts = array() ) {
+	public function merge_schema_casts( $schema_casts = array() ) {
 
 		$schema_casts = $this->sanitize_cast_map( $schema_casts );
+		$declared_casts = $this->get_declared_casts();
 
 		// Bail if no schema casts.
 		if ( empty( $schema_casts ) ) {
 			return;
 		}
 
-		$existing_casts = $this->sanitize_cast_map( $this->ensure_casts_initialized() );
+		$existing_casts = $this->get_casts();
 
 		// Merge existing casts, new schema casts, then row-defined overrides.
-		$this->casts = array_merge( $existing_casts, $schema_casts, $this->row_defined_casts );
+		$this->set_casts( array_merge( $existing_casts, $schema_casts, $declared_casts ) );
 
-		// Apply schema casts only to known row properties not already overridden.
-		foreach ( $schema_casts as $field => $cast ) {
+		$this->apply_casts_to_properties( $schema_casts, 'get', array_keys( $declared_casts ) );
+	}
 
-			// Skip if row has its own cast for this field (row takes precedence).
-			if ( isset( $this->row_defined_casts[ $field ] ) ) {
+	/**
+	 * Apply a cast map to matching row properties.
+	 *
+	 * @since 3.0.0
+	 * @param array  $casts       Cast definitions to apply.
+	 * @param string $context     Context: 'get' or 'set'.
+	 * @param array  $skip_fields Fields that should not be cast.
+	 * @return void
+	 */
+	private function apply_casts_to_properties( $casts = array(), $context = 'get', $skip_fields = array() ) {
+
+		$casts       = $this->sanitize_cast_map( $casts );
+		$skip_fields = array_filter( (array) $skip_fields, 'is_string' );
+
+		// Bail if no casts.
+		if ( empty( $casts ) ) {
+			return;
+		}
+
+		foreach ( $casts as $field => $cast ) {
+
+			// Skip fields with row-level overrides.
+			if ( in_array( $field, $skip_fields, true ) ) {
 				continue;
 			}
 
 			if ( property_exists( $this, $field ) || isset( $this->{$field} ) ) {
-				$this->{$field} = $this->cast_attribute_value( $this->{$field}, $cast, 'get', $field );
+				$this->{$field} = $this->cast_attribute_value( $this->{$field}, $cast, $context, $field );
 			}
 		}
 	}
@@ -192,16 +231,14 @@ trait Casts {
 	}
 
 	/**
-	 * Ensure casts storage exists as an array.
+	 * Store a sanitized cast map on the row instance.
 	 *
 	 * @since 3.0.0
+	 * @param array $casts Cast definitions to store.
 	 * @return array
 	 */
-	private function ensure_casts_initialized() {
-
-		if ( ! isset( $this->casts ) || ! is_array( $this->casts ) ) {
-			$this->casts = array();
-		}
+	private function set_casts( $casts = array() ) {
+		$this->casts = $this->sanitize_cast_map( $casts );
 
 		return $this->casts;
 	}
@@ -238,7 +275,7 @@ trait Casts {
 
 			case 'bool':
 			case 'boolean':
-				return (bool) wp_validate_boolean( $value );
+				return $this->normalize_boolean( $value );
 
 			case 'string':
 				if ( is_scalar( $value ) || is_null( $value ) ) {
@@ -269,6 +306,29 @@ trait Casts {
 			default:
 				return $this->filter_unknown_cast( $value, $name, $context, $field, $parsed['args'] );
 		}
+	}
+
+	/**
+	 * Normalize a value to a boolean.
+	 *
+	 * Accepts common textual boolean values like yes/no and on/off before
+	 * falling back to WordPress's boolean validation behavior.
+	 *
+	 * @since 3.0.0
+	 * @param mixed $value
+	 * @return bool
+	 */
+	private function normalize_boolean( $value = null ) {
+
+		if ( is_bool( $value ) ) {
+			return $value;
+		}
+
+		$validated = filter_var( $value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE );
+
+		return ( null !== $validated )
+			? $validated
+			: wp_validate_boolean( $value );
 	}
 
 	/**
