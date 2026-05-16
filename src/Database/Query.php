@@ -309,7 +309,7 @@ class Query {
 	 * @since 3.0.0
 	 */
 	protected function sunrise() {
-		$this->set_alias();
+		$this->set_table_alias();
 		$this->set_prefixes();
 		$this->set_schema();
 		$this->set_item_shape();
@@ -364,9 +364,9 @@ class Query {
 	 *
 	 * This happens before prefixes are applied.
 	 *
-	 * @since 1.0.0
+	 * @since 3.0.0
 	 */
-	private function set_alias() {
+	private function set_table_alias() {
 		if ( empty( $this->table_alias ) ) {
 			$this->table_alias = $this->first_letters( $this->table_name );
 		}
@@ -910,16 +910,55 @@ class Query {
 		$retval = $column_name;
 
 		/**
-		 * Maybe append table alias.
+		 * Maybe prepend the table alias.
 		 *
-		 * Also append a period, to separate it from the column name.
+		 * Also add a period as a separator.
 		 */
 		if ( true === $alias ) {
-			$retval = "{$this->table_alias}.{$column_name}";
+			$retval = $this->get_table_alias() . ".{$column_name}";
 		}
 
 		// Return SQL
 		return $retval;
+	}
+
+	/** Protected Getters *****************************************************/
+
+	/**
+	 * Return the table name.
+	 *
+	 * Prefixed by the $table_prefix global, or get_blog_prefix() if
+	 * is_multisite().
+	 *
+	 * @since 1.0.0
+	 *
+	 * @return string
+	 */
+	protected function get_table_name() {
+
+		// Get the database interface
+		$db = $this->get_db();
+
+		// Return SQL
+		return ! empty( $db )
+			? $db->{$this->table_name}
+			: $this->table_name;
+	}
+
+	/**
+	 * Return the table alias.
+	 *
+	 * Prefixed by the $table_prefix global, or get_blog_prefix() if
+	 * is_multisite().
+	 *
+	 * @since 3.0.0
+	 *
+	 * @return string
+	 */
+	protected function get_table_alias() {
+
+		// Return SQL
+		return $this->table_alias;
 	}
 
 	/** Private Getters *******************************************************/
@@ -949,27 +988,6 @@ class Query {
 	 */
 	private function get_current_time() {
 		return gmdate( "Y-m-d\TH:i:s\Z" );
-	}
-
-	/**
-	 * Return the table name.
-	 *
-	 * Prefixed by the $table_prefix global, or get_blog_prefix() if
-	 * is_multisite().
-	 *
-	 * @since 1.0.0
-	 *
-	 * @return string
-	 */
-	private function get_table_name() {
-
-		// Get the database interface
-		$db = $this->get_db();
-
-		// Return SQL
-		return ! empty( $db )
-			? $db->{$this->table_name}
-			: $this->table_name;
 	}
 
 	/**
@@ -1676,7 +1694,7 @@ class Query {
 	 * @param string $table Optional. Default empty string.
 	 *                      Fallback to get_table_name().
 	 * @param string $alias Optional. Default empty string.
-	 *                      Fallback to $table_alias.
+	 *                      Fallback to get_table_alias().
 	 * @return string
 	 */
 	private function parse_from( $table = '', $alias = '' ) {
@@ -1686,9 +1704,9 @@ class Query {
 			$table = $this->get_table_name();
 		}
 
-		// Maybe fallback to $table_alias
+		// Maybe fallback to get_table_alias()
 		if ( empty( $alias ) ) {
-			$alias = $this->table_alias;
+			$alias = $this->get_table_alias();
 		}
 
 		// Return
