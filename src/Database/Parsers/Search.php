@@ -8,6 +8,8 @@
  * @license     https://opensource.org/licenses/MIT MIT
  * @since       3.0.0
  */
+declare( strict_types = 1 );
+
 namespace BerlinDB\Database\Parsers;
 
 // Exit if accessed directly
@@ -18,8 +20,6 @@ defined( 'ABSPATH' ) || exit;
  * search and search_columns.
  *
  * @since 3.0.0
-declare( strict_types = 1 );
-
  */
 class Search extends Base {
 
