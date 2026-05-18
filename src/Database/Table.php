@@ -1448,27 +1448,6 @@ class Table {
 	}
 
 	/**
-	 * Check if the current request is from some kind of test.
-	 *
-	 * This is primarily used to skip 'admin_init' and force-install tables.
-	 *
-	 * @since 1.0.0
-	 *
-	 * @return bool
-	 */
-	private function is_testing() {
-		return (bool)
-
-			// Tests constant is being used
-			( defined( 'WP_TESTS_DIR' ) && WP_TESTS_DIR )
-
-			||
-
-			// Scaffolded (https://make.wordpress.org/cli/handbook/plugin-unit-tests/)
-			function_exists( '_manually_load_plugin' );
-	}
-
-	/**
 	 * Check if table is global.
 	 *
 	 * @since 1.0.0
