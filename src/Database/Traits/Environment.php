@@ -30,7 +30,7 @@ trait Environment {
      * requires a custom interface.
      *
      * A future version of BerlinDB will abstract this to a new class, so
-     * custom calls to the db() method in your own code should be avoided.
+     * custom calls to the get_db() method in your own code should be avoided.
      *
      * @since 1.0.0
      * @var   string
