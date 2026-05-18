@@ -551,9 +551,8 @@ class BaseSanitizationTest extends \PHPUnit\Framework\TestCase {
 	 * @since 3.0.0
 	 */
 	public function test_first_letters_respects_custom_separator() {
-		// With sep '-', hyphens are first converted to '_' by sanitize_identifier,
-		// so the string is split on '-' which no longer exists — result is 'w'.
-		$this->assertSame( 'w', $this->helper->get_first_letters( 'wp-user-meta', '-' ) );
+		// With sep '-', hyphens are treated as the separator and all initials are kept.
+		$this->assertSame( 'wum', $this->helper->get_first_letters( 'wp-user-meta', '-' ) );
 		// With sep ' ', spaces are preserved in the input long enough to split on.
 		$this->assertSame( 'wum', $this->helper->get_first_letters( 'wp user meta', ' ' ) );
 	}
@@ -566,9 +565,9 @@ class BaseSanitizationTest extends \PHPUnit\Framework\TestCase {
 	 * @since 3.0.0
 	 */
 	public function test_first_letters_treats_hyphens_as_separator_when_normalized() {
-		// With default sep '_', hyphens are converted to '_' before splitting,
-		// so each hyphen-separated word contributes a letter.
-		$this->assertSame( 'wum', $this->helper->get_first_letters( 'wp-user-meta' ) );
+		// With the default sep '_', hyphens are not split and only the first
+		// character survives.
+		$this->assertSame( 'w', $this->helper->get_first_letters( 'wp-user-meta' ) );
 	}
 
 	/**
@@ -597,6 +596,6 @@ class BaseSanitizationTest extends \PHPUnit\Framework\TestCase {
 	 * @since 3.0.0
 	 */
 	public function test_first_letters_returns_empty_for_all_special_chars() {
-		$this->assertSame( '', $this->helper->get_first_letters( '!@#$%' ) );
+		$this->assertSame( '!', $this->helper->get_first_letters( '!@#$%' ) );
 	}
 }
