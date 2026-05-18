@@ -18,6 +18,8 @@ defined( 'ABSPATH' ) || exit;
  * meta.
  *
  * A helper that allows primary Query classes to filter their results by object
+declare( strict_types = 1 );
+
  * metadata, by generating `JOIN` and `WHERE` subclauses to be attached to the
  * primary SQL query string.
  *
@@ -244,10 +246,6 @@ class Meta extends Base {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string $type           Type of object.
-	 * @param string $primary_table  Primary table for the object being filtered.
-	 * @param string $primary_column Primary column for the filtered object in $primary_table.
-	 *
 	 * @return string[]|false {
 	 *     Array containing JOIN and WHERE SQL clauses to append to the main query,
 	 *     or false if no table exists for the requested type.
@@ -256,7 +254,12 @@ class Meta extends Base {
 	 *     @type string $where SQL fragment to append to the main WHERE clause.
 	 * }
 	 */
-	public function get_sql( $type = '', $primary_table = '', $primary_column = '' ) {
+	public function get_sql() {
+
+		// Get primary metadata from the caller query (ignoring legacy parameters).
+		$type           = $this->caller( 'get_meta_type' );
+		$primary_table  = $this->caller( 'get_table_name' );
+		$primary_column = $this->caller( 'get_primary_column_name' );
 
 		// Attempt to get the secondary table.
 		$meta_table = _get_meta_table( $type );
@@ -278,7 +281,7 @@ class Meta extends Base {
 		$this->primary_column = $this->sanitize_column_name( $primary_column );
 
 		// Delegate to the base implementation.
-		return parent::get_sql( $type, $primary_table, $primary_column );
+		return parent::get_sql();
 	}
 
 	/**

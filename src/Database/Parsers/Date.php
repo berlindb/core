@@ -18,6 +18,8 @@ defined( 'ABSPATH' ) || exit;
  * date.
  *
  * Is heavily inspired by the WP_Date_Query class in WordPress, with changes to
+declare( strict_types = 1 );
+
  * make it more flexible for custom tables and their columns.
  *
  * Date is a helper that allows primary query classes, to filter their results
