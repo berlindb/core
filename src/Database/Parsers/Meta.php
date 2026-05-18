@@ -18,6 +18,8 @@ defined( 'ABSPATH' ) || exit;
  * meta.
  *
  * A helper that allows primary Query classes to filter their results by object
+declare( strict_types = 1 );
+
  * metadata, by generating `JOIN` and `WHERE` subclauses to be attached to the
  * primary SQL query string.
  *
