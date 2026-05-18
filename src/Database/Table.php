@@ -285,7 +285,9 @@ class Table {
 	/** Public Helpers ********************************************************/
 
 	/**
-	 * Maybe upgrade this database table. Handles creation & schema changes.
+	 * Maybe upgrade this database table.
+	 *
+	 * Handles locking, creation, and schema changes.
 	 *
 	 * Hooked to the `admin_init` action.
 	 *
@@ -303,8 +305,8 @@ class Table {
 			return;
 		}
 
-		// Try to acquire the upgrade lock
-		if ( ! $this->create_upgrade_lock() ) {
+		// Bail if locked
+		if ( ! $this->lock_upgrades() ) {
 			return;
 		}
 
@@ -323,7 +325,7 @@ class Table {
 		} finally {
 
 			// Always release the lock, even if an exception occurred
-			$this->release_upgrade_lock();
+			$this->unlock_upgrades();
 		}
 	}
 
@@ -1366,17 +1368,17 @@ class Table {
 	}
 
 	/**
-	 * Create an upgrade lock.
+	 * Lock upgrades.
 	 *
 	 * Prevents multiple upgrade processes from running simultaneously on the
 	 * same table. Uses a transient with a 15-minute expiration to ensure the
 	 * lock is automatically released even if the upgrade process fails.
 	 *
-	 * @since 2.2.0
+	 * @since 3.0.0
 	 *
 	 * @return bool True if the lock was created, false if a lock already exists.
 	 */
-	private function create_upgrade_lock() {
+	private function lock_upgrades() {
 
 		// Generate a unique lock key for this table
 		$lock_key = $this->db_version_key . '_upgrade_lock';
@@ -1401,18 +1403,18 @@ class Table {
 	}
 
 	/**
-	 * Release the upgrade lock.
+	 * Unlock upgrades.
 	 *
-	 * Removes the transient that was set by create_upgrade_lock(), allowing other
+	 * Removes the transient that was set by lock_upgrades(), allowing other
 	 * upgrade processes to proceed.
 	 *
-	 * @since 2.2.0
+	 * @since 3.0.0
 	 *
 	 * @return bool True if the lock was released, false otherwise.
 	 */
-	private function release_upgrade_lock() {
+	private function unlock_upgrades() {
 
-		// Generate the same lock key used in create_upgrade_lock()
+		// Generate the same lock key used in lock_upgrades()
 		$lock_key = $this->db_version_key . '_upgrade_lock';
 
 		// Delete the lock transient
