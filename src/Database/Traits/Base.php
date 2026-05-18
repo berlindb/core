@@ -73,15 +73,15 @@ trait Base {
 	 */
 	public function __isset( $key = '' ) {
 
-		// Class method to try and call
+		// Class method to try and call.
 		$method = "get_{$key}";
 
-		// Return callable method exists
+		// Return callable method exists.
 		if ( is_callable( array( $this, $method ) ) ) {
 			return true;
 		}
 
-		// Return property if exists
+		// Return property if exists.
 		return property_exists( $this, $key );
 	}
 
@@ -95,19 +95,19 @@ trait Base {
 	 */
 	public function __get( $key = '' ) {
 
-		// Class method to try and call
+		// Class method to try and call.
 		$method = "get_{$key}";
 
-		// Return get method results if callable
+		// Return get method results if callable.
 		if ( is_callable( array( $this, $method ) ) ) {
 			return call_user_func( array( $this, $method ) );
 
-		// Return property value if exists
+		// Return property value if exists.
 		} elseif ( property_exists( $this, $key ) ) {
 			return $this->{$key};
 		}
 
-		// Return null if not exists
+		// Return null if not exists.
 		return null;
 	}
 
@@ -128,7 +128,7 @@ trait Base {
 	 * Maybe append the prefix to string.
 	 *
 	 * @since 1.0.0
-	 * @since 3.0.0 Prevents double prefixing
+	 * @since 3.0.0 Prevents double prefixing.
 	 *
 	 * @param string $string
 	 * @param string $sep
@@ -136,28 +136,28 @@ trait Base {
 	 */
 	protected function apply_prefix( $string = '', $sep = '_' ) {
 
-		// Bail if not a string
+		// Bail if not a string.
 		if ( ! is_string( $string ) ) {
 			return '';
 		}
 
-		// Trim spaces off the ends
+		// Trim spaces off the ends.
 		$retval = trim( $string );
 
-		// Bail if no prefix
+		// Bail if no prefix.
 		if ( empty( $this->prefix ) ) {
 			return $retval;
 		}
 
-		// Setup new prefix
+		// Setup new prefix.
 		$new_prefix = $this->prefix . $sep;
 
-		// Bail if already prefixed
+		// Bail if already prefixed.
 		if ( 0 === strpos( $string, $new_prefix ) ) {
 			return $retval;
 		}
 
-		// Return prefixed string
+		// Return prefixed string.
 		return $new_prefix . $retval;
 	}
 
@@ -179,78 +179,78 @@ trait Base {
 	 */
 	protected function first_letters( $string = '', $sep = '_' ) {
 
-		// Bail if empty or not a string
+		// Bail if empty or not a string.
 		if ( empty( $string ) || ! is_string( $string ) ) {
 			return '';
 		}
 
-		// Default return value
+		// Default return value.
 		$retval  = '';
 
-		// Trim spaces off the ends
+		// Trim spaces off the ends.
 		$unspace = trim( $string );
 
 		// Only non-accented table names (avoid truncation)
 		$accents = remove_accents( $unspace );
 
-		// Convert to lowercase
+		// Convert to lowercase.
 		$lower   = strtolower( $accents );
 
-		// Explode into parts
+		// Explode into parts.
 		$parts   = explode( $sep, $lower );
 
-		// Loop through parts and concatenate the first letters together
+		// Loop through parts and concatenate the first letters together.
 		foreach ( $parts as $part ) {
 			$retval .= substr( $part, 0, 1 );
 		}
 
-		// Return the result
+		// Return the result.
 		return $retval;
 	}
 
 	/**
-	 * Sanitize a table name string.
+	 * Sanitize an identifier using the shared normalization pipeline.
 	 *
-	 * Used to make sure that a table name value meets MySQL expectations.
+	 * @since 3.0.0
 	 *
-	 * Applies the following formatting to a string:
-	 * - Trim whitespace
-	 * - No accents
-	 * - No special characters
-	 * - No hyphens
-	 * - No double underscores
-	 * - No trailing underscores
+	 * @param string $id                 Raw identifier value.
+	 * @param string $disallowed_pattern Regex pattern matching disallowed chars.
+	 * @param string $replacement        Replacement for disallowed chars.
+	 * @param bool   $lowercase          Whether to lowercase before sanitizing.
+	 * @param bool   $normalize_hyphens  Whether to convert hyphens to underscores.
 	 *
-	 * @since 1.0.0
-	 * @since 3.0.0 Allow uppercase letters
-	 *
-	 * @param string $name The name of the database table
-	 *
-	 * @return bool|string Sanitized database table name on success, False on error
+	 * @return bool|string Sanitized identifier on success, false on error.
 	 */
-	protected function sanitize_table_name( $name = '' ) {
+	private function sanitize_identifier( $id = '', $disallowed_pattern = '', $replacement = '', $lowercase = false, $normalize_hyphens = false ) {
 
 		// Bail if empty or not a string
-		if ( empty( $name ) || ! is_string( $name ) ) {
+		if ( empty( $id ) || ! is_string( $id ) ) {
 			return false;
 		}
 
 		// Trim spaces off the ends
-		$unspace = trim( $name );
+		$unspace = trim( $id );
 
 		// Only non-accented table names (avoid truncation)
 		$accents = remove_accents( $unspace );
 
-		// Only upper & lower case letters, numbers, hyphens, and underscores
-		$replace = preg_replace( '/[^a-zA-Z0-9_\-]/', '', $accents );
+		// Convert to lowercase if required.
+		$chars   = ( true === $lowercase )
+			? strtolower( $accents )
+			: $accents;
 
-		// Replace hyphens with single underscores
-		$under   = str_replace( '-',  '_', $replace );
+		// Keep only allowed characters, either by removing or replacing disallowed ones.
+		$replace = preg_replace( $disallowed_pattern, $replacement, $chars );
 
-		// Replace double underscores with singles
-		$single  = str_replace( '__', '_', $under );
+		// Replace hyphens with single underscores if required.
+		$under   = ( true === $normalize_hyphens )
+			? str_replace( '-', '_', $replace )
+			: $replace;
 
-		// Remove trailing underscores
+		// Normalize ALL consecutive underscores to single underscore (not just __)
+		$single  = preg_replace( '/_+/', '_', $under );
+
+		// Remove leading/trailing underscores
 		$clean   = trim( $single, '_' );
 
 		// Bail if table name was garbaged or return the cleaned table name
@@ -260,80 +260,83 @@ trait Base {
 	}
 
 	/**
-	 * Sanitize a column name string.
+	 * Sanitize a table name string.
 	 *
-	 * Used to make sure that a column name value meets MySQL expectations.
-	 *
-	 * Applies the following formatting to a string:
-	 * - Trim whitespace
-	 * - No accents
-	 * - No special characters
-	 * - No hyphens
-	 * - No double underscores
-	 * - No trailing underscores
+	 * Per MySQL identifier spec for unquoted identifiers:
+	 * - Permitted unquoted chars: [0-9, a-z, A-Z, $, _]
+	 * - Extended Unicode U+0080 .. U+FFFF in BMP
+	 * - Keep [a-zA-Z0-9_-], convert - to _
+	 * - Normalize consecutive underscores to single
+	 * - Trim leading/trailing underscores
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string $name The name of the database column
+	 * @param string $name The SQL table name.
 	 *
-	 * @return bool|string Sanitized database column name on success, False on error
+	 * @return bool|string Sanitized table name on success, false on error.
+	 */
+	protected function sanitize_table_name( $name = '' ) {
+		return $this->sanitize_identifier( $name, '/[^a-zA-Z0-9_\-]/', '', false, true );
+	}
+
+	/**
+	 * Sanitize a table alias string.
+	 *
+	 * Per MySQL identifier spec for unquoted identifiers:
+	 * - Permitted unquoted chars: [0-9, a-z, A-Z, $, _]
+	 * - Extended Unicode U+0080 .. U+FFFF in BMP
+	 * - Avoid $ (deprecated in MySQL 8.0.32+)
+	 *
+	 * Returns ASCII-safe format: [a-zA-Z0-9_] with normalized underscores.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param string $alias The SQL table alias.
+	 *
+	 * @return bool|string Sanitized alias on success, false on error.
+	 */
+	protected function sanitize_table_alias( $alias = '' ) {
+		return $this->sanitize_identifier( $alias, '/[^a-zA-Z0-9_]/', '_', false, false );
+	}
+
+	/**
+	 * Sanitize a column name string.
+	 *
+	 * Per MySQL identifier spec for unquoted identifiers:
+	 * - Permitted unquoted chars: [0-9, a-z, A-Z, $, _]
+	 * - Extended Unicode U+0080 .. U+FFFF in BMP
+	 * - Keep [a-zA-Z0-9_-], convert - to _
+	 * - Normalize consecutive underscores to single
+	 * - Trim leading/trailing underscores
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param string $name The SQL column name.
+	 *
+	 * @return bool|string Sanitized column name on success, false on error.
 	 */
 	protected function sanitize_column_name( $name = '' ) {
-		return $this->sanitize_table_name( $name );
+		return $this->sanitize_identifier( $name, '/[^a-zA-Z0-9_\-]/', '', false, true );
 	}
 
 	/**
 	 * Sanitize an index name string.
 	 *
-	 * Used to make sure that an index name value meets MySQL expectations.
-	 *
-	 * Applies the following formatting to a string:
-	 * - Trim whitespace
-	 * - Lowercase only
-	 * - No accents
-	 * - No special characters
-	 * - No hyphens
-	 * - No double underscores
-	 * - No trailing underscores
+	 * Per MySQL identifier spec for unquoted identifiers:
+	 * - Permitted unquoted chars: [0-9, a-z, A-Z, $, _]
+	 * - Extended Unicode U+0080 .. U+FFFF in BMP
+	 * - Lowercase, keep [a-z0-9_-], convert - to _
+	 * - Normalize consecutive underscores to single
+	 * - Trim leading/trailing underscores
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string $name The name of the database index.
+	 * @param string $name The SQL index name.
 	 *
-	 * @return bool|string Sanitized database index name on success, False on error
+	 * @return bool|string Sanitized index name on success, false on error.
 	 */
 	protected function sanitize_index_name( $name = '' ) {
-
-		// Bail if empty or not a string
-		if ( empty( $name ) || ! is_string( $name ) ) {
-			return false;
-		}
-
-		// Trim spaces off the ends
-		$unspace = trim( $name );
-
-		// Only non-accented index names (avoid truncation)
-		$accents = remove_accents( $unspace );
-
-		// Convert to lowercase
-		$lower   = strtolower( $accents );
-
-		// Only lower case letters, numbers, hyphens, and underscores
-		$replace = preg_replace( '/[^a-z0-9_\-]/', '_', $lower );
-
-		// Replace hyphens with single underscores
-		$under   = str_replace( '-', '_', $replace );
-
-		// Replace double underscores with singles
-		$single  = str_replace( '__', '_', $under );
-
-		// Remove trailing underscores
-		$clean   = trim( $single, '_' );
-
-		// Bail if index name was garbaged or return the cleaned index name
-		return empty( $clean )
-			? false
-			: $clean;
+		return $this->sanitize_identifier( $name, '/[^a-z0-9_\-]/', '_', true, true );
 	}
 
 	/**
@@ -344,17 +347,17 @@ trait Base {
 	 */
 	protected function set_vars( $args = array() ) {
 
-		// Bail if empty or not an array
+		// Bail if empty or not an array.
 		if ( empty( $args ) ) {
 			return;
 		}
 
-		// Cast to an array
+		// Cast to an array.
 		if ( ! is_array( $args ) ) {
 			$args = (array) $args;
 		}
 
-		// Set all properties
+		// Set all properties.
 		foreach ( $args as $key => $value ) {
 			$this->{$key} = $value;
 		}
@@ -388,10 +391,10 @@ trait Base {
 	protected function get_db() {
 		global ${$this->db_global};
 
-		// Default return value
+		// Default return value.
 		$retval = false;
 
-		// Look for the global database interface
+		// Look for the global database interface.
 		if ( ! is_null( ${$this->db_global} ) ) {
 			$retval = ${$this->db_global};
 		}
@@ -408,7 +411,7 @@ trait Base {
 		 * The decision to return false here is likely to change in the future.
 		 */
 
-		// Return the database interface
+		// Return the database interface.
 		return $retval;
 	}
 
@@ -428,21 +431,21 @@ trait Base {
 	 */
 	protected function is_success( $result = false ) {
 
-		// Default return value
+		// Default return value.
 		$retval = false;
 
-		// Non-empty is success
+		// Non-empty is success.
 		if ( ! empty( $result ) ) {
 			$retval = true;
 
-			// But Error is still fail, so stash it
+			// But Error is still fail, so stash it.
 			if ( is_wp_error( $result ) ) {
 				$this->last_error = $result;
 				$retval           = false;
 			}
 		}
 
-		// Return the result
+		// Return the result.
 		return (bool) $retval;
 	}
 }

@@ -934,7 +934,7 @@ class Query {
 	 *
 	 * @return string
 	 */
-	protected function get_table_name() {
+	public function get_table_name() {
 
 		// Get the database interface
 		$db = $this->get_db();
@@ -955,7 +955,7 @@ class Query {
 	 *
 	 * @return string
 	 */
-	protected function get_table_alias() {
+	public function get_table_alias() {
 
 		// Return SQL
 		return $this->table_alias;
@@ -1368,16 +1368,6 @@ class Query {
 			);
 		}
 
-		// Query clause arguments
-		$args = array(
-			'meta_type'       => $this->get_meta_type(),
-			'primary_table'   => $this->table_name,
-			'primary_alias'   => $this->table_alias,
-			'primary_column'  => $this->get_primary_column_name(),
-			'primary_pattern' => $this->get_column_field( array( 'primary' => true ), 'pattern', '%s' ),
-			'query'           => $this,
-		);
-
 		// Default values
 		$join = $where = array();
 
@@ -1392,16 +1382,6 @@ class Query {
 
 			// Check if $query_vars contains the query_var for this parser
 			if ( ! is_null( $descriptor->query_var ) && ! empty( $query_vars[ $descriptor->query_var ] ) ) {
-
-				/**
-				 * Maybe add table alias to primary clause if not already set.
-				 *
-				 * This will likely be a requirement in a future version, but
-				 * for now we can kludge it in.
-				 */
-				if ( is_array( $query_vars[ $descriptor->query_var ] ) && empty( $query_vars[ $descriptor->query_var ][ 'alias'] ) ) {
-					$query_vars[ $descriptor->query_var ][ 'alias'] = $args['primary_alias'];
-				}
 
 				/**
 				 * Narrow the scope to just this parser's query_var sub-array,
@@ -1438,11 +1418,7 @@ class Query {
 
 			// Try to get the SQL subclauses
 			if ( is_callable( $callback ) ) {
-				$subclauses = call_user_func_array( $callback, array(
-					$args['meta_type'],
-					$args['primary_table'],
-					$args['primary_column'],
-				) );
+				$subclauses = call_user_func( $callback );
 			}
 
 			// Skip if no SQL subclauses
@@ -3107,7 +3083,7 @@ class Query {
 	 *
 	 * @return string
 	 */
-	private function get_meta_type() {
+	public function get_meta_type() {
 		return $this->apply_prefix( $this->item_name );
 	}
 

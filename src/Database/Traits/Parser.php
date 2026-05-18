@@ -196,6 +196,12 @@ trait Parser {
 
 		// Support for passing some key in the top level of the array.
 		if ( ! isset( $query_vars[ 0 ] ) ) {
+
+			// Apply a default alias to first-order clauses when not provided.
+			if ( is_array( $query_vars ) && empty( $query_vars['alias'] ) ) {
+				$query_vars['alias'] = $this->get_table_alias( $query_vars );
+			}
+
 			$query_vars = array( $query_vars );
 		}
 
@@ -473,6 +479,41 @@ trait Parser {
 	}
 
 	/**
+	 * Determines and validates the table alias for this query context.
+	 *
+	 * Uses an explicit alias if provided, otherwise falls back to the caller
+	 * query alias.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param array $query A query or subquery.
+	 *
+	 * @return string
+	 */
+	protected function get_table_alias( $query = array() ) {
+
+		if ( ! empty( $query['alias'] ) ) {
+			$alias = $this->sanitize_table_alias( $query['alias'] );
+
+			return ! empty( $alias )
+				? esc_sql( $alias )
+				: '';
+		}
+
+		$alias = $this->caller( 'get_table_alias' );
+
+		if ( ! empty( $alias ) ) {
+			$alias = $this->sanitize_table_alias( $alias );
+
+			return ! empty( $alias )
+				? esc_sql( $alias )
+				: '';
+		}
+
+		return '';
+	}
+
+	/**
 	 * Determines and validates which column to use.
 	 *
 	 * Use column if passed.
@@ -596,10 +637,6 @@ trait Parser {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string $type           Type of object.
-	 * @param string $primary_table  Primary table for the object being filtered.
-	 * @param string $primary_column Primary column for the filtered object in $primary_table.
-	 *
 	 * @return string[]|false {
 	 *     Array containing JOIN and WHERE SQL clauses to append to the main query,
 	 *     or false if no table exists for the requested type.
@@ -608,7 +645,7 @@ trait Parser {
 	 *     @type string $where SQL fragment to append to the main WHERE clause.
 	 * }
 	 */
-	public function get_sql( $type = '', $primary_table = '', $primary_column = '' ) {
+	public function get_sql() {
 
 		// Get the SQL clauses.
 		$retval = $this->get_sql_clauses();
@@ -1422,8 +1459,12 @@ trait Parser {
 
 			// Use alias if sibling & clause comparisons are OK.
 			if ( in_array( $clause_compare, $compatible_compares, true ) && in_array( $sibling_compare, $compatible_compares, true ) ) {
-				$retval = preg_replace( '/\W/', '_', $sibling['alias'] );
-				break;
+				$sanitized_alias = $this->sanitize_table_alias( $sibling['alias'] );
+
+				if ( ! empty( $sanitized_alias ) ) {
+					$retval = $sanitized_alias;
+					break;
+				}
 			}
 		}
 
