@@ -551,8 +551,10 @@ class BaseSanitizationTest extends \PHPUnit\Framework\TestCase {
 	 * @since 3.0.0
 	 */
 	public function test_first_letters_respects_custom_separator() {
+
 		// With sep '-', hyphens are treated as the separator and all initials are kept.
 		$this->assertSame( 'wum', $this->helper->get_first_letters( 'wp-user-meta', '-' ) );
+
 		// With sep ' ', spaces are preserved in the input long enough to split on.
 		$this->assertSame( 'wum', $this->helper->get_first_letters( 'wp user meta', ' ' ) );
 	}
