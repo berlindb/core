@@ -11,6 +11,7 @@
 namespace BerlinDB\Tests;
 
 use BerlinDB\Database\Parsers\Base as ParserBase;
+use BerlinDB\Database\Parsers\Meta as MetaParser;
 use BerlinDB\Database\Query as BerlinQuery;
 use BerlinDB\Tests\Fixtures\TestQuery;
 use Yoast\WPTestUtils\WPIntegration\TestCase;
@@ -195,6 +196,58 @@ class QueryParserAliasSpyQuery extends QueryParserSpyQuery {
 }
 
 /**
+ * Plain caller stub used to verify Meta parser state is resolved from caller methods.
+ *
+ * @since 3.0.0
+ */
+class QueryMetaCallerSpy {
+
+	/**
+	 * Return a meta object type used by Meta::get_sql().
+	 *
+	 * @since 3.0.0
+	 *
+	 * @return string
+	 */
+	public function get_meta_type() {
+		return 'post';
+	}
+
+	/**
+	 * Return a table name resolved by the caller.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @return string
+	 */
+	public function get_table_name() {
+		return 'resolved_meta_widgets';
+	}
+
+	/**
+	 * Return a table alias resolved by the caller.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @return string
+	 */
+	public function get_table_alias() {
+		return 'resolved_mw';
+	}
+
+	/**
+	 * Return a primary column name resolved by the caller.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @return string
+	 */
+	public function get_primary_column_name() {
+		return 'resolved_widget_id';
+	}
+}
+
+/**
  * Tests for Query::parse_where_parsers().
  *
  * @since 2.1.0
@@ -302,5 +355,24 @@ class QueryParserTest extends TestCase {
 
 		// Multiple underscores should normalize to single underscore.
 		$this->assertSame( 'resolved_tw_alias', QueryParserSpy::$query_alias );
+	}
+
+	/**
+	 * Ensure Meta::get_sql() resolves its table metadata from the caller query.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_meta_get_sql_uses_caller_methods_for_table_resolution() {
+		$query  = new QueryMetaCallerSpy();
+		$parser = new MetaParser();
+
+		$parser->init( array(), $query );
+		$result = $parser->get_sql();
+
+		$this->assertIsArray( $result );
+		$this->assertSame( _get_meta_table( 'post' ), $parser->meta_table );
+		$this->assertSame( 'post_id', $parser->meta_column );
+		$this->assertSame( 'resolved_meta_widgets', $parser->primary_table );
+		$this->assertSame( 'resolved_widget_id', $parser->primary_column );
 	}
 }
