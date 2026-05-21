@@ -430,13 +430,13 @@ class Date extends Base {
 		}
 
 		// Specific value queries.
-		if ( isset( $clause['year'] ) && $value = $this->build_numeric_value( $compare, $clause['year'] ) ) {
+		if ( isset( $clause['year'] ) && false !== ( $value = $this->build_numeric_value( $compare, $clause['year'] ) ) ) {
 			$where[] = "YEAR( {$column} ) {$compare} {$value}";
 		}
 
-		if ( isset( $clause['month'] ) && $value = $this->build_numeric_value( $compare, $clause['month'] ) ) {
+		if ( isset( $clause['month'] ) && false !== ( $value = $this->build_numeric_value( $compare, $clause['month'] ) ) ) {
 			$where[] = "MONTH( {$column} ) {$compare} {$value}";
-		} elseif ( isset( $clause['monthnum'] ) && $value = $this->build_numeric_value( $compare, $clause['monthnum'] ) ) {
+		} elseif ( isset( $clause['monthnum'] ) && false !== ( $value = $this->build_numeric_value( $compare, $clause['monthnum'] ) ) ) {
 			$where[] = "MONTH( {$column} ) {$compare} {$value}";
 		}
 
@@ -446,19 +446,19 @@ class Date extends Base {
 			$where[] = $this->build_mysql_week( $column, $start_of_week ) . " {$compare} {$value}";
 		}
 
-		if ( isset( $clause['dayofyear'] ) && $value = $this->build_numeric_value( $compare, $clause['dayofyear'] ) ) {
+		if ( isset( $clause['dayofyear'] ) && false !== ( $value = $this->build_numeric_value( $compare, $clause['dayofyear'] ) ) ) {
 			$where[] = "DAYOFYEAR( {$column} ) {$compare} {$value}";
 		}
 
-		if ( isset( $clause['day'] ) && $value = $this->build_numeric_value( $compare, $clause['day'] ) ) {
+		if ( isset( $clause['day'] ) && false !== ( $value = $this->build_numeric_value( $compare, $clause['day'] ) ) ) {
 			$where[] = "DAYOFMONTH( {$column} ) {$compare} {$value}";
 		}
 
-		if ( isset( $clause['dayofweek'] ) && $value = $this->build_numeric_value( $compare, $clause['dayofweek'] ) ) {
+		if ( isset( $clause['dayofweek'] ) && false !== ( $value = $this->build_numeric_value( $compare, $clause['dayofweek'] ) ) ) {
 			$where[] = "DAYOFWEEK( {$column} ) {$compare} {$value}";
 		}
 
-		if ( isset( $clause['dayofweek_iso'] ) && $value = $this->build_numeric_value( $compare, $clause['dayofweek_iso'] ) ) {
+		if ( isset( $clause['dayofweek_iso'] ) && false !== ( $value = $this->build_numeric_value( $compare, $clause['dayofweek_iso'] ) ) ) {
 			$where[] = "WEEKDAY( {$column} ) + 1 {$compare} {$value}";
 		}
 
