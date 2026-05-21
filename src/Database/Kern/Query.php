@@ -1372,18 +1372,18 @@ class Query {
 
 		// Default return value.
 		$retval = array(
-			'join'  => '',
-			'where' => '',
+			'join'  => array(),
+			'where' => array(),
 		);
 
-		// Set join subclauses to merged results.
+		// Set join subclauses — strip string keys so parse_join_clause() receives a plain list.
 		if ( ! empty( $parsers['join'] ) ) {
-			$retval['join'] = call_user_func_array( 'array_merge', $parsers['join'] );
+			$retval['join'] = array_values( $parsers['join'] );
 		}
 
-		// Set where subclauses to merged results.
+		// Set where subclauses — strip string keys so parse_where_clause() receives a plain list.
 		if ( ! empty( $parsers['where'] ) ) {
-			$retval['where'] = call_user_func_array( 'array_merge', $parsers['where'] );
+			$retval['where'] = array_values( $parsers['where'] );
 		}
 
 		// Return join and where clauses.
@@ -1454,7 +1454,7 @@ class Query {
 			$subclauses = false;
 
 			// Set the callback
-			$callback = array( $new_parser, 'get_sql' );
+			$callback = array( $new_parser, 'get_join_where_clauses' );
 
 			// Try to get the SQL subclauses
 			if ( is_callable( $callback ) ) {

@@ -39,7 +39,7 @@ final class TestTable extends Table {
 	 * @since 2.1.0
 	 * @var string
 	 */
-	protected $name = 'berlindb_test_widgets';
+	protected $name = 'berlindb_database_test_widgets';
 
 	/**
 	 * Current table version.

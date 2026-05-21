@@ -24,7 +24,10 @@ use BerlinDB\Database\Query;
 class TestQuery extends Query {
 
 	/** @var string */
-	protected $table_name = 'berlindb_test_widgets';
+	protected $prefix = 'berlindb_database';
+
+	/** @var string */
+	protected $table_name = 'test_widgets';
 
 	/** @var string */
 	protected $table_alias = 'tw';

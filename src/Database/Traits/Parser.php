@@ -637,9 +637,26 @@ trait Parser {
 	/**
 	 * Generates SQL clauses to be appended to a main query.
 	 *
-	 * @since 3.0.0
+	 * The $type, $primary_table, and $primary_column parameters are preserved
+	 * from Berlin 2.1.0 for backwards compatibility. Subclasses that override
+	 * this method (e.g. Meta) act on the parameters, so the signature must
+	 * remain consistent across the hierarchy.
 	 *
-	 * @return string[]|false {
+	 * New code targeting Berlin 3.0.0 and later should call get_join_where_clauses()
+	 * instead, which carries no legacy parameter baggage. The Query class itself was
+	 * updated in 3.0.0 to use that method internally.
+	 *
+	 * @since 2.1.0
+	 * @deprecated 3.0.0 Use get_join_where_clauses() instead.
+	 *
+	 * @param string $type           Optional. Object type (e.g. 'post', 'comment'). Unused at this
+	 *                               level; accepted for BC and for subclass overrides. Default ''.
+	 * @param string $primary_table  Optional. Primary table for the object being filtered. Unused at
+	 *                               this level; accepted for BC and for subclass overrides. Default ''.
+	 * @param string $primary_column Optional. Column in $primary_table that holds the object ID. Unused
+	 *                               at this level; accepted for BC and for subclass overrides. Default ''.
+	 *
+	 * @return array {
 	 *     Array containing JOIN and WHERE SQL clauses to append to the main query,
 	 *     or false if no table exists for the requested type.
 	 *
@@ -647,7 +664,30 @@ trait Parser {
 	 *     @type string $where SQL fragment to append to the main WHERE clause.
 	 * }
 	 */
-	public function get_sql() {
+	public function get_sql( $type = '', $primary_table = '', $primary_column = '' ) {
+		return $this->get_join_where_clauses();
+	}
+
+	/**
+	 * Generates SQL clauses to be appended to a main query.
+	 *
+	 * The preferred method for new code in 3.0.0 and later. Carries no legacy parameter
+	 * baggage — all context is derived from the parser state set at construction time.
+	 *
+	 * Subclasses that need to perform setup before SQL is generated should override this
+	 * method rather than get_sql().
+	 *
+	 * @since 3.0.0
+	 *
+	 * @return array {
+	 *     Array containing JOIN and WHERE SQL clauses to append to the main query,
+	 *     or false if no table exists for the requested type.
+	 *
+	 *     @type string $join  SQL fragment to append to the main JOIN clause.
+	 *     @type string $where SQL fragment to append to the main WHERE clause.
+	 * }
+	 */
+	public function get_join_where_clauses() {
 
 		// Get the SQL clauses.
 		$retval = $this->get_sql_clauses();

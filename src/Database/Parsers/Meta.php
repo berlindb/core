@@ -244,19 +244,90 @@ class Meta extends Base {
 	/**
 	 * Generates SQL clauses to be appended to a main query.
 	 *
-	 * @since 3.0.0
+	 * Overrides the trait method to resolve and store the meta table, meta column,
+	 * primary table, and primary column before delegating to the shared implementation.
+	 *
+	 * The $type, $primary_table, and $primary_column parameters are restored from
+	 * Berlin 2.1.0 for backwards compatibility. Callers such as Easy Digital Downloads
+	 * pass these values directly and they are used as-is. When the parameters are empty
+	 * (as in internal 3.0.0 usage via get_join_where_clauses()) the values are sourced
+	 * from $this->caller instead.
+	 *
+	 * New code should call get_join_where_clauses() instead.
+	 *
+	 * @since 2.1.0
+	 *
+	 * @param string $type           Optional. Object type (e.g. 'post', 'comment'). When empty,
+	 *                               sourced from $this->caller. Default ''.
+	 * @param string $primary_table  Optional. Primary table for the object being filtered. When
+	 *                               empty, sourced from $this->caller. Default ''.
+	 * @param string $primary_column Optional. Column in $primary_table that holds the object ID.
+	 *                               When empty, sourced from $this->caller. Default ''.
 	 *
 	 * @return string[]|false {
 	 *     Array containing JOIN and WHERE SQL clauses to append to the main query,
-	 *     or false if no table exists for the requested type.
+	 *     or false if no meta table exists for the requested type.
 	 *
 	 *     @type string $join  SQL fragment to append to the main JOIN clause.
 	 *     @type string $where SQL fragment to append to the main WHERE clause.
 	 * }
 	 */
-	public function get_sql() {
+	public function get_sql( $type = '', $primary_table = '', $primary_column = '' ) {
 
-		// Get primary metadata from the caller query (ignoring legacy parameters).
+		// Fall back to caller for missing $type.
+		if ( empty( $type ) ) {
+			$type = $this->caller( 'get_meta_type' );
+		}
+
+		// Fall back to caller for missing primary table.
+		if ( empty( $primary_table ) ) {
+			$primary_table = $this->caller( 'get_table_name' );
+		}
+
+		// Fall back to caller for missing primary column.
+		if ( empty( $primary_column ) ) {
+			$primary_column = $this->caller( 'get_primary_column_name' );
+		}
+
+		// Attempt to get the secondary table.
+		$meta_table = _get_meta_table( $type );
+
+		// Bail if no object table.
+		if ( empty( $meta_table ) ) {
+			return false;
+		}
+
+		// Aliases.
+		$this->table_aliases  = array();
+
+		// Meta.
+		$this->meta_table     = $this->sanitize_table_name( $meta_table );
+		$this->meta_column    = $this->sanitize_column_name( "{$type}_id" );
+
+		// Primary.
+		$this->primary_table  = $this->sanitize_table_name( $primary_table );
+		$this->primary_column = $this->sanitize_column_name( $primary_column );
+
+		// Delegate to the shared implementation (bypasses this override).
+		return parent::get_join_where_clauses();
+	}
+
+	/**
+	 * Generates SQL clauses to be appended to a main query.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @return string[]|false {
+	 *     Array containing JOIN and WHERE SQL clauses to append to the main query,
+	 *     or false if no meta table exists for the requested type.
+	 *
+	 *     @type string $join  SQL fragment to append to the main JOIN clause.
+	 *     @type string $where SQL fragment to append to the main WHERE clause.
+	 * }
+	 */
+	public function get_join_where_clauses() {
+
+		// Get primary metadata from the caller query.
 		$type           = $this->caller( 'get_meta_type' );
 		$primary_table  = $this->caller( 'get_table_name' );
 		$primary_column = $this->caller( 'get_primary_column_name' );
@@ -280,8 +351,8 @@ class Meta extends Base {
 		$this->primary_table  = $this->sanitize_table_name( $primary_table );
 		$this->primary_column = $this->sanitize_column_name( $primary_column );
 
-		// Delegate to the base implementation.
-		return parent::get_sql();
+		// Delegate to the shared implementation (bypasses this override).
+		return parent::get_join_where_clauses();
 	}
 
 	/**

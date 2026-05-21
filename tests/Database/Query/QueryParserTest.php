@@ -89,13 +89,13 @@ class QueryParserSpy extends ParserBase {
 	 * This spy verifies that parse_join_where_parsers() uses the modern approach
 	 * of having parsers call $this->caller() to fetch values directly.
 	 *
-	 * @since 2.1.0
+	 * @since 3.0.0
 	 *
-	 * @return array{join: array, where: array}
+	 * @return array{join: string, where: string}
 	 */
-	public function get_sql() {
+	public function get_join_where_clauses() {
 
-		// Capture values as empty (no longer passed as positional parameters).
+		// Parameters are never passed positionally in 3.0.0+.
 		self::$type           = '';
 		self::$primary_table  = '';
 		self::$primary_column = '';
@@ -106,8 +106,8 @@ class QueryParserSpy extends ParserBase {
 		self::$caller_meta_type  = $this->caller( 'get_meta_type' );
 
 		return array(
-			'join'  => array(),
-			'where' => array(),
+			'join'  => '',
+			'where' => '',
 		);
 	}
 
@@ -349,7 +349,7 @@ class QueryParserTest extends TestCase {
 
 		// Modern approach: Parsers call $this->caller() methods directly.
 		$this->assertSame( 'resolved_test_widgets', QueryParserSpy::$caller_table_name );
-		$this->assertSame( 'widget', QueryParserSpy::$caller_meta_type );
+		$this->assertSame( 'berlindb_database_widget', QueryParserSpy::$caller_meta_type );
 
 		// Result should be the empty fragments returned by the spy.
 		$this->assertSame(

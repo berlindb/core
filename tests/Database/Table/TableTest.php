@@ -135,7 +135,7 @@ class TableTest extends TestCase {
 	public function test_count_returns_correct_number_after_direct_inserts() {
 		global $wpdb;
 
-		$table_name = $wpdb->berlindb_test_widgets;
+		$table_name = $wpdb->berlindb_database_test_widgets;
 		$wpdb->insert( $table_name, array( 'name' => 'Widget A', 'status' => 'active' ) );
 		$wpdb->insert( $table_name, array( 'name' => 'Widget B', 'status' => 'active' ) );
 		$wpdb->insert( $table_name, array( 'name' => 'Widget C', 'status' => 'inactive' ) );
@@ -226,7 +226,7 @@ class TableTest extends TestCase {
 	public function test_truncate_empties_the_table() {
 		global $wpdb;
 
-		$table_name = $wpdb->berlindb_test_widgets;
+		$table_name = $wpdb->berlindb_database_test_widgets;
 		$wpdb->insert( $table_name, array( 'name' => 'Widget A', 'status' => 'active' ) );
 		$wpdb->insert( $table_name, array( 'name' => 'Widget B', 'status' => 'active' ) );
 
