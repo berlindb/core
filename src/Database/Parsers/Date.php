@@ -210,11 +210,15 @@ class Date extends Base {
 		 * values generate errors too.
 		 */
 		if ( array_key_exists( 'before', $date_query ) && is_array( $date_query['before'] ) ) {
-			$valid = $this->validate_values( $date_query['before'] );
+			if ( false === $this->validate_values( $date_query['before'] ) ) {
+				$valid = false;
+			}
 		}
 
 		if ( array_key_exists( 'after', $date_query ) && is_array( $date_query['after'] ) ) {
-			$valid = $this->validate_values( $date_query['after'] );
+			if ( false === $this->validate_values( $date_query['after'] ) ) {
+				$valid = false;
+			}
 		}
 
 		// Values are passthroughs.
