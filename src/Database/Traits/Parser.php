@@ -555,11 +555,7 @@ trait Parser {
 	 * @return string The comparison operator.
 	 */
 	protected function get_compare( $query = array() ) {
-		static $comparison_keys = null;
-
-		if ( null === $comparison_keys ) {
-			$comparison_keys = $this->get_operators();
-		}
+		$comparison_keys = $this->get_operators();
 
 		return ! empty( $query['compare'] ) && in_array( $query['compare'], $comparison_keys, true )
 			? strtoupper( $query['compare'] )
