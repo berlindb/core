@@ -1162,12 +1162,14 @@ class Column {
 		if ( false === $decimals ) {
 
 			// Look for period
-			$period   = strpos( $value, '.' );
+			$period = strpos( $value, '.' );
 
-			// Period position, or 0
-			$decimals = ( false !== $period )
-				? $period
-				: 0;
+			// Count the digits after the period, or 0 if no period
+			if ( false !== $period ) {
+				$decimals = strlen( $value ) - $period - 1;
+			} else {
+				$decimals = 0;
+			}
 		}
 
 		// Format to number of decimals
