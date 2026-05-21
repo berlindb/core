@@ -18,7 +18,7 @@ use BerlinDB\Tests\Fixtures\TestQuery;
 use Yoast\WPTestUtils\WPIntegration\TestCase;
 
 /**
- * Spy parser used to capture the parser handoff from parse_where_parsers().
+ * Spy parser used to capture the parser handoff from parse_join_where_parsers().
  *
  * @since 2.1.0
  */
@@ -86,7 +86,7 @@ class QueryParserSpy extends ParserBase {
 	/**
 	 * Capture the parser inputs and return empty SQL fragments.
 	 *
-	 * This spy verifies that parse_where_parsers() uses the modern approach
+	 * This spy verifies that parse_join_where_parsers() uses the modern approach
 	 * of having parsers call $this->caller() to fetch values directly.
 	 *
 	 * @since 2.1.0
@@ -130,7 +130,7 @@ class QueryParserSpy extends ParserBase {
 }
 
 /**
- * Query fixture that overrides the accessor methods parse_where_parsers() now uses.
+ * Query fixture that overrides the accessor methods parse_join_where_parsers() now uses.
  *
  * @since 2.1.0
  */
@@ -312,22 +312,22 @@ class QueryParserRegistrySpy extends ParserBase {
 }
 
 /**
- * Tests for Query::parse_where_parsers().
+ * Tests for Query::parse_join_where_parsers().
  *
  * @since 2.1.0
  */
 class QueryParserTest extends TestCase {
 
 	/**
-	 * Ensure parse_where_parsers() no longer threads table metadata through positional args.
+	 * Ensure parse_join_where_parsers() no longer threads table metadata through positional args.
 	 *
 	 * @since 2.1.0
 	 */
-	public function test_parse_where_parsers_uses_caller_methods_for_parser_inputs() {
+	public function test_parse_join_where_parsers_uses_caller_methods_for_parser_inputs() {
 		$query = new QueryParserSpyQuery();
 		QueryParserSpy::reset();
 
-		$method = new \ReflectionMethod( BerlinQuery::class, 'parse_where_parsers' );
+		$method = new \ReflectionMethod( BerlinQuery::class, 'parse_join_where_parsers' );
 		if ( PHP_VERSION_ID < 80100 ) {
 			$method->setAccessible( true );
 		}
@@ -366,11 +366,11 @@ class QueryParserTest extends TestCase {
 	 *
 	 * @since 2.1.0
 	 */
-	public function test_parse_where_parsers_sanitizes_alias_conservatively() {
+	public function test_parse_join_where_parsers_sanitizes_alias_conservatively() {
 		$query = new QueryParserAliasSpyQuery();
 		QueryParserSpy::reset();
 
-		$method = new \ReflectionMethod( BerlinQuery::class, 'parse_where_parsers' );
+		$method = new \ReflectionMethod( BerlinQuery::class, 'parse_join_where_parsers' );
 		if ( PHP_VERSION_ID < 80100 ) {
 			$method->setAccessible( true );
 		}
@@ -393,7 +393,7 @@ class QueryParserTest extends TestCase {
 	 *
 	 * @since 2.1.0
 	 */
-	public function test_parse_where_parsers_normalizes_alias_underscores() {
+	public function test_parse_join_where_parsers_normalizes_alias_underscores() {
 		// Create a test query that returns an alias with consecutive underscores.
 		$query = new class extends QueryParserSpyQuery {
 			public function get_table_alias() {
@@ -403,7 +403,7 @@ class QueryParserTest extends TestCase {
 
 		QueryParserSpy::reset();
 
-		$method = new \ReflectionMethod( BerlinQuery::class, 'parse_where_parsers' );
+		$method = new \ReflectionMethod( BerlinQuery::class, 'parse_join_where_parsers' );
 		if ( PHP_VERSION_ID < 80100 ) {
 			$method->setAccessible( true );
 		}

@@ -257,7 +257,7 @@ class Query {
 	 *
 	 * Populated during set_query_var_defaults() from $query_var_parsers.
 	 * Each value is a no-args instance of a Parsers\Base subclass, used to
-	 * read descriptor properties and as the source for parse_where_parsers().
+	 * read descriptor properties and as the source for parse_join_where_parsers().
 	 *
 	 * @since 3.0.0
 	 * @var   \BerlinDB\Database\Parsers\Base[]
@@ -1330,7 +1330,7 @@ class Query {
 		$r = wp_parse_args( $query_vars );
 
 		// Parse $query_vars
-		$where_join = $this->parse_where_join( $r );
+		$join_where = $this->parse_join_where( $r );
 
 		// Parse all clauses
 		$clauses = array(
@@ -1338,8 +1338,8 @@ class Query {
 			'select'  => $this->parse_select(),
 			'fields'  => $this->parse_fields( $r['fields'], $r['count'], $r['groupby'] ),
 			'from'    => $this->parse_from(),
-			'join'    => $this->parse_join_clause( $where_join['join'] ),
-			'where'   => $this->parse_where_clause( $where_join['where'] ),
+			'join'    => $this->parse_join_clause( $join_where['join'] ),
+			'where'   => $this->parse_where_clause( $join_where['where'] ),
 			'groupby' => $this->parse_groupby( $r['groupby'], 'GROUP BY' ),
 			'orderby' => $this->parse_orderby( $r['orderby'], $r['order'], 'ORDER BY' ),
 			'limits'  => $this->parse_limits( $r['number'], $r['offset'] )
@@ -1350,46 +1350,55 @@ class Query {
 	}
 
 	/**
-	 * Parse the 'where' and 'join' $query_vars for all known columns.
+	 * Parse the 'join' and 'where' $query_vars for all known columns.
 	 *
 	 * @since 3.0.0
 	 *
 	 * @param array $args Query vars
-	 * @return array Array of 'where' and 'join' clauses.
+	 * @return array Array of 'join' and 'where'clauses.
 	 */
-	private function parse_where_join( $args = array() ) {
+	private function parse_join_where( $args = array() ) {
 
-		// Maybe fallback to $query_vars
+		// Maybe fallback to $query_vars.
 		if ( empty( $args ) && ! empty( $this->query_vars ) ) {
 			$args = $this->query_vars;
 		}
 
-		// Parse arguments
+		// Parse arguments.
 		$r = wp_parse_args( $args );
 
-		// Default results
-		$results = array( $this->parse_where_parsers( $r ) );
+		// Parse the join/where parsers.
+		$parsers = $this->parse_join_where_parsers( $r );
 
-		// Pluck join/where from results
-		$join  = wp_list_pluck( $results, 'join' );
-		$where = wp_list_pluck( $results, 'where' );
-
-		// Set join/where subclauses to merged results
-		return array(
-			'join'  => call_user_func_array( 'array_merge', $join ),
-			'where' => call_user_func_array( 'array_merge', $where )
+		// Default return value.
+		$retval = array(
+			'join'  => '',
+			'where' => '',
 		);
+
+		// Set join subclauses to merged results.
+		if ( ! empty( $parsers['join'] ) ) {
+			$retval['join'] = call_user_func_array( 'array_merge', $parsers['join'] );
+		}
+
+		// Set where subclauses to merged results.
+		if ( ! empty( $parsers['where'] ) ) {
+			$retval['where'] = call_user_func_array( 'array_merge', $parsers['where'] );
+		}
+
+		// Return join and where clauses.
+		return $retval;
 	}
 
 	/**
 	 * Parse join/where subclauses for query var parser objects.
 	 *
-	 * Used by parse_where_join().
+	 * Used by parse_join_where().
 	 *
 	 * @since 3.0.0
 	 * @return array
 	 */
-	private function parse_where_parsers( $query_vars = array() ) {
+	private function parse_join_where_parsers( $query_vars = array() ) {
 
 		// Bail if no parsers
 		if ( empty( $this->parsers ) ) {
