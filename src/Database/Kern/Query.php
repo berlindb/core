@@ -1894,7 +1894,7 @@ class Query {
 		}
 
 		// Return SQL
-		return implode( ', ', $join );
+		return implode( ' ', $join );
 	}
 
 	/**
