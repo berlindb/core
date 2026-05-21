@@ -1158,12 +1158,22 @@ trait Parser {
 				? strtotime( $datetime, $now )
 				: (int) $datetime;
 
+			// strtotime() may return false for unparseable input.
+			if ( false === $datetime ) {
+				return false;
+			}
+
 			// Return formatted
 			return gmdate( 'Y-m-d H:i:s', $datetime );
 		}
 
 		// Map to ints
 		$datetime = array_map( 'intval', $datetime );
+
+		// Bail if no 'year' and no $now to default to.
+		if ( empty( $now ) ) {
+			return false;
+		}
 
 		// Year
 		if ( ! isset( $datetime['year'] ) ) {

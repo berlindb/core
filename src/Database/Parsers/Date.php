@@ -408,11 +408,21 @@ class Date extends Base {
 
 		// Range queries.
 		if ( ! empty( $clause['after'] ) ) {
-			$where[] = $db->prepare( "{$column} {$gt} {$pattern}", $this->build_mysql_datetime( $clause['after'], ! $inclusive, $now ) );
+			$after = $this->build_mysql_datetime( $clause['after'], ! $inclusive, $now );
+
+			// Only add to where if valid datetime.
+			if ( false !== $after ) {
+				$where[] = $db->prepare( "{$column} {$gt} {$pattern}", $after );
+			}
 		}
 
 		if ( ! empty( $clause['before'] ) ) {
-			$where[] = $db->prepare( "{$column} {$lt} {$pattern}", $this->build_mysql_datetime( $clause['before'], $inclusive, $now ) );
+			$before = $this->build_mysql_datetime( $clause['before'], $inclusive, $now );
+
+			// Only add to where if valid datetime.
+			if ( false !== $before ) {
+				$where[] = $db->prepare( "{$column} {$lt} {$pattern}", $before );
+			}
 		}
 
 		// Specific value queries.
