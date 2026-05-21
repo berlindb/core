@@ -11,7 +11,7 @@
 
 declare( strict_types = 1 );
 
-namespace BerlinDB\Database;
+namespace BerlinDB\Database\Kern;
 
 // Exit if accessed directly
 defined( 'ABSPATH' ) || exit;
@@ -63,8 +63,8 @@ class Column {
 	 *
 	 * @since 3.0.0
 	 */
-	use Traits\Base;
-	use Traits\Boot;
+	use \BerlinDB\Database\Traits\Base;
+	use \BerlinDB\Database\Traits\Boot;
 
 	/** Attributes ************************************************************/
 

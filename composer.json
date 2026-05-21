@@ -7,7 +7,10 @@
   "autoload": {
     "psr-4": {
       "BerlinDB\\": "src/"
-    }
+    },
+    "files": [
+      "autoloader.php"
+    ]
   },
   "require-dev": {
     "szepeviktor/phpstan-wordpress": "^2.0.3",

@@ -23,6 +23,32 @@ spl_autoload_register(
 	 */
 	static function ( $class_name = '' ) {
 
+		$legacy_kern_classes = array(
+			'BerlinDB\\Database\\Column' => 'BerlinDB\\Database\\Kern\\Column',
+			'BerlinDB\\Database\\Index'  => 'BerlinDB\\Database\\Kern\\Index',
+			'BerlinDB\\Database\\Query'  => 'BerlinDB\\Database\\Kern\\Query',
+			'BerlinDB\\Database\\Row'    => 'BerlinDB\\Database\\Kern\\Row',
+			'BerlinDB\\Database\\Schema' => 'BerlinDB\\Database\\Kern\\Schema',
+			'BerlinDB\\Database\\Table'  => 'BerlinDB\\Database\\Kern\\Table',
+		);
+
+		if ( isset( $legacy_kern_classes[ $class_name ] ) ) {
+			$target = $legacy_kern_classes[ $class_name ];
+			$strip  = str_replace( 'BerlinDB\\', '', $target );
+			$name   = str_replace( '\\', DIRECTORY_SEPARATOR, $strip );
+			$file   = sprintf( '%1$s/src/%2$s.php', __DIR__, $name );
+
+			if ( is_file( $file ) ) {
+				require $file;
+
+				if ( class_exists( $target, false ) && ! class_exists( $class_name, false ) ) {
+					class_alias( $target, $class_name );
+				}
+			}
+
+			return;
+		}
+
 		// Project namespace & length.
 		$root_namespace    = 'BerlinDB\\';
 		$project_namespace = $root_namespace . 'Database\\';

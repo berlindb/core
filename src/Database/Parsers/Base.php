@@ -75,6 +75,55 @@ abstract class Base {
 	/** Methods ***************************************************************/
 
 	/**
+	 * Get the default operator class list.
+	 *
+	 * This is filterable so individual parser families can register custom
+	 * operators without replacing the shared parser contract.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @return string[]
+	 */
+	protected function get_operator_classes() {
+
+		// Default set of operator classes.
+		$operators = array(
+			'BerlinDB\\Database\\Operators\\Between',
+			'BerlinDB\\Database\\Operators\\Equal',
+			'BerlinDB\\Database\\Operators\\Exists',
+			'BerlinDB\\Database\\Operators\\GreaterThan',
+			'BerlinDB\\Database\\Operators\\GreaterThanOrEqual',
+			'BerlinDB\\Database\\Operators\\In',
+			'BerlinDB\\Database\\Operators\\LessThan',
+			'BerlinDB\\Database\\Operators\\LessThanOrEqual',
+			'BerlinDB\\Database\\Operators\\Like',
+			'BerlinDB\\Database\\Operators\\NotBetween',
+			'BerlinDB\\Database\\Operators\\NotEqual',
+			'BerlinDB\\Database\\Operators\\NotExists',
+			'BerlinDB\\Database\\Operators\\NotIn',
+			'BerlinDB\\Database\\Operators\\NotLike',
+			'BerlinDB\\Database\\Operators\\NotRegexp',
+			'BerlinDB\\Database\\Operators\\Regexp',
+			'BerlinDB\\Database\\Operators\\Rlike',
+		);
+
+		/**
+		 * Filter the default operator class list.
+		 *
+		 * @since 3.0.0
+		 * @param string[] $operators Array of fully-qualified Operator class names.
+		 * @param Base     $parser    Current Parser instance.
+		 */
+		return (array) apply_filters_ref_array(
+			'berlindb_database_operator_classes',
+			array(
+				$operators,
+				&$this,
+			)
+		);
+	}
+
+	/**
 	 * Populate $this->operators with one shared instance per Operator class.
 	 *
 	 * Defined here on the concrete base class (not in Traits\Parser) so that
@@ -86,39 +135,25 @@ abstract class Base {
 	 * @since 3.0.0
 	 */
 	protected function set_operators() {
-		static $instances = null;
+		static $instances = array();
 
-		if ( null === $instances ) {
+		$classes = $this->get_operator_classes();
+		$key     = md5( maybe_serialize( $classes ) );
 
-			// Known classes.
-			$classes = array(
-				'BerlinDB\\Database\\Operators\\Between',
-				'BerlinDB\\Database\\Operators\\Equal',
-				'BerlinDB\\Database\\Operators\\Exists',
-				'BerlinDB\\Database\\Operators\\GreaterThan',
-				'BerlinDB\\Database\\Operators\\GreaterThanOrEqual',
-				'BerlinDB\\Database\\Operators\\In',
-				'BerlinDB\\Database\\Operators\\LessThan',
-				'BerlinDB\\Database\\Operators\\LessThanOrEqual',
-				'BerlinDB\\Database\\Operators\\Like',
-				'BerlinDB\\Database\\Operators\\NotBetween',
-				'BerlinDB\\Database\\Operators\\NotEqual',
-				'BerlinDB\\Database\\Operators\\NotExists',
-				'BerlinDB\\Database\\Operators\\NotIn',
-				'BerlinDB\\Database\\Operators\\NotLike',
-				'BerlinDB\\Database\\Operators\\NotRegexp',
-				'BerlinDB\\Database\\Operators\\Regexp',
-				'BerlinDB\\Database\\Operators\\Rlike',
-			);
+		if ( ! isset( $instances[ $key ] ) ) {
+			$instances[ $key ] = array();
 
-			// Instantiate the classes.
-			$instances = array_map( static function ( $class ) {
-				return new $class();
-			}, $classes );
+			foreach ( $classes as $class ) {
+				if ( ! class_exists( $class ) ) {
+					continue;
+				}
+
+				$instances[ $key ][] = new $class();
+			}
 		}
 
 		// Set operators.
-		$this->operators = $instances;
+		$this->operators = $instances[ $key ];
 	}
 
 	/**

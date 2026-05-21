@@ -17,6 +17,14 @@ services:
       DB_USER: root
       DB_PASS: "wordpress"
       WP_VERSION: "${WP_VERSION:-latest}"
+      WP_CORE_DIR: "/app/.cache/wp-core"
+      WP_TESTS_DIR: "/app/.cache/wordpress-tests-lib"
+      HTTP_PROXY: "${HTTP_PROXY:-}"
+      HTTPS_PROXY: "${HTTPS_PROXY:-}"
+      NO_PROXY: "${NO_PROXY:-}"
+      http_proxy: "${http_proxy:-}"
+      https_proxy: "${https_proxy:-}"
+      no_proxy: "${no_proxy:-}"
     command: bin/run-tests-internal.sh
 
   mysql:

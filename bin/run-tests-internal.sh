@@ -12,7 +12,7 @@ WP_VERSION="${WP_VERSION:-latest}"
 
 # Use a path distinct from /tmp/wordpress so the install script's
 # unzip+mv doesn't collide with the mkdir it creates first.
-export WP_CORE_DIR=/tmp/wp-core
+export WP_CORE_DIR="${WP_CORE_DIR:-/tmp/wp-core}"
 
 composer install --no-interaction --prefer-dist -q
 

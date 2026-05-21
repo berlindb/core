@@ -11,6 +11,7 @@
 namespace BerlinDB\Tests;
 
 use BerlinDB\Database\Parsers\Base as ParserBase;
+use BerlinDB\Database\Operators\Base as OperatorBase;
 use BerlinDB\Database\Parsers\Meta as MetaParser;
 use BerlinDB\Database\Query as BerlinQuery;
 use BerlinDB\Tests\Fixtures\TestQuery;
@@ -248,6 +249,69 @@ class QueryMetaCallerSpy {
 }
 
 /**
+ * Minimal operator used to prove custom operator class registration works.
+ *
+ * @since 3.0.0
+ */
+class QueryOperatorSpy extends OperatorBase {
+
+	/** @var string */
+	protected $name = 'spy_operator';
+
+	/** @var string */
+	protected $compare = 'SPY';
+
+	/** @var bool */
+	protected $positive = true;
+
+	/** @var bool */
+	protected $multi = false;
+
+	/** @var bool */
+	protected $numeric = false;
+}
+
+/**
+ * Parser fixture used to prove parser class registration works.
+ *
+ * @since 3.0.0
+ */
+class QueryParserRegistrySpy extends ParserBase {
+
+	/** @var string */
+	protected $name = 'registry_spy';
+
+	/** @var string|null */
+	protected $query_var = 'registry_spy';
+
+	/** @var array */
+	protected $column_filter = array();
+
+	/** @var string */
+	protected $column_suffix = '';
+
+	/** @var mixed */
+	protected $default = null;
+
+	/**
+	 * Satisfy the abstract parser contract.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param array  $clause       Optional. Unused.
+	 * @param array  $parent_query Optional. Unused.
+	 * @param string $clause_key   Optional. Unused.
+	 * @return array{join: array, where: array}
+	 */
+	public function get_sql_for_clause( &$clause = array(), $parent_query = array(), $clause_key = '' ) {
+		return array(
+			'join'  => array(),
+			'where' => array(),
+		);
+	}
+}
+
+/**
  * Tests for Query::parse_where_parsers().
  *
  * @since 2.1.0
@@ -374,5 +438,114 @@ class QueryParserTest extends TestCase {
 		$this->assertSame( 'post_id', $parser->meta_column );
 		$this->assertSame( 'resolved_meta_widgets', $parser->primary_table );
 		$this->assertSame( 'resolved_widget_id', $parser->primary_column );
+	}
+
+	/**
+	 * Ensure query parser classes can be extended through the registration hook.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_query_var_parsers_can_be_registered_via_filter() {
+		$filter = function( $classes, $query ) {
+			$this->assertInstanceOf( BerlinQuery::class, $query );
+
+			return array( QueryParserRegistrySpy::class );
+		};
+
+		add_filter( 'berlindb_database_query_var_parsers', $filter, 10, 2 );
+
+		try {
+			$query = new class extends TestQuery {
+				protected function parse_args( $args = array() ) {
+					if ( empty( $args ) ) {
+						return;
+					}
+
+					parent::parse_args( $args );
+				}
+			};
+
+			$parser_classes = new \ReflectionProperty( BerlinQuery::class, 'query_var_parsers' );
+			if ( PHP_VERSION_ID < 80100 ) {
+				$parser_classes->setAccessible( true );
+			}
+
+			$this->assertSame( array( QueryParserRegistrySpy::class ), $parser_classes->getValue( $query ) );
+
+			$parsers = new \ReflectionProperty( BerlinQuery::class, 'parsers' );
+			if ( PHP_VERSION_ID < 80100 ) {
+				$parsers->setAccessible( true );
+			}
+
+			$this->assertArrayHasKey( 'registry_spy', $parsers->getValue( $query ) );
+		} finally {
+			remove_filter( 'berlindb_database_query_var_parsers', $filter, 10 );
+		}
+	}
+
+	/**
+	 * Ensure parser operator classes can be extended through the registration hook.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_operator_classes_can_be_registered_via_filter() {
+		$filter = function( $classes, $parser ) {
+			$this->assertInstanceOf( ParserBase::class, $parser );
+
+			return array( QueryOperatorSpy::class );
+		};
+
+		add_filter( 'berlindb_database_operator_classes', $filter, 10, 2 );
+
+		try {
+			$parser = new QueryOperatorSpyParser();
+
+			$this->assertCount( 1, $parser->operators );
+			$this->assertInstanceOf( QueryOperatorSpy::class, $parser->operators[0] );
+			$this->assertSame( 'spy_operator', $parser->operators[0]->name );
+			$this->assertSame( 'SPY', $parser->operators[0]->compare );
+		} finally {
+			remove_filter( 'berlindb_database_operator_classes', $filter, 10 );
+		}
+	}
+}
+
+/**
+ * Parser fixture used to exercise the operator registration hook.
+ *
+ * @since 3.0.0
+ */
+class QueryOperatorSpyParser extends ParserBase {
+
+	/** @var string */
+	protected $name = 'operator_spy';
+
+	/** @var string|null */
+	protected $query_var = 'operator_spy';
+
+	/** @var array */
+	protected $column_filter = array();
+
+	/** @var string */
+	protected $column_suffix = '';
+
+	/** @var mixed */
+	protected $default = null;
+
+	/**
+	 * Satisfy the abstract parser contract.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param array  $clause       Optional. Unused.
+	 * @param array  $parent_query Optional. Unused.
+	 * @param string $clause_key   Optional. Unused.
+	 * @return array{join: array, where: array}
+	 */
+	public function get_sql_for_clause( &$clause = array(), $parent_query = array(), $clause_key = '' ) {
+		return array(
+			'join'  => array(),
+			'where' => array(),
+		);
 	}
 }

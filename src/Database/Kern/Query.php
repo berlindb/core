@@ -11,7 +11,7 @@
 
 declare( strict_types = 1 );
 
-namespace BerlinDB\Database;
+namespace BerlinDB\Database\Kern;
 
 // Exit if accessed directly
 defined( 'ABSPATH' ) || exit;
@@ -59,8 +59,8 @@ class Query {
 	 *
 	 * @since 3.0.0
 	 */
-	use Traits\Base;
-	use Traits\Boot;
+	use \BerlinDB\Database\Traits\Base;
+	use \BerlinDB\Database\Traits\Boot;
 
 	/** Table Properties ******************************************************/
 
@@ -433,15 +433,7 @@ class Query {
 	 */
 	private function set_query_var_parsers() {
 		if ( empty( $this->query_var_parsers ) ) {
-			$this->query_var_parsers = array(
-				__NAMESPACE__ . '\\Parsers\\By',
-				__NAMESPACE__ . '\\Parsers\\In',
-				__NAMESPACE__ . '\\Parsers\\NotIn',
-				__NAMESPACE__ . '\\Parsers\\Search',
-				__NAMESPACE__ . '\\Parsers\\Date',
-				__NAMESPACE__ . '\\Parsers\\Meta',
-				__NAMESPACE__ . '\\Parsers\\Compare',
-			);
+			$this->query_var_parsers = $this->get_query_var_parser_classes();
 		}
 	}
 
@@ -922,7 +914,7 @@ class Query {
 		return $retval;
 	}
 
-	/** Protected Getters *****************************************************/
+	/** Public Getters ********************************************************/
 
 	/**
 	 * Return the table name.
@@ -959,6 +951,45 @@ class Query {
 
 		// Return SQL
 		return $this->table_alias;
+	}
+
+	/**
+	 * Get the default query parser class list.
+	 *
+	 * This is filterable so plugins can register additional parser classes
+	 * without replacing the entire Query implementation.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @return string[]
+	 */
+	public function get_query_var_parser_classes() {
+
+		// Default set of query parser classes.
+		$parsers = array(
+			'BerlinDB\\Database\\Parsers\\By',
+			'BerlinDB\\Database\\Parsers\\In',
+			'BerlinDB\\Database\\Parsers\\NotIn',
+			'BerlinDB\\Database\\Parsers\\Search',
+			'BerlinDB\\Database\\Parsers\\Date',
+			'BerlinDB\\Database\\Parsers\\Meta',
+			'BerlinDB\\Database\\Parsers\\Compare',
+		);
+
+		/**
+		 * Filter the default query parser class list.
+		 *
+		 * @since 3.0.0
+		 * @param string[] $parsers Array of fully-qualified Parser class names.
+		 * @param Query    $query   Current Query instance.
+		 */
+		return (array) apply_filters_ref_array(
+			$this->apply_prefix( 'query_var_parsers' ),
+			array(
+				$parsers,
+				&$this,
+			)
+		);
 	}
 
 	/** Private Getters *******************************************************/
@@ -1948,25 +1979,25 @@ class Query {
 	 */
 	private function parse_single_orderby( $orderby = '', $alias = true ) {
 
-		// Fallback to primary column
+		// Fallback to primary column.
 		if ( empty( $orderby ) ) {
 			$orderby = $this->get_primary_column_name();
 		}
 
-		// Default return value
+		// Default return value.
 		$retval = '';
 
-		// Get possible columns an $orderby can belong to
+		// Get possible columns an $orderby can belong to.
 		$ins       = $this->get_columns( array( 'in'       => true ), 'and', 'name' );
 		$sortables = $this->get_columns( array( 'sortable' => true ), 'and', 'name' );
 
 		// __in column
 		if ( false !== strstr( $orderby, '__in' ) ) {
 
-			// Get column name from $orderby clause
+			// Get column name from $orderby clause.
 			$column_name = str_replace( '__in', '', $orderby );
 
-			// Get values if valid column
+			// Get values if valid column.
 			if ( in_array( $column_name, $ins, true ) ) {
 				$values  = $this->get_query_var( $orderby );
 				$item_in = $this->get_in_sql( $column_name, $values, false );
@@ -1974,12 +2005,12 @@ class Query {
 				$retval  = "FIELD( {$aliased}, {$item_in} )";
 			}
 
-		// Specific sortable column
+		// Specific sortable column.
 		} elseif ( in_array( $orderby, $sortables, true ) ) {
 			$retval = $this->get_column_name_aliased( $orderby, $alias );
 		}
 
-		// Return SQL
+		// Return SQL.
 		return $retval;
 	}
 
