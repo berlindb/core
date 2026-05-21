@@ -238,7 +238,7 @@ class Meta extends Base {
 		}
 
 		// Setup
-		$this->__construct( $meta_query, $caller );
+		$this->init( $meta_query, $caller );
 	}
 
 	/**
