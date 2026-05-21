@@ -200,13 +200,18 @@ class Index {
 			$sql = 'KEY `' . $this->name . '` (' . $csql . ')';
 		}
 
-		// Optionally specify index method if set (prefer explicit "using").
-		$algorithm = ! empty( $this->using )
-			? $this->using
-			: $this->method;
+		// USING is only valid for regular KEY and UNIQUE KEY — not PRIMARY or FULLTEXT.
+		if ( ! in_array( $type, array( 'PRIMARY', 'FULLTEXT' ), true ) ) {
 
-		if ( '' !== $algorithm ) {
-			$sql .= ' USING ' . $algorithm;
+			// Prefer explicit "using" over the default method.
+			$algorithm = ! empty( $this->using )
+				? $this->using
+				: $this->method;
+
+			// Append USING clause if method is specified.
+			if ( '' !== $algorithm ) {
+				$sql .= ' USING ' . $algorithm;
+			}
 		}
 
 		// Optionally specify comment if set.
