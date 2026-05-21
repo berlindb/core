@@ -119,7 +119,7 @@ class Table {
 	protected $prefixed_name = '';
 
 	/**
-	 * Table schema.
+	 * Table schema class name.
 	 *
 	 * @since 1.0.0
 	 * @var   string
@@ -154,6 +154,14 @@ class Table {
 	protected $upgrades = array();
 
 	/**
+	 * Instantiated schema object, populated by set_schema() during boot.
+	 *
+	 * @since 3.0.0
+	 * @var   object|null
+	 */
+	private $schema_object = null;
+
+	/**
 	 * Called after initialization.
 	 *
 	 * @since 3.0.0
@@ -172,7 +180,7 @@ class Table {
 		$this->set_db_interface();
 
 		// Add the database schema
-		$this->add_schema();
+		$this->set_schema();
 
 		// Add hooks
 		$this->add_hooks();
@@ -641,16 +649,13 @@ class Table {
 			return false;
 		}
 
-		// Narrow schema to object before calling methods on it.
-		$schema = $this->schema;
-
 		// Bail if no schema to call
-		if ( ! is_object( $schema ) || ! is_callable( array( $schema, 'get_create_table_string' ) ) ) {
+		if ( ! is_callable( array( $this->schema_object, 'get_create_table_string' ) ) ) {
 			return false;
 		}
 
 		// Get the "CREATE TABLE" string
-		$create_table_string = $schema->get_create_table_string();
+		$create_table_string = $this->schema_object->get_create_table_string();
 
 		// Bail if no create string.
 		if ( empty( $create_table_string ) ) {
@@ -1429,12 +1434,19 @@ class Table {
 	}
 
 	/**
-	 * Add the schema class.
+	 * Setup the Schema object.
 	 *
 	 * @since 3.0.0
 	 */
-	private function add_schema() {
-		$this->schema = new $this->schema;
+	private function set_schema() {
+
+		// Bail if no table schema.
+		if ( empty( $this->schema ) || ! class_exists( $this->table_schema ) ) {
+			return;
+		}
+
+		// Invoke a new table schema class.
+		$this->schema_object = new $this->schema;
 	}
 
 	/**

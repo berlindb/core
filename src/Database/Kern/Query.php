@@ -172,7 +172,7 @@ class Query {
 	 * @since 3.0.0
 	 * @var   Schema
 	 */
-	private $schema = null;
+	private $schema_object = null;
 
 	/** Clauses ***************************************************************/
 
@@ -390,19 +390,19 @@ class Query {
 	}
 
 	/**
-	 * Set up the Schema.
+	 * Set up the Schema object.
 	 *
 	 * @since 3.0.0
 	 */
 	private function set_schema() {
 
-		// Bail if no table schema
+		// Bail if no table schema.
 		if ( empty( $this->table_schema ) || ! class_exists( $this->table_schema ) ) {
 			return;
 		}
 
-		// Invoke a new table schema class
-		$this->schema = new $this->table_schema;
+		// Invoke a new table schema class.
+		$this->schema_object = new $this->table_schema;
 	}
 
 	/**
@@ -822,10 +822,10 @@ class Query {
 			}
 
 			// Columns from Schema
-			if ( is_object( $this->schema ) && is_callable( array( $this->schema, 'get_columns' ) ) ) {
+			if ( is_callable( array( $this->schema_object, 'get_columns' ) ) ) {
 
 				// Get the columns from the schema object method.
-				$schema_columns = $this->schema->get_columns();
+				$schema_columns = $this->schema_object->get_columns();
 
 				// Use column objects from the schema if not empty.
 				if ( ! empty( $schema_columns ) ) {
