@@ -1008,17 +1008,17 @@ class Query {
 	}
 
 	/**
-	 * Return the current time as a UTC timestamp.
+	 * Return the current UTC time in MySQL DATETIME format.
 	 *
-	 * This is used by add_item() and update_item() and is equivalent to
-	 * CURRENT_TIMESTAMP in MySQL, but for the PHP server (not the MySQL one)
+	 * Used by add_item() and update_item() as the PHP-side equivalent of
+	 * MySQL's CURRENT_TIMESTAMP. Always UTC, never local server time.
 	 *
 	 * @since 1.0.0
 	 *
-	 * @return string
+	 * @return string Current UTC time as 'Y-m-d H:i:s'.
 	 */
 	private function get_current_time() {
-		return gmdate( "Y-m-d\TH:i:s\Z" );
+		return gmdate( 'Y-m-d H:i:s' );
 	}
 
 	/**
