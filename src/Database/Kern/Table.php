@@ -209,7 +209,9 @@ class Table {
 			'prefixed_name'     => array( $this, 'sanitize_table_name' ),
 			'schema'            => '',
 			'charset_collation' => 'wp_kses_data',
-			'comment'           => array( $this, 'sanitize_extra' ),
+			'comment'           => function( $v ) {
+				return $this->sanitize_comment( $v, 2048 );
+			},
 
 			// Extras
 			'upgrades'          => ''

@@ -494,7 +494,7 @@ class Column {
 			'extra'         => array( $this, 'sanitize_extra'   ),
 			'encoding'      => 'wp_kses_data',
 			'collation'     => 'wp_kses_data',
-			'comment'       => 'wp_kses_data',
+			'comment'       => array( $this, 'sanitize_comment' ),
 
 			// Special
 			'primary'       => 'wp_validate_boolean',
