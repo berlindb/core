@@ -40,6 +40,18 @@ class Row {
 	use \BerlinDB\Database\Traits\Base;
 	use \BerlinDB\Database\Traits\Boot;
 
+	/** Properties ************************************************************/
+
+	/**
+	 * Name of the primary key column for this row.
+	 *
+	 * Override in subclasses when the primary key is not named 'id'.
+	 *
+	 * @since 3.0.0
+	 * @var string
+	 */
+	protected $primary_column = 'id';
+
 	/** Methods ***************************************************************/
 
 	/**
@@ -50,6 +62,6 @@ class Row {
 	 * @return bool
 	 */
 	public function exists() {
-		return ! empty( $this->id );
+		return ! empty( $this->{$this->primary_column} );
 	}
 }
