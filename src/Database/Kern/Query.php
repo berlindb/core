@@ -51,7 +51,6 @@ defined( 'ABSPATH' ) || exit;
  *                                      Default false.
  * }
  */
-#[\AllowDynamicProperties]
 class Query {
 
 	/**
@@ -919,7 +918,7 @@ class Query {
 		 * Also add a period as a separator.
 		 */
 		if ( true === $alias ) {
-			$retval = $this->get_table_alias() . ".{$column_name}";
+			$retval = $this->get_table_alias() . '.' . $column_name;
 		}
 
 		// Return SQL.

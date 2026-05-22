@@ -55,7 +55,6 @@ defined( 'ABSPATH' ) || exit;
  *     @type array    $relationships  Array of columns in other tables this column relates to.
  * }
  */
-#[\AllowDynamicProperties]
 class Column {
 
 	/**

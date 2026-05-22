@@ -34,7 +34,6 @@ defined( 'ABSPATH' ) || exit;
  *     @type string   $using     USING clause for index type (optional).
  * }
  */
-#[\AllowDynamicProperties]
 class Index {
 
 	use \BerlinDB\Database\Traits\Base;

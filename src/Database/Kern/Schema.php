@@ -33,7 +33,6 @@ defined( 'ABSPATH' ) || exit;
  * @since 1.0.0
  * @since 3.0.0 Added Index support, validation, and item mutation methods.
  */
-#[\AllowDynamicProperties]
 class Schema {
 
 	/**

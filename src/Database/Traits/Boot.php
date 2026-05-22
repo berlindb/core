@@ -34,6 +34,18 @@ trait Boot {
 	use Lifecycle;
 
 	/**
+	 * Stashed copy of constructor arguments and initial property values.
+	 *
+	 * Set by stash_args() during construction. Keys:
+	 *   'param' — the raw $args passed to __construct()
+	 *   'class' — snapshot of all object properties at construction time
+	 *
+	 * @since 3.0.0
+	 * @var   array
+	 */
+	protected $args = array();
+
+	/**
 	 * Construct the table.
 	 *
 	 * @since 1.0.0
@@ -73,8 +85,7 @@ trait Boot {
 	 *
 	 * @since 3.0.0
 	 */
-	protected function sunrise() {
-	}
+	protected function sunrise() {}
 
 	/** Argument Handlers *****************************************************/
 
@@ -137,6 +148,10 @@ trait Boot {
 	 * current property values so parse_args() can merge against them and
 	 * callers can compare, reuse, or reset to a prior state.
 	 *
+	 * get_object_vars() is called from within the trait, so it captures all
+	 * properties visible in this scope — including protected ones — not just
+	 * public properties as it would from an external caller.
+	 *
 	 * @since 3.0.0
 	 *
 	 * @param array $args
@@ -154,6 +169,5 @@ trait Boot {
 	 *
 	 * @since 3.0.0
 	 */
-	protected function init() {
-	}
+	protected function init() {}
 }

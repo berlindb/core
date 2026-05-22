@@ -23,8 +23,6 @@ defined( 'ABSPATH' ) || exit;
  * Magic __get() and __isset() behaviour is delegated to the Magic trait.
  *
  * @since 3.0.0
- *
- * @property array<string, mixed> $args
  */
 trait Base {
 
@@ -46,11 +44,14 @@ trait Base {
 	/** Public ****************************************************************/
 
 	/**
-	 * Converts the given object to an array.
+	 * Converts the object's public properties to an array.
+	 *
+	 * Only public properties are included. Protected and private properties
+	 * are not visible to get_object_vars() when called from a public method.
 	 *
 	 * @since 1.0.0
 	 *
-	 * @return array Array version of the given object.
+	 * @return array<string, mixed>
 	 */
 	public function to_array() {
 		return get_object_vars( $this );
