@@ -56,6 +56,12 @@ class In extends Base {
 	protected $default = null;
 
 	/**
+	 * @since 3.0.0
+	 * @var bool
+	 */
+	public $sortable = true;
+
+	/**
 	 * Determines and validates what first-order keys to use.
 	 *
 	 * Use first $first_keys if passed and valid.
@@ -114,7 +120,7 @@ class In extends Base {
 		$where = array();
 
 		// Loop through ins.
-		foreach ( $ins as $column => $query_var ) {
+		foreach ( array_keys( $ins ) as $column ) {
 
 			// Parse query var
 			$values = $this->caller( 'parse_query_var', $clause, $column );
@@ -137,7 +143,7 @@ class In extends Base {
 
 			// Implode
 			} else {
-				$in_values        = $this->caller( 'get_in_sql', $column, $values, true, $pattern );
+				$in_values        = $this->caller( 'get_in_sql', $name, $values, true, $pattern );
 				$where[ $column ] = "{$aliased} IN {$in_values}";
 			}
 		}
@@ -147,5 +153,58 @@ class In extends Base {
 			'join'  => array(),
 			'where' => $where
 		);
+	}
+
+	/**
+	 * Build a FIELD() ORDER BY fragment for '{column}__in' orderby values.
+	 *
+	 * When a caller passes orderby='{column}__in', this returns a MySQL
+	 * FIELD() expression that preserves the order of the supplied IN list.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param string                        $orderby The raw orderby value.
+	 * @param bool                          $alias   Whether to prefix with the table alias.
+	 * @param \BerlinDB\Database\Query|null $caller  The parent Query instance.
+	 *
+	 * @return string SQL fragment, or empty string if the column has no IN values.
+	 */
+	public function get_orderby_sql( $orderby = '', $alias = true, $caller = null ) {
+
+		// Bail if no caller.
+		if ( null === $caller ) {
+			return '';
+		}
+
+		// Bail if $orderby doesn't end with the expected suffix.
+		if ( ! str_ends_with( $orderby, $this->column_suffix ) ) {
+			return '';
+		}
+
+		// Strip the suffix to get the bare column name.
+		$column_name = substr( $orderby, 0, -strlen( $this->column_suffix ) );
+
+		// Verify it's a column with 'in' support.
+		$ins = $caller->get_columns( array( 'in' => true ), 'and', 'name' );
+		if ( ! in_array( $column_name, $ins, true ) ) {
+			return '';
+		}
+
+		// Build the FIELD() expression.
+		$values  = $caller->get_query_var( $orderby );
+		$item_in = $caller->get_in_sql( $column_name, $values, false );
+
+		// Bail if no IN values.
+		if ( empty( $item_in ) ) {
+			return '';
+		}
+
+		// Maybe alias the column name.
+		$aliased = $alias
+			? $caller->get_quoted_column_name_aliased( $column_name, $alias )
+			: $this->quote_identifier( $column_name );
+
+		// Return the FIELD() expression.
+		return "FIELD( {$aliased}, {$item_in} )";
 	}
 }

@@ -231,6 +231,26 @@ trait Parser {
 	}
 
 	/**
+	 * Build an ORDER BY SQL fragment for a given orderby value.
+	 *
+	 * Called by Query::parse_single_orderby() for each registered parser.
+	 * Subclasses may override this to handle orderby values that belong to
+	 * their domain (e.g. the In parser handles '{column}__in' → FIELD()).
+	 * The default is a no-op.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param string                        $orderby The raw orderby value.
+	 * @param bool                          $alias   Whether to prefix with the table alias.
+	 * @param \BerlinDB\Database\Query|null $caller  The parent Query instance.
+	 *
+	 * @return string SQL fragment, or empty string if this parser does not handle $orderby.
+	 */
+	public function get_orderby_sql( $orderby = '', $alias = true, $caller = null ) {
+		return '';
+	}
+
+	/**
 	 * Sets the caller.
 	 *
 	 * @since 3.0.0

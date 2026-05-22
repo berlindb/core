@@ -119,6 +119,12 @@ class Meta extends Base {
 	protected $default = null;
 
 	/**
+	 * @since 3.0.0
+	 * @var bool
+	 */
+	public $sortable = true;
+
+	/**
 	 * Database table to query for the metadata.
 	 *
 	 * @since 3.0.0
@@ -688,5 +694,61 @@ class Meta extends Base {
 
 		// Return join/where clauses.
 		return $retval;
+	}
+
+	/**
+	 * Build an ORDER BY fragment for meta orderby values.
+	 *
+	 * Handles two modes:
+	 *  - Named clause key (e.g. orderby='my_clause'): looks the clause up
+	 *    directly in $this->clauses, using whatever alias and cast it carries.
+	 *  - 'meta_value' / 'meta_value_num': falls back to the first registered
+	 *    clause (the simple meta_key clause, always processed first per
+	 *    parse_query_vars()). 'meta_value_num' forces a SIGNED cast.
+	 *
+	 * The $alias parameter is not used; Meta always references the JOIN alias
+	 * established during get_sql_for_clause(), not the primary table alias.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param string                        $orderby The raw orderby value.
+	 * @param bool                          $alias   Unused. Meta always uses its own JOIN alias.
+	 * @param \BerlinDB\Database\Query|null $caller  The parent Query instance.
+	 *
+	 * @return string SQL fragment, or empty string if no matching clause found.
+	 */
+	public function get_orderby_sql( $orderby = '', $alias = true, $caller = null ) {
+
+		// Bail if no caller.
+		if ( null === $caller ) {
+			return '';
+		}
+
+		// Named clause key: look it up directly.
+		$clause = $this->clauses[ $orderby ] ?? null;
+
+		// meta_value / meta_value_num: use the first (simple) clause.
+		if ( null === $clause && ( 'meta_value' === $orderby || 'meta_value_num' === $orderby ) ) {
+			$clause = reset( $this->clauses ) ?: null;
+		}
+
+		// Bail if no clause or no alias on it.
+		if ( empty( $clause ) || empty( $clause['alias'] ) ) {
+			return '';
+		}
+
+		// Pre-quote identifiers.
+		$qt_alias  = $this->quote_identifier( $clause['alias'] );
+		$qt_column = $this->quote_identifier( 'meta_value' );
+		$cast      = ( 'meta_value_num' === $orderby )
+			? 'SIGNED'
+			: ( $clause['cast'] ?? 'CHAR' );
+
+		// Return the ORDER BY fragment, with casting if needed. Meta always
+		// uses the JOIN alias established in get_sql_for_clause(), never the
+		// primary table alias.
+		return ( 'CHAR' === $cast )
+			? "{$qt_alias}.{$qt_column}"
+			: "CAST({$qt_alias}.{$qt_column} AS {$cast})";
 	}
 }

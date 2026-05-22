@@ -72,6 +72,17 @@ abstract class Base {
 	 */
 	protected $default = null;
 
+	/**
+	 * Whether this parser contributes ORDER BY SQL via get_orderby_sql().
+	 * Parsers that override get_orderby_sql() should set this to true so
+	 * Query::get_parsers( array( 'sortable' => true ) ) can find them
+	 * without iterating every registered parser.
+	 *
+	 * @since 3.0.0
+	 * @var bool
+	 */
+	public $sortable = false;
+
 	/** Methods ***************************************************************/
 
 	/**

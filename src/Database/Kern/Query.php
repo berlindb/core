@@ -255,14 +255,27 @@ class Query {
 	/**
 	 * Map of instantiated parser descriptor objects, keyed by parser name.
 	 *
-	 * Populated during set_query_var_defaults() from $query_var_parsers.
-	 * Each value is a no-args instance of a Parsers\Base subclass, used to
-	 * read descriptor properties and as the source for parse_join_where_parsers().
+	 * Populated once during set_query_var_defaults() from $query_var_parsers.
+	 * Never mutated after that — see $current_parsers for per-query instances.
 	 *
 	 * @since 3.0.0
 	 * @var   \BerlinDB\Database\Parsers\Base[]
 	 */
 	protected $parsers = array();
+
+	/**
+	 * Active per-query parser instances, keyed by parser name.
+	 *
+	 * Populated at the start of each parse_join_where_parsers() call and cleared
+	 * on each new run. Instances carry state built during clause processing (e.g.
+	 * Meta's $clauses / $table_aliases). get_parsers() returns from here when
+	 * non-empty so post-parse hooks like get_orderby_sql() see the active instance
+	 * rather than the blank descriptor in $parsers.
+	 *
+	 * @since 3.0.0
+	 * @var   \BerlinDB\Database\Parsers\Base[]
+	 */
+	protected $current_parsers = array();
 
 	/** Results ***************************************************************/
 
@@ -936,6 +949,42 @@ class Query {
 		return $retval;
 	}
 
+	/** Public Parsers ********************************************************/
+
+	/**
+	 * Get registered parsers, optionally filtered by property values.
+	 *
+	 * Mirrors get_columns() — pass an $args array of property => value pairs
+	 * to narrow the result set. For example:
+	 *
+	 *   get_parsers( array( 'sortable' => true ) )
+	 *
+	 * returns only parsers that contribute ORDER BY SQL via get_orderby_sql().
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param array  $args     Optional property => value pairs to filter by.
+	 * @param string $operator Comparison operator: 'and' or 'or'. Default 'and'.
+	 * @param mixed  $field    Optional. Return this property from each match instead of the full object.
+	 *
+	 * @return array Filtered array of parser objects (or field values).
+	 */
+	public function get_parsers( $args = array(), $operator = 'and', $field = false ) {
+
+		// Determine source.
+		$source = ! empty( $this->current_parsers )
+			? $this->current_parsers
+			: $this->parsers;
+
+		// Filter parsers.
+		$filter = wp_filter_object_list( $source, $args, $operator, $field );
+
+		// Return parsers or empty array.
+		return ! empty( $filter )
+			? array_values( $filter )
+			: array();
+	}
+
 	/** Public Getters ********************************************************/
 
 	/**
@@ -1235,15 +1284,6 @@ class Query {
 	 */
 	public function get_in_sql( $column_name = '', $values = array(), $wrap = true, $pattern = '' ) {
 
-		// Allow parser-style query var names like "status__in" and "status__not_in".
-		if ( is_string( $column_name ) ) {
-			if ( '__not_in' === substr( $column_name, -8 ) ) {
-				$column_name = substr( $column_name, 0, -8 );
-			} elseif ( '__in' === substr( $column_name, -4 ) ) {
-				$column_name = substr( $column_name, 0, -4 );
-			}
-		}
-
 		// Bail if no values or invalid column
 		if ( empty( $values ) || ! $this->is_valid_column( $column_name ) ) {
 			return '';
@@ -1436,6 +1476,9 @@ class Query {
 		// Default values
 		$join = $where = array();
 
+		// Reset per-query instances so stale state from previous runs is discarded.
+		$this->current_parsers = array();
+
 		// Loop through parsers
 		foreach ( $this->parsers as $key => $descriptor ) {
 
@@ -1472,8 +1515,11 @@ class Query {
 				}
 			}
 
-			// Try to get the query var parser
+			// Instantiate the active parser for this query run.
 			$new_parser = new $class( $qv, $this );
+
+			// Store it so hooks can read its clause state.
+			$this->current_parsers[ $key ] = $new_parser;
 
 			// Default no subclauses
 			$subclauses = false;
@@ -2021,27 +2067,23 @@ class Query {
 		// Default return value.
 		$retval = '';
 
-		// Get possible columns an $orderby can belong to.
-		$ins       = $this->get_columns( array( 'in'       => true ), 'and', 'name' );
-		$sortables = $this->get_columns( array( 'sortable' => true ), 'and', 'name' );
+		// Ask each sortable parser if it handles this orderby value.
+		foreach ( $this->get_parsers( array( 'sortable' => true ) ) as $parser ) {
 
-		// __in column
-		if ( false !== strstr( $orderby, '__in' ) ) {
-
-			// Get column name from $orderby clause.
-			$column_name = str_replace( '__in', '', $orderby );
-
-			// Get values if valid column.
-			if ( in_array( $column_name, $ins, true ) ) {
-				$values  = $this->get_query_var( $orderby );
-				$item_in = $this->get_in_sql( $column_name, $values, false );
-				$aliased = $this->get_quoted_column_name_aliased( $column_name, $alias );
-				$retval  = "FIELD( {$aliased}, {$item_in} )";
+			// Maybe get the SQL for this parser's orderby.
+			$sql = $parser->get_orderby_sql( $orderby, $alias, $this );
+			if ( ! empty( $sql ) ) {
+				$retval = $sql;
+				break;
 			}
+		}
 
-		// Specific sortable column.
-		} elseif ( in_array( $orderby, $sortables, true ) ) {
-			$retval = $this->get_quoted_column_name_aliased( $orderby, $alias );
+		// Specific sortable column (only when no parser claimed it).
+		if ( empty( $retval ) ) {
+			$sortables = $this->get_columns( array( 'sortable' => true ), 'and', 'name' );
+			if ( in_array( $orderby, $sortables, true ) ) {
+				$retval = $this->get_quoted_column_name_aliased( $orderby, $alias );
+			}
 		}
 
 		// Return SQL.

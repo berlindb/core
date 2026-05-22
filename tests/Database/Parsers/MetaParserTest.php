@@ -272,4 +272,91 @@ class MetaParserTest extends TestCase {
 
 		$this->assertSame( 2, (int) $count );
 	}
+
+	/**
+	 * Test that orderby=meta_value sorts alphabetically ascending.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_orderby_meta_value_asc() {
+		$results = self::$query->query( array(
+			'meta_key' => 'berlindb_test_color',
+			'orderby'  => 'meta_value',
+			'order'    => 'ASC',
+		) );
+
+		// Only Alpha (red) and Beta (blue) have color meta.
+		// Alphabetical ASC: 'blue' < 'red' -> Beta first.
+		$this->assertCount( 2, $results );
+		$this->assertSame( 'Beta Widget',  $results[0]->name );
+		$this->assertSame( 'Alpha Widget', $results[1]->name );
+	}
+
+	/**
+	 * Test that orderby=meta_value sorts alphabetically descending.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_orderby_meta_value_desc() {
+		$results = self::$query->query( array(
+			'meta_key' => 'berlindb_test_color',
+			'orderby'  => 'meta_value',
+			'order'    => 'DESC',
+		) );
+
+		// Alphabetical DESC: 'red' > 'blue' -> Alpha first.
+		$this->assertCount( 2, $results );
+		$this->assertSame( 'Alpha Widget', $results[0]->name );
+		$this->assertSame( 'Beta Widget',  $results[1]->name );
+	}
+
+	/**
+	 * Test that orderby=meta_value_num sorts numerically, not lexically.
+	 *
+	 * Uses rank values '2', '10', '20': string sort gives '10', '2', '20'
+	 * but numeric sort gives 2, 10, 20 — proving CAST(AS SIGNED) is applied.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_orderby_meta_value_num_asc() {
+		add_metadata( 'post', $this->ids[0], 'berlindb_test_rank', '2'  );
+		add_metadata( 'post', $this->ids[1], 'berlindb_test_rank', '10' );
+		add_metadata( 'post', $this->ids[2], 'berlindb_test_rank', '20' );
+
+		$results = self::$query->query( array(
+			'meta_key' => 'berlindb_test_rank',
+			'orderby'  => 'meta_value_num',
+			'order'    => 'ASC',
+		) );
+
+		// Numeric ASC: 2, 10, 20 -> Alpha, Beta, Gamma.
+		// String ASC would give: '10', '2', '20' -> Beta, Alpha, Gamma.
+		$this->assertCount( 3, $results );
+		$this->assertSame( 'Alpha Widget', $results[0]->name );
+		$this->assertSame( 'Beta Widget',  $results[1]->name );
+		$this->assertSame( 'Gamma Gadget', $results[2]->name );
+	}
+
+	/**
+	 * Test that a named meta_query clause key can be used as an orderby value.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_orderby_named_clause_key_asc() {
+		$results = self::$query->query( array(
+			'meta_query' => array(
+				'score_clause' => array(
+					'key' => 'berlindb_test_score',
+				),
+			),
+			'orderby' => 'score_clause',
+			'order'   => 'ASC',
+		) );
+
+		// All three rows have a score (10, 20, 30). ASC -> Alpha, Beta, Gamma.
+		$this->assertCount( 3, $results );
+		$this->assertSame( 'Alpha Widget', $results[0]->name );
+		$this->assertSame( 'Beta Widget',  $results[1]->name );
+		$this->assertSame( 'Gamma Gadget', $results[2]->name );
+	}
 }

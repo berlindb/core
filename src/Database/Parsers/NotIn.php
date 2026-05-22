@@ -114,7 +114,7 @@ class NotIn extends Base {
 		$where = array();
 
 		// Loop through ins.
-		foreach ( $ins as $column => $query_var ) {
+		foreach ( array_keys( $ins ) as $column ) {
 
 			// Parse query var
 			$values = $this->caller( 'parse_query_var', $clause, $column );
@@ -137,7 +137,7 @@ class NotIn extends Base {
 
 			// Implode
 			} else {
-				$in_values          = $this->caller( 'get_in_sql', $column, $values, true, $pattern );
+				$in_values          = $this->caller( 'get_in_sql', $name, $values, true, $pattern );
 				$where[ $column ] = "{$aliased} NOT IN {$in_values}";
 			}
 		}

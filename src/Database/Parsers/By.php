@@ -115,7 +115,7 @@ class By extends Base {
 		$where = array();
 
 		// Loop through ins.
-		foreach ( $ins as $column => $query_var ) {
+		foreach ( array_keys( $ins ) as $column ) {
 
 			// Parse query var
 			$values = $this->caller( 'parse_query_var', $clause, $column );
