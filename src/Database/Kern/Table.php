@@ -755,7 +755,7 @@ class Table {
 		$result = $db->query( $sql );
 
 		// Return the results
-		return $result;
+		return $this->is_success( $result );
 	}
 
 	/**

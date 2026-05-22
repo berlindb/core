@@ -31,15 +31,27 @@ trait Error {
 	protected $last_error = false;
 
 	/**
-	 * Check if an operation succeeded.
+	 * Check if a database operation succeeded.
 	 *
-	 * Note: While "0" or "''" may be the return value of a successful result,
-	 *       for the purposes of database queries and this method, it isn't.
-	 *       When using this method, take care that your possible results do not
-	 *       pass falsy values on success.
+	 * Returns true for any value except false, null, and WP_Error:
+	 * - false    — wpdb query error
+	 * - null     — wpdb get_row() found no matching row
+	 * - WP_Error — an explicit error object (also stashed in $last_error)
+	 *
+	 * Integer 0 is treated as success: it means the query ran cleanly but
+	 * affected zero rows (e.g. DELETE on an already-empty table), which is
+	 * not an error.
+	 *
+	 * An empty string is also treated as success: it means the query ran
+	 * cleanly but returned an empty value (e.g. a SUM() on no matching rows),
+	 * which is not an error.
+	 *
+	 * If you need to distinguish between these cases, check for them explicitly
+	 * before calling this method.
 	 *
 	 * @since 1.0.0
-	 * @since 3.0.0 Minor refactor to improve readability.
+	 * @since 3.0.0 Integer 0 is now treated as success; null added as a
+	 *              failure sentinel alongside false.
 	 *
 	 * @param mixed $result Optional. Default false. Any value to check.
 	 * @return bool
@@ -49,14 +61,16 @@ trait Error {
 		// Default return value.
 		$retval = false;
 
-		// Non-empty is success.
-		if ( ! empty( $result ) ) {
-			$retval = true;
+		// null (no row found) and false (query error) are both failures.
+		if ( ! in_array( $result, array( null, false ), true ) ) {
 
-			// But Error is still fail, so stash it.
+			// WP_Error is a failure; stash it for the caller.
 			if ( is_wp_error( $result ) ) {
 				$this->last_error = $result;
-				$retval           = false;
+
+			// Any other value is a success.
+			} else {
+				$retval = true;
 			}
 		}
 
