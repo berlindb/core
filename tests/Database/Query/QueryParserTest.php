@@ -140,21 +140,6 @@ class QueryParserSpyQuery extends TestQuery {
 	protected $query_var_parsers = array( QueryParserSpy::class );
 
 	/**
-	 * Avoid running a real query when the fixture is constructed without args.
-	 *
-	 * @since 2.1.0
-	 *
-	 * @param array $args Optional. Query args.
-	 */
-	protected function parse_args( $args = array() ) {
-		if ( empty( $args ) ) {
-			return;
-		}
-
-		parent::parse_args( $args );
-	}
-
-	/**
 	 * Return a resolved table name that differs from the raw property value.
 	 *
 	 * @since 2.1.0
@@ -455,15 +440,7 @@ class QueryParserTest extends TestCase {
 		add_filter( 'berlindb_database_query_var_parsers', $filter, 10, 2 );
 
 		try {
-			$query = new class() extends TestQuery {
-				protected function parse_args( $args = array() ) {
-					if ( empty( $args ) ) {
-						return;
-					}
-
-					parent::parse_args( $args );
-				}
-			};
+			$query = new class() extends TestQuery {};
 
 			$parser_classes = new \ReflectionProperty( BerlinQuery::class, 'query_var_parsers' );
 			if ( PHP_VERSION_ID < 80100 ) {

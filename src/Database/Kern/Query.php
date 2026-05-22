@@ -129,16 +129,6 @@ class Query {
 	 */
 	protected $item_shape = __NAMESPACE__ . '\\Row';
 
-	/**
-	 * Name of class used to turn IDs into first-class objects for the current request.
-	 *
-	 * This is used when looping through return values to guarantee their shape.
-	 *
-	 * @since 2.0.0
-	 * @var   mixed
-	 */
-	protected $current_item_shape;
-
 	/** Cache *****************************************************************/
 
 	/**
@@ -256,26 +246,12 @@ class Query {
 	 * Map of instantiated parser descriptor objects, keyed by parser name.
 	 *
 	 * Populated once during set_query_var_defaults() from $query_var_parsers.
-	 * Never mutated after that — see $current_parsers for per-query instances.
+	 * Never mutated after that — see $current['parsers'] for per-query instances.
 	 *
 	 * @since 3.0.0
 	 * @var   \BerlinDB\Database\Parsers\Base[]
 	 */
 	protected $parsers = array();
-
-	/**
-	 * Active per-query parser instances, keyed by parser name.
-	 *
-	 * Populated at the start of each parse_join_where_parsers() call and cleared
-	 * on each new run. Instances carry state built during clause processing (e.g.
-	 * Meta's $clauses / $table_aliases). get_parsers() returns from here when
-	 * non-empty so post-parse hooks like get_orderby_sql() see the active instance
-	 * rather than the blank descriptor in $parsers.
-	 *
-	 * @since 3.0.0
-	 * @var   \BerlinDB\Database\Parsers\Base[]
-	 */
-	protected $current_parsers = array();
 
 	/** Results ***************************************************************/
 
@@ -337,9 +313,35 @@ class Query {
 	 * @since 3.0.0
 	 *
 	 * @param array $args
+	 * @return void
 	 */
 	protected function parse_args( $args = array() ) {
+
+		// Bail if no args.
+		if ( empty( $args ) ) {
+			return;
+		}
+
+		// Parse the query and get items.
 		$this->query( $args );
+	}
+
+	/**
+	 * Reset per-run ephemeral state at the start of each action.
+	 *
+	 * Called by boot() during construction and by query() before each run.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @return void
+	 */
+	protected function start() {
+		$this->reset_current(
+			array(
+				'parsers'    => array(),
+				'item_shape' => $this->item_shape,
+			)
+		);
 	}
 
 	/**
@@ -354,9 +356,12 @@ class Query {
 	 * @return array|int Array of items, or number of items when 'count' is passed as a query var.
 	 */
 	public function query( $query = array() ) {
+		$this->start();
 		$this->parse_query( $query );
+		$result = $this->get_items();
+		$this->finish();
 
-		return $this->get_items();
+		return $result;
 	}
 
 	/** Private Setters *******************************************************/
@@ -428,11 +433,6 @@ class Query {
 		// Item shape.
 		if ( empty( $this->item_shape ) || ! class_exists( $this->item_shape ) ) {
 			$this->item_shape = __NAMESPACE__ . '\\Row';
-		}
-
-		// Current item during shaping (might be stdClass).
-		if ( empty( $this->current_item_shape ) || ! class_exists( $this->current_item_shape ) ) {
-			$this->current_item_shape = $this->item_shape;
 		}
 	}
 
@@ -972,8 +972,9 @@ class Query {
 	public function get_parsers( $args = array(), $operator = 'and', $field = false ) {
 
 		// Determine source.
-		$source = ! empty( $this->current_parsers )
-			? $this->current_parsers
+		$current_parsers = $this->get_current( 'parsers' );
+		$source          = ! empty( $current_parsers )
+			? $current_parsers
 			: $this->parsers;
 
 		// Filter parsers.
@@ -1479,10 +1480,7 @@ class Query {
 		}
 
 		// Default values.
-		$join = $where = array();
-
-		// Reset per-query instances so stale state from previous runs is discarded.
-		$this->current_parsers = array();
+		$join = $where = $parsers = array();
 
 		// Loop through parsers.
 		foreach ( $this->parsers as $key => $descriptor ) {
@@ -1521,10 +1519,8 @@ class Query {
 			}
 
 			// Instantiate the active parser for this query run.
-			$new_parser = new $class( $qv, $this );
-
-			// Store it so hooks can read its clause state.
-			$this->current_parsers[ $key ] = $new_parser;
+			$parsers[ $key ] = new $class( $qv, $this );
+			$new_parser       = $parsers[ $key ];
 
 			// Default no subclauses.
 			$subclauses = false;
@@ -1552,6 +1548,9 @@ class Query {
 				$where[ $key ] = preg_replace( '/^\s*AND\s*/', '', $subclauses['where'] );
 			}
 		}
+
+		// Store completed parser instances so post-parse hooks can read their state.
+		$this->set_current( 'parsers', $parsers );
 
 		// Return join/where subclauses.
 		return array(
@@ -2137,13 +2136,14 @@ class Query {
 		}
 
 		// Return the item if it's already shaped.
-		if ( $item instanceof $this->current_item_shape ) {
+		$item_shape = $this->get_current( 'item_shape' );
+		if ( $item instanceof $item_shape ) {
 			return $item;
 		}
 
 		// Shape the item as needed.
-		$item = ! empty( $this->current_item_shape )
-			? new $this->current_item_shape( $item )
+		$item = ! empty( $item_shape )
+			? new $item_shape( $item )
 			: (object) $item;
 
 		// Return the item object.
@@ -2174,11 +2174,7 @@ class Query {
 		}
 
 		// Force to stdClass if querying for fields.
-		if ( ! empty( $fields ) ) {
-			$this->current_item_shape = 'stdClass';
-		} else {
-			$this->current_item_shape = $this->item_shape;
-		}
+		$this->set_current( 'item_shape', ! empty( $fields ) ? 'stdClass' : $this->item_shape );
 
 		// Default return value.
 		$retval = array();

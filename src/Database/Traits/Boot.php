@@ -18,9 +18,18 @@ defined( 'ABSPATH' ) || exit;
 /**
  * The Boot Trait includes methods that fire when classes are constructed.
  *
+ * It uses the Lifecycle Trait, making start(), finish(), and $current
+ * available to every class that uses Boot. During construction, boot()
+ * brackets sunrise/parse_args/init with start()/finish() so that the
+ * full lifecycle is:
+ *
+ *   __construct → boot → start → sunrise → parse_args → set_vars → init → finish
+ *
  * @since 3.0.0
  */
 trait Boot {
+
+	use Lifecycle;
 
 	/**
 	 * Construct the table.
@@ -40,6 +49,9 @@ trait Boot {
 	 */
 	protected function boot( $args = array() ) {
 
+		// Lifecycle start.
+		$this->start();
+
 		// Early.
 		$this->sunrise();
 
@@ -53,6 +65,9 @@ trait Boot {
 
 		// Initialize.
 		$this->init();
+
+		// Lifecycle finish.
+		$this->finish();
 	}
 
 	/**
