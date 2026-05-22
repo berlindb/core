@@ -16,17 +16,20 @@ namespace BerlinDB\Database\Traits;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * The Lifecycle Trait provides before/after hooks around any repeatable action.
+ * The Lifecycle Trait brackets any repeatable action with setup and teardown.
  *
  * It is the underlying mechanism for Boot (construction lifecycle) and for
  * per-run lifecycles in Query, Parser, Table, and any other class that has a
- * well-defined "action" to bracket.
+ * well-defined unit of work to bound.
  *
- * The primary entry point is run(), which wraps any callable with start() and
- * finish() and guarantees finish() fires even if the action throws:
+ * start() and finish() are template methods — empty by default and meant to be
+ * overridden by subclasses. They are not external hooks; they are internal
+ * extension points called by run() at the boundaries of each run:
  *
  *   Boot:  __construct > run() > start > sunrise/parse_args/set_vars/init > finish
  *   Query: query()     > run() > start > parse_query/get_items             > finish
+ *
+ * run() guarantees finish() fires even if the action throws, via try/finally.
  *
  * Per-run ephemeral state is managed privately through get_current() and
  * set_current(). Each class decides which keys it uses; nothing is required
@@ -48,11 +51,10 @@ trait Lifecycle {
 	private $current = array();
 
 	/**
-	 * Called at the start of the action, before the main work begins.
+	 * Template method called at the start of each run, before the main work.
 	 *
-	 * Override to initialize current state or perform pre-action setup.
-	 * When overriding in a subclass, call parent::start() to preserve
-	 * behaviour from any intermediate class in the hierarchy.
+	 * Override in a subclass to initialize per-run state or perform setup.
+	 * Call parent::start() to preserve behaviour from any intermediate class.
 	 *
 	 * @since 3.0.0
 	 *
@@ -61,11 +63,10 @@ trait Lifecycle {
 	protected function start() {}
 
 	/**
-	 * Called at the end of the action, after the main work completes.
+	 * Template method called at the end of each run, after the main work.
 	 *
-	 * Override for post-action cleanup or logging. When overriding in a
-	 * subclass, call parent::finish() to preserve behaviour from any
-	 * intermediate class in the hierarchy.
+	 * Override in a subclass for cleanup or logging.
+	 * Call parent::finish() to preserve behaviour from any intermediate class.
 	 *
 	 * @since 3.0.0
 	 *
