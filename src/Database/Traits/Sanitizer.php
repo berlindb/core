@@ -179,4 +179,22 @@ trait Sanitizer {
 		// Enforce the MySQL COMMENT maximum length.
 		return substr( $clean, 0, $max_length );
 	}
+
+	/**
+	 * Wrap a sanitized identifier in MySQL backtick quotes.
+	 *
+	 * Must be called after the identifier has already been passed through one of
+	 * the sanitize_*_name() methods, which ensure only safe characters remain.
+	 * Any literal backtick that somehow survived sanitization is doubled so the
+	 * resulting SQL identifier is always valid.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param string $identifier A sanitized table name, column name, or alias.
+	 *
+	 * @return string Backtick-quoted identifier, e.g. `column_name`.
+	 */
+	protected function quote_identifier( $identifier = '' ) {
+		return '`' . str_replace( '`', '``', (string) $identifier ) . '`';
+	}
 }

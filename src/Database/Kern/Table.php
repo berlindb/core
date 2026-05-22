@@ -138,7 +138,7 @@ class Table {
 	 * Typically empty; probably ignore.
 	 *
 	 * By default, tables do not have comments. This is unused by any other
-	 * relative code, but you can include less than 1024 characters here.
+	 * relative code, but you can include up to 2048 characters here.
 	 *
 	 * @since 3.0.0
 	 * @var   string
@@ -734,8 +734,8 @@ class Table {
 		$sql    = "DELETE FROM {$this->table_name}";
 		$result = $db->query( $sql );
 
-		// Return the results
-		return $this->is_success( $result );
+		// Return true as long as no SQL error occurred; 0 rows deleted is still a success.
+		return false !== $result;
 	}
 
 	/**
@@ -1421,7 +1421,7 @@ class Table {
 	private function set_schema() {
 
 		// Bail if no table schema.
-		if ( empty( $this->schema ) || ! class_exists( $this->table_schema ) ) {
+		if ( empty( $this->schema ) || ! class_exists( $this->schema ) ) {
 			return;
 		}
 

@@ -327,7 +327,7 @@ class Date extends Base {
 			foreach ( (array) $date_query[ $key ] as $_value ) {
 				$is_between = ( $_value >= $check['min'] ) && ( $_value <= $check['max'] );
 
-				if ( ! is_numeric( $_value ) || empty( $is_between ) ) {
+				if ( ! is_numeric( $_value ) || ( false === $is_between ) ) {
 					$valid = false;
 				}
 			}

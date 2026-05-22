@@ -33,26 +33,19 @@ trait Error {
 	/**
 	 * Check if a database operation succeeded.
 	 *
-	 * Returns true for any value except false, null, and WP_Error:
+	 * Returns true for any value except false, null, 0, and WP_Error:
 	 * - false    — wpdb query error
 	 * - null     — wpdb get_row() found no matching row
+	 * - 0        — query ran but matched or affected zero rows
 	 * - WP_Error — an explicit error object (also stashed in $last_error)
 	 *
-	 * Integer 0 is treated as success: it means the query ran cleanly but
-	 * affected zero rows (e.g. DELETE on an already-empty table), which is
-	 * not an error.
-	 *
-	 * An empty string is also treated as success: it means the query ran
-	 * cleanly but returned an empty value (e.g. a SUM() on no matching rows),
-	 * which is not an error.
-	 *
-	 * If you need to distinguish between these cases, check for them explicitly
-	 * before calling this method.
+	 * If you need different semantics — for example, treating 0 as success
+	 * for a DELETE on an empty table — check the result directly instead of
+	 * delegating to this method.
 	 *
 	 * @since 1.0.0
-	 * @since 3.0.0 Integer 0 is now treated as success.
-	 *              Empty string is now treated as success.
-	 *              null added as a failure sentinel alongside false.
+	 * @since 3.0.0 null added as a failure sentinel alongside false.
+	 *              WP_Error is now stashed in $last_error.
 	 *
 	 * @param mixed $result Optional. Default false. Any value to check.
 	 * @return bool
@@ -62,8 +55,8 @@ trait Error {
 		// Default return value.
 		$retval = false;
 
-		// null (no row found) and false (query error) are both failures.
-		if ( ! in_array( $result, array( null, false ), true ) ) {
+		// false (query error), null (no row found), and 0 (nothing matched) are failures.
+		if ( ! in_array( $result, array( null, false, 0 ), true ) ) {
 
 			// WP_Error is a failure; stash it for the caller.
 			if ( is_wp_error( $result ) ) {

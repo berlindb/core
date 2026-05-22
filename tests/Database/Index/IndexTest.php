@@ -151,7 +151,7 @@ class IndexTest extends TestCase {
 
 		$sql = $index->get_create_string();
 		$this->assertStringContainsString( 'PRIMARY KEY (`id`)', $sql );
-		$this->assertStringContainsString( 'USING BTREE', $sql );
+		$this->assertStringNotContainsString( 'USING', $sql );
 	}
 
 	/**

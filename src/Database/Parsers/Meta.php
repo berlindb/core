@@ -393,6 +393,13 @@ class Meta extends Base {
 		// Default column.
 		$column = 'meta_key';
 
+		// Pre-quote class-level identifiers (already sanitized by get_sql / get_join_where_clauses).
+		$qt_meta_table     = $this->quote_identifier( $this->meta_table );
+		$qt_primary_table  = $this->quote_identifier( $this->primary_table );
+		$qt_meta_column    = $this->quote_identifier( $this->meta_column );
+		$qt_primary_column = $this->quote_identifier( $this->primary_column );
+		$qt_column         = $this->quote_identifier( $column );
+
 		/** Compare ***********************************************************/
 
 		if ( isset( $clause['compare'] ) ) {
@@ -447,31 +454,32 @@ class Meta extends Base {
 
 		// No compatible alias, so make one!
 		if ( false === $alias ) {
-			$i     = count( $this->table_aliases );
-			$alias = ! empty( $i )
+			$i        = count( $this->table_aliases );
+			$alias    = ! empty( $i )
 				? 'mt' . $i
 				: $this->meta_table;
+			$qt_alias = $this->quote_identifier( $alias );
 
 			// JOIN clauses for NOT EXISTS have their own syntax.
 			if ( 'NOT EXISTS' === $meta_compare ) {
-				$join .= " LEFT JOIN {$this->meta_table}";
+				$join .= " LEFT JOIN {$qt_meta_table}";
 				$join .= ! empty( $i )
-					? " AS {$alias}"
+					? " AS {$qt_alias}"
 					: '';
 
 				if ( 'LIKE' === $meta_compare_key ) {
-					$join .= $db->prepare( " ON ( {$this->primary_table}.{$this->primary_column} = {$alias}.{$this->meta_column} AND {$alias}.{$column} LIKE %s )", '%' . $db->esc_like( $clause['key'] ) . '%' );
+					$join .= $db->prepare( " ON ( {$qt_primary_table}.{$qt_primary_column} = {$qt_alias}.{$qt_meta_column} AND {$qt_alias}.{$qt_column} LIKE %s )", '%' . $db->esc_like( $clause['key'] ) . '%' );
 				} else {
-					$join .= $db->prepare( " ON ( {$this->primary_table}.{$this->primary_column} = {$alias}.{$this->meta_column} AND {$alias}.{$column} = %s )", $clause['key'] );
+					$join .= $db->prepare( " ON ( {$qt_primary_table}.{$qt_primary_column} = {$qt_alias}.{$qt_meta_column} AND {$qt_alias}.{$qt_column} = %s )", $clause['key'] );
 				}
 
 			// All other JOIN clauses.
 			} else {
-				$join .= " INNER JOIN {$this->meta_table}";
+				$join .= " INNER JOIN {$qt_meta_table}";
 				$join .= ! empty( $i )
-					? " AS {$alias}"
+					? " AS {$qt_alias}"
 					: '';
-				$join .= " ON ( {$this->primary_table}.{$this->primary_column} = {$alias}.{$this->meta_column} )";
+				$join .= " ON ( {$qt_primary_table}.{$qt_primary_column} = {$qt_alias}.{$qt_meta_column} )";
 			}
 
 			// Add to possible aliases.
@@ -483,6 +491,10 @@ class Meta extends Base {
 
 		// Save the alias to this clause, for future siblings to find.
 		$clause['alias'] = $alias;
+
+		// (Re)quote alias here so WHERE clauses below always have it, even when
+		// find_compatible_table_alias() returned an existing alias above.
+		$qt_alias = $this->quote_identifier( $alias );
 
 		// Determine the data type.
 		$meta_type      = $this->get_cast_for_type( $clause['type'] ?? '' );
@@ -514,7 +526,7 @@ class Meta extends Base {
 		// meta_key.
 		if ( array_key_exists( 'key', $clause ) ) {
 			if ( 'NOT EXISTS' === $meta_compare ) {
-				$retval['where'][] = "{$alias}.{$this->meta_column} IS NULL";
+				$retval['where'][] = "{$qt_alias}.{$qt_meta_column} IS NULL";
 
 			} else {
 
@@ -539,14 +551,15 @@ class Meta extends Base {
 					$subquery_alias = ! empty( $i )
 						? 'mt' . $i
 						: $this->meta_table;
+					$qt_subquery_alias    = $this->quote_identifier( $subquery_alias );
 
 					// Add to table_aliases.
 					$this->table_aliases[] = $subquery_alias;
 
 					// Setup start & end of meta compare SQL.
 					$meta_compare_string_start  = 'NOT EXISTS (';
-					$meta_compare_string_start .= "SELECT 1 FROM {$this->meta_table} {$subquery_alias} ";
-					$meta_compare_string_start .= "WHERE {$subquery_alias}.{$this->meta_column} = {$alias}.{$this->meta_column} ";
+					$meta_compare_string_start .= "SELECT 1 FROM {$qt_meta_table} {$qt_subquery_alias} ";
+					$meta_compare_string_start .= "WHERE {$qt_subquery_alias}.{$qt_meta_column} = {$qt_alias}.{$qt_meta_column} ";
 					$meta_compare_string_end    = 'LIMIT 1';
 					$meta_compare_string_end   .= ')';
 				}
@@ -558,16 +571,16 @@ class Meta extends Base {
 				switch ( $meta_compare_key ) {
 					case '=':
 					case 'EXISTS':
-						$where = $db->prepare( "{$alias}.{$column} = %s", trim( $clause['key'] ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+						$where = $db->prepare( "{$qt_alias}.{$qt_column} = %s", trim( $clause['key'] ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 						break;
 
 					case 'LIKE':
 						$meta_compare_value = '%' . $db->esc_like( trim( $clause['key'] ) ) . '%';
-						$where              = $db->prepare( "{$alias}.{$column} LIKE %s", $meta_compare_value ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+						$where              = $db->prepare( "{$qt_alias}.{$qt_column} LIKE %s", $meta_compare_value ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 						break;
 
 					case 'IN':
-						$meta_compare_string = "{$alias}.{$column} IN (" . substr( str_repeat( ',%s', count( $clause['key'] ) ), 1 ) . ')';
+						$meta_compare_string = "{$qt_alias}.{$qt_column} IN (" . substr( str_repeat( ',%s', count( $clause['key'] ) ), 1 ) . ')';
 						$where               = $db->prepare( $meta_compare_string, $clause['key'] ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 						break;
 
@@ -579,23 +592,23 @@ class Meta extends Base {
 						} else {
 							$cast = '';
 						}
-						$where = $db->prepare( "{$alias}.{$column} {$regex_op} {$cast} %s", trim( $clause['key'] ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+						$where = $db->prepare( "{$qt_alias}.{$qt_column} {$regex_op} {$cast} %s", trim( $clause['key'] ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 						break;
 
 					case '!=':
 					case 'NOT EXISTS':
-						$meta_compare_string = $meta_compare_string_start . "AND {$subquery_alias}.{$column} = %s " . $meta_compare_string_end;
+						$meta_compare_string = $meta_compare_string_start . "AND {$qt_subquery_alias}.{$qt_column} = %s " . $meta_compare_string_end;
 						$where               = $db->prepare( $meta_compare_string, $clause['key'] ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 						break;
 
 					case 'NOT LIKE':
-						$meta_compare_string = $meta_compare_string_start . "AND {$subquery_alias}.{$column} LIKE %s " . $meta_compare_string_end;
+						$meta_compare_string = $meta_compare_string_start . "AND {$qt_subquery_alias}.{$qt_column} LIKE %s " . $meta_compare_string_end;
 						$meta_compare_value  = '%' . $db->esc_like( trim( $clause['key'] ) ) . '%';
 						$where               = $db->prepare( $meta_compare_string, $meta_compare_value ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 						break;
 					case 'NOT IN':
 						$array_subclause     = '(' . substr( str_repeat( ',%s', count( $clause['key'] ) ), 1 ) . ') ';
-						$meta_compare_string = $meta_compare_string_start . "AND {$subquery_alias}.{$column} IN " . $array_subclause . $meta_compare_string_end;
+						$meta_compare_string = $meta_compare_string_start . "AND {$qt_subquery_alias}.{$qt_column} IN " . $array_subclause . $meta_compare_string_end;
 						$where               = $db->prepare( $meta_compare_string, $clause['key'] ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 						break;
 
@@ -606,7 +619,7 @@ class Meta extends Base {
 							$cast = '';
 						}
 
-						$meta_compare_string = $meta_compare_string_start . "AND {$subquery_alias}.{$column} REGEXP {$cast} %s " . $meta_compare_string_end;
+						$meta_compare_string = $meta_compare_string_start . "AND {$qt_subquery_alias}.{$qt_column} REGEXP {$cast} %s " . $meta_compare_string_end;
 						$where               = $db->prepare( $meta_compare_string, $clause['key'] ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 						break;
 				}
@@ -626,15 +639,16 @@ class Meta extends Base {
 			if ( ! empty( $where ) ) {
 
 				// Set column to meta_value
-				$column = 'meta_value';
+				$column  = 'meta_value';
+				$qt_column  = $this->quote_identifier( $column );
 
 				// Default.
 				if ( 'CHAR' === $meta_type ) {
-					$retval['where'][] = "{$alias}.{$column} {$meta_sql_compare} {$where}";
+					$retval['where'][] = "{$qt_alias}.{$qt_column} {$meta_sql_compare} {$where}";
 
 				// CAST().
 				} else {
-					$retval['where'][] = "CAST({$alias}.{$column} AS {$meta_type}) {$meta_sql_compare} {$where}";
+					$retval['where'][] = "CAST({$qt_alias}.{$qt_column} AS {$meta_type}) {$meta_sql_compare} {$where}";
 				}
 			}
 		}

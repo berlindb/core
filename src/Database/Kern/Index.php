@@ -117,7 +117,7 @@ class Index {
 			'type'    => 'strtolower',
 			'unique'  => 'wp_validate_boolean',
 			'method'  => 'strtoupper',
-			'comment' => 'wp_kses_data',
+			'comment' => array( $this, 'sanitize_comment' ),
 			'using'   => 'strtoupper',
 			'columns' => array( $this, 'sanitize_columns' ),
 		);
@@ -159,9 +159,7 @@ class Index {
 		}
 
 		// Prepare the column list as back-ticked for SQL.
-		$columns = array_map( function( $col ) {
-			return "`$col`";
-		}, $this->columns );
+		$columns = array_map( array( $this, 'quote_identifier' ), $this->columns );
 
 		// Standardize the index type and prepare base SQL fragment.
 		$type = strtoupper( $this->type );

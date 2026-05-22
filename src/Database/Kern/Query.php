@@ -1241,10 +1241,9 @@ class Query {
 		$count    = count( $values );
 		$patterns = array_fill( 0, $count, $pattern );
 
-		// Escape & prepare
-		$sql      = implode( ', ', $patterns );
-		$values   = $db->_escape( $values );       // May quote strings
-		$retval   = $db->prepare( $sql, $values ); // Catches quoted strings
+		// Prepare
+		$sql    = implode( ', ', $patterns );
+		$retval = $db->prepare( $sql, ...$values );
 
 		// Set return value to empty string if prepare() returns falsy
 		if ( empty( $retval ) ) {
@@ -3299,9 +3298,8 @@ class Query {
 				$ids     = $this->get_in_sql( $primary, $ids );
 
 				// Query database
-				$query   = "SELECT * FROM {$table} WHERE {$primary} IN %s";
-				$prepare = sprintf( $query, $ids );
-				$results = $db->get_results( $prepare );
+				$query   = "SELECT * FROM {$table} WHERE {$primary} IN {$ids}";
+				$results = $db->get_results( $query );
 
 				// Update item cache(s) — read path, do not bump last_changed.
 				$this->update_item_cache( $results, false );
