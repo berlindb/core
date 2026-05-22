@@ -50,8 +50,9 @@ trait Error {
 	 * before calling this method.
 	 *
 	 * @since 1.0.0
-	 * @since 3.0.0 Integer 0 is now treated as success; null added as a
-	 *              failure sentinel alongside false.
+	 * @since 3.0.0 Integer 0 is now treated as success.
+	 *              Empty string is now treated as success.
+	 *              null added as a failure sentinel alongside false.
 	 *
 	 * @param mixed $result Optional. Default false. Any value to check.
 	 * @return bool

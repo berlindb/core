@@ -250,26 +250,6 @@ class Table {
 		return $r;
 	}
 
-	/** Magic *****************************************************************/
-
-	/**
- 	 * Compatibility for clone() method for PHP versions less than 7.0.
- 	 *
- 	 * See: https://github.com/sugarcalendar/core/issues/105
- 	 *
- 	 * This shim will be removed at a later date.
- 	 *
- 	 * @since 2.0.20
- 	 *
- 	 * @param string $function
- 	 * @param array  $args
- 	 */
- 	public function __call( $function = '', $args = array() ) {
- 		if ( 'clone' === $function ) {
- 			call_user_func_array( array( $this, '_clone' ), $args );
- 		}
- 	}
-
 	/** Multisite *************************************************************/
 
 	/**
@@ -759,17 +739,17 @@ class Table {
 	}
 
 	/**
-	 * Clone this database table.
+	 * Duplicate this database table.
 	 *
 	 * Pair with copy().
 	 *
-	 * @since 1.1.0
+	 * @since 3.0.0
 	 *
 	 * @param string $new_table_name The name of the new table, no prefix
 	 *
 	 * @return bool
 	 */
-	public function _clone( $new_table_name = '' ) {
+	public function duplicate( $new_table_name = '' ) {
 
 		// Get the database interface
 		$db = $this->get_db();
@@ -792,14 +772,14 @@ class Table {
 		$sql    = "CREATE TABLE {$table} LIKE {$this->table_name}";
 		$result = $db->query( $sql );
 
-		// Did the table get cloned?
+		// Did the table get duplicated?
 		return $this->is_success( $result );
 	}
 
 	/**
 	 * Copy the contents of this table to a new table.
 	 *
-	 * Pair with clone().
+	 * Pair with duplicate().
 	 *
 	 * @since 1.1.0
 	 *
