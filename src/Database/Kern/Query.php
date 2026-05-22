@@ -332,11 +332,9 @@ class Query {
 	 * Called by boot() during construction and by query() before each run.
 	 *
 	 * @since 3.0.0
-	 *
-	 * @return void
 	 */
 	protected function start() {
-		$this->reset_current(
+		$this->init_current(
 			array(
 				'parsers'    => array(),
 				'item_shape' => $this->item_shape,
@@ -351,17 +349,18 @@ class Query {
 	 * of the parameters passed into it.
 	 *
 	 * @since 1.0.0
+	 * @since 3.0.0 Uses run() to manage lifecycle, and parse_query() and
+	 *              get_items() to manage query parsing and retrieval.
 	 *
 	 * @param array|string $query Array or URL query string of parameters.
 	 * @return array|int Array of items, or number of items when 'count' is passed as a query var.
 	 */
 	public function query( $query = array() ) {
-		$this->start();
-		$this->parse_query( $query );
-		$result = $this->get_items();
-		$this->finish();
+		return $this->run( function() use ( $query ) {
+			$this->parse_query( $query );
 
-		return $result;
+			return $this->get_items();
+		} );
 	}
 
 	/** Private Setters *******************************************************/

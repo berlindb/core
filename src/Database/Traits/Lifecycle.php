@@ -20,10 +20,13 @@ defined( 'ABSPATH' ) || exit;
  *
  * It is the underlying mechanism for Boot (construction lifecycle) and for
  * per-run lifecycles in Query, Parser, Table, and any other class that has a
- * well-defined "action" to bracket:
+ * well-defined "action" to bracket.
  *
- *   Boot:  __construct > start() > sunrise/parse_args/set_vars/init > finish()
- *   Query: query()     > start() > parse_query/get_items            > finish()
+ * The primary entry point is run(), which wraps any callable with start() and
+ * finish() and guarantees finish() fires even if the action throws:
+ *
+ *   Boot:  __construct > run() > start > sunrise/parse_args/set_vars/init > finish
+ *   Query: query()     > run() > start > parse_query/get_items             > finish
  *
  * Per-run ephemeral state is managed privately through get_current() and
  * set_current(). Each class decides which keys it uses; nothing is required
@@ -37,7 +40,7 @@ trait Lifecycle {
 	 * Ephemeral state for the current run.
 	 *
 	 * Private to this trait; access through get_current() and set_current().
-	 * Reset at the beginning of each action by start().
+	 * Initialized at the beginning of each action by start().
 	 *
 	 * @since 3.0.0
 	 * @var   array
@@ -47,8 +50,9 @@ trait Lifecycle {
 	/**
 	 * Called at the start of the action, before the main work begins.
 	 *
-	 * Override to reset current state or perform pre-action setup. Call
-	 * parent::start() to preserve any behaviour added by intermediate classes.
+	 * Override to initialize current state or perform pre-action setup.
+	 * When overriding in a subclass, call parent::start() to preserve
+	 * behaviour from any intermediate class in the hierarchy.
 	 *
 	 * @since 3.0.0
 	 *
@@ -59,14 +63,39 @@ trait Lifecycle {
 	/**
 	 * Called at the end of the action, after the main work completes.
 	 *
-	 * Override for post-action cleanup or logging. Call parent::finish() to
-	 * preserve any behaviour added by intermediate classes.
+	 * Override for post-action cleanup or logging. When overriding in a
+	 * subclass, call parent::finish() to preserve behaviour from any
+	 * intermediate class in the hierarchy.
 	 *
 	 * @since 3.0.0
 	 *
 	 * @return void
 	 */
 	protected function finish() {}
+
+	/**
+	 * Execute an action within the lifecycle.
+	 *
+	 * Calls start(), runs the action, then calls finish() via a finally block
+	 * so finish() is guaranteed to fire even if the action throws an exception.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param callable $action The work to perform.
+	 * @return mixed Whatever the action returns.
+	 */
+	protected function run( callable $action ) {
+
+		// Start the lifecycle.
+		$this->start();
+
+		// Run the action, ensuring finish() fires even if it throws.
+		try {
+			return $action();
+		} finally {
+			$this->finish();
+		}
+	}
 
 	/**
 	 * Get a value from the current run's ephemeral state.
@@ -95,17 +124,17 @@ trait Lifecycle {
 	}
 
 	/**
-	 * Reset the current run's ephemeral state.
+	 * Initialize the current run's ephemeral state.
 	 *
-	 * Replaces the entire $current array. Pass an associative array to
-	 * pre-populate keys; omit to clear everything.
+	 * Called at the start of each run, typically from start(). Pass an
+	 * associative array to pre-populate keys; omit to start from an empty slate.
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array $state Optional. Initial state. Default empty array.
+	 * @param array $state Optional. Initial state for this run. Default empty array.
 	 * @return void
 	 */
-	protected function reset_current( $state = array() ) {
+	protected function init_current( $state = array() ) {
 		$this->current = $state;
 	}
 }

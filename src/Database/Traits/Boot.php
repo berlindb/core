@@ -18,12 +18,14 @@ defined( 'ABSPATH' ) || exit;
 /**
  * The Boot Trait includes methods that fire when classes are constructed.
  *
- * It uses the Lifecycle Trait, making start(), finish(), and $current
- * available to every class that uses Boot. During construction, boot()
- * brackets sunrise/parse_args/init with start()/finish() so that the
- * full lifecycle is:
+ * It uses the Lifecycle Trait, making start(), finish(), run(), and $current
+ * available to every class that uses Boot. During construction, boot() wraps
+ * the construction sequence inside run() so that the full lifecycle is:
  *
- *   __construct → boot → start → sunrise → parse_args → set_vars → init → finish
+ *   __construct → boot → run() → start → sunrise → parse_args → set_vars → init → finish
+ *
+ * The run() wrapper guarantees finish() fires even if an exception is thrown
+ * during construction.
  *
  * @since 3.0.0
  */
@@ -48,26 +50,22 @@ trait Boot {
 	 * @since 3.0.0
 	 */
 	protected function boot( $args = array() ) {
+		$this->run( function() use ( $args ) {
 
-		// Lifecycle start.
-		$this->start();
+			// Early.
+			$this->sunrise();
 
-		// Early.
-		$this->sunrise();
+			// Parse arguments.
+			$r = $this->parse_args( $args );
 
-		// Parse arguments.
-		$r = $this->parse_args( $args );
+			// Maybe set variables from arguments.
+			if ( ! empty( $r ) ) {
+				$this->set_vars( $r );
+			}
 
-		// Maybe set variables from arguments.
-		if ( ! empty( $r ) ) {
-			$this->set_vars( $r );
-		}
-
-		// Initialize.
-		$this->init();
-
-		// Lifecycle finish.
-		$this->finish();
+			// Initialize.
+			$this->init();
+		} );
 	}
 
 	/**
