@@ -260,4 +260,50 @@ class DateParserTest extends TestCase {
 		$this->assertContains( 'Alpha Widget', $names );
 		$this->assertContains( 'Epsilon Widget', $names );
 	}
+
+	/**
+	 * Test that orderby=date_created_query ASC returns rows oldest-first.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_orderby_date_created_query_asc() {
+
+		// Assert expected results.
+		$results = self::$query->query( array(
+			'orderby' => 'date_created_query',
+			'order'   => 'ASC',
+		) );
+
+		$this->assertCount( 5, $results );
+
+		$names = wp_list_pluck( $results, 'name' );
+		$this->assertSame( 'Alpha Widget',   $names[0] ); // 2020-01-15
+		$this->assertSame( 'Beta Widget',    $names[1] ); // 2021-06-01
+		$this->assertSame( 'Gamma Gadget',   $names[2] ); // 2022-03-10
+		$this->assertSame( 'Delta Gadget',   $names[3] ); // 2023-08-20
+		$this->assertSame( 'Epsilon Widget', $names[4] ); // 2024-12-31
+	}
+
+	/**
+	 * Test that orderby=date_created_query DESC returns rows newest-first.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_orderby_date_created_query_desc() {
+
+		// Assert expected results.
+		$results = self::$query->query( array(
+			'orderby' => 'date_created_query',
+			'order'   => 'DESC',
+		) );
+
+		$this->assertCount( 5, $results );
+
+		$names = wp_list_pluck( $results, 'name' );
+		$this->assertSame( 'Epsilon Widget', $names[0] ); // 2024-12-31
+		$this->assertSame( 'Delta Gadget',   $names[1] ); // 2023-08-20
+		$this->assertSame( 'Gamma Gadget',   $names[2] ); // 2022-03-10
+		$this->assertSame( 'Beta Widget',    $names[3] ); // 2021-06-01
+		$this->assertSame( 'Alpha Widget',   $names[4] ); // 2020-01-15
+	}
 }

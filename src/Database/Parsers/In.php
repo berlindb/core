@@ -163,16 +163,15 @@ class In extends Base {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string                        $orderby The raw orderby value.
-	 * @param bool                          $alias   Whether to prefix with the table alias.
-	 * @param \BerlinDB\Database\Query|null $caller  The parent Query instance.
+	 * @param string $orderby The raw orderby value.
+	 * @param bool   $alias   Whether to prefix with the table alias.
 	 *
 	 * @return string SQL fragment, or empty string if the column has no IN values.
 	 */
-	public function get_orderby_sql( $orderby = '', $alias = true, $caller = null ) {
+	public function get_orderby_sql( $orderby = '', $alias = true ) {
 
 		// Bail if no caller.
-		if ( null === $caller ) {
+		if ( empty( $this->caller ) ) {
 			return '';
 		}
 
@@ -185,14 +184,14 @@ class In extends Base {
 		$column_name = substr( $orderby, 0, -strlen( $this->column_suffix ) );
 
 		// Verify it's a column with 'in' support.
-		$ins = $caller->get_columns( array( 'in' => true ), 'and', 'name' );
+		$ins = $this->caller( 'get_columns', array( 'in' => true ), 'and', 'name' );
 		if ( ! in_array( $column_name, $ins, true ) ) {
 			return '';
 		}
 
 		// Build the FIELD() expression.
-		$values  = $caller->parse_query_var( $caller->query_vars, $orderby );
-		$item_in = $caller->get_in_sql( $column_name, $values, false );
+		$values  = $this->caller( 'parse_query_var', $this->caller->query_vars, $orderby );
+		$item_in = $this->caller( 'get_in_sql', $column_name, $values, false );
 
 		// Bail if no IN values.
 		if ( empty( $item_in ) ) {
@@ -201,7 +200,7 @@ class In extends Base {
 
 		// Maybe alias the column name.
 		$aliased = $alias
-			? $caller->get_quoted_column_name_aliased( $column_name, $alias )
+			? $this->caller( 'get_quoted_column_name_aliased', $column_name, $alias )
 			: $this->quote_identifier( $column_name );
 
 		// Return the FIELD() expression.

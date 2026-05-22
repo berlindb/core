@@ -153,6 +153,12 @@ class Date extends Base {
 	protected $default = null;
 
 	/**
+	 * @since 3.0.0
+	 * @var bool
+	 */
+	public $sortable = true;
+
+	/**
 	 * Determines and validates what first-order keys to use.
 	 *
 	 * Use first $first_keys if passed and valid.
@@ -501,5 +507,44 @@ class Date extends Base {
 			'join'  => array(),
 			'where' => $where,
 		);
+	}
+
+	/**
+	 * Build an ORDER BY column reference for a '{column}_query' orderby value.
+	 *
+	 * When a caller passes orderby='{column}_query' (e.g. 'date_created_query'),
+	 * this returns the qualified column name so MySQL sorts by the raw datetime
+	 * value of that column.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param string $orderby The raw orderby value.
+	 * @param bool   $alias   Whether to prefix with the table alias.
+	 *
+	 * @return string SQL fragment, or empty string if not a date column orderby.
+	 */
+	public function get_orderby_sql( $orderby = '', $alias = true ) {
+
+		// Bail if no caller.
+		if ( empty( $this->caller ) ) {
+			return '';
+		}
+
+		// Bail if $orderby doesn't end with the expected suffix.
+		if ( ! str_ends_with( $orderby, $this->column_suffix ) ) {
+			return '';
+		}
+
+		// Strip the suffix to get the bare column name.
+		$column_name = substr( $orderby, 0, -strlen( $this->column_suffix ) );
+
+		// Verify the column has date_query support.
+		$date_cols = $this->caller( 'get_columns', array( 'date_query' => true ), 'and', 'name' );
+		if ( ! in_array( $column_name, $date_cols, true ) ) {
+			return '';
+		}
+
+		// Return the qualified column name.
+		return $this->caller( 'get_quoted_column_name_aliased', $column_name, $alias );
 	}
 }

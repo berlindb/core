@@ -711,16 +711,15 @@ class Meta extends Base {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string                        $orderby The raw orderby value.
-	 * @param bool                          $alias   Unused. Meta always uses its own JOIN alias.
-	 * @param \BerlinDB\Database\Query|null $caller  The parent Query instance.
+	 * @param string $orderby The raw orderby value.
+	 * @param bool   $alias   Unused. Meta always uses its own JOIN alias.
 	 *
 	 * @return string SQL fragment, or empty string if no matching clause found.
 	 */
-	public function get_orderby_sql( $orderby = '', $alias = true, $caller = null ) {
+	public function get_orderby_sql( $orderby = '', $alias = true ) {
 
 		// Bail if no caller.
-		if ( null === $caller ) {
+		if ( empty( $this->caller ) ) {
 			return '';
 		}
 

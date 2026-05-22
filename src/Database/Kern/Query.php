@@ -2076,7 +2076,7 @@ class Query {
 		foreach ( $this->get_parsers( array( 'sortable' => true ) ) as $parser ) {
 
 			// Maybe get the SQL for this parser's orderby.
-			$sql = $parser->get_orderby_sql( $orderby, $alias, $this );
+			$sql = $parser->get_orderby_sql( $orderby, $alias );
 			if ( ! empty( $sql ) ) {
 				$retval = $sql;
 				break;
