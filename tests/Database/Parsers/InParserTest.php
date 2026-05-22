@@ -204,8 +204,10 @@ class InParserTest extends TestCase {
 			'order'      => 'ASC',
 		) );
 
-		// 4 rows (Gamma + Delta = inactive; Alpha + Beta = active).
-		// The entire inactive group must come before the active group.
+		/*
+		 * 4 rows (Gamma + Delta = inactive; Alpha + Beta = active).
+		 * The entire inactive group must come before the active group.
+		 */
 		$this->assertCount( 4, $results );
 		$statuses = wp_list_pluck( $results, 'status' );
 		$this->assertSame( 'inactive', $statuses[0] );

@@ -110,9 +110,11 @@ class SchemaTest extends TestCase {
 
 	public function test_get_create_table_string_contains_primary_key_directive() {
 		$sql = self::$schema->get_create_table_string();
-		// The Column with primary=true contributes `id` to the CREATE TABLE SQL;
-		// the actual PRIMARY KEY directive comes from the Index, if any, or is
-		// implied. Just verify the column name appears.
+		/*
+		 * The Column with primary=true contributes `id` to the CREATE TABLE SQL;
+		 * the actual PRIMARY KEY directive comes from the Index, if any, or is
+		 * implied. Just verify the column name appears.
+		 */
 		$this->assertStringContainsString( '`id`', $sql );
 	}
 

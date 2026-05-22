@@ -12,7 +12,7 @@ declare( strict_types = 1 );
 
 namespace BerlinDB\Database\Traits;
 
-// Exit if accessed directly
+// Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -45,7 +45,7 @@ trait Sanitizer {
 		// Trim spaces off the ends.
 		$unspace = trim( $id );
 
-		// Only non-accented table names (avoid truncation)
+		// Only non-accented table names (avoid truncation).
 		$accents = remove_accents( $unspace );
 
 		// Convert to lowercase if required.
@@ -61,7 +61,7 @@ trait Sanitizer {
 			? str_replace( '-', '_', $replace )
 			: $replace;
 
-		// Normalize ALL consecutive underscores to single underscore (not just __)
+		// Normalize ALL consecutive underscores to single underscore (not just __).
 		$single  = preg_replace( '/_+/', '_', $under );
 
 		// Remove leading/trailing underscores.

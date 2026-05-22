@@ -12,7 +12,7 @@ declare( strict_types = 1 );
 
 namespace BerlinDB\Database\Traits;
 
-// Exit if accessed directly
+// Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -75,24 +75,24 @@ trait Boot {
 	 */
 	protected function parse_args( $args = array() ) {
 
-		// Stash the arguments
+		// Stash the arguments.
 		$this->stash_args( $args );
 
-		// Bail if no arguments
+		// Bail if no arguments.
 		if ( empty( $args ) ) {
 			return array();
 		}
 
-		// Parse arguments
+		// Parse arguments.
 		$r = wp_parse_args( $args, $this->args['class'] );
 
-		// Force some arguments for special column types
+		// Force some arguments for special column types.
 		$r = $this->special_args( $r );
 
-		// Set the arguments before they are validated & sanitized
+		// Set the arguments before they are validated & sanitized.
 		$this->set_vars( $r );
 
-		// Return array
+		// Return array.
 		return $this->validate_args( $r );
 	}
 

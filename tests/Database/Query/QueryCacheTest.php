@@ -47,8 +47,10 @@ class QueryCacheTest extends TestCase {
 	public function setUp(): void {
 		parent::setUp();
 
-		// parent::setUp() resets the current user to 0 via clean_up_global_scope().
-		// Re-set here so add_item() passes Query::reduce_item() capability checks.
+		/*
+		 * parent::setUp() resets the current user to 0 via clean_up_global_scope().
+		 * Re-set here so add_item() passes Query::reduce_item() capability checks.
+		 */
 		wp_set_current_user( 1 );
 
 		self::$table->delete_all();

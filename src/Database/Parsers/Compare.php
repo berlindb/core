@@ -12,7 +12,7 @@ declare( strict_types = 1 );
 
 namespace BerlinDB\Database\Parsers;
 
-// Exit if accessed directly
+// Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -108,19 +108,19 @@ class Compare extends Base {
 		// Get all comparison operators.
 		$all_compares = $this->get_operators();
 
-		// Fallback to equals
+		// Fallback to equals.
 		if ( ! in_array( $clause['compare'], $all_compares, true ) ) {
 			$clause['compare'] = '=';
 		}
 
-		// Uppercase or equals
+		// Uppercase or equals.
 		if ( isset( $clause['compare_key'] ) && ( 'LIKE' === strtoupper( $clause['compare_key'] ) ) ) {
 			$clause['compare_key'] = strtoupper( $clause['compare_key'] );
 		} else {
 			$clause['compare_key'] = '=';
 		}
 
-		// Get comparison from clause
+		// Get comparison from clause.
 		$compare = $clause['compare'];
 
 		// Resolve the SQL operator (may differ from the compare identifier).
@@ -133,9 +133,11 @@ class Compare extends Base {
 		if ( array_key_exists( 'key', $clause ) && array_key_exists( 'value', $clause ) ) {
 			$name = $this->sanitize_column_name( $clause['key'] );
 
-			// Bail if the key doesn't resolve to a valid column on the primary table.
-			// This prevents cross-parser contamination where other parsers' sub-arrays
-			// (e.g. meta_query clauses with 'key'/'value') are accidentally processed.
+			/*
+			 * Bail if the key doesn't resolve to a valid column on the primary table.
+			 * This prevents cross-parser contamination where other parsers' sub-arrays
+			 * (e.g. meta_query clauses with 'key'/'value') are accidentally processed.
+			 */
 			if ( empty( $name ) || ! $this->caller( 'get_column_by', array( 'name' => $name ) ) ) {
 				return $retval;
 			}

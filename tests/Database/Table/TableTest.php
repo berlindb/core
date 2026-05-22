@@ -53,22 +53,26 @@ class TableTest extends TestCase {
 	public function setUp(): void {
 		parent::setUp();
 
-		// parent::setUp() calls clean_up_global_scope() which resets the current
-		// user to 0. Re-set here so reduce_item() passes capability checks.
+		/*
+		 * parent::setUp() calls clean_up_global_scope() which resets the current
+		 * user to 0. Re-set here so reduce_item() passes capability checks.
+		 */
 		wp_set_current_user( 1 );
 
-		// Do NOT attempt to reinstall here. The WP test framework's
-		// _create_temporary_tables filter may be added multiple times across test
-		// runs (if tearDown doesn't drain every instance), and calling install()
-		// while any instance is still active would produce a spurious
-		// "CREATE TEMPORARY TABLE … already exists" error. Tests that drop or
-		// uninstall the table handle their own reinstall via bypass_table_filters().
+		/*
+		 * Do NOT attempt to reinstall here. The WP test framework's
+		 * _create_temporary_tables filter may be added multiple times across test
+		 * runs (if tearDown doesn't drain every instance), and calling install()
+		 * while any instance is still active would produce a spurious
+		 * "CREATE TEMPORARY TABLE … already exists" error. Tests that drop or
+		 * uninstall the table handle their own reinstall via bypass_table_filters().
+		 */
 		self::$table->delete_all();
 		wp_cache_flush();
 	}
 
 	// -------------------------------------------------------------------------
-	// Helpers
+	// Helpers.
 	// -------------------------------------------------------------------------
 
 	/**
@@ -103,7 +107,7 @@ class TableTest extends TestCase {
 	}
 
 	// -------------------------------------------------------------------------
-	// Existence
+	// Existence.
 	// -------------------------------------------------------------------------
 
 	public function test_table_exists_after_install() {
@@ -125,7 +129,7 @@ class TableTest extends TestCase {
 	}
 
 	// -------------------------------------------------------------------------
-	// Count
+	// Count.
 	// -------------------------------------------------------------------------
 
 	public function test_count_returns_zero_on_empty_table() {
@@ -144,7 +148,7 @@ class TableTest extends TestCase {
 	}
 
 	// -------------------------------------------------------------------------
-	// Drop / recreate
+	// Drop / recreate.
 	// -------------------------------------------------------------------------
 
 	public function test_drop_removes_the_table() {
@@ -158,7 +162,7 @@ class TableTest extends TestCase {
 	}
 
 	// -------------------------------------------------------------------------
-	// Versioning
+	// Versioning.
 	// -------------------------------------------------------------------------
 
 	public function test_get_version_returns_string() {
@@ -167,7 +171,7 @@ class TableTest extends TestCase {
 	}
 
 	// -------------------------------------------------------------------------
-	// Upgrade flow
+	// Upgrade flow.
 	// -------------------------------------------------------------------------
 
 	/**
@@ -194,7 +198,7 @@ class TableTest extends TestCase {
 	}
 
 	// -------------------------------------------------------------------------
-	// Column inspection
+	// Column inspection.
 	// -------------------------------------------------------------------------
 
 	public function test_column_exists_for_id_column() {
@@ -210,7 +214,7 @@ class TableTest extends TestCase {
 	}
 
 	// -------------------------------------------------------------------------
-	// Status
+	// Status.
 	// -------------------------------------------------------------------------
 
 	public function test_status_returns_result_with_name_property() {
@@ -220,7 +224,7 @@ class TableTest extends TestCase {
 	}
 
 	// -------------------------------------------------------------------------
-	// Truncate
+	// Truncate.
 	// -------------------------------------------------------------------------
 
 	public function test_truncate_empties_the_table() {
@@ -236,7 +240,7 @@ class TableTest extends TestCase {
 	}
 
 	// -------------------------------------------------------------------------
-	// Install / uninstall version tracking
+	// Install / uninstall version tracking.
 	// -------------------------------------------------------------------------
 
 	public function test_install_sets_db_version() {

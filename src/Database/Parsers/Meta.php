@@ -12,7 +12,7 @@ declare( strict_types = 1 );
 
 namespace BerlinDB\Database\Parsers;
 
-// Exit if accessed directly
+// Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -210,9 +210,11 @@ class Meta extends Base {
 	 */
 	protected function parse_query_vars( $qv = array() ) {
 
-		// If $qv is already a meta_query clause array (narrowed by the caller
-		// before init() ran), return it unchanged. Numeric keys mean it's an
-		// array of clause arrays; 'relation' means a multi-clause query.
+		/*
+		 * If $qv is already a meta_query clause array (narrowed by the caller
+		 * before init() ran), return it unchanged. Numeric keys mean it's an
+		 * array of clause arrays; 'relation' means a multi-clause query.
+		 */
 		if ( isset( $qv['relation'] ) || isset( $qv[0] ) ) {
 			return $qv;
 		}
@@ -355,9 +357,11 @@ class Meta extends Base {
 	 */
 	public function get_join_where_clauses() {
 
-		// Get primary metadata from the caller query.
-		// Use the table alias (not the full name) so the ON clause matches
-		// the alias used in the main query's FROM clause.
+		/*
+		 * Get primary metadata from the caller query.
+		 * Use the table alias (not the full name) so the ON clause matches
+		 * the alias used in the main query's FROM clause.
+		 */
 		$type           = $this->caller( 'get_meta_type' );
 		$primary_table  = $this->caller( 'get_table_alias' );
 		$primary_column = $this->caller( 'get_primary_column_name' );
@@ -475,7 +479,7 @@ class Meta extends Base {
 
 		$join = '';
 
-		/**
+		/*
 		 * We prefer to avoid joins if possible.
 		 *
 		 * Look for an existing join compatible with this clause.
@@ -522,15 +526,17 @@ class Meta extends Base {
 		// Save the alias to this clause, for future siblings to find.
 		$clause['alias'] = $alias;
 
-		// (Re)quote alias here so WHERE clauses below always have it, even when
-		// find_compatible_table_alias() returned an existing alias above.
+		/*
+		 * (Re)quote alias here so WHERE clauses below always have it, even when
+		 * find_compatible_table_alias() returned an existing alias above.
+		 */
 		$qt_alias = $this->quote_identifier( $alias );
 
 		// Determine the data type.
 		$meta_type      = $this->get_cast_for_type( $clause['type'] ?? '' );
 		$clause['cast'] = $meta_type;
 
-		/**
+		/*
 		 * Fallback for clause keys is the table alias.
 		 *
 		 * Key must be a string.
@@ -569,7 +575,7 @@ class Meta extends Base {
 				$meta_compare_string_start  = '';
 				$meta_compare_string_end    = '';
 
-				/**
+				/*
 				 * In joined clauses negative operators have to be nested into a
 				 * NOT EXISTS clause and flipped, to avoid returning records with
 				 * matching post IDs but different meta keys. Here we prepare the
@@ -669,7 +675,7 @@ class Meta extends Base {
 			// Not empty, so maybe cast...
 			if ( ! empty( $where ) ) {
 
-				// Set column to meta_value
+				// Set column to meta_value.
 				$column  = 'meta_value';
 				$qt_column  = $this->quote_identifier( $column );
 
@@ -743,9 +749,11 @@ class Meta extends Base {
 			? 'SIGNED'
 			: ( $clause['cast'] ?? 'CHAR' );
 
-		// Return the ORDER BY fragment, with casting if needed. Meta always
-		// uses the JOIN alias established in get_sql_for_clause(), never the
-		// primary table alias.
+		/*
+		 * Return the ORDER BY fragment, with casting if needed. Meta always
+		 * uses the JOIN alias established in get_sql_for_clause(), never the
+		 * primary table alias.
+		 */
 		return ( 'CHAR' === $cast )
 			? "{$qt_alias}.{$qt_column}"
 			: "CAST({$qt_alias}.{$qt_column} AS {$cast})";

@@ -119,7 +119,7 @@ class BaseSanitizationTest extends \PHPUnit\Framework\TestCase {
 	}
 
 	// ========================================================================
-	// sanitize_table_name() tests
+	// sanitize_table_name() tests.
 	// ========================================================================
 
 	/**
@@ -210,7 +210,7 @@ class BaseSanitizationTest extends \PHPUnit\Framework\TestCase {
 	}
 
 	// ========================================================================
-	// sanitize_table_alias() tests
+	// sanitize_table_alias() tests.
 	// ========================================================================
 
 	/**
@@ -300,7 +300,7 @@ class BaseSanitizationTest extends \PHPUnit\Framework\TestCase {
 	}
 
 	// ========================================================================
-	// sanitize_column_name() tests
+	// sanitize_column_name() tests.
 	// ========================================================================
 
 	/**
@@ -319,7 +319,7 @@ class BaseSanitizationTest extends \PHPUnit\Framework\TestCase {
 	 * @since 3.0.0
 	 */
 	public function test_sanitize_column_name_behavior_matches_table_name() {
-		// These should match table_name since column_name delegates to it
+		// These should match table_name since column_name delegates to it.
 		$inputs = array(
 			'column_name',
 			'col-name',
@@ -338,7 +338,7 @@ class BaseSanitizationTest extends \PHPUnit\Framework\TestCase {
 	}
 
 	// ========================================================================
-	// sanitize_index_name() tests
+	// sanitize_index_name() tests.
 	// ========================================================================
 
 	/**
@@ -433,7 +433,7 @@ class BaseSanitizationTest extends \PHPUnit\Framework\TestCase {
 	}
 
 	// ========================================================================
-	// Cross-method spec compliance tests
+	// Cross-method spec compliance tests.
 	// ========================================================================
 
 	/**
@@ -463,7 +463,7 @@ class BaseSanitizationTest extends \PHPUnit\Framework\TestCase {
 			foreach ( $methods as $method ) {
 				$result = $this->helper->$method( $input );
 
-				// Should be either false or match [a-zA-Z0-9_]
+				// Should be either false or match [a-zA-Z0-9_].
 				if ( $result !== false ) {
 					$this->assertMatchesRegularExpression(
 						'/^[a-zA-Z0-9_]+$/',
@@ -501,7 +501,7 @@ class BaseSanitizationTest extends \PHPUnit\Framework\TestCase {
 	}
 
 	// ========================================================================
-	// first_letters() tests
+	// first_letters() tests.
 	// ========================================================================
 
 	/**
@@ -567,8 +567,10 @@ class BaseSanitizationTest extends \PHPUnit\Framework\TestCase {
 	 * @since 3.0.0
 	 */
 	public function test_first_letters_treats_hyphens_as_separator_when_normalized() {
-		// With the default sep '_', hyphens are not split and only the first
-		// character survives.
+		/*
+		 * With the default sep '_', hyphens are not split and only the first
+		 * character survives.
+		 */
 		$this->assertSame( 'w', $this->helper->get_first_letters( 'wp-user-meta' ) );
 	}
 

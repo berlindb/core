@@ -12,7 +12,7 @@ declare( strict_types = 1 );
 
 namespace BerlinDB\Database\Parsers;
 
-// Exit if accessed directly
+// Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -249,7 +249,7 @@ class Date extends Base {
 
 			$max_days_of_year = (int) gmdate( 'z', gmmktime( 0, 0, 0, 12, 31, $_year ) ) + 1;
 
-		// Otherwise we use the max of 366 (leap-year)
+		// Otherwise we use the max of 366 (leap-year).
 		} else {
 			$max_days_of_year = 366;
 		}
@@ -363,7 +363,7 @@ class Date extends Base {
 			}
 		}
 
-		// Return if valid or not
+		// Return if valid or not.
 		return $valid;
 	}
 
@@ -386,21 +386,23 @@ class Date extends Base {
 	 */
 	public function get_sql_for_clause( &$clause = array(), $parent_query = array(), $clause_key = '' ) {
 
-		// Get the database interface
+		// Get the database interface.
 		$db = $this->get_db();
 
 		// The sub-parts of a $where part.
 		$where = array();
 
-		// Get first-order clauses
+		// Get first-order clauses.
 		$now           = $this->get_now( $clause );
 		$column        = $this->get_column( $clause );
 		$compare       = $this->get_compare( $clause );
 		$start_of_week = $this->get_start_of_week( $clause );
 		$inclusive     = ! empty( $clause['inclusive'] );
 
-		// Bail if no date column is resolved — this clause doesn't belong to a
-		// date query (e.g. a non-date sub-array accidentally matched first_keys).
+		/*
+		 * Bail if no date column is resolved — this clause doesn't belong to a
+		 * date query (e.g. a non-date sub-array accidentally matched first_keys).
+		 */
 		if ( empty( $column ) ) {
 			return array(
 				'join'  => array(),
@@ -408,8 +410,10 @@ class Date extends Base {
 			);
 		}
 
-		// Qualify the column with the primary table alias via the caller Query,
-		// falling back to the bare column name if no caller is set.
+		/*
+		 * Qualify the column with the primary table alias via the caller Query,
+		 * falling back to the bare column name if no caller is set.
+		 */
 		$column = $this->caller( 'get_quoted_column_name_aliased', $column ) ?? $column;
 
 		// Assign greater-than and less-than values.
@@ -477,13 +481,13 @@ class Date extends Base {
 			$where[] = "WEEKDAY( {$column} ) + 1 {$compare} {$value}";
 		}
 
-		// Straight value compare
+		// Straight value compare.
 		if ( isset( $clause['value'] ) ) {
 			$value   = $this->build_value( $compare, $clause['value'] );
 			$where[] = "{$column} {$compare} {$value}";
 		}
 
-		// Hour/Minute/Second
+		// Hour/Minute/Second.
 		if ( isset( $clause['hour'] ) || isset( $clause['minute'] ) || isset( $clause['second'] ) ) {
 
 			// Avoid notices.
@@ -496,13 +500,13 @@ class Date extends Base {
 			// Time query.
 			$time_query = $this->build_time_query( $column, $compare, $clause['hour'], $clause['minute'], $clause['second'] );
 
-			// Maybe add to where_parts
+			// Maybe add to where_parts.
 			if ( ! empty( $time_query ) ) {
 				$where[] = $time_query;
 			}
 		}
 
-		// Return join/where array
+		// Return join/where array.
 		return array(
 			'join'  => array(),
 			'where' => $where,

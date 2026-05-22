@@ -12,7 +12,7 @@ declare( strict_types = 1 );
 
 namespace BerlinDB\Database\Traits;
 
-// Exit if accessed directly
+// Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -553,7 +553,7 @@ trait Parser {
 			// Sanitize the column name.
 			$sanitized = $this->sanitize_column_name( $query['column'] );
 
-			// Return
+			// Return.
 			return $sanitized
 				? esc_sql( $sanitized )
 				: $this->column;
@@ -759,7 +759,7 @@ trait Parser {
 		$queries = $this->queries;
 		$retval  = $this->get_sql_for_query( $queries );
 
-		// Maybe prefix 'where' with " AND "
+		// Maybe prefix 'where' with " AND ".
 		if ( ! empty( $retval[ 'where' ] ) ) {
 			$retval[ 'where' ] = ' AND ' . $retval[ 'where' ];
 		}
@@ -917,19 +917,19 @@ trait Parser {
 		// Get all comparison operators.
 		$all_compares = $this->get_operators();
 
-		// Fallback to equals
+		// Fallback to equals.
 		if ( ! in_array( $clause['compare'], $all_compares, true ) ) {
 			$clause['compare'] = '=';
 		}
 
-		// Uppercase or equals
+		// Uppercase or equals.
 		if ( isset( $clause['compare_key'] ) && ( 'LIKE' === strtoupper( $clause['compare_key'] ) ) ) {
 			$clause['compare_key'] = strtoupper( $clause['compare_key'] );
 		} else {
 			$clause['compare_key'] = '=';
 		}
 
-		// Get comparison from clause
+		// Get comparison from clause.
 		$compare = $clause['compare'];
 
 		// Resolve the SQL operator (may differ from the compare identifier).
@@ -1128,10 +1128,10 @@ trait Parser {
 	 */
 	protected function build_mysql_datetime( $datetime = '', $default_to_max = false, $now = 0 ) {
 
-		// Datetime is string
+		// Datetime is string.
 		if ( is_string( $datetime ) ) {
 
-			// Define matches so linters don't complain
+			// Define matches so linters don't complain.
 			$matches = array();
 
 			/*
@@ -1139,20 +1139,20 @@ trait Parser {
 			 * the level of precision and support the 'inclusive' parameter.
 			 */
 
-			// Y
+			// Y.
 			if ( preg_match( '/^(\d{4})$/', $datetime, $matches ) ) {
 				$datetime = array(
 					'year' => intval( $matches[1] ),
 				);
 
-			// Y-m
+			// Y-m.
 			} elseif ( preg_match( '/^(\d{4})\-(\d{2})$/', $datetime, $matches ) ) {
 				$datetime = array(
 					'year'  => intval( $matches[1] ),
 					'month' => intval( $matches[2] ),
 				);
 
-			// Y-m-d
+			// Y-m-d.
 			} elseif ( preg_match( '/^(\d{4})\-(\d{2})\-(\d{2})$/', $datetime, $matches ) ) {
 				$datetime = array(
 					'year'  => intval( $matches[1] ),
@@ -1160,7 +1160,7 @@ trait Parser {
 					'day'   => intval( $matches[3] ),
 				);
 
-			// Y-m-d H:i
+			// Y-m-d H:i.
 			} elseif ( preg_match( '/^(\d{4})\-(\d{2})\-(\d{2}) (\d{2}):(\d{2})$/', $datetime, $matches ) ) {
 				$datetime = array(
 					'year'   => intval( $matches[1] ),
@@ -1170,7 +1170,7 @@ trait Parser {
 					'minute' => intval( $matches[5] ),
 				);
 
-			// Y-m-d H:i:s
+			// Y-m-d H:i:s.
 			} elseif ( preg_match( '/^(\d{4})\-(\d{2})\-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/', $datetime, $matches ) ) {
 				$datetime = array(
 					'year'   => intval( $matches[1] ),
@@ -1183,10 +1183,10 @@ trait Parser {
 			}
 		}
 
-		// No match; may be int or string
+		// No match; may be int or string.
 		if ( ! is_array( $datetime ) ) {
 
-			// Maybe format or use as-is
+			// Maybe format or use as-is.
 			$datetime = ! is_int( $datetime )
 				? strtotime( $datetime, $now )
 				: (int) $datetime;
@@ -1196,11 +1196,11 @@ trait Parser {
 				return false;
 			}
 
-			// Return formatted
+			// Return formatted.
 			return gmdate( 'Y-m-d H:i:s', $datetime );
 		}
 
-		// Map to ints
+		// Map to ints.
 		$datetime = array_map( 'intval', $datetime );
 
 		// Bail if no 'year' and no $now to default to.
@@ -1208,47 +1208,47 @@ trait Parser {
 			return false;
 		}
 
-		// Year
+		// Year.
 		if ( ! isset( $datetime['year'] ) ) {
 			$datetime['year'] = gmdate( 'Y', $now );
 		}
 
-		// Month
+		// Month.
 		if ( ! isset( $datetime['month'] ) ) {
 			$datetime['month'] = ! empty( $default_to_max )
 				? 12
 				: 1;
 		}
 
-		// Day
+		// Day.
 		if ( ! isset( $datetime['day'] ) ) {
 			$datetime['day'] = ! empty( $default_to_max )
 				? (int) gmdate( 't', gmmktime( 0, 0, 0, $datetime['month'], 1, $datetime['year'] ) )
 				: 1;
 		}
 
-		// Hour
+		// Hour.
 		if ( ! isset( $datetime['hour'] ) ) {
 			$datetime['hour'] = ! empty( $default_to_max )
 				? 23
 				: 0;
 		}
 
-		// Minute
+		// Minute.
 		if ( ! isset( $datetime['minute'] ) ) {
 			$datetime['minute'] = ! empty( $default_to_max )
 				? 59
 				: 0;
 		}
 
-		// Second
+		// Second.
 		if ( ! isset( $datetime['second'] ) ) {
 			$datetime['second'] = ! empty( $default_to_max )
 				? 59
 				: 0;
 		}
 
-		// Combine and return
+		// Combine and return.
 		return sprintf(
 			'%04d-%02d-%02d %02d:%02d:%02d',
 			$datetime['year'],
@@ -1278,12 +1278,12 @@ trait Parser {
 		// When does the week start?
 		switch ( $start_of_week ) {
 
-			// Monday
+			// Monday.
 			case 1:
 				$retval = "WEEK( {$column}, 1 )";
 				break;
 
-			// Tuesday - Saturday
+			// Tuesday - Saturday.
 			case 2:
 			case 3:
 			case 4:
@@ -1292,14 +1292,14 @@ trait Parser {
 				$retval = "WEEK( DATE_SUB( {$column}, INTERVAL {$start_of_week} DAY ), 0 )";
 				break;
 
-			// Sunday
+			// Sunday.
 			case 0:
 			default:
 				$retval = "WEEK( {$column}, 0 )";
 				break;
 		}
 
-		// Return SQL
+		// Return SQL.
 		return $retval;
 	}
 
@@ -1363,7 +1363,7 @@ trait Parser {
 			return implode( ' AND ', $retval );
 		}
 
-		// Cases where just one unit is set
+		// Cases where just one unit is set.
 
 		// Hour.
 		if ( isset( $hour ) && ! isset( $minute ) && ! isset( $second ) && false !== ( $value = $this->build_numeric_value( $compare, $hour ) ) ) {
@@ -1433,43 +1433,43 @@ trait Parser {
 	 */
 	protected function build_in_sql( $column_name = '', $values = array(), $wrap = true, $pattern = '' ) {
 
-		// Bail if no values or invalid column
+		// Bail if no values or invalid column.
 		if ( empty( $values ) || ! $this->caller( 'is_valid_column', array( $column_name ) ) ) {
 			return '';
 		}
 
-		// Get the database interface
+		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available
+		// Bail if no database interface is available.
 		if ( empty( $db ) ) {
 			return '';
 		}
 
-		// Fallback to column pattern
+		// Fallback to column pattern.
 		if ( empty( $pattern ) || ! is_string( $pattern ) ) {
 			$pattern = $this->caller( 'get_column_field', array( array( 'name' => $column_name ), 'pattern', '%s' ) );
 		}
 
-		// Fill an array of patterns to match the number of values
+		// Fill an array of patterns to match the number of values.
 		$count    = count( $values );
 		$patterns = array_fill( 0, $count, $pattern );
 
-		// Prepare
+		// Prepare.
 		$sql    = implode( ', ', $patterns );
 		$retval = $db->prepare( $sql, ...$values );
 
-		// Set return value to empty string if prepare() returns falsy
+		// Set return value to empty string if prepare() returns falsy.
 		if ( empty( $retval ) ) {
 			$retval = '';
 		}
 
-		// Wrap them in parenthesis
+		// Wrap them in parenthesis.
 		if ( true === $wrap ) {
 			$retval = "({$retval})";
 		}
 
-		// Return in SQL
+		// Return in SQL.
 		return $retval;
 	}
 
@@ -1552,7 +1552,7 @@ trait Parser {
 			}
 		}
 
-		// Return the alias
+		// Return the alias.
 		return $retval;
 	}
 
@@ -1569,12 +1569,12 @@ trait Parser {
 	 */
 	protected function caller( $method = '', ...$args ) {
 
-		// Bail if no caller
+		// Bail if no caller.
 		if ( empty( $this->caller ) ) {
 			return null;
 		}
 
-		// Call it
+		// Call it.
 		return call_user_func(
 			array( $this->caller, $method ),
 			...$args

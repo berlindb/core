@@ -24,7 +24,7 @@ use Yoast\WPTestUtils\WPIntegration\TestCase;
  */
 class ColumnTest extends TestCase {
 
-	// Default property values
+	// Default property values.
 
 	public function test_default_name_is_empty_string() {
 		$column = new Column();
@@ -51,7 +51,7 @@ class ColumnTest extends TestCase {
 		$this->assertFalse( $column->primary );
 	}
 
-	// Type detection
+	// Type detection.
 
 	public function test_is_numeric_returns_true_for_bigint() {
 		$column = new Column( array( 'name' => 'id', 'type' => 'bigint' ) );
@@ -88,7 +88,7 @@ class ColumnTest extends TestCase {
 		$this->assertFalse( $column->is_date_time() );
 	}
 
-	// special_args(): primary → cache_key
+	// special_args(): primary → cache_key.
 
 	public function test_primary_true_forces_cache_key_true() {
 		$column = new Column( array( 'name' => 'id', 'type' => 'bigint', 'primary' => true ) );
@@ -96,7 +96,7 @@ class ColumnTest extends TestCase {
 		$this->assertTrue( $column->cache_key );
 	}
 
-	// special_args(): uuid
+	// special_args(): uuid.
 
 	public function test_uuid_true_forces_name_to_uuid() {
 		$column = new Column( array( 'uuid' => true ) );
@@ -133,7 +133,7 @@ class ColumnTest extends TestCase {
 		$this->assertFalse( $column->sortable );
 	}
 
-	// special_args(): SERIAL extra
+	// special_args(): SERIAL extra.
 
 	public function test_serial_extra_forces_bigint_type() {
 		$column = new Column( array( 'extra' => 'SERIAL' ) );
@@ -155,7 +155,7 @@ class ColumnTest extends TestCase {
 		$this->assertTrue( $column->unsigned );
 	}
 
-	// get_create_string()
+	// get_create_string().
 
 	public function test_get_create_string_for_primary_column_contains_name() {
 		$column = new Column( array(
@@ -236,7 +236,7 @@ class ColumnTest extends TestCase {
 		$this->assertStringContainsString( 'datetime', $sql );
 	}
 
-	// Validation helpers
+	// Validation helpers.
 
 	public function test_validate_uuid_generates_urn_prefix_for_empty_value() {
 		$column = new Column( array( 'uuid' => true ) );
@@ -264,14 +264,16 @@ class ColumnTest extends TestCase {
 	}
 
 	public function test_validate_datetime_returns_empty_string_for_empty_value() {
-		// validate_datetime() returns $this->default for empty values, so the
-		// column must have the zero-date default for this assertion to hold.
+		/*
+		 * validate_datetime() returns $this->default for empty values, so the
+		 * column must have the zero-date default for this assertion to hold.
+		 */
 		$column = new Column( array( 'name' => 'created', 'type' => 'datetime' ) );
 		$result = $column->validate_datetime( '' );
 		$this->assertEmpty( $result );
 	}
 
-	// Base::__get() magic getter
+	// Base::__get() magic getter.
 
 	public function test_magic_getter_accesses_protected_sortable_property() {
 		$column = new Column( array( 'name' => 'title', 'type' => 'varchar', 'sortable' => true ) );
@@ -283,7 +285,7 @@ class ColumnTest extends TestCase {
 		$this->assertNull( $column->nonexistent_property_xyz );
 	}
 
-	// Capabilities
+	// Capabilities.
 
 	public function test_caps_defaults_contain_all_four_operations() {
 		$column = new Column( array( 'name' => 'id', 'type' => 'bigint' ) );
@@ -298,7 +300,7 @@ class ColumnTest extends TestCase {
 		$this->assertSame( 'exist', $column->caps['insert'] );
 	}
 
-	// to_array()
+	// to_array().
 
 	public function test_to_array_includes_name_key() {
 		$column = new Column( array( 'name' => 'status', 'type' => 'varchar' ) );

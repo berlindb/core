@@ -91,8 +91,10 @@ class MetaParserTest extends TestCase {
 		$this->ids[1] = self::$query->add_item( array( 'name' => 'Beta Widget',    'status' => 'active',   'priority' => 20 ) );
 		$this->ids[2] = self::$query->add_item( array( 'name' => 'Gamma Gadget',   'status' => 'inactive', 'priority' => 30 ) );
 
-		// Add metadata using the 'post' type so rows land in wp_postmeta
-		// with post_id matching the widget IDs above.
+		/*
+		 * Add metadata using the 'post' type so rows land in wp_postmeta
+		 * with post_id matching the widget IDs above.
+		 */
 		add_metadata( 'post', $this->ids[0], 'berlindb_test_color', 'red' );
 		add_metadata( 'post', $this->ids[1], 'berlindb_test_color', 'blue' );
 		// Gamma Gadget intentionally has no color meta.
@@ -285,8 +287,10 @@ class MetaParserTest extends TestCase {
 			'order'    => 'ASC',
 		) );
 
-		// Only Alpha (red) and Beta (blue) have color meta.
-		// Alphabetical ASC: 'blue' < 'red' -> Beta first.
+		/*
+		 * Only Alpha (red) and Beta (blue) have color meta.
+		 * Alphabetical ASC: 'blue' < 'red' -> Beta first.
+		 */
 		$this->assertCount( 2, $results );
 		$this->assertSame( 'Beta Widget',  $results[0]->name );
 		$this->assertSame( 'Alpha Widget', $results[1]->name );
@@ -329,8 +333,10 @@ class MetaParserTest extends TestCase {
 			'order'    => 'ASC',
 		) );
 
-		// Numeric ASC: 2, 10, 20 -> Alpha, Beta, Gamma.
-		// String ASC would give: '10', '2', '20' -> Beta, Alpha, Gamma.
+		/*
+		 * Numeric ASC: 2, 10, 20 -> Alpha, Beta, Gamma.
+		 * String ASC would give: '10', '2', '20' -> Beta, Alpha, Gamma.
+		 */
 		$this->assertCount( 3, $results );
 		$this->assertSame( 'Alpha Widget', $results[0]->name );
 		$this->assertSame( 'Beta Widget',  $results[1]->name );

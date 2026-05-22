@@ -12,7 +12,7 @@ declare( strict_types = 1 );
 
 namespace BerlinDB\Database\Traits;
 
-// Exit if accessed directly
+// Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -83,12 +83,12 @@ trait Environment {
 	protected function is_testing() {
 		return (bool) (
 
-			// Tests constant is being used
+			// Tests constant is being used.
 			( defined( 'WP_TESTS_DIR' ) && WP_TESTS_DIR )
 
 			||
 
-			// Scaffolded (https://make.wordpress.org/cli/handbook/plugin-unit-tests/)
+			// Scaffolded (https://make.wordpress.org/cli/handbook/plugin-unit-tests/).
 			function_exists( '_manually_load_plugin' )
 		);
 	}

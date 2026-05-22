@@ -12,7 +12,7 @@ declare( strict_types = 1 );
 
 namespace BerlinDB\Database\Parsers;
 
-// Exit if accessed directly
+// Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -94,7 +94,7 @@ class Search extends Base {
 	 */
 	public function get_sql_for_clause( &$clause = array(), $parent_query = array(), $clause_key = '' ) {
 
-		// Bail if no search
+		// Bail if no search.
 		if ( empty( $this->first_keys ) || empty( $clause['search'] ) ) {
 			return array(
 				'join'  => array(),
@@ -102,13 +102,13 @@ class Search extends Base {
 			);
 		}
 
-		// Default value
+		// Default value.
 		$where = array();
 
-		// Default to all searchable columns
+		// Default to all searchable columns.
 		$search_columns = $this->first_keys;
 
-		// Intersect against known searchable columns
+		// Intersect against known searchable columns.
 		if ( ! empty( $clause['search_columns'] ) ) {
 			$search_columns = array_intersect(
 				$clause['search_columns'],
@@ -116,7 +116,7 @@ class Search extends Base {
 			);
 		}
 
-		// Filter search columns
+		// Filter search columns.
 		$search_columns = $this->filter_search_columns( $search_columns );
 
 		// Strip the _search suffix and get the aliased SQL column names.
@@ -126,10 +126,10 @@ class Search extends Base {
 			$sql_columns[] = $this->caller( 'get_quoted_column_name_aliased', $name ) ?? $name;
 		}
 
-		// Add search query clause
+		// Add search query clause.
 		$where['search'] = $this->get_search_sql( $clause['search'], $sql_columns );
 
-		// Return join/where
+		// Return join/where.
 		return array(
 			'join'  => array(),
 			'where' => $where
@@ -149,42 +149,42 @@ class Search extends Base {
 	 */
 	private function get_search_sql( $string = '', $column_names = array() ) {
 
-		// Bail if malformed string
+		// Bail if malformed string.
 		if ( empty( $string ) || ! is_scalar( $string ) ) {
 			return '';
 		}
 
-		// Bail if malformed columns
+		// Bail if malformed columns.
 		if ( empty( $column_names ) || ! is_array( $column_names ) ) {
 			return '';
 		}
 
-		// Get the database interface
+		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available
+		// Bail if no database interface is available.
 		if ( empty( $db ) ) {
 			return '';
 		}
 
-		// Array or String
+		// Array or String.
 		$like = ( false !== strpos( $string, '*' ) )
 			? '%' . implode( '%', array_map( array( $db, 'esc_like' ), explode( '*', $string ) ) ) . '%'
 			: '%' . $db->esc_like( $string ) . '%';
 
-		// Default array
+		// Default array.
 		$searches = array();
 
-		// Build search SQL
+		// Build search SQL.
 		foreach ( $column_names as $column ) {
 			$searches[] = $db->prepare( "{$column} LIKE %s", $like );
 		}
 
-		// Concatinate
+		// Concatinate.
 		$values = implode( ' OR ', $searches );
 		$retval = '(' . $values . ')';
 
-		// Return the clause
+		// Return the clause.
 		return $retval;
 	}
 

@@ -60,8 +60,10 @@ class QueryFilterTest extends TestCase {
 	public function setUp(): void {
 		parent::setUp();
 
-		// parent::setUp() resets the current user to 0 via clean_up_global_scope().
-		// Re-set here so add_item() passes Query::reduce_item() capability checks.
+		/*
+		 * parent::setUp() resets the current user to 0 via clean_up_global_scope().
+		 * Re-set here so add_item() passes Query::reduce_item() capability checks.
+		 */
 		wp_set_current_user( 1 );
 
 		self::$table->delete_all();
@@ -77,7 +79,7 @@ class QueryFilterTest extends TestCase {
 		wp_cache_flush();
 	}
 
-	// Default query
+	// Default query.
 
 	public function test_query_returns_all_items_with_unlimited_number() {
 		$items = self::$query->query( array( 'number' => 0 ) );
@@ -89,7 +91,7 @@ class QueryFilterTest extends TestCase {
 		$this->assertInstanceOf( TestRow::class, $items[0] );
 	}
 
-	// Status filtering
+	// Status filtering.
 
 	public function test_filter_by_status_single_value_returns_correct_count() {
 		$items = self::$query->query( array( 'number' => 0, 'status' => 'active' ) );
@@ -121,14 +123,14 @@ class QueryFilterTest extends TestCase {
 		}
 	}
 
-	// Priority filtering
+	// Priority filtering.
 
 	public function test_filter_by_priority_in_returns_correct_count() {
 		$items = self::$query->query( array( 'number' => 0, 'priority__in' => '10, 30, 50' ) );
 		$this->assertCount( 3, $items );
 	}
 
-	// ID filtering
+	// ID filtering.
 
 	public function test_filter_by_id_in_returns_matching_items() {
 		$id_string = implode( ', ', array( $this->ids[0], $this->ids[1] ) );
@@ -141,7 +143,7 @@ class QueryFilterTest extends TestCase {
 		$this->assertCount( 4, $items );
 	}
 
-	// Search
+	// Search.
 
 	public function test_search_by_widget_returns_three_items() {
 		$items = self::$query->query( array( 'number' => 0, 'search' => 'Widget' ) );
@@ -153,7 +155,7 @@ class QueryFilterTest extends TestCase {
 		$this->assertCount( 2, $items );
 	}
 
-	// Ordering
+	// Ordering.
 
 	public function test_orderby_name_asc_returns_alpha_first() {
 		$items = self::$query->query( array( 'number' => 0, 'orderby' => 'name', 'order' => 'ASC' ) );
@@ -175,7 +177,7 @@ class QueryFilterTest extends TestCase {
 		$this->assertSame( 10, (int) $items[0]->priority );
 	}
 
-	// Pagination
+	// Pagination.
 
 	public function test_number_limits_result_count() {
 		$items = self::$query->query( array( 'number' => 2 ) );
@@ -191,7 +193,7 @@ class QueryFilterTest extends TestCase {
 		$this->assertNotSame( $first_page[0]->id, $second_page[0]->id );
 	}
 
-	// Count mode
+	// Count mode.
 
 	public function test_count_query_returns_total_row_count() {
 		$count = self::$query->query( array( 'count' => true ) );
@@ -208,7 +210,7 @@ class QueryFilterTest extends TestCase {
 		$this->assertSame( 3, (int) $count );
 	}
 
-	// Fields mode
+	// Fields mode.
 
 	public function test_fields_ids_returns_array_of_integers() {
 		$ids = self::$query->query( array( 'number' => 0, 'fields' => 'ids' ) );
@@ -223,13 +225,15 @@ class QueryFilterTest extends TestCase {
 		$this->assertCount( 5, $ids );
 	}
 
-	// Found rows / pagination
+	// Found rows / pagination.
 
 	public function test_no_found_rows_false_populates_max_num_pages() {
 		self::$query->query( array( 'number' => 2, 'no_found_rows' => false ) );
 
-		// max_num_pages is private, so __get returns null for it (PHP's recursion
-		// guard prevents access from the parent Base::__get context). Use Reflection.
+		/*
+		 * max_num_pages is private, so __get returns null for it (PHP's recursion
+		 * guard prevents access from the parent Base::__get context). Use Reflection.
+		 */
 		$prop = new \ReflectionProperty( \BerlinDB\Database\Query::class, 'max_num_pages' );
 		if ( PHP_VERSION_ID < 80100 ) {
 			$prop->setAccessible( true );

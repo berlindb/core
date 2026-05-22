@@ -13,7 +13,7 @@ declare( strict_types = 1 );
 
 namespace BerlinDB\Database\Kern;
 
-// Exit if accessed directly
+// Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -425,12 +425,12 @@ class Query {
 	 */
 	private function set_item_shape() {
 
-		// Item shape
+		// Item shape.
 		if ( empty( $this->item_shape ) || ! class_exists( $this->item_shape ) ) {
 			$this->item_shape = __NAMESPACE__ . '\\Row';
 		}
 
-		// Current item during shaping (might be stdClass)
+		// Current item during shaping (might be stdClass).
 		if ( empty( $this->current_item_shape ) || ! class_exists( $this->current_item_shape ) ) {
 			$this->current_item_shape = $this->item_shape;
 		}
@@ -457,7 +457,7 @@ class Query {
 	 */
 	private function set_query_clause_defaults() {
 
-		// Default query clauses
+		// Default query clauses.
 		$this->query_clauses = array(
 			'explain' => '',
 			'select'  => '',
@@ -470,7 +470,7 @@ class Query {
 			'limits'  => ''
 		);
 
-		// Default request clauses are empty strings
+		// Default request clauses are empty strings.
 		$this->request_clauses = array_fill_keys(
 			array_keys( $this->query_clauses ),
 			''
@@ -485,48 +485,48 @@ class Query {
 	 */
 	private function set_query_var_defaults() {
 
-		// Default query variable value
+		// Default query variable value.
 		$this->query_var_default_value = function_exists( 'random_bytes' )
 			? $this->apply_prefix( bin2hex( random_bytes( 18 ) ) )
 			: $this->apply_prefix( uniqid( '_', true ) );
 
-		// Get the primary column name
+		// Get the primary column name.
 		$primary = $this->get_primary_column_name();
 
-		// Default query variables
+		// Default query variables.
 		$this->query_var_defaults = array(
 
-			// Statements
+			// Statements.
 			'explain'           => false,
 			'select'            => '',
 
-			// Fields
+			// Fields.
 			'fields'            => '',
 			'groupby'           => '',
 
-			// Boundaries
+			// Boundaries.
 			'number'            => 100,
 			'offset'            => '',
 			'orderby'           => $primary,
 			'order'             => 'DESC',
 
-			// COUNT(*)
+			// COUNT(*).
 			'count'             => false,
 
-			// Disable row count
+			// Disable row count.
 			'no_found_rows'     => true,
 
-			// Caching
+			// Caching.
 			'update_item_cache' => true,
 			'update_meta_cache' => true
 		);
 
 		/** Query Parsers *****************************************************/
 
-		// Setup parsers array
+		// Setup parsers array.
 		$this->parsers = array();
 
-		// Loop through query var parsers
+		// Loop through query var parsers.
 		foreach ( $this->query_var_parsers as $class ) {
 
 			// Skip if no class.
@@ -540,7 +540,7 @@ class Query {
 			// Setup the parser.
 			$this->parsers[ $parser->name ] = $parser;
 
-			// Maybe add query var alone
+			// Maybe add query var alone.
 			if ( ! empty( $parser->query_var ) ) {
 				$this->query_var_defaults[ $parser->query_var ] = ( null === $parser->default )
 					? $this->query_var_default_value
@@ -550,7 +550,7 @@ class Query {
 			// Get column names.
 			$columns = $this->get_column_names( $parser->column_filter );
 
-			// Add to defaults
+			// Add to defaults.
 			if ( ! empty( $columns ) ) {
 				foreach ( $columns as $column ) {
 					$key                              = "{$column}{$parser->column_suffix}";
@@ -600,14 +600,14 @@ class Query {
 	 */
 	private function set_items( $item_ids = array() ) {
 
-		// Validate primary column values
+		// Validate primary column values.
 		$callback = array( $this, 'shape_item_id' );
 		$item_ids = array_map( $callback, $item_ids );
 
-		// Prime item caches
+		// Prime item caches.
 		$this->prime_item_caches( $item_ids );
 
-		// Shape the items
+		// Shape the items.
 		$this->items = $this->shape_items( $item_ids );
 	}
 
@@ -639,7 +639,7 @@ class Query {
 		 */
 		if ( $this->get_query_var( 'count' ) ) {
 
-			// Not grouped
+			// Not grouped.
 			if ( is_numeric( $item_ids ) && ! $this->get_query_var( 'groupby' ) ) {
 				$retval = $item_ids;
 			}
@@ -658,7 +658,7 @@ class Query {
 		 */
 		} elseif ( ! $this->get_query_var( 'no_found_rows' ) && $this->get_query_var( 'number' ) ) {
 
-			// Override a few request clauses
+			// Override a few request clauses.
 			$r = wp_parse_args(
 				array(
 					'fields'  => 'COUNT(*)',
@@ -668,22 +668,22 @@ class Query {
 				$this->request_clauses
 			);
 
-			// Parse the new clauses
+			// Parse the new clauses.
 			$query = $this->parse_request_clauses( $r );
 
-			// Filter the found items query
+			// Filter the found items query.
 			$query = $this->filter_found_items_query( $query );
 
-			// Get the database interface
+			// Get the database interface.
 			$db = $this->get_db();
 
-			// Maybe query for found items
+			// Maybe query for found items.
 			if ( ! empty( $query ) && ! empty( $db ) ) {
 				$retval = $db->get_var( $query );
 			}
 		}
 
-		// Set found items
+		// Set found items.
 		$this->found_items = (int) $retval;
 	}
 
@@ -726,12 +726,12 @@ class Query {
 	 */
 	private function is_valid_column( $column_name = '' ) {
 
-		// Bail if column name not valid string
+		// Bail if column name not valid string.
 		if ( empty( $column_name ) || ! is_string( $column_name ) ) {
 			return false;
 		}
 
-		// Return if column exists
+		// Return if column exists.
 		return (bool) $this->get_column_by( array( 'name' => $column_name ) );
 	}
 
@@ -775,10 +775,10 @@ class Query {
 	 */
 	public function get_column_field( $args = array(), $field = '', $default = false ) {
 
-		// Get the column
+		// Get the column.
 		$column = $this->get_column_by( $args );
 
-		// Return field, or default
+		// Return field, or default.
 		return isset( $column->{$field} )
 			? $column->{$field}
 			: $default;
@@ -794,10 +794,10 @@ class Query {
 	 */
 	public function get_column_by( $args = array() ) {
 
-		// Filter columns
+		// Filter columns.
 		$filter = $this->get_columns( $args );
 
-		// Return column or false
+		// Return column or false.
 		return ! empty( $filter )
 			? reset( $filter )
 			: false;
@@ -823,18 +823,18 @@ class Query {
 	public function get_columns( $args = array(), $operator = 'and', $field = false ) {
 		static $columns = null;
 
-		// Setup columns
+		// Setup columns.
 		if ( null === $columns ) {
 
-			// Default columns
+			// Default columns.
 			$columns = array();
 
-			// Legacy columns
+			// Legacy columns.
 			if ( ! empty( $this->columns ) ) {
 				$columns = $this->columns;
 			}
 
-			// Columns from Schema
+			// Columns from Schema.
 			if ( is_callable( array( $this->schema_object, 'get_columns' ) ) ) {
 
 				// Get the columns from the schema object method.
@@ -847,10 +847,10 @@ class Query {
 			}
 		}
 
-		// Filter columns
+		// Filter columns.
 		$filter = wp_filter_object_list( $columns, $args, $operator, $field );
 
-		// Return columns or empty array
+		// Return columns or empty array.
 		return ! empty( $filter )
 			? array_values( $filter )
 			: array();
@@ -873,31 +873,31 @@ class Query {
 	 */
 	public function get_columns_field_by( $key = '', $values = array(), $field = '', $default = false ) {
 
-		// Bail if no values
+		// Bail if no values.
 		if ( empty( $values ) ) {
 			return array();
 		}
 
-		// Allow scalar values
+		// Allow scalar values.
 		if ( is_scalar( $values ) ) {
 			$values = array( $values );
 		}
 
-		// Maybe fallback to $key
+		// Maybe fallback to $key.
 		if ( empty( $field ) ) {
 			$field = $key;
 		}
 
-		// Default return value
+		// Default return value.
 		$retval = array();
 
-		// Get the column fields
+		// Get the column fields.
 		foreach ( $values as $value ) {
 			$args     = array( $key => $value );
 			$retval[] = $this->get_column_field( $args, $field, $default );
 		}
 
-		// Return fields of columns
+		// Return fields of columns.
 		return $retval;
 	}
 
@@ -911,7 +911,7 @@ class Query {
 	 */
 	public function get_column_name_aliased( $column_name = '', $alias = true ) {
 
-		// Default return value
+		// Default return value.
 		$retval = $column_name;
 
 		/**
@@ -923,7 +923,7 @@ class Query {
 			$retval = $this->get_table_alias() . ".{$column_name}";
 		}
 
-		// Return SQL
+		// Return SQL.
 		return $retval;
 	}
 
@@ -937,7 +937,7 @@ class Query {
 	 */
 	public function get_quoted_column_name_aliased( $column_name = '', $alias = true ) {
 
-		// Default return value
+		// Default return value.
 		$retval = $this->quote_identifier( $column_name );
 
 		// Maybe prepend the quoted table alias.
@@ -945,7 +945,7 @@ class Query {
 			$retval = $this->quote_identifier( $this->get_table_alias() ) . '.' . $retval;
 		}
 
-		// Return SQL
+		// Return SQL.
 		return $retval;
 	}
 
@@ -999,10 +999,10 @@ class Query {
 	 */
 	public function get_table_name() {
 
-		// Get the database interface
+		// Get the database interface.
 		$db = $this->get_db();
 
-		// Return SQL
+		// Return SQL.
 		return ! empty( $db )
 			? $db->{$this->table_name}
 			: $this->table_name;
@@ -1020,7 +1020,7 @@ class Query {
 	 */
 	public function get_table_alias() {
 
-		// Return SQL
+		// Return SQL.
 		return $this->table_alias;
 	}
 
@@ -1109,39 +1109,39 @@ class Query {
 	 */
 	private function get_item_raw( $column_name = '', $column_value = '' ) {
 
-		// Get the database interface
+		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available
+		// Bail if no database interface is available.
 		if ( empty( $db ) ) {
 			return false;
 		}
 
-		// Bail if empty or non-scalar value
+		// Bail if empty or non-scalar value.
 		if ( empty( $column_value ) || ! is_scalar( $column_value ) ) {
 			return false;
 		}
 
-		// Bail if invalid column
+		// Bail if invalid column.
 		if ( ! $this->is_valid_column( $column_name ) ) {
 			return false;
 		}
 
-		// Get query parts
+		// Get query parts.
 		$table   = $this->get_table_name();
 		$pattern = $this->get_column_field( array( 'name' => $column_name ), 'pattern', '%s' );
 
-		// Query database
+		// Query database.
 		$query   = "SELECT * FROM {$table} WHERE {$column_name} = {$pattern} LIMIT 1";
 		$select  = $db->prepare( $query, $column_value );
 		$result  = $db->get_row( $select );
 
-		// Bail on failure
+		// Bail on failure.
 		if ( ! $this->is_success( $result ) ) {
 			return false;
 		}
 
-		// Return row
+		// Return row.
 		return $result;
 	}
 
@@ -1168,35 +1168,35 @@ class Query {
 			)
 		);
 
-		// Check the cache
+		// Check the cache.
 		$cache_key   = $this->get_cache_key();
 		$cache_value = $this->cache_get( $cache_key, $this->cache_group );
 
-		// No cache value
+		// No cache value.
 		if ( false === $cache_value ) {
 
-			// Query for item IDs
+			// Query for item IDs.
 			$result = $this->get_item_ids();
 
-			// Set the number of found items
+			// Set the number of found items.
 			$this->set_found_items( $result );
 
-			// Format the cached value
+			// Format the cached value.
 			$cache_value = array(
 				'item_ids'    => $result,
 				'found_items' => (int) $this->found_items,
 			);
 
-			// Add value to the cache
+			// Add value to the cache.
 			$this->cache_add( $cache_key, $cache_value, $this->cache_group );
 
-		// Value exists in cache
+		// Value exists in cache.
 		} else {
 			$result            = $cache_value['item_ids'];
 			$this->found_items = (int) $cache_value['found_items'];
 		}
 
-		// Pagination
+		// Pagination.
 		if ( ! empty( $this->found_items ) ) {
 			$number = (int) $this->get_query_var( 'number' );
 
@@ -1205,25 +1205,25 @@ class Query {
 			}
 		}
 
-		// Cast to int if not grouping counts
+		// Cast to int if not grouping counts.
 		if ( $this->get_query_var( 'count' ) ) {
 
-			// Set items
+			// Set items.
 			$this->items = $result;
 
-			// Not grouping, so cast to int
+			// Not grouping, so cast to int.
 			if ( ! $this->get_query_var( 'groupby' ) ) {
 				$this->items = (int) $result;
 			}
 
-			// Return
+			// Return.
 			return $this->items;
 		}
 
-		// Set items from result
+		// Set items from result.
 		$this->set_items( $result );
 
-		// Return array of items
+		// Return array of items.
 		return $this->items;
 	}
 
@@ -1238,37 +1238,37 @@ class Query {
 	 */
 	private function get_item_ids() {
 
-		// Setup the query clauses
+		// Setup the query clauses.
 		$this->set_query_clauses();
 
-		// Setup request
+		// Setup request.
 		$this->set_request_clauses();
 		$this->set_request();
 
-		// Get the database interface
+		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available
+		// Bail if no database interface is available.
 		if ( empty( $db ) ) {
 			return array();
 		}
 
-		// Return count
+		// Return count.
 		if ( $this->get_query_var( 'count' ) ) {
 
-			// Get vars or results
+			// Get vars or results.
 			$retval = ! $this->get_query_var( 'groupby' )
 				? $db->get_var( $this->request )
 				: $db->get_results( $this->request, ARRAY_A );
 
-			// Return vars or results
+			// Return vars or results.
 			return $retval;
 		}
 
-		// Get IDs
+		// Get IDs.
 		$item_ids = $db->get_col( $this->request );
 
-		// Return parsed IDs
+		// Return parsed IDs.
 		return wp_parse_list( $item_ids );
 	}
 
@@ -1289,44 +1289,44 @@ class Query {
 	 */
 	public function get_in_sql( $column_name = '', $values = array(), $wrap = true, $pattern = '' ) {
 
-		// Bail if no values or invalid column
+		// Bail if no values or invalid column.
 		if ( empty( $values ) || ! $this->is_valid_column( $column_name ) ) {
 			return '';
 		}
 
-		// Get the database interface
+		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available
+		// Bail if no database interface is available.
 		if ( empty( $db ) ) {
 			return '';
 		}
 
-		// Fallback to column pattern
+		// Fallback to column pattern.
 		if ( empty( $pattern ) || ! is_string( $pattern ) ) {
 			$pattern = $this->get_column_field( array( 'name' => $column_name ), 'pattern', '%s' );
 		}
 
-		// Fill an array of patterns to match the number of values
+		// Fill an array of patterns to match the number of values.
 		$values   = (array) $values;
 		$count    = count( $values );
 		$patterns = array_fill( 0, $count, $pattern );
 
-		// Prepare
+		// Prepare.
 		$sql    = implode( ', ', $patterns );
 		$retval = $db->prepare( $sql, ...$values );
 
-		// Set return value to empty string if prepare() returns falsy
+		// Set return value to empty string if prepare() returns falsy.
 		if ( empty( $retval ) ) {
 			$retval = '';
 		}
 
-		// Wrap them in parenthesis
+		// Wrap them in parenthesis.
 		if ( true === $wrap ) {
 			$retval = "({$retval})";
 		}
 
-		// Return in SQL
+		// Return in SQL.
 		return $retval;
 	}
 
@@ -1342,16 +1342,16 @@ class Query {
 	 */
 	private function parse_query( $query = array() ) {
 
-		// Setup the $query_vars_original var
+		// Setup the $query_vars_original var.
 		$this->query_var_originals = wp_parse_args( $query );
 
-		// Setup the $query_vars parsed var
+		// Setup the $query_vars parsed var.
 		$this->query_vars = wp_parse_args(
 			$this->query_var_originals,
 			$this->query_var_defaults
 		);
 
-		// If counting, override some other $query_vars
+		// If counting, override some other $query_vars.
 		if ( $this->get_query_var( 'count' ) ) {
 			$this->query_vars['number']            = false;
 			$this->query_vars['fields']            = '';
@@ -1391,18 +1391,18 @@ class Query {
 	 */
 	private function parse_query_vars( $query_vars = array() ) {
 
-		// Maybe fallback to $query_vars
+		// Maybe fallback to $query_vars.
 		if ( empty( $query_vars ) && ! empty( $this->query_vars ) ) {
 			$query_vars = $this->query_vars;
 		}
 
-		// Parse arguments
+		// Parse arguments.
 		$r = wp_parse_args( $query_vars );
 
-		// Parse $query_vars
+		// Parse $query_vars.
 		$join_where = $this->parse_join_where( $r );
 
-		// Parse all clauses
+		// Parse all clauses.
 		$clauses = array(
 			'explain' => $this->parse_explain( $r['explain'] ),
 			'select'  => $this->parse_select(),
@@ -1415,7 +1415,7 @@ class Query {
 			'limits'  => $this->parse_limits( $r['number'], $r['offset'] )
 		);
 
-		// Return clauses
+		// Return clauses.
 		return $this->filter_query_clauses( $clauses );
 	}
 
@@ -1470,7 +1470,7 @@ class Query {
 	 */
 	private function parse_join_where_parsers( $query_vars = array() ) {
 
-		// Bail if no parsers
+		// Bail if no parsers.
 		if ( empty( $this->parsers ) ) {
 			return array(
 				'join'  => array(),
@@ -1478,13 +1478,13 @@ class Query {
 			);
 		}
 
-		// Default values
+		// Default values.
 		$join = $where = array();
 
 		// Reset per-query instances so stale state from previous runs is discarded.
 		$this->current_parsers = array();
 
-		// Loop through parsers
+		// Loop through parsers.
 		foreach ( $this->parsers as $key => $descriptor ) {
 
 			// Derive the class from the already-instantiated descriptor.
@@ -1493,7 +1493,7 @@ class Query {
 			// Default to all $query_vars.
 			$qv = $query_vars;
 
-			// Check if $query_vars contains the query_var for this parser
+			// Check if $query_vars contains the query_var for this parser.
 			if ( ! is_null( $descriptor->query_var ) && ! empty( $query_vars[ $descriptor->query_var ] ) ) {
 
 				/**
@@ -1526,34 +1526,34 @@ class Query {
 			// Store it so hooks can read its clause state.
 			$this->current_parsers[ $key ] = $new_parser;
 
-			// Default no subclauses
+			// Default no subclauses.
 			$subclauses = false;
 
-			// Set the callback
+			// Set the callback.
 			$callback = array( $new_parser, 'get_join_where_clauses' );
 
-			// Try to get the SQL subclauses
+			// Try to get the SQL subclauses.
 			if ( is_callable( $callback ) ) {
 				$subclauses = call_user_func( $callback );
 			}
 
-			// Skip if no SQL subclauses
+			// Skip if no SQL subclauses.
 			if ( false === $subclauses ) {
 				continue;
 			}
 
-			// Set join
+			// Set join.
 			if ( ! empty( $subclauses['join'] ) ) {
 				$join[ $key ] = $subclauses['join'];
 			}
 
-			// Set where (removing " AND " from subclauses)
+			// Set where (removing " AND " from subclauses).
 			if ( ! empty( $subclauses['where'] ) ) {
 				$where[ $key ] = preg_replace( '/^\s*AND\s*/', '', $subclauses['where'] );
 			}
 		}
 
-		// Return join/where subclauses
+		// Return join/where subclauses.
 		return array(
 			'join'  => $join,
 			'where' => $where
@@ -1575,15 +1575,15 @@ class Query {
 	 */
 	public function parse_query_var( $query_vars = array(), $key = '' ) {
 
-		// Bail if no query vars exist for that ID
+		// Bail if no query vars exist for that ID.
 		if ( ! isset( $query_vars[ $key ] ) ) {
 			return false;
 		}
 
-		// Get the value
+		// Get the value.
 		$value = $query_vars[ $key ];
 
-		// Bail if equal to the exact default random value
+		// Bail if equal to the exact default random value.
 		if ( $value === $this->query_var_default_value ) {
 			return false;
 		}
@@ -1615,7 +1615,7 @@ class Query {
 		 */
 		if ( is_string( $value ) ) {
 
-			// Bail if string is over 100 chars long
+			// Bail if string is over 100 chars long.
 			if ( strlen( $value ) > 100 ) {
 				return array( $value );
 			}
@@ -1623,7 +1623,7 @@ class Query {
 			// Contains comma?
 			$comma = strpos( $value, ',' );
 
-			// Bail if no comma
+			// Bail if no comma.
 			if ( false === $comma ) {
 				return array( $value );
 			}
@@ -1631,21 +1631,21 @@ class Query {
 			// Contains space?
 			$space = strpos( $value, ' ' );
 
-			// Bail if space is before comma
+			// Bail if space is before comma.
 			if ( ( false !== $space ) && ( $space < $comma ) ) {
 				return array( $value );
 			}
 
-			// Bail if first comma is more than 20 letters in
+			// Bail if first comma is more than 20 letters in.
 			if ( $comma >= 20 ) {
 				return array( $value );
 			}
 
-			// Split by comma (and maybe spaces)
+			// Split by comma (and maybe spaces).
 			return preg_split( '#,\s*#', $value, -1, PREG_SPLIT_NO_EMPTY );
 		}
 
-		// Pass the value through
+		// Pass the value through.
 		return array( $value );
 	}
 
@@ -1658,20 +1658,20 @@ class Query {
 	 */
 	private function parse_explain( $explain = false ) {
 
-		// Maybe fallback to $query_vars
+		// Maybe fallback to $query_vars.
 		if ( empty( $explain ) ) {
 			$explain = $this->get_query_var( 'explain' );
 		}
 
-		// Default return value
+		// Default return value.
 		$retval = '';
 
-		// Maybe explaining
+		// Maybe explaining.
 		if ( ! empty( $explain ) ) {
 			$retval = 'EXPLAIN';
 		}
 
-		// Return SQL
+		// Return SQL.
 		return $retval;
 	}
 
@@ -1706,36 +1706,36 @@ class Query {
 	 */
 	private function parse_fields( $fields = '', $count = false, $groupby = '', $alias = true ) {
 
-		// Maybe fallback to $query_vars
+		// Maybe fallback to $query_vars.
 		if ( empty( $count ) ) {
 			$count = $this->get_query_var( 'count' );
 		}
 
-		// Default return value
+		// Default return value.
 		$retval = '';
 
-		// Counting, so use groupby
+		// Counting, so use groupby.
 		if ( ! empty( $count ) ) {
 
-			// Use count instead
+			// Use count instead.
 			$retval = $this->parse_count( $count, $groupby );
 
-		// Not counting, so use primary column
+		// Not counting, so use primary column.
 		} else {
 
-			// Maybe fallback to $query_vars
+			// Maybe fallback to $query_vars.
 			if ( empty( $fields ) ) {
 				$fields = $this->get_query_var( 'fields' );
 			}
 
-			// Get the primary column name
+			// Get the primary column name.
 			$primary = $this->get_primary_column_name();
 
-			// Default return value
+			// Default return value.
 			$retval = $this->get_quoted_column_name_aliased( $primary, $alias );
 		}
 
-		// Return fields
+		// Return fields.
 		return $retval;
 	}
 
@@ -1754,28 +1754,28 @@ class Query {
 	 */
 	private function parse_count( $count = false, $groupby = '', $name = 'count', $alias = true ) {
 
-		// Maybe fallback to $query_vars
+		// Maybe fallback to $query_vars.
 		if ( empty( $count ) ) {
 			$count = $this->get_query_var( 'count' );
 		}
 
-		// Bail if not counting
+		// Bail if not counting.
 		if ( empty( $count ) ) {
 			return '';
 		}
 
-		// Default return value
+		// Default return value.
 		$retval = 'COUNT(*)';
 
-		// Check for "GROUP BY"
+		// Check for "GROUP BY".
 		$groupby_names = $this->parse_groupby( $groupby, '', $alias );
 
-		// Reformat if grouping counts together
+		// Reformat if grouping counts together.
 		if ( ! empty( $groupby_names ) ) {
 			$retval = "{$groupby_names}, {$retval} as {$name}";
 		}
 
-		// Return SQL
+		// Return SQL.
 		return $retval;
 	}
 
@@ -1791,17 +1791,17 @@ class Query {
 	 */
 	private function parse_from( $table = '', $alias = '' ) {
 
-		// Maybe fallback to get_table_name()
+		// Maybe fallback to get_table_name().
 		if ( empty( $table ) ) {
 			$table = $this->get_table_name();
 		}
 
-		// Maybe fallback to get_table_alias()
+		// Maybe fallback to get_table_alias().
 		if ( empty( $alias ) ) {
 			$alias = $this->get_table_alias();
 		}
 
-		// Return
+		// Return.
 		return "FROM {$table} {$alias}";
 	}
 
@@ -1817,41 +1817,41 @@ class Query {
 	 */
 	private function parse_groupby( $groupby = '', $before = '', $alias = true ) {
 
-		// Maybe fallback to $query_vars
+		// Maybe fallback to $query_vars.
 		if ( empty( $groupby ) ) {
 			$groupby = $this->get_query_var( 'groupby' );
 		}
 
-		// Bail if empty
+		// Bail if empty.
 		if ( empty( $groupby ) ) {
 			return '';
 		}
 
-		// Maybe cast to array
+		// Maybe cast to array.
 		if ( ! is_array( $groupby ) ) {
 			$groupby = (array) $groupby;
 		}
 
-		// Get the intersection of allowed column names to groupby columns
+		// Get the intersection of allowed column names to groupby columns.
 		$intersect = $this->get_columns_field_by( 'name', $groupby );
 
-		// Bail if invalid columns
+		// Bail if invalid columns.
 		if ( empty( $intersect ) ) {
 			return '';
 		}
 
-		// Column names array
+		// Column names array.
 		$names = array();
 
-		// Maybe prepend table alias to key
+		// Maybe prepend table alias to key.
 		foreach ( $intersect as $key ) {
 			$names[] = $this->get_quoted_column_name_aliased( $key, $alias );
 		}
 
-		// Format column names
+		// Format column names.
 		$retval = implode( ',', $names );
 
-		// Return columns
+		// Return columns.
 		return implode( ' ', array( $before, $retval ) ) ;
 	}
 
@@ -1869,71 +1869,71 @@ class Query {
 	 */
 	private function parse_orderby( $orderby = '', $order = '', $before = '', $alias = true ) {
 
-		// Maybe fallback to $query_vars
+		// Maybe fallback to $query_vars.
 		if ( empty( $orderby ) ) {
 			$orderby = $this->get_query_var( 'orderby' );
 		}
 
-		// Bail if counting
+		// Bail if counting.
 		if ( $this->get_query_var( 'count' ) ) {
 			return '';
 		}
 
-		// Bail if $orderby is a value that could cancel ordering
+		// Bail if $orderby is a value that could cancel ordering.
 		if ( in_array( $orderby, array( 'none', array(), false, null ), true ) ) {
 			return '';
 		}
 
-		// Default return value
+		// Default return value.
 		$retval = '';
 
-		// Fallback to default orderby & order
+		// Fallback to default orderby & order.
 		if ( empty( $orderby ) ) {
 			$parsed = $this->parse_single_orderby( $orderby, $alias );
 			$order  = $this->parse_order( $order );
 			$retval = "{$parsed} {$order}";
 
-		// Ordering by something, so figure it out
+		// Ordering by something, so figure it out.
 		} else {
 
-			// Cast orderby as an array
+			// Cast orderby as an array.
 			$ordersby = (array) $orderby;
 
-			// Fill if numeric
+			// Fill if numeric.
 			if ( wp_is_numeric_array( $ordersby ) ) {
 				$ordersby = array_fill_keys( $ordersby, $order );
 			}
 
-			// Default return value
+			// Default return value.
 			$orderby_array = array();
 
-			// Loop through orderby's
+			// Loop through orderby's.
 			foreach ( $ordersby as $key => $value ) {
 
-				// Parse orderby
+				// Parse orderby.
 				$parsed = $this->parse_single_orderby( $key, $alias );
 
-				// Skip if empty
+				// Skip if empty.
 				if ( empty( $parsed ) ) {
 					continue;
 				}
 
-				// Append parsed orderby to array
+				// Append parsed orderby to array.
 				$orderby_array[] = $parsed . ' ' . $this->parse_order( $value );
 			}
 
-			// Only set if valid orderby
+			// Only set if valid orderby.
 			if ( ! empty( $orderby_array ) ) {
 				$retval = implode( ', ', $orderby_array );
 			}
 		}
 
-		// Bail if nothing to orderby
+		// Bail if nothing to orderby.
 		if ( empty( $retval ) && ! empty( $before ) ) {
 			return '';
 		}
 
-		// Return parsed orderby
+		// Return parsed orderby.
 		return implode( ' ', array( $before, $retval ) );
 	}
 
@@ -1946,12 +1946,12 @@ class Query {
 	 */
 	private function parse_where_clause( $where = array() ) {
 
-		// Bail if no where
+		// Bail if no where.
 		if ( empty( $where ) ) {
 			return '';
 		}
 
-		// Return SQL
+		// Return SQL.
 		return 'WHERE ' . implode( ' AND ', $where );
 	}
 
@@ -1964,12 +1964,12 @@ class Query {
 	 */
 	private function parse_join_clause( $join = array() ) {
 
-		// Bail if no join
+		// Bail if no join.
 		if ( empty( $join ) ) {
 			return '';
 		}
 
-		// Return SQL
+		// Return SQL.
 		return implode( ' ', $join );
 	}
 
@@ -1982,15 +1982,15 @@ class Query {
 	 */
 	private function parse_query_clauses( $clauses = array() ) {
 
-		// Maybe fallback to $query_clauses
+		// Maybe fallback to $query_clauses.
 		if ( empty( $clauses ) && ! empty( $this->query_clauses ) ) {
 			$clauses = $this->query_clauses;
 		}
 
-		// Default return value
+		// Default return value.
 		$retval = wp_parse_args( $clauses );
 
-		// Return array of clauses
+		// Return array of clauses.
 		return $retval;
 	}
 
@@ -2003,21 +2003,21 @@ class Query {
 	 */
 	private function parse_request_clauses( $clauses = array() ) {
 
-		// Maybe fallback to $request_clauses
+		// Maybe fallback to $request_clauses.
 		if ( empty( $clauses ) && ! empty( $this->request_clauses ) ) {
 			$clauses = $this->request_clauses;
 		}
 
-		// Bail if empty clauses
+		// Bail if empty clauses.
 		if ( empty( $clauses ) ) {
 			return '';
 		}
 
-		// Remove empties
+		// Remove empties.
 		$filtered = array_filter( $clauses );
 		$retval   = array_map( 'trim', $filtered );
 
-		// Return SQL
+		// Return SQL.
 		return implode( ' ', $retval );
 	}
 
@@ -2032,21 +2032,21 @@ class Query {
 	 */
 	private function parse_limits( $number = 0, $offset = 0 ) {
 
-		// Default return value
+		// Default return value.
 		$retval = '';
 
-		// No negative numbers
+		// No negative numbers.
 		$limit  = absint( $number );
 		$offset = absint( $offset );
 
-		// Only limit & offset if not limit empty
+		// Only limit & offset if not limit empty.
 		if ( ! empty( $limit ) ) {
 			$retval = ! empty( $offset )
 				? "LIMIT {$offset}, {$limit}"
 				: "LIMIT {$limit}";
 		}
 
-		// Return
+		// Return.
 		return $retval;
 	}
 
@@ -2107,12 +2107,12 @@ class Query {
 	 */
 	private function parse_order( $order  = 'DESC' ) {
 
-		// Bail if malformed
+		// Bail if malformed.
 		if ( empty( $order ) || ! is_string( $order ) ) {
 			return 'DESC';
 		}
 
-		// Ascending or Descending
+		// Ascending or Descending.
 		return ( 'ASC' === strtoupper( $order ) )
 			? 'ASC'
 			: 'DESC';
@@ -2131,22 +2131,22 @@ class Query {
 	 */
 	private function shape_item( $item = 0 ) {
 
-		// Get the item from an ID
+		// Get the item from an ID.
 		if ( is_numeric( $item ) ) {
 			$item = $this->get_item( $item );
 		}
 
-		// Return the item if it's already shaped
+		// Return the item if it's already shaped.
 		if ( $item instanceof $this->current_item_shape ) {
 			return $item;
 		}
 
-		// Shape the item as needed
+		// Shape the item as needed.
 		$item = ! empty( $this->current_item_shape )
 			? new $this->current_item_shape( $item )
 			: (object) $item;
 
-		// Return the item object
+		// Return the item object.
 		return $item;
 	}
 
@@ -2168,37 +2168,37 @@ class Query {
 	 */
 	private function shape_items( $items = array(), $fields = array() ) {
 
-		// Maybe fallback to $query_vars
+		// Maybe fallback to $query_vars.
 		if ( empty( $fields ) ) {
 			$fields = $this->get_query_var( 'fields' );
 		}
 
-		// Force to stdClass if querying for fields
+		// Force to stdClass if querying for fields.
 		if ( ! empty( $fields ) ) {
 			$this->current_item_shape = 'stdClass';
 		} else {
 			$this->current_item_shape = $this->item_shape;
 		}
 
-		// Default return value
+		// Default return value.
 		$retval = array();
 
-		// Loop through items and get each item individually
+		// Loop through items and get each item individually.
 		if ( ! empty( $items ) ) {
 			foreach ( $items as $item ) {
 				$retval[] = $this->get_item( $item );
 			}
 		}
 
-		// Filter the items
+		// Filter the items.
 		$retval = $this->filter_items( $retval );
 
-		// Maybe return specific fields
+		// Maybe return specific fields.
 		if ( ! empty( $fields ) ) {
 			$retval = $this->get_item_fields( $retval, $fields );
 		}
 
-		// Return shaped items
+		// Return shaped items.
 		return $retval;
 	}
 
@@ -2215,22 +2215,22 @@ class Query {
 	 */
 	private function shape_item_id( $item = 0 ) {
 
-		// Default return value
+		// Default return value.
 		$retval  = $item;
 
-		// Get the primary column name
+		// Get the primary column name.
 		$primary = $this->get_primary_column_name();
 
-		// Object item
+		// Object item.
 		if ( is_object( $item ) && isset( $item->{$primary} ) ) {
 			$retval = $item->{$primary};
 
-		// Array item
+		// Array item.
 		} elseif ( is_array( $item ) && isset( $item[ $primary ] ) ) {
 			$retval = $item[ $primary ];
 		}
 
-		// Return the validated item ID
+		// Return the validated item ID.
 		return $this->validate_item_field( $retval, $primary );
 	}
 
@@ -2246,15 +2246,15 @@ class Query {
 	 */
 	private function validate_item_field( $value = '', $column_name = '' ) {
 
-		// Get the column
+		// Get the column.
 		$column = $this->get_column_by( array( 'name' => $column_name ) );
 
-		// Bail if no column found
+		// Bail if no column found.
 		if ( empty( $column ) ) {
 			return false;
 		}
 
-		// Validate
+		// Validate.
 		return $column->validate( $value );
 	}
 
@@ -2270,43 +2270,43 @@ class Query {
 	 */
 	private function get_item_fields( $items = array(), $fields = array() ) {
 
-		// Maybe fallback to $query_vars
+		// Maybe fallback to $query_vars.
 		if ( empty( $fields ) ) {
 			$fields = $this->get_query_var( 'fields' );
 		}
 
-		// Bail if no fields to get
+		// Bail if no fields to get.
 		if ( empty( $fields ) ) {
 			return $items;
 		}
 
-		// Maybe cast to array
+		// Maybe cast to array.
 		if ( ! is_array( $fields ) ) {
 			$fields = (array) $fields;
 		}
 
-		// Default return value
+		// Default return value.
 		$retval = $items;
 
-		// Get the primary column name
+		// Get the primary column name.
 		$primary = $this->get_primary_column_name();
 
-		// 'ids' is numerically keyed
+		// 'ids' is numerically keyed.
 		if ( ( 1 === count( $fields ) ) && ( 'ids' === $fields[0] ) ) {
 			$retval = wp_list_pluck( $items, $primary );
 
-		// Get fields from items
+		// Get fields from items.
 		} else {
 			$retval = array();
 			$fields = array_flip( $fields );
 
-			// Loop through items and pluck out the fields
+			// Loop through items and pluck out the fields.
 			foreach ( $items as $item ) {
 				$retval[ $item->{$primary} ] = (object) array_intersect_key( (array) $item, $fields );
 			}
 		}
 
-		// Return the item fields
+		// Return the item fields.
 		return $retval;
 	}
 
@@ -2325,18 +2325,18 @@ class Query {
 	 */
 	public function get_item( $item_id = 0 ) {
 
-		// Shape the item ID
+		// Shape the item ID.
 		$item_id = $this->shape_item_id( $item_id );
 
-		// Bail if no item to get by
+		// Bail if no item to get by.
 		if ( empty( $item_id ) ) {
 			return false;
 		}
 
-		// Get the primary column name
+		// Get the primary column name.
 		$primary = $this->get_primary_column_name();
 
-		// Get item by ID
+		// Get item by ID.
 		return $this->get_item_by( $primary, $item_id );
 	}
 
@@ -2354,34 +2354,34 @@ class Query {
 	 */
 	public function get_item_by( $column_name = '', $column_value = '' ) {
 
-		// Bail if empty or non-scalar value
+		// Bail if empty or non-scalar value.
 		if ( empty( $column_value ) || ! is_scalar( $column_value ) ) {
 			return false;
 		}
 
-		// Bail if column does not exist
+		// Bail if column does not exist.
 		if ( ! $this->is_valid_column( $column_name ) ) {
 			return false;
 		}
 
-		// Default return value
+		// Default return value.
 		$retval = false;
 
-		// Get all of the cache groups
+		// Get all of the cache groups.
 		$groups = $this->get_cache_groups();
 
-		// Check cache
+		// Check cache.
 		if ( ! empty( $groups[ $column_name ] ) ) {
 			$retval = $this->cache_get( $column_value, $groups[ $column_name ] );
 		}
 
-		// Item not cached
+		// Item not cached.
 		if ( false === $retval ) {
 
-			// Get item by column name & value (from database, not cache)
+			// Get item by column name & value (from database, not cache).
 			$retval = $this->get_item_raw( $column_name, $column_value );
 
-			// Bail on failure
+			// Bail on failure.
 			if ( ! $this->is_success( $retval ) ) {
 				return false;
 			}
@@ -2390,10 +2390,10 @@ class Query {
 			$this->update_item_cache( $retval, false );
 		}
 
-		// Reduce the item
+		// Reduce the item.
 		$retval = $this->reduce_item( 'select', $retval );
 
-		// Return result
+		// Return result.
 		return $this->shape_item( $retval );
 	}
 
@@ -2407,77 +2407,77 @@ class Query {
 	 */
 	public function add_item( $data = array() ) {
 
-		// Get the database interface
+		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available
+		// Bail if no database interface is available.
 		if ( empty( $db ) ) {
 			return false;
 		}
 
-		// Get the primary column name
+		// Get the primary column name.
 		$primary = $this->get_primary_column_name();
 
-		// If data includes primary column, check if item already exists
+		// If data includes primary column, check if item already exists.
 		if ( ! empty( $data[ $primary ] ) ) {
 
-			// Shape the primary item ID
+			// Shape the primary item ID.
 			$item_id = $this->shape_item_id( $data[ $primary ] );
 
-			// Get item by ID (from database, not cache)
+			// Get item by ID (from database, not cache).
 			$item    = $this->get_item_raw( $primary, $item_id );
 
-			// Bail if item already exists
+			// Bail if item already exists.
 			if ( ! empty( $item ) ) {
 				return false;
 			}
 
-			// Set data primary ID to newly shaped ID
+			// Set data primary ID to newly shaped ID.
 			$data[ $primary ] = $item_id;
 		}
 
-		// Get default values for item (from columns)
+		// Get default values for item (from columns).
 		$item = $this->default_item();
 
-		// Unset the primary key if not part of data array (auto-incremented)
+		// Unset the primary key if not part of data array (auto-incremented).
 		if ( empty( $data[ $primary ] ) ) {
 			unset( $item[ $primary ] );
 		}
 
-		// Slice data that has columns, and cut out non-keys for meta
+		// Slice data that has columns, and cut out non-keys for meta.
 		$columns = array_flip( $this->get_column_names() );
 		$data    = array_merge( $item, $data );
 		$meta    = array_diff_key( $data, $columns );
 		$save    = array_intersect_key( $data, $columns );
 
-		// Bail if nothing to save
+		// Bail if nothing to save.
 		if ( empty( $save ) && empty( $meta ) ) {
 			return false;
 		}
 
-		// Get the current time (maybe used by created/modified)
+		// Get the current time (maybe used by created/modified).
 		$time = $this->get_current_time();
 
-		// If date-created exists, but is empty or default, use the current time
+		// If date-created exists, but is empty or default, use the current time.
 		$created = $this->get_column_by( array( 'created' => true ) );
 		if ( ! empty( $created ) && ( empty( $save[ $created->name ] ) || ( $save[ $created->name ] === $created->default ) ) ) {
 			$save[ $created->name ] = $time;
 		}
 
-		// If date-modified exists, but is empty or default, use the current time
+		// If date-modified exists, but is empty or default, use the current time.
 		$modified = $this->get_column_by( array( 'modified' => true ) );
 		if ( ! empty( $modified ) && ( empty( $save[ $modified->name ] ) || ( $save[ $modified->name ] === $modified->default ) ) ) {
 			$save[ $modified->name ] = $time;
 		}
 
-		// Reduce & validate
+		// Reduce & validate.
 		$reduce = $this->reduce_item( 'insert', $save );
 		$save   = $this->validate_item( $reduce );
 
-		// Default return value
+		// Default return value.
 		$retval = false;
 
-		// Try to save
+		// Try to save.
 		if ( ! empty( $save ) ) {
 			$table       = $this->get_table_name();
 			$names       = array_keys( $save );
@@ -2485,26 +2485,26 @@ class Query {
 			$retval      = $db->insert( $table, $save, $save_format );
 		}
 
-		// Bail on failure
+		// Bail on failure.
 		if ( ! $this->is_success( $retval ) ) {
 			return false;
 		}
 
-		// Get the new item ID
+		// Get the new item ID.
 		$retval = $db->insert_id;
 
-		// Maybe save meta keys
+		// Maybe save meta keys.
 		if ( ! empty( $meta ) ) {
 			$this->save_extra_item_meta( $retval, $meta );
 		}
 
-		// Update item cache(s)
+		// Update item cache(s).
 		$this->update_item_cache( $retval );
 
-		// Transition item data
+		// Transition item data.
 		$this->transition_item( $retval, $save, array() );
 
-		// Return
+		// Return.
 		return $retval;
 	}
 
@@ -2519,32 +2519,32 @@ class Query {
 	 */
 	public function copy_item( $item_id = 0, $data = array() ) {
 
-		// Get the primary column name
+		// Get the primary column name.
 		$primary = $this->get_primary_column_name();
 
-		// Shape the primary item ID
+		// Shape the primary item ID.
 		$item_id = $this->shape_item_id( $item_id );
 
-		// Get item by ID (from database, not cache)
+		// Get item by ID (from database, not cache).
 		$item    = $this->get_item_raw( $primary, $item_id );
 
-		// Bail if item does not exist
+		// Bail if item does not exist.
 		if ( empty( $item ) ) {
 			return false;
 		}
 
-		// Cast object to array
+		// Cast object to array.
 		$save = (array) $item;
 
-		// Maybe merge data with original item
+		// Maybe merge data with original item.
 		if ( ! empty( $data ) && is_array( $data ) ) {
 			$save = array_merge( $save, $data );
 		}
 
-		// Unset the primary key
+		// Unset the primary key.
 		unset( $save[ $primary ] );
 
-		// Return result of add_item()
+		// Return result of add_item().
 		return $this->add_item( $save );
 	}
 
@@ -2559,77 +2559,77 @@ class Query {
 	 */
 	public function update_item( $item_id = 0, $data = array() ) {
 
-		// Get the database interface
+		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available
+		// Bail if no database interface is available.
 		if ( empty( $db ) ) {
 			return false;
 		}
 
-		// Bail early if no data to update
+		// Bail early if no data to update.
 		if ( empty( $data ) ) {
 			return false;
 		}
 
-		// Shape the item ID
+		// Shape the item ID.
 		$item_id = $this->shape_item_id( $item_id );
 
-		// Bail if no item ID
+		// Bail if no item ID.
 		if ( empty( $item_id ) ) {
 			return false;
 		}
 
-		// Get the primary column name
+		// Get the primary column name.
 		$primary = $this->get_primary_column_name();
 
-		// Get item to update (from database, not cache)
+		// Get item to update (from database, not cache).
 		$item    = $this->get_item_raw( $primary, $item_id );
 
-		// Bail if item does not exist to update
+		// Bail if item does not exist to update.
 		if ( empty( $item ) ) {
 			return false;
 		}
 
-		// Cast as an array for easier manipulation
+		// Cast as an array for easier manipulation.
 		$item = (array) $item;
 
-		// Unset the primary key from item & data
+		// Unset the primary key from item & data.
 		unset(
 			$data[ $primary ],
 			$item[ $primary ]
 		);
 
-		// Slice data that has columns, and cut out non-keys for meta
+		// Slice data that has columns, and cut out non-keys for meta.
 		$columns = array_flip( $this->get_column_names() );
 		$data    = array_diff_assoc( $data, $item );
 		$meta    = array_diff_key( $data, $columns );
 		$save    = array_intersect_key( $data, $columns );
 
-		// Maybe save meta keys
+		// Maybe save meta keys.
 		if ( ! empty( $meta ) ) {
 			$this->save_extra_item_meta( $item_id, $meta );
 		}
 
-		// Bail if nothing to save
+		// Bail if nothing to save.
 		if ( empty( $save ) ) {
 			return false;
 		}
 
-		// If date-modified exists, use the current time
+		// If date-modified exists, use the current time.
 		$modified = $this->get_column_by( array( 'modified' => true ) );
 		if ( ! empty( $modified ) ) {
 			$save[ $modified->name ] = $this->get_current_time();
 		}
 
-		// Reduce & validate
+		// Reduce & validate.
 		$reduce = $this->reduce_item( 'update', $save );
 		$save   = $this->validate_item( $reduce );
 
-		// Default return value
+		// Default return value.
 		$retval = false;
 
-		// Try to update
+		// Try to update.
 		if ( ! empty( $save ) ) {
 			$table        = $this->get_table_name();
 			$where        = array( $primary => $item_id );
@@ -2639,18 +2639,18 @@ class Query {
 			$retval       = $db->update( $table, $save, $where, $save_format, $where_format );
 		}
 
-		// Bail on failure
+		// Bail on failure.
 		if ( ! $this->is_success( $retval ) ) {
 			return false;
 		}
 
-		// Update item cache(s)
+		// Update item cache(s).
 		$this->update_item_cache( $item_id );
 
-		// Transition item data
+		// Transition item data.
 		$this->transition_item( $item_id, $save, $item );
 
-		// Return
+		// Return.
 		return $retval;
 	}
 
@@ -2664,53 +2664,53 @@ class Query {
 	 */
 	public function delete_item( $item_id = 0 ) {
 
-		// Get the database interface
+		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available
+		// Bail if no database interface is available.
 		if ( empty( $db ) ) {
 			return false;
 		}
 
-		// Shape the item ID
+		// Shape the item ID.
 		$item_id = $this->shape_item_id( $item_id );
 
-		// Bail if no item ID
+		// Bail if no item ID.
 		if ( empty( $item_id ) ) {
 			return false;
 		}
 
-		// Get the primary column name
+		// Get the primary column name.
 		$primary = $this->get_primary_column_name();
 
-		// Get item by ID (from database, not cache)
+		// Get item by ID (from database, not cache).
 		$item = $this->get_item_raw( $primary, $item_id );
 
-		// Bail if item does not exist to delete
+		// Bail if item does not exist to delete.
 		if ( empty( $item ) ) {
 			return false;
 		}
 
-		// Attempt to reduce this item
+		// Attempt to reduce this item.
 		$item = $this->reduce_item( 'delete', $item );
 
-		// Bail if item was reduced to nothing
+		// Bail if item was reduced to nothing.
 		if ( empty( $item ) ) {
 			return false;
 		}
 
-		// Try to delete
+		// Try to delete.
 		$table        = $this->get_table_name();
 		$where        = array( $primary => $item_id );
 		$where_format = $this->get_columns_field_by( 'name', $primary, 'pattern', '%s' );
 		$retval       = $db->delete( $table, $where, $where_format );
 
-		// Bail on failure
+		// Bail on failure.
 		if ( ! $this->is_success( $retval ) ) {
 			return false;
 		}
 
-		// Clean caches on successful delete
+		// Clean caches on successful delete.
 		$this->delete_all_item_meta( $item_id );
 		$this->clean_item_cache( $item );
 
@@ -2728,7 +2728,7 @@ class Query {
 			$retval
 		);
 
-		// Return
+		// Return.
 		return $retval;
 	}
 
@@ -2742,17 +2742,17 @@ class Query {
 	 */
 	private function validate_item( $item = array() ) {
 
-		// Bail if item is empty or not an array
+		// Bail if item is empty or not an array.
 		if ( empty( $item ) || ! is_array( $item ) ) {
 			return $item;
 		}
 
-		// Validate all item fields
+		// Validate all item fields.
 		foreach ( $item as $key => $value ) {
 			$item[ $key ] = $this->validate_item_field( $value, $key );
 		}
 
-		// Return the validated item
+		// Return the validated item.
 		return $this->filter_item( $item );
 	}
 
@@ -2773,18 +2773,18 @@ class Query {
 	 */
 	private function reduce_item( $method = 'update', $item = array() ) {
 
-		// Bail if item is empty
+		// Bail if item is empty.
 		if ( empty( $item ) ) {
 			return $item;
 		}
 
-		// Loop through item attributes
+		// Loop through item attributes.
 		foreach ( $item as $key => $value ) {
 
-			// Get capabilities for this column
+			// Get capabilities for this column.
 			$caps = $this->get_column_field( array( 'name' => $key ), 'caps' );
 
-			// Unset if not explicitly allowed
+			// Unset if not explicitly allowed.
 			if ( empty( $caps[ $method ] ) || ! current_user_can( $caps[ $method ] ) ) {
 				if ( is_array( $item ) ) {
 					unset( $item[ $key ] );
@@ -2792,7 +2792,7 @@ class Query {
 					$item->{$key} = null;
 				}
 
-			// Set if explicitly allowed
+			// Set if explicitly allowed.
 			} elseif ( is_array( $item ) ) {
 				$item[ $key ] = $value;
 			} elseif ( is_object( $item ) ) {
@@ -2800,7 +2800,7 @@ class Query {
 			}
 		}
 
-		// Return the reduced item
+		// Return the reduced item.
 		return $item;
 	}
 
@@ -2820,17 +2820,17 @@ class Query {
 	 */
 	private function default_item( $args = array() ) {
 
-		// Parse arguments
+		// Parse arguments.
 		$r = wp_parse_args( $args );
 
-		// Get the column names and their defaults
+		// Get the column names and their defaults.
 		$names    = $this->get_columns( $r, 'and', 'name'    );
 		$defaults = $this->get_columns( $r, 'and', 'default' );
 
-		// Combine them
+		// Combine them.
 		$retval   = array_combine( $names, $defaults );
 
-		// Return
+		// Return.
 		return $retval;
 	}
 
@@ -2848,47 +2848,47 @@ class Query {
 	 */
 	private function transition_item( $item_id = 0, $new_data = array(), $old_data = array() ) {
 
-		// Look for transition columns
+		// Look for transition columns.
 		$columns = $this->get_columns( array( 'transition' => true ), 'and', 'name' );
 
-		// Bail if no columns to transition
+		// Bail if no columns to transition.
 		if ( empty( $columns ) ) {
 			return;
 		}
 
-		// Shape the item ID
+		// Shape the item ID.
 		$item_id = $this->shape_item_id( $item_id );
 
-		// Bail if no item ID
+		// Bail if no item ID.
 		if ( empty( $item_id ) ) {
 			return;
 		}
 
-		// If no old value(s), it's new
+		// If no old value(s), it's new.
 		if ( empty( $old_data ) || ! is_array( $old_data ) ) {
 			$old_data = $new_data;
 
-			// Set all old values to "new"
+			// Set all old values to "new".
 			foreach ( $old_data as $key => $value ) {
 				$value            = 'new';
 				$old_data[ $key ] = $value;
 			}
 		}
 
-		// Compare
+		// Compare.
 		$keys = array_flip( $columns );
 		$new  = array_intersect_key( $new_data, $keys );
 		$old  = array_intersect_key( $old_data, $keys );
 
-		// Get the difference
+		// Get the difference.
 		$diff = array_diff( $new, $old );
 
-		// Bail if nothing is changing
+		// Bail if nothing is changing.
 		if ( empty( $diff ) ) {
 			return;
 		}
 
-		// Do the actions
+		// Do the actions.
 		foreach ( $diff as $key => $value ) {
 			$old_value  = $old_data[ $key ];
 			$new_value  = $new_data[ $key ];
@@ -2922,23 +2922,23 @@ class Query {
 	 */
 	protected function add_item_meta( $item_id = 0, $meta_key = '', $meta_value = '', $unique = false ) {
 
-		// Shape the item ID
+		// Shape the item ID.
 		$item_id = $this->shape_item_id( $item_id );
 
-		// Bail if no meta to add
+		// Bail if no meta to add.
 		if ( empty( $item_id ) || empty( $meta_key ) ) {
 			return false;
 		}
 
-		// Bail if no meta table exists
+		// Bail if no meta table exists.
 		if ( false === $this->get_meta_table_name() ) {
 			return false;
 		}
 
-		// Get the meta type
+		// Get the meta type.
 		$meta_type = $this->get_meta_type();
 
-		// Return results of adding meta data
+		// Return results of adding meta data.
 		return add_metadata( $meta_type, $item_id, $meta_key, $meta_value, $unique );
 	}
 
@@ -2954,23 +2954,23 @@ class Query {
 	 */
 	protected function get_item_meta( $item_id = 0, $meta_key = '', $single = false ) {
 
-		// Shape the item ID
+		// Shape the item ID.
 		$item_id = $this->shape_item_id( $item_id );
 
-		// Bail if no meta was returned
+		// Bail if no meta was returned.
 		if ( empty( $item_id ) || empty( $meta_key ) ) {
 			return false;
 		}
 
-		// Bail if no meta table exists
+		// Bail if no meta table exists.
 		if ( false === $this->get_meta_table_name() ) {
 			return false;
 		}
 
-		// Get the meta type
+		// Get the meta type.
 		$meta_type = $this->get_meta_type();
 
-		// Return results of getting meta data
+		// Return results of getting meta data.
 		return get_metadata( $meta_type, $item_id, $meta_key, $single );
 	}
 
@@ -2987,23 +2987,23 @@ class Query {
 	 */
 	protected function update_item_meta( $item_id = 0, $meta_key = '', $meta_value = '', $prev_value = '' ) {
 
-		// Shape the item ID
+		// Shape the item ID.
 		$item_id = $this->shape_item_id( $item_id );
 
-		// Bail if no meta was returned
+		// Bail if no meta was returned.
 		if ( empty( $item_id ) || empty( $meta_key ) ) {
 			return false;
 		}
 
-		// Bail if no meta table exists
+		// Bail if no meta table exists.
 		if ( false === $this->get_meta_table_name() ) {
 			return false;
 		}
 
-		// Get the meta type
+		// Get the meta type.
 		$meta_type = $this->get_meta_type();
 
-		// Return results of updating meta data
+		// Return results of updating meta data.
 		return update_metadata( $meta_type, $item_id, $meta_key, $meta_value, $prev_value );
 	}
 
@@ -3020,23 +3020,23 @@ class Query {
 	 */
 	protected function delete_item_meta( $item_id = 0, $meta_key = '', $meta_value = '', $delete_all = false ) {
 
-		// Shape the item ID
+		// Shape the item ID.
 		$item_id = $this->shape_item_id( $item_id );
 
-		// Bail if no meta was returned
+		// Bail if no meta was returned.
 		if ( empty( $item_id ) || empty( $meta_key ) ) {
 			return false;
 		}
 
-		// Bail if no meta table exists
+		// Bail if no meta table exists.
 		if ( false === $this->get_meta_table_name() ) {
 			return false;
 		}
 
-		// Get the meta type
+		// Get the meta type.
 		$meta_type = $this->get_meta_type();
 
-		// Return results of deleting meta data
+		// Return results of deleting meta data.
 		return delete_metadata( $meta_type, $item_id, $meta_key, $meta_value, $delete_all );
 	}
 
@@ -3051,10 +3051,10 @@ class Query {
 	 */
 	private function get_registered_meta_keys( $object_subtype = '' ) {
 
-		// Get the object type
+		// Get the object type.
 		$object_type = $this->get_meta_type();
 
-		// Return the keys
+		// Return the keys.
 		return get_registered_meta_keys( $object_type, $object_subtype );
 	}
 
@@ -3068,29 +3068,29 @@ class Query {
 	 */
 	private function save_extra_item_meta( $item_id = 0, $meta = array() ) {
 
-		// Shape the item ID
+		// Shape the item ID.
 		$item_id = $this->shape_item_id( $item_id );
 
-		// Bail if there is no bulk meta to save
+		// Bail if there is no bulk meta to save.
 		if ( empty( $item_id ) || empty( $meta ) ) {
 			return;
 		}
 
-		// Bail if no meta table exists
+		// Bail if no meta table exists.
 		if ( false === $this->get_meta_table_name() ) {
 			return;
 		}
 
-		// Only save registered keys
+		// Only save registered keys.
 		$keys = $this->get_registered_meta_keys();
 		$meta = array_intersect_key( $meta, $keys );
 
-		// Bail if no registered meta keys
+		// Bail if no registered meta keys.
 		if ( empty( $meta ) ) {
 			return;
 		}
 
-		// Save or delete meta data
+		// Save or delete meta data.
 		foreach ( $meta as $key => $value ) {
 			! empty( $value )
 				? $this->update_item_meta( $item_id, $key, $value )
@@ -3107,51 +3107,51 @@ class Query {
 	 */
 	private function delete_all_item_meta( $item_id = 0 ) {
 
-		// Get the database interface
+		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available
+		// Bail if no database interface is available.
 		if ( empty( $db ) ) {
 			return;
 		}
 
-		// Shape the item ID
+		// Shape the item ID.
 		$item_id = $this->shape_item_id( $item_id );
 
-		// Bail if no item ID
+		// Bail if no item ID.
 		if ( empty( $item_id ) ) {
 			return;
 		}
 
-		// Get the meta table name
+		// Get the meta table name.
 		$table = $this->get_meta_table_name();
 
-		// Bail if no meta table exists
+		// Bail if no meta table exists.
 		if ( empty( $table ) ) {
 			return;
 		}
 
-		// Get the primary column name
+		// Get the primary column name.
 		$primary = $this->get_primary_column_name();
 
-		// Guess the item ID column for the meta table
+		// Guess the item ID column for the meta table.
 		$item_id_column  = $this->apply_prefix( "{$this->item_name}_{$primary}" );
 		$item_id_pattern = $this->get_column_field( array( 'name' => $primary ), 'pattern', '%s' );
 
-		// Get meta IDs
+		// Get meta IDs.
 		$query    = "SELECT meta_id FROM {$table} WHERE {$item_id_column} = {$item_id_pattern}";
 		$prepared = $db->prepare( $query, $item_id );
 		$meta_ids = $db->get_col( $prepared );
 
-		// Bail if no meta IDs to delete
+		// Bail if no meta IDs to delete.
 		if ( empty( $meta_ids ) ) {
 			return;
 		}
 
-		// Get the meta type
+		// Get the meta type.
 		$meta_type = $this->get_meta_type();
 
-		// Delete all meta data for this item ID
+		// Delete all meta data for this item ID.
 		foreach ( $meta_ids as $mid ) {
 			delete_metadata_by_mid( $meta_type, $mid );
 		}
@@ -3167,21 +3167,21 @@ class Query {
 	 */
 	private function get_meta_table_name() {
 
-		// Get the meta type
+		// Get the meta type.
 		$type  = $this->get_meta_type();
 
-		// Append "meta" to end of meta type
+		// Append "meta" to end of meta type.
 		$table = "{$type}meta";
 
-		// Variable'ize the database interface, to use inside empty()
+		// Variable'ize the database interface, to use inside empty().
 		$db    = $this->get_db();
 
-		// If not empty, return table name
+		// If not empty, return table name.
 		if ( ! empty( $db->{$table} ) ) {
 			return $db->{$table};
 		}
 
-		// Return
+		// Return.
 		return false;
 	}
 
@@ -3263,18 +3263,18 @@ class Query {
 	 */
 	private function get_cache_group( $group = '' ) {
 
-		// Get the primary column
+		// Get the primary column.
 		$primary = $this->get_primary_column_name();
 
-		// Default return value
+		// Default return value.
 		$retval  = $this->cache_group;
 
-		// Only allow non-primary groups
+		// Only allow non-primary groups.
 		if ( ! empty( $group ) && ( $group !== $primary ) ) {
 			$retval = $group;
 		}
 
-		// Return the group
+		// Return the group.
 		return $retval;
 	}
 
@@ -3287,18 +3287,18 @@ class Query {
 	 */
 	private function get_cache_groups() {
 
-		// Return value
+		// Return value.
 		$cache_groups = array();
 
-		// Get the cache groups
+		// Get the cache groups.
 		$groups = $this->get_columns( array( 'cache_key' => true ), 'and', 'name' );
 
 		if ( ! empty( $groups ) ) {
 
-			// Get the primary column name
+			// Get the primary column name.
 			$primary = $this->get_primary_column_name();
 
-			// Setup return values
+			// Setup return values.
 			foreach ( $groups as $name ) {
 				if ( $primary !== $name ) {
 					$cache_groups[ $name ] = "{$this->cache_group}-by-{$name}";
@@ -3308,7 +3308,7 @@ class Query {
 			}
 		}
 
-		// Return cache groups array
+		// Return cache groups array.
 		return $cache_groups;
 	}
 
@@ -3334,20 +3334,20 @@ class Query {
 	 */
 	private function prime_item_caches( $item_ids = array(), $force = false ) {
 
-		// Get the database interface
+		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available
+		// Bail if no database interface is available.
 		if ( empty( $db ) ) {
 			return false;
 		}
 
-		// Bail if no items to cache
+		// Bail if no items to cache.
 		if ( empty( $item_ids ) ) {
 			return false;
 		}
 
-		// Accepts single values, so cast to array
+		// Accepts single values, so cast to array.
 		$item_ids = (array) $item_ids;
 
 		/**
@@ -3359,18 +3359,18 @@ class Query {
 		 */
 		if ( ! empty( $force ) || $this->get_query_var( 'update_item_cache' ) ) {
 
-			// Look for non-cached IDs
+			// Look for non-cached IDs.
 			$ids = $this->get_non_cached_ids( $item_ids, $this->cache_group );
 
-			// Proceed if non-cached IDs exist
+			// Proceed if non-cached IDs exist.
 			if ( ! empty( $ids ) ) {
 
-				// Get query parts
+				// Get query parts.
 				$table   = $this->get_table_name();
 				$primary = $this->get_primary_column_name();
 				$ids     = $this->get_in_sql( $primary, $ids );
 
-				// Query database
+				// Query database.
 				$query   = "SELECT * FROM {$table} WHERE {$primary} IN {$ids}";
 				$results = $db->get_results( $query );
 
@@ -3389,14 +3389,14 @@ class Query {
 		 */
 		if ( ! empty( $force ) || $this->get_query_var( 'update_meta_cache' ) ) {
 
-			// Proceed if meta table exists
+			// Proceed if meta table exists.
 			if ( $this->get_meta_table_name() ) {
 				$meta_type = $this->get_meta_type();
 				update_meta_cache( $meta_type, $item_ids );
 			}
 		}
 
-		// Return true because something was cached
+		// Return true because something was cached.
 		return true;
 	}
 
@@ -3417,41 +3417,41 @@ class Query {
 	 */
 	private function update_item_cache( $items = array(), $bump_last_changed = true ) {
 
-		// Maybe query for single item
+		// Maybe query for single item.
 		if ( is_scalar( $items ) ) {
 
-			// Get the primary column name
+			// Get the primary column name.
 			$primary = $this->get_primary_column_name();
 
-			// Shape the primary item ID
+			// Shape the primary item ID.
 			$item_id = $this->shape_item_id( $items );
 
-			// Get item by ID (from database, not cache)
+			// Get item by ID (from database, not cache).
 			$items   = $this->get_item_raw( $primary, $item_id );
 		}
 
-		// Bail if no items to cache
+		// Bail if no items to cache.
 		if ( empty( $items ) ) {
 			return false;
 		}
 
-		// Make sure items are an array (without casting objects to arrays)
+		// Make sure items are an array (without casting objects to arrays).
 		if ( ! is_array( $items ) ) {
 			$items = array( $items );
 		}
 
-		// Get the cache groups
+		// Get the cache groups.
 		$groups = $this->get_cache_groups();
 
-		// Loop through all items and cache them
+		// Loop through all items and cache them.
 		foreach ( $items as $item ) {
 
-			// Skip if item is not an object
+			// Skip if item is not an object.
 			if ( ! is_object( $item ) ) {
 				continue;
 			}
 
-			// Loop through groups and set cache
+			// Loop through groups and set cache.
 			if ( ! empty( $groups ) ) {
 				foreach ( $groups as $key => $group ) {
 					$this->cache_set( $item->{$key}, $item, $group );
@@ -3459,8 +3459,10 @@ class Query {
 			}
 		}
 
-		// Only bump last_changed for mutations; read-path warming must not
-		// invalidate the list cache that was just stored.
+		/*
+		 * Only bump last_changed for mutations; read-path warming must not
+		 * invalidate the list cache that was just stored.
+		 */
 		if ( $bump_last_changed ) {
 			$this->update_last_changed_cache();
 		}
@@ -3483,28 +3485,28 @@ class Query {
 	 */
 	private function clean_item_cache( $items = array() ) {
 
-		// Bail if no items to clean
+		// Bail if no items to clean.
 		if ( empty( $items ) ) {
 			return false;
 		}
 
-		// Make sure items are an array
+		// Make sure items are an array.
 		if ( ! is_array( $items ) ) {
 			$items = array( $items );
 		}
 
-		// Get the cache groups
+		// Get the cache groups.
 		$groups = $this->get_cache_groups();
 
-		// Loop through all items and clean them
+		// Loop through all items and clean them.
 		foreach ( $items as $item ) {
 
-			// Skip if item is not an object
+			// Skip if item is not an object.
 			if ( ! is_object( $item ) ) {
 				continue;
 			}
 
-			// Loop through groups and delete cache
+			// Loop through groups and delete cache.
 			if ( ! empty( $groups ) ) {
 				foreach ( $groups as $key => $group ) {
 					$this->cache_delete( $item->{$key}, $group );
@@ -3512,7 +3514,7 @@ class Query {
 			}
 		}
 
-		// Update last changed
+		// Update last changed.
 		$this->update_last_changed_cache();
 
 		return true;
@@ -3527,13 +3529,13 @@ class Query {
 	 */
 	private function update_last_changed_cache( $group = '' ) {
 
-		// Set last_changed to current microtime
+		// Set last_changed to current microtime.
 		$this->set_last_changed();
 
-		// Set the last changed time for this cache group
+		// Set the last changed time for this cache group.
 		$this->cache_set( 'last_changed', $this->last_changed, $group );
 
-		// Return the last changed time
+		// Return the last changed time.
 		return $this->last_changed;
 	}
 
@@ -3548,15 +3550,15 @@ class Query {
 	 */
 	private function get_last_changed_cache( $group = '' ) {
 
-		// Get the last changed cache value
+		// Get the last changed cache value.
 		$last_changed = $this->cache_get( 'last_changed', $group );
 
-		// Maybe update the last changed value
+		// Maybe update the last changed value.
 		if ( false === $last_changed ) {
 			$last_changed = $this->update_last_changed_cache( $group );
 		}
 
-		// Return the last changed value for the cache group
+		// Return the last changed value for the cache group.
 		return $last_changed;
 	}
 
@@ -3573,24 +3575,24 @@ class Query {
 	 */
 	private function get_non_cached_ids( $item_ids = array(), $group = '' ) {
 
-		// Bail if no item IDs
+		// Bail if no item IDs.
 		if ( empty( $item_ids ) ) {
 			return array();
 		}
 
-		// Default return value
+		// Default return value.
 		$retval = array();
 
-		// Loop through item IDs
+		// Loop through item IDs.
 		foreach ( $item_ids as $id ) {
 
-			// Add to return value if not cached
+			// Add to return value if not cached.
 			if ( false === $this->cache_get( $id, $group ) ) {
 				$retval[] = $id;
 			}
 		}
 
-		// Return array of IDs
+		// Return array of IDs.
 		return $retval;
 	}
 
@@ -3606,20 +3608,20 @@ class Query {
 	 */
 	private function cache_add( $key = '', $value = '', $group = '', $expire = 0 ) {
 
-		// Bail if cache invalidation is suspended
+		// Bail if cache invalidation is suspended.
 		if ( wp_suspend_cache_addition() ) {
 			return;
 		}
 
-		// Bail if no cache key
+		// Bail if no cache key.
 		if ( empty( $key ) ) {
 			return;
 		}
 
-		// Get the cache group
+		// Get the cache group.
 		$group = $this->get_cache_group( $group );
 
-		// Add to the cache
+		// Add to the cache.
 		wp_cache_add( $key, $value, $group, $expire );
 	}
 
@@ -3634,15 +3636,15 @@ class Query {
 	 */
 	private function cache_get( $key = '', $group = '', $force = false ) {
 
-		// Bail if no cache key
+		// Bail if no cache key.
 		if ( empty( $key ) ) {
 			return;
 		}
 
-		// Get the cache group
+		// Get the cache group.
 		$group = $this->get_cache_group( $group );
 
-		// Return from the cache
+		// Return from the cache.
 		return wp_cache_get( $key, $group, $force );
 	}
 
@@ -3658,20 +3660,20 @@ class Query {
 	 */
 	private function cache_set( $key = '', $value = '', $group = '', $expire = 0 ) {
 
-		// Bail if cache invalidation is suspended
+		// Bail if cache invalidation is suspended.
 		if ( wp_suspend_cache_addition() ) {
 			return;
 		}
 
-		// Bail if no cache key
+		// Bail if no cache key.
 		if ( empty( $key ) ) {
 			return;
 		}
 
-		// Get the cache group
+		// Get the cache group.
 		$group = $this->get_cache_group( $group );
 
-		// Update the cache
+		// Update the cache.
 		wp_cache_set( $key, $value, $group, $expire );
 	}
 
@@ -3688,20 +3690,20 @@ class Query {
 	private function cache_delete( $key = '', $group = '' ) {
 		global $_wp_suspend_cache_invalidation;
 
-		// Bail if cache invalidation is suspended
+		// Bail if cache invalidation is suspended.
 		if ( ! empty( $_wp_suspend_cache_invalidation ) ) {
 			return;
 		}
 
-		// Bail if no cache key
+		// Bail if no cache key.
 		if ( empty( $key ) ) {
 			return;
 		}
 
-		// Get the cache group
+		// Get the cache group.
 		$group = $this->get_cache_group( $group );
 
-		// Delete the cache
+		// Delete the cache.
 		wp_cache_delete( $key, $group );
 	}
 
@@ -3844,7 +3846,7 @@ class Query {
 	 */
 	public function get_results( $cols = array(), $where_cols = array(), $limit = 25, $offset = null, $output = OBJECT ) {
 
-		// Parse arguments
+		// Parse arguments.
 		$r = wp_parse_args( $where_cols, array(
 			'fields'            => $cols,
 			'number'            => $limit,
@@ -3854,7 +3856,7 @@ class Query {
 			'update_meta_cache' => false,
 		) );
 
-		// Get items
+		// Get items.
 		return $this->query( $r );
 	}
 }

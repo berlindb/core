@@ -13,7 +13,7 @@ declare( strict_types = 1 );
 
 namespace BerlinDB\Database\Kern;
 
-// Exit if accessed directly
+// Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
 
 /**

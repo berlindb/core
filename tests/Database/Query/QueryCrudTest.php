@@ -50,15 +50,17 @@ class QueryCrudTest extends TestCase {
 	public function setUp(): void {
 		parent::setUp();
 
-		// parent::setUp() resets the current user to 0 via clean_up_global_scope().
-		// Re-set here so Query::reduce_item() passes capability checks.
+		/*
+		 * parent::setUp() resets the current user to 0 via clean_up_global_scope().
+		 * Re-set here so Query::reduce_item() passes capability checks.
+		 */
 		wp_set_current_user( 1 );
 
 		self::$table->delete_all();
 		wp_cache_flush();
 	}
 
-	// add_item()
+	// add_item().
 
 	public function test_add_item_returns_positive_integer_id() {
 		$id = self::$query->add_item( array( 'name' => 'Widget A', 'status' => 'active' ) );
@@ -67,8 +69,10 @@ class QueryCrudTest extends TestCase {
 	}
 
 	public function test_add_item_with_empty_array_returns_id_via_autofill() {
-		// BerlinDB auto-fills uuid, date_created, and date_modified even when
-		// no explicit data is provided, so the insert succeeds.
+		/*
+		 * BerlinDB auto-fills uuid, date_created, and date_modified even when
+		 * no explicit data is provided, so the insert succeeds.
+		 */
 		$result = self::$query->add_item( array() );
 		$this->assertIsInt( $result );
 		$this->assertGreaterThan( 0, $result );
@@ -94,7 +98,7 @@ class QueryCrudTest extends TestCase {
 		$this->assertStringStartsWith( 'urn:uuid:', $item->uuid );
 	}
 
-	// get_item()
+	// get_item().
 
 	public function test_get_item_returns_test_row_instance() {
 		$id   = self::$query->add_item( array( 'name' => 'Widget A' ) );
@@ -119,7 +123,7 @@ class QueryCrudTest extends TestCase {
 		$this->assertFalse( $result );
 	}
 
-	// get_item_by()
+	// get_item_by().
 
 	public function test_get_item_by_returns_row_for_existing_status() {
 		self::$query->add_item( array( 'name' => 'Widget A', 'status' => 'pending' ) );
@@ -138,7 +142,7 @@ class QueryCrudTest extends TestCase {
 		$this->assertFalse( $result );
 	}
 
-	// update_item()
+	// update_item().
 
 	public function test_update_item_modifies_name() {
 		$id = self::$query->add_item( array( 'name' => 'Original' ) );
@@ -169,7 +173,7 @@ class QueryCrudTest extends TestCase {
 		$this->assertFalse( $result );
 	}
 
-	// delete_item()
+	// delete_item().
 
 	public function test_delete_item_removes_the_row() {
 		$id = self::$query->add_item( array( 'name' => 'Doomed Widget' ) );
@@ -191,7 +195,7 @@ class QueryCrudTest extends TestCase {
 		$this->assertFalse( $result );
 	}
 
-	// copy_item()
+	// copy_item().
 
 	public function test_copy_item_creates_a_new_row() {
 		$id     = self::$query->add_item( array( 'name' => 'Original Widget' ) );

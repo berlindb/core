@@ -12,7 +12,7 @@ declare( strict_types = 1 );
 
 namespace BerlinDB\Database\Parsers;
 
-// Exit if accessed directly
+// Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -117,7 +117,7 @@ class By extends Base {
 		// Loop through ins.
 		foreach ( array_keys( $ins ) as $column ) {
 
-			// Parse query var
+			// Parse query var.
 			$values = $this->caller( 'parse_query_var', $clause, $column );
 
 			// Parse item for an IN clause.
@@ -125,17 +125,17 @@ class By extends Base {
 				continue;
 			}
 
-			// Get pattern and aliased name
+			// Get pattern and aliased name.
 			$pattern = $this->caller( 'get_column_field', array( 'name' => $column ), 'pattern', '%s' );
 			$aliased = $this->caller( 'get_quoted_column_name_aliased', $column );
 
-			// Convert single item arrays to literal column comparisons
+			// Convert single item arrays to literal column comparisons.
 			if ( 1 === count( $values ) ) {
 				$statement        = "{$aliased} = {$pattern}";
 				$column_value     = reset( $values );
 				$where[ $column ] = $db->prepare( $statement, $column_value );
 
-			// Implode
+			// Implode.
 			} else {
 				$in_values                = $this->caller( 'get_in_sql', $column, $values, true, $pattern );
 				$where[ "{$column}__in" ] = "{$aliased} IN {$in_values}";

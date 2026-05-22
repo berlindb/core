@@ -12,7 +12,7 @@ declare( strict_types = 1 );
 
 namespace BerlinDB\Database\Traits;
 
-// Exit if accessed directly
+// Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -171,7 +171,7 @@ trait Base {
 		// Trim spaces off the ends.
 		$unspace = trim( $string );
 
-		// Only non-accented table names (avoid truncation)
+		// Only non-accented table names (avoid truncation).
 		$accents = remove_accents( $unspace );
 
 		// Convert to lowercase.

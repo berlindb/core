@@ -12,7 +12,7 @@ declare( strict_types = 1 );
 
 namespace BerlinDB\Database\Parsers;
 
-// Exit if accessed directly
+// Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -116,7 +116,7 @@ class NotIn extends Base {
 		// Loop through ins.
 		foreach ( array_keys( $ins ) as $column ) {
 
-			// Parse query var
+			// Parse query var.
 			$values = $this->caller( 'parse_query_var', $clause, $column );
 
 			// Skip if parse fails.
@@ -124,18 +124,18 @@ class NotIn extends Base {
 				continue;
 			}
 
-			// Get pattern and aliased name
+			// Get pattern and aliased name.
 			$name    = str_replace( '__not_in', '', $column );
 			$pattern = $this->caller( 'get_column_field', array( 'name' => $name ), 'pattern', '%s' );
 			$aliased = $this->caller( 'get_quoted_column_name_aliased', $name );
 
-			// Convert single item arrays to literal column comparisons
+			// Convert single item arrays to literal column comparisons.
 			if ( 1 === count( $values ) ) {
 				$statement      = "{$aliased} != {$pattern}";
 				$column_value   = reset( $values );
 				$where[ $name ] = $db->prepare( $statement, $column_value );
 
-			// Implode
+			// Implode.
 			} else {
 				$in_values          = $this->caller( 'get_in_sql', $name, $values, true, $pattern );
 				$where[ $column ] = "{$aliased} NOT IN {$in_values}";
