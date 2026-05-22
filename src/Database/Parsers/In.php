@@ -191,7 +191,7 @@ class In extends Base {
 		}
 
 		// Build the FIELD() expression.
-		$values  = $caller->get_query_var( $orderby );
+		$values  = $caller->parse_query_var( $caller->query_vars, $orderby );
 		$item_in = $caller->get_in_sql( $column_name, $values, false );
 
 		// Bail if no IN values.

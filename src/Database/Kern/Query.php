@@ -1063,20 +1063,25 @@ class Query {
 		);
 	}
 
-	/** Private Getters *******************************************************/
-
 	/**
-	 * Get a query variable.
+	 * Get the value of a single query variable by key.
+	 *
+	 * Returns null when the key is not present in $query_vars. Exposed as
+	 * public so parser hooks (e.g. In::get_orderby_sql()) can read the
+	 * query vars set for the current run.
 	 *
 	 * @since 3.0.0
-	 * @param string $key
-	 * @return mixed
+	 *
+	 * @param string $key Query var key.
+	 * @return mixed Value, or null if not set.
 	 */
-	private function get_query_var( $key = '' ) {
+	public function get_query_var( $key = '' ) {
 		return isset( $this->query_vars[ $key ] )
 			? $this->query_vars[ $key ]
 			: null;
 	}
+
+	/** Private Getters *******************************************************/
 
 	/**
 	 * Return the current UTC time in MySQL DATETIME format.

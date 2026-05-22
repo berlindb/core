@@ -163,4 +163,54 @@ class InParserTest extends TestCase {
 
 		$this->assertSame( 2, (int) $count );
 	}
+
+	/**
+	 * Test that orderby=id__in returns rows in the exact order of the IN list.
+	 *
+	 * Passes all IDs in reverse-insertion order and verifies the FIELD()
+	 * expression preserves that custom sequence rather than falling back to
+	 * the default primary-key order.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_orderby_field_preserves_id_order() {
+		$reversed = array_reverse( $this->ids );
+
+		$results = self::$query->query( array(
+			'id__in'  => implode( ', ', $reversed ),
+			'orderby' => 'id__in',
+			'order'   => 'ASC',
+		) );
+
+		// All 5 rows must come back in exact reverse-insertion order.
+		$this->assertCount( 5, $results );
+		foreach ( $reversed as $i => $expected_id ) {
+			$this->assertSame( $expected_id, (int) $results[ $i ]->id );
+		}
+	}
+
+	/**
+	 * Test that orderby=status__in groups rows by their position in the IN list.
+	 *
+	 * Passes 'inactive, active' so inactive rows must precede active rows,
+	 * which is the opposite of alphabetical order.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_orderby_field_groups_by_status() {
+		$results = self::$query->query( array(
+			'status__in' => 'inactive, active',
+			'orderby'    => 'status__in',
+			'order'      => 'ASC',
+		) );
+
+		// 4 rows (Gamma + Delta = inactive; Alpha + Beta = active).
+		// The entire inactive group must come before the active group.
+		$this->assertCount( 4, $results );
+		$statuses = wp_list_pluck( $results, 'status' );
+		$this->assertSame( 'inactive', $statuses[0] );
+		$this->assertSame( 'inactive', $statuses[1] );
+		$this->assertSame( 'active',   $statuses[2] );
+		$this->assertSame( 'active',   $statuses[3] );
+	}
 }
