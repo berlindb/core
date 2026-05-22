@@ -16,11 +16,11 @@ namespace BerlinDB\Database\Traits;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * The base class that all other database base classes extend.
+ * The Base Trait provides shared utilities to all BerlinDB classes.
  *
- * This class attempts to provide some universal immutability to all other
- * classes that extend it, starting with a magic getter, but likely expanding
- * into a magic call handler and others.
+ * Composes Environment, Error, Magic, and Sanitizer. Provides the global
+ * $prefix property, to_array(), set_vars(), apply_prefix(), and first_letters().
+ * Magic __get() and __isset() behaviour is delegated to the Magic trait.
  *
  * @since 3.0.0
  *
@@ -30,6 +30,7 @@ trait Base {
 
 	use Environment;
 	use Error;
+	use Magic;
 	use Sanitizer;
 
 	/** Global Properties *****************************************************/
@@ -43,54 +44,6 @@ trait Base {
 	protected $prefix = '';
 
 	/** Public ****************************************************************/
-
-	/**
-	 * Magic isset().
-	 *
-	 * @since 1.0.0
-	 *
-	 * @param string $key
-	 * @return mixed
-	 */
-	public function __isset( $key = '' ) {
-
-		// Class method to try and call.
-		$method = "get_{$key}";
-
-		// Return callable method exists.
-		if ( is_callable( array( $this, $method ) ) ) {
-			return true;
-		}
-
-		// Return property if exists.
-		return property_exists( $this, $key );
-	}
-
-	/**
-	 * Magic get().
-	 *
-	 * @since 1.0.0
-	 *
-	 * @param string $key
-	 * @return mixed
-	 */
-	public function __get( $key = '' ) {
-
-		// Class method to try and call.
-		$method = "get_{$key}";
-
-		// Return get method results if callable.
-		if ( is_callable( array( $this, $method ) ) ) {
-			return call_user_func( array( $this, $method ) );
-
-			// Return property value if exists.
-		} elseif ( property_exists( $this, $key ) ) {
-			return $this->{$key};
-		}
-
-		// Return null if not exists.
-		return null;
-	}
 
 	/**
 	 * Converts the given object to an array.
