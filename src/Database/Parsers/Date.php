@@ -4,7 +4,7 @@
  *
  * @package     Database
  * @subpackage  Date
- * @copyright   2021-2022 - JJJ and all BerlinDB contributors
+ * @copyright   2021-2026 - JJJ and all BerlinDB contributors
  * @license     https://opensource.org/licenses/MIT MIT
  * @since       3.0.0
  */
@@ -465,7 +465,7 @@ class Date extends Base {
 		// Straight value compare
 		if ( isset( $clause['value'] ) ) {
 			$value   = $this->build_value( $compare, $clause['value'] );
-			$where[] = "{$column} {$compare} $value";
+			$where[] = "{$column} {$compare} {$value}";
 		}
 
 		// Hour/Minute/Second

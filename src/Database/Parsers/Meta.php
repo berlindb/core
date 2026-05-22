@@ -4,7 +4,7 @@
  *
  * @package     Database
  * @subpackage  Meta
- * @copyright   2021-2022 - JJJ and all BerlinDB contributors
+ * @copyright   2021-2026 - JJJ and all BerlinDB contributors
  * @license     https://opensource.org/licenses/MIT MIT
  * @since       1.1.0
  */

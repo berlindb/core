@@ -313,7 +313,7 @@ trait Parser {
 			}
 
 			/**
-			 * This is a first-order query.
+			 * Non-array values and declared first-order keys pass through as-is.
 			 *
 			 * Trust the values and sanitize when building SQL.
 			 */
@@ -321,7 +321,7 @@ trait Parser {
 				$retval[ $key ] = $query;
 
 			/**
-			 * This is a first-order query.
+			 * Arrays whose shape matches a first-order clause pass through as-is.
 			 *
 			 * Trust the values and sanitize when building SQL.
 			 */
