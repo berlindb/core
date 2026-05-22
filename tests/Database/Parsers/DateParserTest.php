@@ -102,7 +102,7 @@ class DateParserTest extends TestCase {
 			)
 		);
 
-		$table_name = self::$table->table_name;
+		$table_name = self::$query->get_table_name();
 
 		$dates = array(
 			'2020-01-15 00:00:00',

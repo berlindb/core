@@ -203,6 +203,9 @@ class Search extends Base {
 			return $search_columns;
 		}
 
+		// Generate filter name based on the plural item name, with prefix if set.
+		$filter_name = $this->apply_prefix( $this->caller( 'get_item_name_plural' ) . '_search_columns' );
+
 		/**
 		 * Filters the columns to search by.
 		 *
@@ -213,7 +216,7 @@ class Search extends Base {
 		 * @param \BerlinDB\Database\Query $query          Current query instance.
 		 */
 		return (array) apply_filters_ref_array(
-			$this->apply_prefix( "{$this->caller->item_name_plural}_search_columns" ),
+			$filter_name,
 			array(
 				$search_columns,
 				&$this,

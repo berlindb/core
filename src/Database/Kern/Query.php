@@ -1025,6 +1025,28 @@ class Query {
 	}
 
 	/**
+	 * Return the singular item name.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @return string
+	 */
+	public function get_item_name() {
+		return $this->item_name;
+	}
+
+	/**
+	 * Return the plural item name.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @return string
+	 */
+	public function get_item_name_plural() {
+		return $this->item_name_plural;
+	}
+
+	/**
 	 * Get the default query parser class list.
 	 *
 	 * This is filterable so plugins can register additional parser classes
@@ -1047,20 +1069,8 @@ class Query {
 			'BerlinDB\\Database\\Parsers\\Compare',
 		);
 
-		/**
-		 * Filter the default query parser class list.
-		 *
-		 * @since 3.0.0
-		 * @param string[] $parsers Array of fully-qualified Parser class names.
-		 * @param Query    $query   Current Query instance.
-		 */
-		return (array) apply_filters_ref_array(
-			$this->apply_prefix( 'query_var_parsers' ),
-			array(
-				$parsers,
-				&$this,
-			)
-		);
+		// Return the query var parser classes, filtered.
+		return $this->filter_query_var_parsers( $parsers );
 	}
 
 	/**
@@ -1154,6 +1164,9 @@ class Query {
 	 */
 	private function get_items() {
 
+		// Generate action name based on the plural item name.
+		$action_name = $this->apply_prefix( 'pre_get_' . $this->get_item_name_plural() );
+
 		/**
 		 * Fires before object items are retrieved.
 		 *
@@ -1162,7 +1175,7 @@ class Query {
 		 * @param \BerlinDB\Database\Query &$this Current instance passed by reference.
 		 */
 		do_action_ref_array(
-			$this->apply_prefix( "pre_get_{$this->item_name_plural}" ),
+			$action_name,
 			array(
 				&$this,
 			)
@@ -1361,6 +1374,9 @@ class Query {
 			$this->query_vars['update_meta_cache'] = false;
 		}
 
+		// Generate action name based on the plural item name.
+		$action_name = $this->apply_prefix( 'parse_' . $this->get_item_name_plural() . '_query' );
+
 		/**
 		 * Fires after the item query vars have been parsed.
 		 *
@@ -1369,7 +1385,7 @@ class Query {
 		 * @param \BerlinDB\Database\Query &$this Current instance passed by reference.
 		 */
 		do_action_ref_array(
-			$this->apply_prefix( "parse_{$this->item_name_plural}_query" ),
+			$action_name,
 			array(
 				&$this,
 			)
@@ -2709,6 +2725,9 @@ class Query {
 		$this->delete_all_item_meta( $item_id );
 		$this->clean_item_cache( $item );
 
+		// Get the action name with prefix and item name.
+		$action_name = $this->apply_prefix( $this->get_item_name() . '_deleted' );
+
 		/**
 		 * Fires after an object has been deleted.
 		 *
@@ -2718,7 +2737,7 @@ class Query {
 		 * @param bool  $result  Whether the item was successfully deleted.
 		 */
 		do_action(
-			$this->apply_prefix( "{$this->item_name}_deleted" ),
+			$action_name,
 			$item_id,
 			$retval
 		);
@@ -2883,11 +2902,14 @@ class Query {
 			return;
 		}
 
+		// Get the item name for the key action name.
+		$item_name = $this->get_item_name();
+
 		// Do the actions.
 		foreach ( $diff as $key => $value ) {
 			$old_value  = $old_data[ $key ];
 			$new_value  = $new_data[ $key ];
-			$key_action = $this->apply_prefix( "transition_{$this->item_name}_{$key}" );
+			$key_action = $this->apply_prefix( 'transition_' . $item_name . '_' . $key );
 
 			/**
 			 * Fires after an object value has transitioned.
@@ -3130,7 +3152,8 @@ class Query {
 		$primary = $this->get_primary_column_name();
 
 		// Guess the item ID column for the meta table.
-		$item_id_column  = $this->apply_prefix( "{$this->item_name}_{$primary}" );
+		$item_name       = $this->get_item_name();
+		$item_id_column  = $this->apply_prefix( $item_name . '_' . $primary );
 		$item_id_pattern = $this->get_column_field( array( 'name' => $primary ), 'pattern', '%s' );
 
 		// Get meta IDs.
@@ -3241,11 +3264,12 @@ class Query {
 		}
 
 		// Setup key & last_changed.
-		$key          = md5( serialize( $slice ) );
-		$last_changed = $this->get_last_changed_cache( $group );
+		$key              = md5( serialize( $slice ) );
+		$last_changed     = $this->get_last_changed_cache( $group );
+		$item_name_plural = $this->get_item_name_plural();
 
 		// Return the concatenated cache key.
-		return "get_{$this->item_name_plural}:{$key}:{$last_changed}";
+		return "get_{$item_name_plural}:{$key}:{$last_changed}";
 	}
 
 	/**
@@ -3714,6 +3738,9 @@ class Query {
 	 */
 	public function filter_item( $item = array() ) {
 
+		// Generate filter name based on the singular item name.
+		$filter_name = $this->apply_prefix( 'filter_' . $this->get_item_name() . '_item' );
+
 		/**
 		 * Filters an item before it is inserted or updated.
 		 *
@@ -3723,9 +3750,40 @@ class Query {
 		 * @param \BerlinDB\Database\Query $query Current query instance.
 		 */
 		return (array) apply_filters_ref_array(
-			$this->apply_prefix( "filter_{$this->item_name}_item" ),
+			$filter_name,
 			array(
 				$item,
+				&$this,
+			)
+		);
+	}
+
+	/**
+	 * Filter the default query parser class list.
+	 *
+	 * Allows plugins to modify the list of parser classes used to parse query vars.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param string[] $parsers Array of fully-qualified Parser class names.
+	 * @return string[] Filtered array of fully-qualified Parser class names.
+	 */
+	public function filter_query_var_parsers( $parsers = array() ) {
+
+		// Generate filter name with a prefix.
+		$filter_name = $this->apply_prefix( 'query_var_parsers' );
+
+		/**
+		 * Filter the default query parser class list.
+		 *
+		 * @since 3.0.0
+		 * @param string[] $parsers Array of fully-qualified Parser class names.
+		 * @param Query    $query   Current Query instance.
+		 */
+		return (array) apply_filters_ref_array(
+			$filter_name,
+			array(
+				$parsers,
 				&$this,
 			)
 		);
@@ -3741,6 +3799,9 @@ class Query {
 	 */
 	public function filter_items( $items = array() ) {
 
+		// Generate filter name based on the plural item name.
+		$filter_name = $this->apply_prefix( 'the_' . $this->get_item_name_plural() );
+
 		/**
 		 * Filters the object query results after they have been shaped.
 		 *
@@ -3750,7 +3811,7 @@ class Query {
 		 * @param \BerlinDB\Database\Query $query Current query instance.
 		 */
 		return (array) apply_filters_ref_array(
-			$this->apply_prefix( "the_{$this->item_name_plural}" ),
+			$filter_name,
 			array(
 				$items,
 				&$this,
@@ -3767,6 +3828,9 @@ class Query {
 	 */
 	public function filter_found_items_query( $sql = '' ) {
 
+		// Generate filter name based on the plural item name.
+		$filter_name = $this->apply_prefix( 'found_' . $this->get_item_name_plural() . '_query' );
+
 		/**
 		 * Filters the query used to retrieve the found item count.
 		 *
@@ -3778,7 +3842,7 @@ class Query {
 		 * @param \BerlinDB\Database\Query $query Current query instance.
 		 */
 		return (string) apply_filters_ref_array(
-			$this->apply_prefix( "found_{$this->item_name_plural}_query" ),
+			$filter_name,
 			array(
 				$sql,
 				&$this,
@@ -3796,6 +3860,9 @@ class Query {
 	 */
 	public function filter_query_clauses( $clauses = array() ) {
 
+		// Generate filter name based on the plural item name.
+		$filter_name = $this->apply_prefix( $this->get_item_name_plural() . '_query_clauses' );
+
 		/**
 		 * Filters the item query clauses.
 		 *
@@ -3805,7 +3872,7 @@ class Query {
 		 * @param \BerlinDB\Database\Query $query   Current query instance.
 		 */
 		return (array) apply_filters_ref_array(
-			$this->apply_prefix( "{$this->item_name_plural}_query_clauses" ),
+			$filter_name,
 			array(
 				$clauses,
 				&$this,
