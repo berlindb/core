@@ -182,6 +182,9 @@ trait Parser {
 	 */
 	public function init( $query_vars = array(), $caller = null ) {
 
+		// Allow subclasses to normalise query vars before the rest of init() runs.
+		$query_vars = $this->parse_query_vars( $query_vars );
+
 		// Set the caller & first_keys.
 		$this->set_caller( $caller );
 		$this->set_first_keys( array() );
@@ -209,6 +212,22 @@ trait Parser {
 
 		// Set the queries.
 		$this->queries = $this->sanitize_query( $query_vars );
+	}
+
+	/**
+	 * Pre-process query vars before init() runs.
+	 *
+	 * Subclasses may override this to transform raw query vars into the
+	 * normalised structure that init() expects. The default is a no-op.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param array $query_vars The raw query vars.
+	 *
+	 * @return array The (possibly transformed) query vars.
+	 */
+	protected function parse_query_vars( $query_vars = array() ) {
+		return $query_vars;
 	}
 
 	/**
@@ -1418,10 +1437,9 @@ trait Parser {
 		$count    = count( $values );
 		$patterns = array_fill( 0, $count, $pattern );
 
-		// Escape & prepare
-		$sql      = implode( ', ', $patterns );
-		$values   = $db->_escape( $values );       // May quote strings
-		$retval   = $db->prepare( $sql, $values ); // Catches quoted strings
+		// Prepare
+		$sql    = implode( ', ', $patterns );
+		$retval = $db->prepare( $sql, ...$values );
 
 		// Set return value to empty string if prepare() returns falsy
 		if ( empty( $retval ) ) {

@@ -134,8 +134,8 @@ trait Operator {
 			return '';
 		}
 
-		// Trim scalar values before preparing.
-		if ( is_scalar( $value ) ) {
+		// Trim string values before preparing.
+		if ( is_string( $value ) ) {
 			$value = trim( $value );
 		}
 

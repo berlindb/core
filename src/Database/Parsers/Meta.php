@@ -180,17 +180,36 @@ class Meta extends Base {
 	}
 
 	/**
-	 * Constructs a meta query based on 'meta_*' query vars
+	 * Normalises 'meta_*' shorthand vars into a structured meta_query array.
+	 *
+	 * Called by Parser::init() as a pre-processing hook. Returns the normalised
+	 * array; init() then proceeds with it rather than the raw query vars.
+	 *
+	 * The shorthand keys are a flat alternative to passing a full meta_query
+	 * array. When both are present they are combined with an AND relation.
+	 *
+	 * Accepted shorthand keys:
+	 *   meta_key         — the meta key name
+	 *   meta_value       — the meta value to compare against
+	 *   meta_compare     — comparison operator (default '=')
+	 *   meta_type        — cast type for the value (default 'CHAR')
+	 *   meta_compare_key — comparison operator for the key column (default '=')
+	 *   meta_type_key    — cast type for the key column (default 'CHAR')
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array                          $qv     The query variables.
-	 * @param \BerlinDB\Database\Query|null  $caller The parent Query instance, or null.
+	 * @param array $qv The query variables.
+	 *
+	 * @return array The normalised meta_query array.
 	 */
-	public function parse_query_vars( $qv = array(), $caller = null ) {
+	protected function parse_query_vars( $qv = array() ) {
 
-		// Default empty query.
-		$meta_query = array();
+		// If $qv is already a meta_query clause array (narrowed by the caller
+		// before init() ran), return it unchanged. Numeric keys mean it's an
+		// array of clause arrays; 'relation' means a multi-clause query.
+		if ( isset( $qv['relation'] ) || isset( $qv[0] ) ) {
+			return $qv;
+		}
 
 		/*
 		 * For orderby=meta_value to work correctly, simple query needs to be
@@ -218,6 +237,9 @@ class Meta extends Base {
 			? $qv['meta_query']
 			: array();
 
+		// Default empty query.
+		$meta_query = array();
+
 		// Combine via "AND" relation.
 		if ( ! empty( $simple_meta_query ) && ! empty( $existing_meta_query ) ) {
 			$meta_query = array(
@@ -237,8 +259,8 @@ class Meta extends Base {
 			$meta_query = $existing_meta_query;
 		}
 
-		// Setup
-		$this->init( $meta_query, $caller );
+		// Return the normalised meta_query array; Parser::init() will process it.
+		return $meta_query;
 	}
 
 	/**
@@ -328,8 +350,10 @@ class Meta extends Base {
 	public function get_join_where_clauses() {
 
 		// Get primary metadata from the caller query.
+		// Use the table alias (not the full name) so the ON clause matches
+		// the alias used in the main query's FROM clause.
 		$type           = $this->caller( 'get_meta_type' );
-		$primary_table  = $this->caller( 'get_table_name' );
+		$primary_table  = $this->caller( 'get_table_alias' );
 		$primary_column = $this->caller( 'get_primary_column_name' );
 
 		// Attempt to get the secondary table.
@@ -535,6 +559,7 @@ class Meta extends Base {
 
 				// Initialize subquery fragments; only populated for negative compare_key operators.
 				$subquery_alias             = '';
+				$qt_subquery_alias          = '';
 				$meta_compare_string_start  = '';
 				$meta_compare_string_end    = '';
 
@@ -547,11 +572,11 @@ class Meta extends Base {
 				if ( in_array( $meta_compare_key, $neg, true ) ) {
 
 					// Negative clauses may be reused.
-					$i              = count( $this->table_aliases );
-					$subquery_alias = ! empty( $i )
+					$i                 = count( $this->table_aliases );
+					$subquery_alias    = ! empty( $i )
 						? 'mt' . $i
 						: $this->meta_table;
-					$qt_subquery_alias    = $this->quote_identifier( $subquery_alias );
+					$qt_subquery_alias = $this->quote_identifier( $subquery_alias );
 
 					// Add to table_aliases.
 					$this->table_aliases[] = $subquery_alias;

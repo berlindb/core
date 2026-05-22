@@ -131,8 +131,16 @@ class Compare extends Base {
 
 		// Column name (sanitised) and value.
 		if ( array_key_exists( 'key', $clause ) && array_key_exists( 'value', $clause ) ) {
-			$name   = $this->sanitize_column_name( $clause['key'] );
-			$column = $this->caller( 'get_column_name_aliased', $name ) ?? $name;
+			$name = $this->sanitize_column_name( $clause['key'] );
+
+			// Bail if the key doesn't resolve to a valid column on the primary table.
+			// This prevents cross-parser contamination where other parsers' sub-arrays
+			// (e.g. meta_query clauses with 'key'/'value') are accidentally processed.
+			if ( empty( $name ) || ! $this->caller( 'get_column_by', array( 'name' => $name ) ) ) {
+				return $retval;
+			}
+
+			$column = $this->caller( 'get_quoted_column_name_aliased', $name ) ?? $name;
 			$where  = $this->build_value( $compare, $clause['value'], '%s' );
 
 			// Maybe add column, compare, & where to return value.

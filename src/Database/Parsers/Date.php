@@ -393,9 +393,18 @@ class Date extends Base {
 		$start_of_week = $this->get_start_of_week( $clause );
 		$inclusive     = ! empty( $clause['inclusive'] );
 
+		// Bail if no date column is resolved — this clause doesn't belong to a
+		// date query (e.g. a non-date sub-array accidentally matched first_keys).
+		if ( empty( $column ) ) {
+			return array(
+				'join'  => array(),
+				'where' => array(),
+			);
+		}
+
 		// Qualify the column with the primary table alias via the caller Query,
 		// falling back to the bare column name if no caller is set.
-		$column = $this->caller( 'get_column_name_aliased', $column ) ?? $column;
+		$column = $this->caller( 'get_quoted_column_name_aliased', $column ) ?? $column;
 
 		// Assign greater-than and less-than values.
 		$lt = '<';

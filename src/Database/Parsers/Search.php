@@ -123,7 +123,7 @@ class Search extends Base {
 		$sql_columns = array();
 		foreach ( $search_columns as $key ) {
 			$name          = str_replace( '_search', '', $key );
-			$sql_columns[] = $this->caller( 'get_column_name_aliased', $name ) ?? $name;
+			$sql_columns[] = $this->caller( 'get_quoted_column_name_aliased', $name ) ?? $name;
 		}
 
 		// Add search query clause

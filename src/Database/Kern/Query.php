@@ -914,6 +914,28 @@ class Query {
 		return $retval;
 	}
 
+	/**
+	 * Get the backtick-quoted alias.column_name string.
+	 *
+	 * @since 3.0.0
+	 * @param string $column_name
+	 * @param bool   $alias
+	 * @return string
+	 */
+	public function get_quoted_column_name_aliased( $column_name = '', $alias = true ) {
+
+		// Default return value
+		$retval = $this->quote_identifier( $column_name );
+
+		// Maybe prepend the quoted table alias.
+		if ( true === $alias ) {
+			$retval = $this->quote_identifier( $this->get_table_alias() ) . '.' . $retval;
+		}
+
+		// Return SQL
+		return $retval;
+	}
+
 	/** Public Getters ********************************************************/
 
 	/**
@@ -1213,9 +1235,13 @@ class Query {
 	 */
 	public function get_in_sql( $column_name = '', $values = array(), $wrap = true, $pattern = '' ) {
 
-		// Allow parser-style query var names like "status__in".
-		if ( is_string( $column_name ) && ( '__in' === substr( $column_name, -4 ) ) ) {
-			$column_name = substr( $column_name, 0, -4 );
+		// Allow parser-style query var names like "status__in" and "status__not_in".
+		if ( is_string( $column_name ) ) {
+			if ( '__not_in' === substr( $column_name, -8 ) ) {
+				$column_name = substr( $column_name, 0, -8 );
+			} elseif ( '__in' === substr( $column_name, -4 ) ) {
+				$column_name = substr( $column_name, 0, -4 );
+			}
 		}
 
 		// Bail if no values or invalid column
@@ -1655,7 +1681,7 @@ class Query {
 			$primary = $this->get_primary_column_name();
 
 			// Default return value
-			$retval = $this->get_column_name_aliased( $primary, $alias );
+			$retval = $this->get_quoted_column_name_aliased( $primary, $alias );
 		}
 
 		// Return fields
@@ -1768,7 +1794,7 @@ class Query {
 
 		// Maybe prepend table alias to key
 		foreach ( $intersect as $key ) {
-			$names[] = $this->get_column_name_aliased( $key, $alias );
+			$names[] = $this->get_quoted_column_name_aliased( $key, $alias );
 		}
 
 		// Format column names
@@ -2009,13 +2035,13 @@ class Query {
 			if ( in_array( $column_name, $ins, true ) ) {
 				$values  = $this->get_query_var( $orderby );
 				$item_in = $this->get_in_sql( $column_name, $values, false );
-				$aliased = $this->get_column_name_aliased( $column_name, $alias );
+				$aliased = $this->get_quoted_column_name_aliased( $column_name, $alias );
 				$retval  = "FIELD( {$aliased}, {$item_in} )";
 			}
 
 		// Specific sortable column.
 		} elseif ( in_array( $orderby, $sortables, true ) ) {
-			$retval = $this->get_column_name_aliased( $orderby, $alias );
+			$retval = $this->get_quoted_column_name_aliased( $orderby, $alias );
 		}
 
 		// Return SQL.

@@ -127,7 +127,7 @@ class NotIn extends Base {
 			// Get pattern and aliased name
 			$name    = str_replace( '__not_in', '', $column );
 			$pattern = $this->caller( 'get_column_field', array( 'name' => $name ), 'pattern', '%s' );
-			$aliased = $this->caller( 'get_column_name_aliased', $name );
+			$aliased = $this->caller( 'get_quoted_column_name_aliased', $name );
 
 			// Convert single item arrays to literal column comparisons
 			if ( 1 === count( $values ) ) {
