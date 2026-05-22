@@ -217,12 +217,12 @@ class Table {
 			'prefixed_name'     => array( $this, 'sanitize_table_name' ),
 			'schema'            => '',
 			'charset_collation' => 'wp_kses_data',
-			'comment'           => function( $v ) {
+			'comment'           => function ( $v ) {
 				return $this->sanitize_comment( $v, 2048 );
 			},
 
 			// Extras.
-			'upgrades'          => ''
+			'upgrades'          => '',
 		);
 
 		// Default return arguments.
@@ -235,12 +235,12 @@ class Table {
 			if ( isset( $callbacks[ $key ] ) && is_callable( $callbacks[ $key ] ) ) {
 				$r[ $key ] = call_user_func( $callbacks[ $key ], $value );
 
-			/**
-			 * Key has no validation method.
-			 *
-			 * Trust that the value has been validated. This may change in a
-			 * future version.
-			 */
+				/**
+				 * Key has no validation method.
+				 *
+				 * Trust that the value has been validated. This may change in a
+				 * future version.
+				 */
 			} else {
 				$r[ $key ] = $value;
 			}
@@ -307,11 +307,10 @@ class Table {
 			if ( $this->exists() ) {
 				$this->upgrade();
 
-			// Install.
+				// Install.
 			} else {
 				$this->install();
 			}
-
 		} finally {
 
 			// Always release the lock, even if an exception occurred.
@@ -439,7 +438,7 @@ class Table {
 		}
 
 		// Query statement.
-		$sql      = "SHOW TABLES LIKE %s";
+		$sql      = 'SHOW TABLES LIKE %s';
 		$like     = $db->esc_like( $this->table_name );
 		$prepared = $db->prepare( $sql, $like );
 		$result   = $db->get_var( $prepared );
@@ -468,7 +467,7 @@ class Table {
 		}
 
 		// Query statement.
-		$sql      = "SHOW TABLE STATUS LIKE %s";
+		$sql      = 'SHOW TABLE STATUS LIKE %s';
 		$like     = $db->esc_like( $this->table_name );
 		$prepared = $db->prepare( $sql, $like );
 		$query    = (array) $db->get_results( $prepared );
@@ -1246,7 +1245,7 @@ class Table {
 				array(
 					sanitize_key( $this->db_global ),
 					$this->prefixed_name,
-					'version'
+					'version',
 				)
 			);
 		}
@@ -1275,14 +1274,14 @@ class Table {
 			$site_id = 0;
 			$tables  = 'ms_global_tables';
 
-		// Set variables for per-site tables.
+			// Set variables for per-site tables.
 		} else {
 			$site_id = null;
 			$tables  = 'tables';
 		}
 
 		// Set table prefix and prefix table name.
-		$this->table_prefix  = $db->get_blog_prefix( $site_id );
+		$this->table_prefix = $db->get_blog_prefix( $site_id );
 
 		// Get the prefixed table name.
 		$prefixed_table_name = "{$this->table_prefix}{$this->prefixed_name}";
@@ -1326,7 +1325,7 @@ class Table {
 		// Update the DB version.
 		$this->is_global()
 			? update_network_option( get_main_network_id(), $this->db_version_key, $version )
-			:         update_option(                        $this->db_version_key, $version );
+			: update_option( $this->db_version_key, $version );
 
 		// Set the DB version.
 		$this->db_version = $version;
@@ -1340,7 +1339,7 @@ class Table {
 	private function get_db_version() {
 		$this->db_version = $this->is_global()
 			? get_network_option( get_main_network_id(), $this->db_version_key, '' )
-			:         get_option(                        $this->db_version_key, '' );
+			: get_option( $this->db_version_key, '' );
 	}
 
 	/**
@@ -1351,7 +1350,7 @@ class Table {
 	private function delete_db_version() {
 		$this->db_version = $this->is_global()
 			? delete_network_option( get_main_network_id(), $this->db_version_key )
-			:         delete_option(                        $this->db_version_key );
+			: delete_option( $this->db_version_key );
 	}
 
 	/**
@@ -1426,7 +1425,7 @@ class Table {
 		}
 
 		// Invoke a new table schema class.
-		$this->schema_object = new $this->schema;
+		$this->schema_object = new $this->schema();
 	}
 
 	/**
@@ -1437,8 +1436,8 @@ class Table {
 	private function add_hooks() {
 
 		// Add table to the global database object.
-		add_action( 'switch_blog', array( $this, 'switch_blog'   ) );
-		add_action( 'admin_init',  array( $this, 'maybe_upgrade' ) );
+		add_action( 'switch_blog', array( $this, 'switch_blog' ) );
+		add_action( 'admin_init', array( $this, 'maybe_upgrade' ) );
 	}
 
 	/**

@@ -47,51 +47,100 @@ class ColumnTest extends TestCase {
 	}
 
 	public function test_default_primary_is_false() {
-		$column = new Column( array( 'name' => 'id', 'type' => 'bigint' ) );
+		$column = new Column(
+			array(
+				'name' => 'id',
+				'type' => 'bigint',
+			)
+		);
 		$this->assertFalse( $column->primary );
 	}
 
 	// Type detection.
 
 	public function test_is_numeric_returns_true_for_bigint() {
-		$column = new Column( array( 'name' => 'id', 'type' => 'bigint' ) );
+		$column = new Column(
+			array(
+				'name' => 'id',
+				'type' => 'bigint',
+			)
+		);
 		$this->assertTrue( $column->is_numeric() );
 	}
 
 	public function test_is_int_returns_true_for_bigint() {
-		$column = new Column( array( 'name' => 'id', 'type' => 'bigint' ) );
+		$column = new Column(
+			array(
+				'name' => 'id',
+				'type' => 'bigint',
+			)
+		);
 		$this->assertTrue( $column->is_int() );
 	}
 
 	public function test_is_text_returns_false_for_bigint() {
-		$column = new Column( array( 'name' => 'id', 'type' => 'bigint' ) );
+		$column = new Column(
+			array(
+				'name' => 'id',
+				'type' => 'bigint',
+			)
+		);
 		$this->assertFalse( $column->is_text() );
 	}
 
 	public function test_is_text_returns_true_for_varchar() {
-		$column = new Column( array( 'name' => 'title', 'type' => 'varchar', 'length' => '255' ) );
+		$column = new Column(
+			array(
+				'name'   => 'title',
+				'type'   => 'varchar',
+				'length' => '255',
+			)
+		);
 		$this->assertTrue( $column->is_text() );
 	}
 
 	public function test_is_numeric_returns_false_for_varchar() {
-		$column = new Column( array( 'name' => 'title', 'type' => 'varchar', 'length' => '255' ) );
+		$column = new Column(
+			array(
+				'name'   => 'title',
+				'type'   => 'varchar',
+				'length' => '255',
+			)
+		);
 		$this->assertFalse( $column->is_numeric() );
 	}
 
 	public function test_is_date_time_returns_true_for_datetime() {
-		$column = new Column( array( 'name' => 'created', 'type' => 'datetime' ) );
+		$column = new Column(
+			array(
+				'name' => 'created',
+				'type' => 'datetime',
+			)
+		);
 		$this->assertTrue( $column->is_date_time() );
 	}
 
 	public function test_is_date_time_returns_false_for_varchar() {
-		$column = new Column( array( 'name' => 'title', 'type' => 'varchar', 'length' => '255' ) );
+		$column = new Column(
+			array(
+				'name'   => 'title',
+				'type'   => 'varchar',
+				'length' => '255',
+			)
+		);
 		$this->assertFalse( $column->is_date_time() );
 	}
 
 	// special_args(): primary → cache_key.
 
 	public function test_primary_true_forces_cache_key_true() {
-		$column = new Column( array( 'name' => 'id', 'type' => 'bigint', 'primary' => true ) );
+		$column = new Column(
+			array(
+				'name'    => 'id',
+				'type'    => 'bigint',
+				'primary' => true,
+			)
+		);
 		$this->assertTrue( $column->primary );
 		$this->assertTrue( $column->cache_key );
 	}
@@ -158,81 +207,95 @@ class ColumnTest extends TestCase {
 	// get_create_string().
 
 	public function test_get_create_string_for_primary_column_contains_name() {
-		$column = new Column( array(
-			'name'    => 'id',
-			'type'    => 'bigint',
-			'length'  => '20',
-			'primary' => true,
-			'extra'   => 'auto_increment',
-		) );
-		$sql = $column->get_create_string();
+		$column = new Column(
+			array(
+				'name'    => 'id',
+				'type'    => 'bigint',
+				'length'  => '20',
+				'primary' => true,
+				'extra'   => 'auto_increment',
+			)
+		);
+		$sql    = $column->get_create_string();
 		$this->assertStringContainsString( '`id`', $sql );
 	}
 
 	public function test_get_create_string_for_primary_column_contains_type() {
-		$column = new Column( array(
-			'name'    => 'id',
-			'type'    => 'bigint',
-			'length'  => '20',
-			'primary' => true,
-			'extra'   => 'auto_increment',
-		) );
-		$sql = $column->get_create_string();
+		$column = new Column(
+			array(
+				'name'    => 'id',
+				'type'    => 'bigint',
+				'length'  => '20',
+				'primary' => true,
+				'extra'   => 'auto_increment',
+			)
+		);
+		$sql    = $column->get_create_string();
 		$this->assertStringContainsString( 'bigint(20)', $sql );
 	}
 
 	public function test_get_create_string_for_primary_column_contains_unsigned() {
-		$column = new Column( array(
-			'name'     => 'id',
-			'type'     => 'bigint',
-			'length'   => '20',
-			'unsigned' => true,
-			'primary'  => true,
-			'extra'    => 'auto_increment',
-		) );
-		$sql = $column->get_create_string();
+		$column = new Column(
+			array(
+				'name'     => 'id',
+				'type'     => 'bigint',
+				'length'   => '20',
+				'unsigned' => true,
+				'primary'  => true,
+				'extra'    => 'auto_increment',
+			)
+		);
+		$sql    = $column->get_create_string();
 		$this->assertStringContainsString( 'unsigned', $sql );
 	}
 
 	public function test_get_create_string_for_primary_column_contains_auto_increment() {
-		$column = new Column( array(
-			'name'   => 'id',
-			'type'   => 'bigint',
-			'length' => '20',
-			'extra'  => 'auto_increment',
-		) );
-		$sql = $column->get_create_string();
+		$column = new Column(
+			array(
+				'name'   => 'id',
+				'type'   => 'bigint',
+				'length' => '20',
+				'extra'  => 'auto_increment',
+			)
+		);
+		$sql    = $column->get_create_string();
 		$this->assertStringContainsString( 'AUTO_INCREMENT', $sql );
 	}
 
 	public function test_get_create_string_for_varchar_column_contains_length() {
-		$column = new Column( array(
-			'name'    => 'title',
-			'type'    => 'varchar',
-			'length'  => '200',
-			'default' => '',
-		) );
-		$sql = $column->get_create_string();
+		$column = new Column(
+			array(
+				'name'    => 'title',
+				'type'    => 'varchar',
+				'length'  => '200',
+				'default' => '',
+			)
+		);
+		$sql    = $column->get_create_string();
 		$this->assertStringContainsString( 'varchar(200)', $sql );
 	}
 
 	public function test_get_create_string_for_varchar_column_contains_not_null() {
-		$column = new Column( array(
-			'name'       => 'title',
-			'type'       => 'varchar',
-			'length'     => '200',
-			'allow_null' => false,
-		) );
-		$sql = $column->get_create_string();
+		$column = new Column(
+			array(
+				'name'       => 'title',
+				'type'       => 'varchar',
+				'length'     => '200',
+				'allow_null' => false,
+			)
+		);
+		$sql    = $column->get_create_string();
 		$this->assertStringContainsString( 'not null', $sql );
 	}
 
 	public function test_get_create_string_for_datetime_column_contains_type() {
-		$column = new Column( array(
-			'name' => 'created_at',
-			'type' => 'datetime',
-		) );
-		$sql = $column->get_create_string();
+		$column = new Column(
+			array(
+				'name' => 'created_at',
+				'type' => 'datetime',
+			)
+		);
+		$sql    = $column->get_create_string();
 		$this->assertStringContainsString( 'datetime', $sql );
 	}
 
@@ -252,13 +315,23 @@ class ColumnTest extends TestCase {
 	}
 
 	public function test_validate_int_coerces_string_to_int() {
-		$column = new Column( array( 'name' => 'count', 'type' => 'bigint' ) );
+		$column = new Column(
+			array(
+				'name' => 'count',
+				'type' => 'bigint',
+			)
+		);
 		$result = $column->validate_int( '42' );
 		$this->assertSame( 42, $result );
 	}
 
 	public function test_validate_datetime_returns_valid_datetime_string() {
-		$column = new Column( array( 'name' => 'created', 'type' => 'datetime' ) );
+		$column = new Column(
+			array(
+				'name' => 'created',
+				'type' => 'datetime',
+			)
+		);
 		$result = $column->validate_datetime( '2024-01-15 10:30:00' );
 		$this->assertSame( '2024-01-15 10:30:00', $result );
 	}
@@ -268,7 +341,12 @@ class ColumnTest extends TestCase {
 		 * validate_datetime() returns $this->default for empty values, so the
 		 * column must have the zero-date default for this assertion to hold.
 		 */
-		$column = new Column( array( 'name' => 'created', 'type' => 'datetime' ) );
+		$column = new Column(
+			array(
+				'name' => 'created',
+				'type' => 'datetime',
+			)
+		);
 		$result = $column->validate_datetime( '' );
 		$this->assertEmpty( $result );
 	}
@@ -276,7 +354,13 @@ class ColumnTest extends TestCase {
 	// Base::__get() magic getter.
 
 	public function test_magic_getter_accesses_protected_sortable_property() {
-		$column = new Column( array( 'name' => 'title', 'type' => 'varchar', 'sortable' => true ) );
+		$column = new Column(
+			array(
+				'name'     => 'title',
+				'type'     => 'varchar',
+				'sortable' => true,
+			)
+		);
 		$this->assertTrue( $column->sortable );
 	}
 
@@ -288,7 +372,12 @@ class ColumnTest extends TestCase {
 	// Capabilities.
 
 	public function test_caps_defaults_contain_all_four_operations() {
-		$column = new Column( array( 'name' => 'id', 'type' => 'bigint' ) );
+		$column = new Column(
+			array(
+				'name' => 'id',
+				'type' => 'bigint',
+			)
+		);
 		$this->assertArrayHasKey( 'select', $column->caps );
 		$this->assertArrayHasKey( 'insert', $column->caps );
 		$this->assertArrayHasKey( 'update', $column->caps );
@@ -296,27 +385,48 @@ class ColumnTest extends TestCase {
 	}
 
 	public function test_caps_default_to_exist_capability() {
-		$column = new Column( array( 'name' => 'id', 'type' => 'bigint' ) );
+		$column = new Column(
+			array(
+				'name' => 'id',
+				'type' => 'bigint',
+			)
+		);
 		$this->assertSame( 'exist', $column->caps['insert'] );
 	}
 
 	// to_array().
 
 	public function test_to_array_includes_name_key() {
-		$column = new Column( array( 'name' => 'status', 'type' => 'varchar' ) );
+		$column = new Column(
+			array(
+				'name' => 'status',
+				'type' => 'varchar',
+			)
+		);
 		$arr    = $column->to_array();
 		$this->assertArrayHasKey( 'name', $arr );
 		$this->assertSame( 'status', $arr['name'] );
 	}
 
 	public function test_to_array_includes_type_key() {
-		$column = new Column( array( 'name' => 'status', 'type' => 'VARCHAR' ) );
+		$column = new Column(
+			array(
+				'name' => 'status',
+				'type' => 'VARCHAR',
+			)
+		);
 		$arr    = $column->to_array();
 		$this->assertArrayHasKey( 'type', $arr );
 	}
 
 	public function test_to_array_includes_primary_key() {
-		$column = new Column( array( 'name' => 'id', 'type' => 'bigint', 'primary' => true ) );
+		$column = new Column(
+			array(
+				'name'    => 'id',
+				'type'    => 'bigint',
+				'primary' => true,
+			)
+		);
 		$arr    = $column->to_array();
 		$this->assertArrayHasKey( 'primary', $arr );
 		$this->assertTrue( $arr['primary'] );

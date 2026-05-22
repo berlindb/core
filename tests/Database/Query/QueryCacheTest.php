@@ -54,7 +54,12 @@ class QueryCacheTest extends TestCase {
 		wp_set_current_user( 1 );
 
 		self::$table->delete_all();
-		self::$query->add_item( array( 'name' => 'Cache Widget', 'status' => 'active' ) );
+		self::$query->add_item(
+			array(
+				'name'   => 'Cache Widget',
+				'status' => 'active',
+			)
+		);
 		wp_cache_flush();
 	}
 

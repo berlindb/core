@@ -49,7 +49,7 @@ trait Sanitizer {
 		$accents = remove_accents( $unspace );
 
 		// Convert to lowercase if required.
-		$chars   = ( true === $lowercase )
+		$chars = ( true === $lowercase )
 			? strtolower( $accents )
 			: $accents;
 
@@ -57,15 +57,15 @@ trait Sanitizer {
 		$replace = preg_replace( $disallowed_pattern, $replacement, $chars );
 
 		// Replace hyphens with single underscores if required.
-		$under   = ( true === $normalize_hyphens )
+		$under = ( true === $normalize_hyphens )
 			? str_replace( '-', '_', $replace )
 			: $replace;
 
 		// Normalize ALL consecutive underscores to single underscore (not just __).
-		$single  = preg_replace( '/_+/', '_', $under );
+		$single = preg_replace( '/_+/', '_', $under );
 
 		// Remove leading/trailing underscores.
-		$clean   = trim( $single, '_' );
+		$clean = trim( $single, '_' );
 
 		// Bail if table name was garbaged or return the cleaned table name.
 		return empty( $clean )

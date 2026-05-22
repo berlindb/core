@@ -98,7 +98,7 @@ class Compare extends Base {
 		if ( isset( $clause['compare'] ) ) {
 			$clause['compare'] = strtoupper( $clause['compare'] );
 
-		// Or set compare clause based on value.
+			// Or set compare clause based on value.
 		} else {
 			$clause['compare'] = isset( $clause['value'] ) && is_array( $clause['value'] )
 				? 'IN'

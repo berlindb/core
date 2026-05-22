@@ -256,13 +256,13 @@ class Meta extends Base {
 				$existing_meta_query,
 			);
 
-		// Only primary.
+			// Only primary.
 		} elseif ( ! empty( $simple_meta_query ) ) {
 			$meta_query = array(
 				$simple_meta_query,
 			);
 
-		// Only existing.
+			// Only existing.
 		} elseif ( ! empty( $existing_meta_query ) ) {
 			$meta_query = $existing_meta_query;
 		}
@@ -328,11 +328,11 @@ class Meta extends Base {
 		}
 
 		// Aliases.
-		$this->table_aliases  = array();
+		$this->table_aliases = array();
 
 		// Meta.
-		$this->meta_table     = $this->sanitize_table_name( $meta_table );
-		$this->meta_column    = $this->sanitize_column_name( "{$type}_id" );
+		$this->meta_table  = $this->sanitize_table_name( $meta_table );
+		$this->meta_column = $this->sanitize_column_name( "{$type}_id" );
 
 		// Primary.
 		$this->primary_table  = $this->sanitize_table_name( $primary_table );
@@ -375,11 +375,11 @@ class Meta extends Base {
 		}
 
 		// Aliases.
-		$this->table_aliases  = array();
+		$this->table_aliases = array();
 
 		// Meta.
-		$this->meta_table     = $this->sanitize_table_name( $meta_table );
-		$this->meta_column    = $this->sanitize_column_name( "{$type}_id" );
+		$this->meta_table  = $this->sanitize_table_name( $meta_table );
+		$this->meta_column = $this->sanitize_column_name( "{$type}_id" );
 
 		// Primary.
 		$this->primary_table  = $this->sanitize_table_name( $primary_table );
@@ -446,7 +446,7 @@ class Meta extends Base {
 
 		// Operators.
 		$non_numeric_operators = $this->get_operators( array( 'numeric' => false ) );
-		$numeric_operators     = $this->get_operators( array( 'numeric' => true  ) );
+		$numeric_operators     = $this->get_operators( array( 'numeric' => true ) );
 
 		// Fallback if bad comparison.
 		if ( ! in_array( $clause['compare'], $non_numeric_operators, true ) && ! in_array( $clause['compare'], $numeric_operators, true ) ) {
@@ -507,7 +507,7 @@ class Meta extends Base {
 					$join .= $db->prepare( " ON ( {$qt_primary_table}.{$qt_primary_column} = {$qt_alias}.{$qt_meta_column} AND {$qt_alias}.{$qt_column} = %s )", $clause['key'] );
 				}
 
-			// All other JOIN clauses.
+				// All other JOIN clauses.
 			} else {
 				$join .= " INNER JOIN {$qt_meta_table}";
 				$join .= ! empty( $i )
@@ -520,7 +520,7 @@ class Meta extends Base {
 			$this->table_aliases[] = $alias;
 
 			// Add to return value.
-			$retval['join'][]  = $join;
+			$retval['join'][] = $join;
 		}
 
 		// Save the alias to this clause, for future siblings to find.
@@ -551,7 +551,7 @@ class Meta extends Base {
 
 		while ( isset( $this->clauses[ $clause_key ] ) ) {
 			$clause_key = $clause_key_base . '-' . $iterator;
-			$iterator++;
+			++$iterator;
 		}
 
 		// Store the clause in our flat array.
@@ -570,10 +570,10 @@ class Meta extends Base {
 				$neg = $this->get_operators( array( 'positive' => false ) );
 
 				// Initialize subquery fragments; only populated for negative compare_key operators.
-				$subquery_alias             = '';
-				$qt_subquery_alias          = '';
-				$meta_compare_string_start  = '';
-				$meta_compare_string_end    = '';
+				$subquery_alias            = '';
+				$qt_subquery_alias         = '';
+				$meta_compare_string_start = '';
+				$meta_compare_string_end   = '';
 
 				/*
 				 * In joined clauses negative operators have to be nested into a
@@ -676,14 +676,14 @@ class Meta extends Base {
 			if ( ! empty( $where ) ) {
 
 				// Set column to meta_value.
-				$column  = 'meta_value';
-				$qt_column  = $this->quote_identifier( $column );
+				$column    = 'meta_value';
+				$qt_column = $this->quote_identifier( $column );
 
 				// Default.
 				if ( 'CHAR' === $meta_type ) {
 					$retval['where'][] = "{$qt_alias}.{$qt_column} {$meta_sql_compare} {$where}";
 
-				// CAST().
+					// CAST().
 				} else {
 					$retval['where'][] = "CAST({$qt_alias}.{$qt_column} AS {$meta_type}) {$meta_sql_compare} {$where}";
 				}
@@ -734,7 +734,7 @@ class Meta extends Base {
 
 		// meta_value / meta_value_num: use the first (simple) clause.
 		if ( null === $clause && ( 'meta_value' === $orderby || 'meta_value_num' === $orderby ) ) {
-			$clause = reset( $this->clauses ) ?: null;
+			$clause = ! empty( $this->clauses ) ? reset( $this->clauses ) : null;
 		}
 
 		// Bail if no clause or no alias on it.

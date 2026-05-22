@@ -62,7 +62,7 @@ trait Error {
 			if ( is_wp_error( $result ) ) {
 				$this->last_error = $result;
 
-			// Any other value is a success.
+				// Any other value is a success.
 			} else {
 				$retval = true;
 			}

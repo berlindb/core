@@ -61,11 +61,41 @@ class SearchParserTest extends TestCase {
 		self::$table->delete_all();
 		wp_cache_flush();
 
-		self::$query->add_item( array( 'name' => 'Alpha Widget',   'status' => 'active',   'priority' => 10 ) );
-		self::$query->add_item( array( 'name' => 'Beta Widget',    'status' => 'active',   'priority' => 20 ) );
-		self::$query->add_item( array( 'name' => 'Gamma Gadget',   'status' => 'inactive', 'priority' => 30 ) );
-		self::$query->add_item( array( 'name' => 'Delta Gadget',   'status' => 'inactive', 'priority' => 40 ) );
-		self::$query->add_item( array( 'name' => 'Epsilon Widget', 'status' => 'pending',  'priority' => 50 ) );
+		self::$query->add_item(
+			array(
+				'name'     => 'Alpha Widget',
+				'status'   => 'active',
+				'priority' => 10,
+			)
+		);
+		self::$query->add_item(
+			array(
+				'name'     => 'Beta Widget',
+				'status'   => 'active',
+				'priority' => 20,
+			)
+		);
+		self::$query->add_item(
+			array(
+				'name'     => 'Gamma Gadget',
+				'status'   => 'inactive',
+				'priority' => 30,
+			)
+		);
+		self::$query->add_item(
+			array(
+				'name'     => 'Delta Gadget',
+				'status'   => 'inactive',
+				'priority' => 40,
+			)
+		);
+		self::$query->add_item(
+			array(
+				'name'     => 'Epsilon Widget',
+				'status'   => 'pending',
+				'priority' => 50,
+			)
+		);
 
 		wp_cache_flush();
 	}
@@ -161,10 +191,12 @@ class SearchParserTest extends TestCase {
 	public function test_search_combined_with_status_filter() {
 
 		// Assert expected results.
-		$results = self::$query->query( array(
-			'search' => 'Widget',
-			'status' => 'active',
-		) );
+		$results = self::$query->query(
+			array(
+				'search' => 'Widget',
+				'status' => 'active',
+			)
+		);
 
 		$this->assertCount( 2, $results );
 

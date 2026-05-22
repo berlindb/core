@@ -491,7 +491,7 @@ class Column {
 			'binary'        => 'wp_validate_boolean',
 			'allow_null'    => 'wp_validate_boolean',
 			'default'       => array( $this, 'sanitize_default' ),
-			'extra'         => array( $this, 'sanitize_extra'   ),
+			'extra'         => array( $this, 'sanitize_extra' ),
 			'encoding'      => 'wp_kses_data',
 			'collation'     => 'wp_kses_data',
 			'comment'       => array( $this, 'sanitize_comment' ),
@@ -512,11 +512,11 @@ class Column {
 			'cache_key'     => 'wp_validate_boolean',
 
 			// Extras.
-			'pattern'       => array( $this, 'sanitize_pattern'       ),
-			'validate'      => array( $this, 'sanitize_validation'    ),
-			'caps'          => array( $this, 'sanitize_capabilities'  ),
-			'aliases'       => array( $this, 'sanitize_aliases'       ),
-			'relationships' => array( $this, 'sanitize_relationships' )
+			'pattern'       => array( $this, 'sanitize_pattern' ),
+			'validate'      => array( $this, 'sanitize_validation' ),
+			'caps'          => array( $this, 'sanitize_capabilities' ),
+			'aliases'       => array( $this, 'sanitize_aliases' ),
+			'relationships' => array( $this, 'sanitize_relationships' ),
 		);
 
 		// Default return arguments.
@@ -529,12 +529,12 @@ class Column {
 			if ( isset( $callbacks[ $key ] ) && is_callable( $callbacks[ $key ] ) ) {
 				$r[ $key ] = call_user_func( $callbacks[ $key ], $value );
 
-			/**
-			 * Key has no validation method.
-			 *
-			 * Trust that the value has been validated. This may change in a
-			 * future version.
-			 */
+				/**
+				 * Key has no validation method.
+				 *
+				 * Trust that the value has been validated. This may change in a
+				 * future version.
+				 */
 			} else {
 				$r[ $key ] = $value;
 			}
@@ -566,15 +566,14 @@ class Column {
 			switch ( strtoupper( $args['extra'] ) ) {
 
 				// Bigint.
-				case 'SERIAL' :
+				case 'SERIAL':
 					$args['type']     = 'bigint';
 					$args['length']   = '20';
 					$args['unsigned'] = true;
 					// No break; keep going.
 
-				// Any int.
-				case 'SERIAL DEFAULT VALUE' :
-
+					// Any int.
+				case 'SERIAL DEFAULT VALUE':
 					// Skip if not an int type.
 					if ( in_array( strtolower( $args['type'] ), array( 'tinyint', 'smallint', 'mediumint', 'int', 'bigint' ), true ) ) {
 						$args['allow_null'] = false;
@@ -590,7 +589,7 @@ class Column {
 		if ( ! empty( $args['primary'] ) ) {
 			$args['cache_key'] = true;
 
-		// All UUID columns require these specific criteria.
+			// All UUID columns require these specific criteria.
 		} elseif ( ! empty( $args['uuid'] ) ) {
 			$args['name']       = 'uuid';
 			$args['type']       = 'varchar';
@@ -615,9 +614,11 @@ class Column {
 	 * @return bool True if bool type only.
 	 */
 	public function is_bool() {
-		return $this->is_type( array(
-			'bool'
-		) );
+		return $this->is_type(
+			array(
+				'bool',
+			)
+		);
 	}
 
 	/**
@@ -627,13 +628,15 @@ class Column {
 	 * @return bool True if any date or time.
 	 */
 	public function is_date_time() {
-		return $this->is_type( array(
-			'date',
-			'datetime',
-			'timestamp',
-			'time',
-			'year'
-		) );
+		return $this->is_type(
+			array(
+				'date',
+				'datetime',
+				'timestamp',
+				'time',
+				'year',
+			)
+		);
 	}
 
 	/**
@@ -643,13 +646,15 @@ class Column {
 	 * @return bool True if int.
 	 */
 	public function is_int() {
-		return $this->is_type( array(
-			'tinyint',
-			'smallint',
-			'mediumint',
-			'int',
-			'bigint'
-		) );
+		return $this->is_type(
+			array(
+				'tinyint',
+				'smallint',
+				'mediumint',
+				'int',
+				'bigint',
+			)
+		);
 	}
 
 	/**
@@ -659,11 +664,13 @@ class Column {
 	 * @return bool True if float.
 	 */
 	public function is_decimal() {
-		return $this->is_type( array(
-			'float',
-			'double',
-			'decimal'
-		) );
+		return $this->is_type(
+			array(
+				'float',
+				'double',
+				'decimal',
+			)
+		);
 	}
 
 	/**
@@ -675,23 +682,25 @@ class Column {
 	 * @return bool True if bit, int, or float.
 	 */
 	public function is_numeric() {
-		return $this->is_type( array(
+		return $this->is_type(
+			array(
 
-			// Bit.
-			'bit',
+				// Bit.
+				'bit',
 
-			// Ints.
-			'tinyint',
-			'smallint',
-			'mediumint',
-			'int',
-			'bigint',
+				// Ints.
+				'tinyint',
+				'smallint',
+				'mediumint',
+				'int',
+				'bigint',
 
-			// Other.
-			'float',
-			'double',
-			'decimal'
-		) );
+				// Other.
+				'float',
+				'double',
+				'decimal',
+			)
+		);
 	}
 
 	/**
@@ -703,18 +712,20 @@ class Column {
 	 * @return bool True if text.
 	 */
 	public function is_text() {
-		return $this->is_type( array(
+		return $this->is_type(
+			array(
 
-			// Char.
-			'char',
-			'varchar',
+				// Char.
+				'char',
+				'varchar',
 
-			// Text.
-			'tinytext',
-			'text',
-			'mediumtext',
-			'longtext',
-		) );
+				// Text.
+				'tinytext',
+				'text',
+				'mediumtext',
+				'longtext',
+			)
+		);
 	}
 
 	/**
@@ -724,18 +735,20 @@ class Column {
 	 * @return bool True if binary.
 	 */
 	public function is_binary() {
-		return $this->is_type( array(
+		return $this->is_type(
+			array(
 
-			// Binary.
-			'binary',
-			'varbinary',
+				// Binary.
+				'binary',
+				'varbinary',
 
-			// Blobs.
-			'tinyblob',
-			'blob',
-			'mediumblob',
-			'longblob'
-		) );
+				// Blobs.
+				'tinyblob',
+				'blob',
+				'mediumblob',
+				'longblob',
+			)
+		);
 	}
 
 	/** Private Helpers *******************************************************/
@@ -805,12 +818,15 @@ class Column {
 	 * @return array
 	 */
 	private function sanitize_capabilities( $caps = array() ) {
-		return wp_parse_args( $caps, array(
-			'select' => 'exist',
-			'insert' => 'exist',
-			'update' => 'exist',
-			'delete' => 'exist',
-		) );
+		return wp_parse_args(
+			$caps,
+			array(
+				'select' => 'exist',
+				'insert' => 'exist',
+				'update' => 'exist',
+				'delete' => 'exist',
+			)
+		);
 	}
 
 	/**
@@ -918,7 +934,7 @@ class Column {
 		if ( $this->is_int() ) {
 			$retval = '%d';
 
-		// Float.
+			// Float.
 		} elseif ( $this->is_decimal() ) {
 			$retval = '%f';
 		}
@@ -951,23 +967,23 @@ class Column {
 		if ( true === $this->uuid ) {
 			$callback = array( $this, 'validate_uuid' );
 
-		// Datetime explicit fallback.
+			// Datetime explicit fallback.
 		} elseif ( $this->is_type( 'datetime' ) ) {
 			$callback = array( $this, 'validate_datetime' );
 
-		// Intval fallback.
+			// Intval fallback.
 		} elseif ( $this->is_int() ) {
 			$callback = array( $this, 'validate_int' );
 
-		// Decimal fallback.
+			// Decimal fallback.
 		} elseif ( $this->is_decimal() ) {
 			$callback = array( $this, 'validate_decimal' );
 
-		// Numeric fallback.
+			// Numeric fallback.
 		} elseif ( $this->is_numeric() ) {
 			$callback = array( $this, 'validate_numeric' );
 
-		// Unknown text, string, or other...
+			// Unknown text, string, or other...
 		} else {
 			$callback = 'wp_kses_data';
 		}
@@ -1075,11 +1091,11 @@ class Column {
 		if ( 'CURRENT_TIMESTAMP' === strtoupper( $value ) ) {
 			$value = 'CURRENT_TIMESTAMP';
 
-		// Fallback if "empty" value.
+			// Fallback if "empty" value.
 		} elseif ( empty( $value ) || ( $default_empty === $value ) ) {
 			$use_default = true;
 
-		// All other values.
+			// All other values.
 		} else {
 
 			// Check if valid $value.
@@ -1089,7 +1105,7 @@ class Column {
 			if ( false !== $timestamp ) {
 				$value = gmdate( 'Y-m-d H:i:s', $timestamp );
 
-			// Fallback if invalid.
+				// Fallback if invalid.
 			} else {
 				$use_default = true;
 			}
@@ -1226,10 +1242,13 @@ class Column {
 		}
 
 		// Put the pieces together.
-		$value = sprintf( "{$prefix}%04x%04x-%04x-%04x-%04x-%04x%04x%04x",
+		// phpcs:disable PEAR.Functions.FunctionCallSignature.EmptyLine
+		$value = sprintf(
+			"{$prefix}%04x%04x-%04x-%04x-%04x-%04x%04x%04x",
 
 			// 32 bits for "time_low".
-			mt_rand( 0, 0xffff ), mt_rand( 0, 0xffff ),
+			mt_rand( 0, 0xffff ),
+			mt_rand( 0, 0xffff ),
 
 			// 16 bits for "time_mid".
 			mt_rand( 0, 0xffff ),
@@ -1248,8 +1267,11 @@ class Column {
 			mt_rand( 0, 0x3fff ) | 0x8000,
 
 			// 48 bits for "node".
-			mt_rand( 0, 0xffff ), mt_rand( 0, 0xffff ), mt_rand( 0, 0xffff )
+			mt_rand( 0, 0xffff ),
+			mt_rand( 0, 0xffff ),
+			mt_rand( 0, 0xffff )
 		);
+		// phpcs:enable PEAR.Functions.FunctionCallSignature.EmptyLine
 
 		// Return the new UUID.
 		return $value;
@@ -1287,10 +1309,10 @@ class Column {
 
 			// Binary column types.
 			if ( $this->is_binary() ) {
-				$create[] = "CHARACTER SET binary";
-				$create[] = "COLLATE binary";
+				$create[] = 'CHARACTER SET binary';
+				$create[] = 'COLLATE binary';
 
-			// Non-binary column types.
+				// Non-binary column types.
 			} else {
 
 				// Encoding.
@@ -1335,11 +1357,11 @@ class Column {
 		if ( ! empty( $this->default ) && ! $this->is_extra( 'AUTO_INCREMENT' ) ) {
 			$create[] = "default '{$this->default}'";
 
-		// allow_null with literal null defaults to null.
+			// allow_null with literal null defaults to null.
 		} elseif ( ( true === $this->allow_null ) && ( null === $this->default ) ) {
-			$create[] = "default null";
+			$create[] = 'default null';
 
-		// Literal false means no default value.
+			// Literal false means no default value.
 		} elseif ( false !== $this->default ) {
 
 			// Numeric (ints and decimals).
@@ -1350,19 +1372,19 @@ class Column {
 					$create[] = "default '0'";
 				}
 
-			// Datetime or Timestamp.
+				// Datetime or Timestamp.
 			} elseif ( $this->is_type( array( 'datetime', 'timestamp' ) ) ) {
 
 				// Using the CURRENT_TIMESTAMP constant.
 				if ( $this->is_extra( 'ON UPDATE CURRENT_TIMESTAMP' ) ) {
-					$create[] = "ON UPDATE current_timestamp()";
+					$create[] = 'ON UPDATE current_timestamp()';
 
-				// @todo NO_ZERO_DATE
+					// @todo NO_ZERO_DATE
 				} elseif ( $this->is_type( 'datetime' ) ) {
 					$create[] = "default '0000-00-00 00:00:00'";
 				}
 
-			// All string types (texts and blobs).
+				// All string types (texts and blobs).
 			} else {
 				$create[] = "default ''";
 			}

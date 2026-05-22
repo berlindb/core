@@ -84,13 +84,13 @@ class TableTest extends TestCase {
 		$this->bypassed_create_count = 0;
 		while ( has_filter( 'query', array( $this, '_create_temporary_tables' ) ) ) {
 			remove_filter( 'query', array( $this, '_create_temporary_tables' ) );
-			$this->bypassed_create_count++;
+			++$this->bypassed_create_count;
 		}
 
 		$this->bypassed_drop_count = 0;
 		while ( has_filter( 'query', array( $this, '_drop_temporary_tables' ) ) ) {
 			remove_filter( 'query', array( $this, '_drop_temporary_tables' ) );
-			$this->bypassed_drop_count++;
+			++$this->bypassed_drop_count;
 		}
 	}
 
@@ -140,9 +140,27 @@ class TableTest extends TestCase {
 		global $wpdb;
 
 		$table_name = $wpdb->berlindb_database_test_widgets;
-		$wpdb->insert( $table_name, array( 'name' => 'Widget A', 'status' => 'active' ) );
-		$wpdb->insert( $table_name, array( 'name' => 'Widget B', 'status' => 'active' ) );
-		$wpdb->insert( $table_name, array( 'name' => 'Widget C', 'status' => 'inactive' ) );
+		$wpdb->insert(
+			$table_name,
+			array(
+				'name'   => 'Widget A',
+				'status' => 'active',
+			)
+		);
+		$wpdb->insert(
+			$table_name,
+			array(
+				'name'   => 'Widget B',
+				'status' => 'active',
+			)
+		);
+		$wpdb->insert(
+			$table_name,
+			array(
+				'name'   => 'Widget C',
+				'status' => 'inactive',
+			)
+		);
 
 		$this->assertSame( 3, self::$table->count() );
 	}
@@ -231,8 +249,20 @@ class TableTest extends TestCase {
 		global $wpdb;
 
 		$table_name = $wpdb->berlindb_database_test_widgets;
-		$wpdb->insert( $table_name, array( 'name' => 'Widget A', 'status' => 'active' ) );
-		$wpdb->insert( $table_name, array( 'name' => 'Widget B', 'status' => 'active' ) );
+		$wpdb->insert(
+			$table_name,
+			array(
+				'name'   => 'Widget A',
+				'status' => 'active',
+			)
+		);
+		$wpdb->insert(
+			$table_name,
+			array(
+				'name'   => 'Widget B',
+				'status' => 'active',
+			)
+		);
 
 		self::$table->truncate();
 

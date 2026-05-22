@@ -157,7 +157,7 @@ class Schema {
 				$this->{$type} = array();
 			}
 
-		// Clearing everything.
+			// Clearing everything.
 		} else {
 			$this->columns = array();
 			$this->indexes = array();
@@ -518,7 +518,7 @@ class Schema {
 		}
 
 		// Two-space indent for readability inside CREATE TABLE.
-		$indent  = '  ';
+		$indent = '  ';
 
 		// Accumulate SQL fragments.
 		$strings = array();
@@ -721,7 +721,7 @@ class Schema {
 		// Build SQL fragments for each collection.
 		$strings = array(
 			$this->get_items_create_string( 'columns' ),
-			$this->get_items_create_string( 'indexes' )
+			$this->get_items_create_string( 'indexes' ),
 		);
 
 		// Join non-empty fragments.
@@ -753,9 +753,9 @@ class Schema {
 		$columns = $this->get_columns();
 		$indexes = $this->get_indexes();
 
-		$column_names   = array();
-		$index_names    = array();
-		$primary_count  = 0;
+		$column_names  = array();
+		$index_names   = array();
+		$primary_count = 0;
 
 		foreach ( $columns as $column ) {
 

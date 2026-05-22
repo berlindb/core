@@ -61,7 +61,6 @@ trait Boot {
 	 * @since 3.0.0
 	 */
 	protected function sunrise() {
-
 	}
 
 	/** Argument Handlers *****************************************************/
@@ -124,6 +123,5 @@ trait Boot {
 	 * @since 3.0.0
 	 */
 	protected function init() {
-
 	}
 }

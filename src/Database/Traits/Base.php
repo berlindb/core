@@ -83,7 +83,7 @@ trait Base {
 		if ( is_callable( array( $this, $method ) ) ) {
 			return call_user_func( array( $this, $method ) );
 
-		// Return property value if exists.
+			// Return property value if exists.
 		} elseif ( property_exists( $this, $key ) ) {
 			return $this->{$key};
 		}
@@ -166,7 +166,7 @@ trait Base {
 		}
 
 		// Default return value.
-		$retval  = '';
+		$retval = '';
 
 		// Trim spaces off the ends.
 		$unspace = trim( $string );
@@ -175,10 +175,10 @@ trait Base {
 		$accents = remove_accents( $unspace );
 
 		// Convert to lowercase.
-		$lower   = strtolower( $accents );
+		$lower = strtolower( $accents );
 
 		// Explode into parts.
-		$parts   = explode( $sep, $lower );
+		$parts = explode( $sep, $lower );
 
 		// Loop through parts and concatenate the first letters together.
 		foreach ( $parts as $part ) {
@@ -226,8 +226,7 @@ trait Base {
 	protected function stash_args( $args = array() ) {
 		$this->args = array(
 			'param' => $args,
-			'class' => get_object_vars( $this )
+			'class' => get_object_vars( $this ),
 		);
 	}
-
 }

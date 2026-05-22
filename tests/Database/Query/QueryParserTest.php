@@ -63,12 +63,12 @@ class QueryParserSpy extends ParserBase {
 	 * @since 2.1.0
 	 */
 	public static function reset() {
-		self::$primary_table      = null;
-		self::$primary_column     = null;
-		self::$type               = null;
-		self::$query_alias        = null;
-		self::$caller_table_name  = null;
-		self::$caller_meta_type   = null;
+		self::$primary_table     = null;
+		self::$primary_column    = null;
+		self::$type              = null;
+		self::$query_alias       = null;
+		self::$caller_table_name = null;
+		self::$caller_meta_type  = null;
 	}
 
 	/**
@@ -395,7 +395,7 @@ class QueryParserTest extends TestCase {
 	 */
 	public function test_parse_join_where_parsers_normalizes_alias_underscores() {
 		// Create a test query that returns an alias with consecutive underscores.
-		$query = new class extends QueryParserSpyQuery {
+		$query = new class() extends QueryParserSpyQuery {
 			public function get_table_alias() {
 				return 'resolved__tw___alias';
 			}
@@ -446,7 +446,7 @@ class QueryParserTest extends TestCase {
 	 * @since 3.0.0
 	 */
 	public function test_query_var_parsers_can_be_registered_via_filter() {
-		$filter = function( $classes, $query ) {
+		$filter = function ( $classes, $query ) {
 			$this->assertInstanceOf( BerlinQuery::class, $query );
 
 			return array( QueryParserRegistrySpy::class );
@@ -455,7 +455,7 @@ class QueryParserTest extends TestCase {
 		add_filter( 'berlindb_database_query_var_parsers', $filter, 10, 2 );
 
 		try {
-			$query = new class extends TestQuery {
+			$query = new class() extends TestQuery {
 				protected function parse_args( $args = array() ) {
 					if ( empty( $args ) ) {
 						return;
@@ -489,7 +489,7 @@ class QueryParserTest extends TestCase {
 	 * @since 3.0.0
 	 */
 	public function test_operator_classes_can_be_registered_via_filter() {
-		$filter = function( $classes, $parser ) {
+		$filter = function ( $classes, $parser ) {
 			$this->assertInstanceOf( ParserBase::class, $parser );
 
 			return array( QueryOperatorSpy::class );

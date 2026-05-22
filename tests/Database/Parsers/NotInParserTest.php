@@ -63,11 +63,41 @@ class NotInParserTest extends TestCase {
 		self::$table->delete_all();
 		wp_cache_flush();
 
-		$this->ids[] = self::$query->add_item( array( 'name' => 'Alpha Widget',   'status' => 'active',   'priority' => 10 ) );
-		$this->ids[] = self::$query->add_item( array( 'name' => 'Beta Widget',    'status' => 'active',   'priority' => 20 ) );
-		$this->ids[] = self::$query->add_item( array( 'name' => 'Gamma Gadget',   'status' => 'inactive', 'priority' => 30 ) );
-		$this->ids[] = self::$query->add_item( array( 'name' => 'Delta Gadget',   'status' => 'inactive', 'priority' => 40 ) );
-		$this->ids[] = self::$query->add_item( array( 'name' => 'Epsilon Widget', 'status' => 'pending',  'priority' => 50 ) );
+		$this->ids[] = self::$query->add_item(
+			array(
+				'name'     => 'Alpha Widget',
+				'status'   => 'active',
+				'priority' => 10,
+			)
+		);
+		$this->ids[] = self::$query->add_item(
+			array(
+				'name'     => 'Beta Widget',
+				'status'   => 'active',
+				'priority' => 20,
+			)
+		);
+		$this->ids[] = self::$query->add_item(
+			array(
+				'name'     => 'Gamma Gadget',
+				'status'   => 'inactive',
+				'priority' => 30,
+			)
+		);
+		$this->ids[] = self::$query->add_item(
+			array(
+				'name'     => 'Delta Gadget',
+				'status'   => 'inactive',
+				'priority' => 40,
+			)
+		);
+		$this->ids[] = self::$query->add_item(
+			array(
+				'name'     => 'Epsilon Widget',
+				'status'   => 'pending',
+				'priority' => 50,
+			)
+		);
 
 		wp_cache_flush();
 	}
@@ -148,10 +178,12 @@ class NotInParserTest extends TestCase {
 	public function test_not_in_filter_with_count_mode() {
 
 		// Assert expected results.
-		$count = self::$query->query( array(
-			'status__not_in' => 'inactive',
-			'count'          => true,
-		) );
+		$count = self::$query->query(
+			array(
+				'status__not_in' => 'inactive',
+				'count'          => true,
+			)
+		);
 
 		$this->assertSame( 3, (int) $count );
 	}

@@ -63,7 +63,12 @@ class QueryCrudTest extends TestCase {
 	// add_item().
 
 	public function test_add_item_returns_positive_integer_id() {
-		$id = self::$query->add_item( array( 'name' => 'Widget A', 'status' => 'active' ) );
+		$id = self::$query->add_item(
+			array(
+				'name'   => 'Widget A',
+				'status' => 'active',
+			)
+		);
 		$this->assertIsInt( $id );
 		$this->assertGreaterThan( 0, $id );
 	}
@@ -113,7 +118,12 @@ class QueryCrudTest extends TestCase {
 	}
 
 	public function test_get_item_returns_correct_status() {
-		$id   = self::$query->add_item( array( 'name' => 'Widget A', 'status' => 'inactive' ) );
+		$id   = self::$query->add_item(
+			array(
+				'name'   => 'Widget A',
+				'status' => 'inactive',
+			)
+		);
 		$item = self::$query->get_item( $id );
 		$this->assertSame( 'inactive', $item->status );
 	}
@@ -126,13 +136,23 @@ class QueryCrudTest extends TestCase {
 	// get_item_by().
 
 	public function test_get_item_by_returns_row_for_existing_status() {
-		self::$query->add_item( array( 'name' => 'Widget A', 'status' => 'pending' ) );
+		self::$query->add_item(
+			array(
+				'name'   => 'Widget A',
+				'status' => 'pending',
+			)
+		);
 		$item = self::$query->get_item_by( 'status', 'pending' );
 		$this->assertInstanceOf( TestRow::class, $item );
 	}
 
 	public function test_get_item_by_returns_correct_item() {
-		$id = self::$query->add_item( array( 'name' => 'Needle Widget', 'status' => 'active' ) );
+		$id   = self::$query->add_item(
+			array(
+				'name'   => 'Needle Widget',
+				'status' => 'active',
+			)
+		);
 		$item = self::$query->get_item_by( 'name', 'Needle Widget' );
 		$this->assertSame( $id, (int) $item->id );
 	}
@@ -154,7 +174,12 @@ class QueryCrudTest extends TestCase {
 	}
 
 	public function test_update_item_modifies_status() {
-		$id = self::$query->add_item( array( 'name' => 'Widget A', 'status' => 'active' ) );
+		$id = self::$query->add_item(
+			array(
+				'name'   => 'Widget A',
+				'status' => 'active',
+			)
+		);
 		self::$query->update_item( $id, array( 'status' => 'inactive' ) );
 
 		wp_cache_flush();
@@ -216,7 +241,12 @@ class QueryCrudTest extends TestCase {
 	}
 
 	public function test_copy_item_can_override_data() {
-		$id     = self::$query->add_item( array( 'name' => 'Original Widget', 'status' => 'active' ) );
+		$id     = self::$query->add_item(
+			array(
+				'name'   => 'Original Widget',
+				'status' => 'active',
+			)
+		);
 		$new_id = self::$query->copy_item( $id, array( 'status' => 'inactive' ) );
 
 		wp_cache_flush();

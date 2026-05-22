@@ -52,15 +52,17 @@ class RowTest extends TestCase {
 	public function test_constructor_maps_fixture_properties_from_args() {
 
 		// Assert expected results.
-		$row = new TestRow( array(
-			'id'            => 11,
-			'name'          => 'Widget A',
-			'status'        => 'inactive',
-			'priority'      => 42,
-			'date_created'  => '2026-01-01 12:00:00',
-			'date_modified' => '2026-01-02 12:00:00',
-			'uuid'          => 'urn:uuid:11111111-1111-4111-8111-111111111111',
-		) );
+		$row = new TestRow(
+			array(
+				'id'            => 11,
+				'name'          => 'Widget A',
+				'status'        => 'inactive',
+				'priority'      => 42,
+				'date_created'  => '2026-01-01 12:00:00',
+				'date_modified' => '2026-01-02 12:00:00',
+				'uuid'          => 'urn:uuid:11111111-1111-4111-8111-111111111111',
+			)
+		);
 
 		$this->assertSame( 11, $row->id );
 		$this->assertSame( 'Widget A', $row->name );
@@ -79,10 +81,12 @@ class RowTest extends TestCase {
 	public function test_to_array_includes_fixture_properties() {
 
 		// Assert expected results.
-		$row = new TestRow( array(
-			'id'   => 2,
-			'name' => 'Widget B',
-		) );
+		$row = new TestRow(
+			array(
+				'id'   => 2,
+				'name' => 'Widget B',
+			)
+		);
 
 		$arr = $row->to_array();
 		$this->assertArrayHasKey( 'id', $arr );
@@ -111,7 +115,7 @@ class RowTest extends TestCase {
 	public function test_known_fixture_properties_are_writable_and_readable() {
 
 		// Assert expected results.
-		$row = new TestRow();
+		$row       = new TestRow();
 		$row->name = 'Updated Widget';
 
 		$this->assertSame( 'Updated Widget', $row->name );

@@ -464,7 +464,7 @@ class BaseSanitizationTest extends \PHPUnit\Framework\TestCase {
 				$result = $this->helper->$method( $input );
 
 				// Should be either false or match [a-zA-Z0-9_].
-				if ( $result !== false ) {
+				if ( false !== $result ) {
 					$this->assertMatchesRegularExpression(
 						'/^[a-zA-Z0-9_]+$/',
 						$result,

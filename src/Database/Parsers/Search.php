@@ -98,7 +98,7 @@ class Search extends Base {
 		if ( empty( $this->first_keys ) || empty( $clause['search'] ) ) {
 			return array(
 				'join'  => array(),
-				'where' => array()
+				'where' => array(),
 			);
 		}
 
@@ -132,7 +132,7 @@ class Search extends Base {
 		// Return join/where.
 		return array(
 			'join'  => array(),
-			'where' => $where
+			'where' => $where,
 		);
 	}
 
@@ -216,7 +216,7 @@ class Search extends Base {
 			$this->apply_prefix( "{$this->caller->item_name_plural}_search_columns" ),
 			array(
 				$search_columns,
-				&$this
+				&$this,
 			)
 		);
 	}

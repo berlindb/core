@@ -132,7 +132,7 @@ class Index {
 			if ( isset( $callbacks[ $key ] ) && is_callable( $callbacks[ $key ] ) ) {
 				$r[ $key ] = call_user_func( $callbacks[ $key ], $value );
 
-			// Otherwise assign the value as-is.
+				// Otherwise assign the value as-is.
 			} else {
 				$r[ $key ] = $value;
 			}
@@ -238,8 +238,13 @@ class Index {
 		$columns = array_map( array( $this, 'sanitize_index_name' ), $columns );
 
 		// Remove failed sanitization results and reset array keys.
-		return array_values( array_filter( $columns, function( $column ) {
-			return ! empty( $column );
-		} ) );
+		return array_values(
+			array_filter(
+				$columns,
+				function ( $column ) {
+					return ! empty( $column );
+				}
+			)
+		);
 	}
 }

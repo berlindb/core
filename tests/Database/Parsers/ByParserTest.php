@@ -63,11 +63,41 @@ class ByParserTest extends TestCase {
 		self::$table->delete_all();
 		wp_cache_flush();
 
-		$this->ids[] = self::$query->add_item( array( 'name' => 'Alpha Widget',   'status' => 'active',   'priority' => 10 ) );
-		$this->ids[] = self::$query->add_item( array( 'name' => 'Beta Widget',    'status' => 'active',   'priority' => 20 ) );
-		$this->ids[] = self::$query->add_item( array( 'name' => 'Gamma Gadget',   'status' => 'inactive', 'priority' => 30 ) );
-		$this->ids[] = self::$query->add_item( array( 'name' => 'Delta Gadget',   'status' => 'inactive', 'priority' => 40 ) );
-		$this->ids[] = self::$query->add_item( array( 'name' => 'Epsilon Widget', 'status' => 'pending',  'priority' => 50 ) );
+		$this->ids[] = self::$query->add_item(
+			array(
+				'name'     => 'Alpha Widget',
+				'status'   => 'active',
+				'priority' => 10,
+			)
+		);
+		$this->ids[] = self::$query->add_item(
+			array(
+				'name'     => 'Beta Widget',
+				'status'   => 'active',
+				'priority' => 20,
+			)
+		);
+		$this->ids[] = self::$query->add_item(
+			array(
+				'name'     => 'Gamma Gadget',
+				'status'   => 'inactive',
+				'priority' => 30,
+			)
+		);
+		$this->ids[] = self::$query->add_item(
+			array(
+				'name'     => 'Delta Gadget',
+				'status'   => 'inactive',
+				'priority' => 40,
+			)
+		);
+		$this->ids[] = self::$query->add_item(
+			array(
+				'name'     => 'Epsilon Widget',
+				'status'   => 'pending',
+				'priority' => 50,
+			)
+		);
 
 		wp_cache_flush();
 	}
@@ -121,10 +151,12 @@ class ByParserTest extends TestCase {
 	public function test_combined_column_filters() {
 
 		// Assert expected results.
-		$results = self::$query->query( array(
-			'status'   => 'inactive',
-			'priority' => 40,
-		) );
+		$results = self::$query->query(
+			array(
+				'status'   => 'inactive',
+				'priority' => 40,
+			)
+		);
 
 		$this->assertCount( 1, $results );
 		$this->assertSame( 'Delta Gadget', $results[0]->name );
@@ -153,10 +185,12 @@ class ByParserTest extends TestCase {
 	public function test_by_filter_with_count_mode() {
 
 		// Assert expected results.
-		$count = self::$query->query( array(
-			'status' => 'inactive',
-			'count'  => true,
-		) );
+		$count = self::$query->query(
+			array(
+				'status' => 'inactive',
+				'count'  => true,
+			)
+		);
 
 		$this->assertSame( 2, (int) $count );
 	}

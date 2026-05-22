@@ -132,7 +132,7 @@ trait Parser {
 	 */
 	public $relation_keys = array(
 		'OR',
-		'AND'
+		'AND',
 	);
 
 	/**
@@ -339,17 +339,17 @@ trait Parser {
 			if ( ! is_array( $query ) || in_array( $key, $this->first_keys, true ) ) {
 				$retval[ $key ] = $query;
 
-			/**
-			 * Arrays whose shape matches a first-order clause pass through as-is.
-			 *
-			 * Trust the values and sanitize when building SQL.
-			 */
+				/**
+				 * Arrays whose shape matches a first-order clause pass through as-is.
+				 *
+				 * Trust the values and sanitize when building SQL.
+				 */
 			} elseif ( $this->is_first_order_clause( $query ) ) {
 				$retval[ $key ] = $query;
 
-			/**
-			 * Any array without a $first_key is another query, so we recurse.
-			 */
+				/**
+				 * Any array without a $first_key is another query, so we recurse.
+				 */
 			} else {
 				$cleaned = $this->sanitize_query( $query, $queries );
 
@@ -370,15 +370,15 @@ trait Parser {
 			$retval['relation']    = 'OR';
 			$this->has_or_relation = true;
 
-		/*
-		 * If there is only a single clause, call the relation 'OR'.
-		 * This value will not actually be used to join clauses, but it
-		 * simplifies the logic around combining key-only queries.
-		 */
+			/*
+			* If there is only a single clause, call the relation 'OR'.
+			* This value will not actually be used to join clauses, but it
+			* simplifies the logic around combining key-only queries.
+			*/
 		} elseif ( 1 === count( $retval ) ) {
 			$retval['relation'] = 'OR';
 
-		// Default to AND.
+			// Default to AND.
 		} else {
 			$retval['relation'] = 'AND';
 		}
@@ -495,7 +495,7 @@ trait Parser {
 			'column'        => $this->get_column( $query ),
 			'compare'       => $this->get_compare( $query ),
 			'relation'      => $this->get_relation( $query ),
-			'start_of_week' => $this->get_start_of_week( $query )
+			'start_of_week' => $this->get_start_of_week( $query ),
 		);
 	}
 
@@ -827,18 +827,18 @@ trait Parser {
 				if ( $this->is_first_order_clause( $clause ) ) {
 
 					// Get clauses & where count.
-					$clause_sql = $this->get_sql_for_clause( $clause, $query, $key );
+					$clause_sql  = $this->get_sql_for_clause( $clause, $query, $key );
 					$where_count = count( $clause_sql[ 'where' ] );
 
 					// Empty SQL.
 					if ( 0 === $where_count ) {
 						$sql[ 'where' ][] = '';
 
-					// Add clause.
+						// Add clause.
 					} elseif ( 1 === $where_count ) {
 						$sql[ 'where' ][] = reset( $clause_sql[ 'where' ] );
 
-					// Implode many clauses.
+						// Implode many clauses.
 					} else {
 						$sql[ 'where' ][] = '( ' . implode( ' AND ', $clause_sql[ 'where' ] ) . ' )';
 					}
@@ -846,7 +846,7 @@ trait Parser {
 					// Merge joins.
 					$sql[ 'join' ] = array_merge( $sql[ 'join' ], $clause_sql[ 'join' ] );
 
-				// This is a subquery, so we recurse.
+					// This is a subquery, so we recurse.
 				} else {
 					$clause_sql = $this->get_sql_for_query( $clause, $depth + 1 );
 
@@ -907,7 +907,7 @@ trait Parser {
 		if ( isset( $clause['compare'] ) ) {
 			$clause['compare'] = strtoupper( $clause['compare'] );
 
-		// Or set compare clause based on value.
+			// Or set compare clause based on value.
 		} else {
 			$clause['compare'] = isset( $clause['value'] ) && is_array( $clause['value'] )
 				? 'IN'
@@ -1061,16 +1061,15 @@ trait Parser {
 			// BETWEEN & NOT BETWEEN.
 			case 'BETWEEN':
 			case 'NOT BETWEEN':
-
 				// Exactly 2 values.
 				if ( 2 === count( $value ) ) {
 					$value = array_values( $value );
 
-				// Not 2 values, so guess, by using first & last.
+					// Not 2 values, so guess, by using first & last.
 				} else {
 					$value = array(
 						reset( $value ),
-						end( $value )
+						end( $value ),
 					);
 				}
 
@@ -1145,14 +1144,14 @@ trait Parser {
 					'year' => intval( $matches[1] ),
 				);
 
-			// Y-m.
+				// Y-m.
 			} elseif ( preg_match( '/^(\d{4})\-(\d{2})$/', $datetime, $matches ) ) {
 				$datetime = array(
 					'year'  => intval( $matches[1] ),
 					'month' => intval( $matches[2] ),
 				);
 
-			// Y-m-d.
+				// Y-m-d.
 			} elseif ( preg_match( '/^(\d{4})\-(\d{2})\-(\d{2})$/', $datetime, $matches ) ) {
 				$datetime = array(
 					'year'  => intval( $matches[1] ),
@@ -1160,7 +1159,7 @@ trait Parser {
 					'day'   => intval( $matches[3] ),
 				);
 
-			// Y-m-d H:i.
+				// Y-m-d H:i.
 			} elseif ( preg_match( '/^(\d{4})\-(\d{2})\-(\d{2}) (\d{2}):(\d{2})$/', $datetime, $matches ) ) {
 				$datetime = array(
 					'year'   => intval( $matches[1] ),
@@ -1170,7 +1169,7 @@ trait Parser {
 					'minute' => intval( $matches[5] ),
 				);
 
-			// Y-m-d H:i:s.
+				// Y-m-d H:i:s.
 			} elseif ( preg_match( '/^(\d{4})\-(\d{2})\-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/', $datetime, $matches ) ) {
 				$datetime = array(
 					'year'   => intval( $matches[1] ),
@@ -1369,11 +1368,11 @@ trait Parser {
 		if ( isset( $hour ) && ! isset( $minute ) && ! isset( $second ) && false !== ( $value = $this->build_numeric_value( $compare, $hour ) ) ) {
 			return "HOUR( {$column} ) {$compare} {$value}";
 
-		// Minute.
+			// Minute.
 		} elseif ( ! isset( $hour ) && isset( $minute ) && ! isset( $second ) && false !== ( $value = $this->build_numeric_value( $compare, $minute ) ) ) {
 			return "MINUTE( {$column} ) {$compare} {$value}";
 
-		// Second.
+			// Second.
 		} elseif ( ! isset( $hour ) && ! isset( $minute ) && isset( $second ) && false !== ( $value = $this->build_numeric_value( $compare, $second ) ) ) {
 			return "SECOND( {$column} ) {$compare} {$value}";
 		}
@@ -1529,10 +1528,10 @@ trait Parser {
 			if ( 'OR' === $parent_query['relation'] ) {
 				$compatible_compares = $this->get_operators( array( 'positive' => true ) );
 
-			/**
-			 * Clauses JOIN'ed by AND with "negative" operators share a JOIN
-			 * only if they also share a key.
-			 */
+				/**
+				 * Clauses JOIN'ed by AND with "negative" operators share a JOIN
+				 * only if they also share a key.
+				 */
 			} elseif ( isset( $sibling['key'] ) && isset( $clause['key'] ) && ( $sibling['key'] === $clause['key'] ) ) {
 				$compatible_compares = $this->get_operators( array( 'positive' => false ) );
 			}

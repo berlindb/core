@@ -66,11 +66,41 @@ class DateParserTest extends TestCase {
 		self::$table->delete_all();
 		wp_cache_flush();
 
-		$this->ids[] = self::$query->add_item( array( 'name' => 'Alpha Widget',   'status' => 'active',   'priority' => 10 ) );
-		$this->ids[] = self::$query->add_item( array( 'name' => 'Beta Widget',    'status' => 'active',   'priority' => 20 ) );
-		$this->ids[] = self::$query->add_item( array( 'name' => 'Gamma Gadget',   'status' => 'inactive', 'priority' => 30 ) );
-		$this->ids[] = self::$query->add_item( array( 'name' => 'Delta Gadget',   'status' => 'inactive', 'priority' => 40 ) );
-		$this->ids[] = self::$query->add_item( array( 'name' => 'Epsilon Widget', 'status' => 'pending',  'priority' => 50 ) );
+		$this->ids[] = self::$query->add_item(
+			array(
+				'name'     => 'Alpha Widget',
+				'status'   => 'active',
+				'priority' => 10,
+			)
+		);
+		$this->ids[] = self::$query->add_item(
+			array(
+				'name'     => 'Beta Widget',
+				'status'   => 'active',
+				'priority' => 20,
+			)
+		);
+		$this->ids[] = self::$query->add_item(
+			array(
+				'name'     => 'Gamma Gadget',
+				'status'   => 'inactive',
+				'priority' => 30,
+			)
+		);
+		$this->ids[] = self::$query->add_item(
+			array(
+				'name'     => 'Delta Gadget',
+				'status'   => 'inactive',
+				'priority' => 40,
+			)
+		);
+		$this->ids[] = self::$query->add_item(
+			array(
+				'name'     => 'Epsilon Widget',
+				'status'   => 'pending',
+				'priority' => 50,
+			)
+		);
 
 		$table_name = self::$table->table_name;
 
@@ -103,14 +133,16 @@ class DateParserTest extends TestCase {
 	public function test_after_filter_returns_matching_rows() {
 
 		// Assert expected results.
-		$results = self::$query->query( array(
-			'date_query' => array(
-				array(
-					'column' => 'date_created',
-					'after'  => '2022-01-01',
+		$results = self::$query->query(
+			array(
+				'date_query' => array(
+					array(
+						'column' => 'date_created',
+						'after'  => '2022-01-01',
+					),
 				),
-			),
-		) );
+			)
+		);
 
 		$this->assertCount( 3, $results );
 
@@ -128,14 +160,16 @@ class DateParserTest extends TestCase {
 	public function test_before_filter_returns_matching_rows() {
 
 		// Assert expected results.
-		$results = self::$query->query( array(
-			'date_query' => array(
-				array(
-					'column' => 'date_created',
-					'before' => '2022-01-01',
+		$results = self::$query->query(
+			array(
+				'date_query' => array(
+					array(
+						'column' => 'date_created',
+						'before' => '2022-01-01',
+					),
 				),
-			),
-		) );
+			)
+		);
 
 		$this->assertCount( 2, $results );
 
@@ -152,15 +186,17 @@ class DateParserTest extends TestCase {
 	public function test_date_range_with_after_and_before() {
 
 		// Assert expected results.
-		$results = self::$query->query( array(
-			'date_query' => array(
-				array(
-					'column' => 'date_created',
-					'after'  => '2021-01-01',
-					'before' => '2023-01-01',
+		$results = self::$query->query(
+			array(
+				'date_query' => array(
+					array(
+						'column' => 'date_created',
+						'after'  => '2021-01-01',
+						'before' => '2023-01-01',
+					),
 				),
-			),
-		) );
+			)
+		);
 
 		$this->assertCount( 2, $results );
 
@@ -177,14 +213,16 @@ class DateParserTest extends TestCase {
 	public function test_year_filter() {
 
 		// Assert expected results.
-		$results = self::$query->query( array(
-			'date_query' => array(
-				array(
-					'column' => 'date_created',
-					'year'   => 2023,
+		$results = self::$query->query(
+			array(
+				'date_query' => array(
+					array(
+						'column' => 'date_created',
+						'year'   => 2023,
+					),
 				),
-			),
-		) );
+			)
+		);
 
 		$this->assertCount( 1, $results );
 		$this->assertSame( 'Delta Gadget', $results[0]->name );
@@ -198,14 +236,16 @@ class DateParserTest extends TestCase {
 	public function test_month_filter() {
 
 		// January (month 1) only has Alpha Widget (2020-01-15).
-		$results = self::$query->query( array(
-			'date_query' => array(
-				array(
-					'column' => 'date_created',
-					'month'  => 1,
+		$results = self::$query->query(
+			array(
+				'date_query' => array(
+					array(
+						'column' => 'date_created',
+						'month'  => 1,
+					),
 				),
-			),
-		) );
+			)
+		);
 
 		$this->assertCount( 1, $results );
 		$this->assertSame( 'Alpha Widget', $results[0]->name );
@@ -219,15 +259,17 @@ class DateParserTest extends TestCase {
 	public function test_date_query_with_count_mode() {
 
 		// Assert expected results.
-		$count = self::$query->query( array(
-			'date_query' => array(
-				array(
-					'column' => 'date_created',
-					'after'  => '2023-01-01',
+		$count = self::$query->query(
+			array(
+				'date_query' => array(
+					array(
+						'column' => 'date_created',
+						'after'  => '2023-01-01',
+					),
 				),
-			),
-			'count' => true,
-		) );
+				'count'      => true,
+			)
+		);
 
 		$this->assertSame( 2, (int) $count );
 	}
@@ -240,19 +282,21 @@ class DateParserTest extends TestCase {
 	public function test_or_relation_across_date_clauses() {
 
 		// Assert expected results.
-		$results = self::$query->query( array(
-			'date_query' => array(
-				'relation' => 'OR',
-				array(
-					'column' => 'date_created',
-					'year'   => 2020,
+		$results = self::$query->query(
+			array(
+				'date_query' => array(
+					'relation' => 'OR',
+					array(
+						'column' => 'date_created',
+						'year'   => 2020,
+					),
+					array(
+						'column' => 'date_created',
+						'year'   => 2024,
+					),
 				),
-				array(
-					'column' => 'date_created',
-					'year'   => 2024,
-				),
-			),
-		) );
+			)
+		);
 
 		$this->assertCount( 2, $results );
 
@@ -269,18 +313,20 @@ class DateParserTest extends TestCase {
 	public function test_orderby_date_created_query_asc() {
 
 		// Assert expected results.
-		$results = self::$query->query( array(
-			'orderby' => 'date_created_query',
-			'order'   => 'ASC',
-		) );
+		$results = self::$query->query(
+			array(
+				'orderby' => 'date_created_query',
+				'order'   => 'ASC',
+			)
+		);
 
 		$this->assertCount( 5, $results );
 
 		$names = wp_list_pluck( $results, 'name' );
-		$this->assertSame( 'Alpha Widget',   $names[0] ); // 2020-01-15
-		$this->assertSame( 'Beta Widget',    $names[1] ); // 2021-06-01
-		$this->assertSame( 'Gamma Gadget',   $names[2] ); // 2022-03-10
-		$this->assertSame( 'Delta Gadget',   $names[3] ); // 2023-08-20
+		$this->assertSame( 'Alpha Widget', $names[0] ); // 2020-01-15
+		$this->assertSame( 'Beta Widget', $names[1] ); // 2021-06-01
+		$this->assertSame( 'Gamma Gadget', $names[2] ); // 2022-03-10
+		$this->assertSame( 'Delta Gadget', $names[3] ); // 2023-08-20
 		$this->assertSame( 'Epsilon Widget', $names[4] ); // 2024-12-31
 	}
 
@@ -292,18 +338,20 @@ class DateParserTest extends TestCase {
 	public function test_orderby_date_created_query_desc() {
 
 		// Assert expected results.
-		$results = self::$query->query( array(
-			'orderby' => 'date_created_query',
-			'order'   => 'DESC',
-		) );
+		$results = self::$query->query(
+			array(
+				'orderby' => 'date_created_query',
+				'order'   => 'DESC',
+			)
+		);
 
 		$this->assertCount( 5, $results );
 
 		$names = wp_list_pluck( $results, 'name' );
 		$this->assertSame( 'Epsilon Widget', $names[0] ); // 2024-12-31
-		$this->assertSame( 'Delta Gadget',   $names[1] ); // 2023-08-20
-		$this->assertSame( 'Gamma Gadget',   $names[2] ); // 2022-03-10
-		$this->assertSame( 'Beta Widget',    $names[3] ); // 2021-06-01
-		$this->assertSame( 'Alpha Widget',   $names[4] ); // 2020-01-15
+		$this->assertSame( 'Delta Gadget', $names[1] ); // 2023-08-20
+		$this->assertSame( 'Gamma Gadget', $names[2] ); // 2022-03-10
+		$this->assertSame( 'Beta Widget', $names[3] ); // 2021-06-01
+		$this->assertSame( 'Alpha Widget', $names[4] ); // 2020-01-15
 	}
 }

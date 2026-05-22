@@ -185,7 +185,7 @@ class Date extends Base {
 			'dayofweek_iso',
 			'hour',
 			'minute',
-			'second'
+			'second',
 		);
 	}
 
@@ -249,7 +249,7 @@ class Date extends Base {
 
 			$max_days_of_year = (int) gmdate( 'z', gmmktime( 0, 0, 0, 12, 31, $_year ) ) + 1;
 
-		// Otherwise we use the max of 366 (leap-year).
+			// Otherwise we use the max of 366 (leap-year).
 		} else {
 			$max_days_of_year = 366;
 		}
@@ -286,7 +286,7 @@ class Date extends Base {
 			 */
 			$week_count = gmdate( 'W', gmmktime( 0, 0, 0, 12, 28, $_year ) );
 
-		// Otherwise set the week-count to a maximum of 53.
+			// Otherwise set the week-count to a maximum of 53.
 		} else {
 			$week_count = 53;
 		}
@@ -345,9 +345,9 @@ class Date extends Base {
 		}
 
 		// Check what kinds of dates are being queried for.
-		$day_exists   = array_key_exists( 'day',   $date_query ) && is_numeric( $date_query['day']   );
+		$day_exists   = array_key_exists( 'day', $date_query ) && is_numeric( $date_query['day']   );
 		$month_exists = array_key_exists( 'month', $date_query ) && is_numeric( $date_query['month'] );
-		$year_exists  = array_key_exists( 'year',  $date_query ) && is_numeric( $date_query['year']  );
+		$year_exists  = array_key_exists( 'year', $date_query ) && is_numeric( $date_query['year']  );
 
 		// Checking at least day & month.
 		if ( ! empty( $day_exists ) && ! empty( $month_exists ) ) {

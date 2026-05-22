@@ -103,7 +103,7 @@ class In extends Base {
 	public function get_sql_for_clause( &$clause = array(), $parent_query = array(), $clause_key = '' ) {
 
 		// Get the database interface.
-		$db  = $this->get_db();
+		$db = $this->get_db();
 
 		// Get __in's in clause.
 		$ins = $this->get_first_order_clauses( $clause );
@@ -112,7 +112,7 @@ class In extends Base {
 		if ( empty( $db ) || empty( $ins ) ) {
 			return array(
 				'join'  => array(),
-				'where' => array()
+				'where' => array(),
 			);
 		}
 
@@ -141,7 +141,7 @@ class In extends Base {
 				$column_value   = reset( $values );
 				$where[ $name ] = $db->prepare( $statement, $column_value );
 
-			// Implode.
+				// Implode.
 			} else {
 				$in_values        = $this->caller( 'get_in_sql', $name, $values, true, $pattern );
 				$where[ $column ] = "{$aliased} IN {$in_values}";
@@ -151,7 +151,7 @@ class In extends Base {
 		// Return join/where array.
 		return array(
 			'join'  => array(),
-			'where' => $where
+			'where' => $where,
 		);
 	}
 

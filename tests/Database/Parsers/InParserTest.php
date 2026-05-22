@@ -63,11 +63,41 @@ class InParserTest extends TestCase {
 		self::$table->delete_all();
 		wp_cache_flush();
 
-		$this->ids[] = self::$query->add_item( array( 'name' => 'Alpha Widget',   'status' => 'active',   'priority' => 10 ) );
-		$this->ids[] = self::$query->add_item( array( 'name' => 'Beta Widget',    'status' => 'active',   'priority' => 20 ) );
-		$this->ids[] = self::$query->add_item( array( 'name' => 'Gamma Gadget',   'status' => 'inactive', 'priority' => 30 ) );
-		$this->ids[] = self::$query->add_item( array( 'name' => 'Delta Gadget',   'status' => 'inactive', 'priority' => 40 ) );
-		$this->ids[] = self::$query->add_item( array( 'name' => 'Epsilon Widget', 'status' => 'pending',  'priority' => 50 ) );
+		$this->ids[] = self::$query->add_item(
+			array(
+				'name'     => 'Alpha Widget',
+				'status'   => 'active',
+				'priority' => 10,
+			)
+		);
+		$this->ids[] = self::$query->add_item(
+			array(
+				'name'     => 'Beta Widget',
+				'status'   => 'active',
+				'priority' => 20,
+			)
+		);
+		$this->ids[] = self::$query->add_item(
+			array(
+				'name'     => 'Gamma Gadget',
+				'status'   => 'inactive',
+				'priority' => 30,
+			)
+		);
+		$this->ids[] = self::$query->add_item(
+			array(
+				'name'     => 'Delta Gadget',
+				'status'   => 'inactive',
+				'priority' => 40,
+			)
+		);
+		$this->ids[] = self::$query->add_item(
+			array(
+				'name'     => 'Epsilon Widget',
+				'status'   => 'pending',
+				'priority' => 50,
+			)
+		);
 
 		wp_cache_flush();
 	}
@@ -139,10 +169,12 @@ class InParserTest extends TestCase {
 	public function test_combined_in_filters_narrow_results() {
 
 		// Assert expected results.
-		$results = self::$query->query( array(
-			'status__in'   => 'active',
-			'priority__in' => '20',
-		) );
+		$results = self::$query->query(
+			array(
+				'status__in'   => 'active',
+				'priority__in' => '20',
+			)
+		);
 
 		$this->assertCount( 1, $results );
 		$this->assertSame( 'Beta Widget', $results[0]->name );
@@ -156,10 +188,12 @@ class InParserTest extends TestCase {
 	public function test_in_filter_with_count_mode() {
 
 		// Assert expected results.
-		$count = self::$query->query( array(
-			'status__in' => 'active',
-			'count'      => true,
-		) );
+		$count = self::$query->query(
+			array(
+				'status__in' => 'active',
+				'count'      => true,
+			)
+		);
 
 		$this->assertSame( 2, (int) $count );
 	}
@@ -176,11 +210,13 @@ class InParserTest extends TestCase {
 	public function test_orderby_field_preserves_id_order() {
 		$reversed = array_reverse( $this->ids );
 
-		$results = self::$query->query( array(
-			'id__in'  => implode( ', ', $reversed ),
-			'orderby' => 'id__in',
-			'order'   => 'ASC',
-		) );
+		$results = self::$query->query(
+			array(
+				'id__in'  => implode( ', ', $reversed ),
+				'orderby' => 'id__in',
+				'order'   => 'ASC',
+			)
+		);
 
 		// All 5 rows must come back in exact reverse-insertion order.
 		$this->assertCount( 5, $results );
@@ -198,11 +234,13 @@ class InParserTest extends TestCase {
 	 * @since 3.0.0
 	 */
 	public function test_orderby_field_groups_by_status() {
-		$results = self::$query->query( array(
-			'status__in' => 'inactive, active',
-			'orderby'    => 'status__in',
-			'order'      => 'ASC',
-		) );
+		$results = self::$query->query(
+			array(
+				'status__in' => 'inactive, active',
+				'orderby'    => 'status__in',
+				'order'      => 'ASC',
+			)
+		);
 
 		/*
 		 * 4 rows (Gamma + Delta = inactive; Alpha + Beta = active).
@@ -212,7 +250,7 @@ class InParserTest extends TestCase {
 		$statuses = wp_list_pluck( $results, 'status' );
 		$this->assertSame( 'inactive', $statuses[0] );
 		$this->assertSame( 'inactive', $statuses[1] );
-		$this->assertSame( 'active',   $statuses[2] );
-		$this->assertSame( 'active',   $statuses[3] );
+		$this->assertSame( 'active', $statuses[2] );
+		$this->assertSame( 'active', $statuses[3] );
 	}
 }

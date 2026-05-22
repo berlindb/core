@@ -87,9 +87,27 @@ class MetaParserTest extends TestCase {
 
 		wp_cache_flush();
 
-		$this->ids[0] = self::$query->add_item( array( 'name' => 'Alpha Widget',   'status' => 'active',   'priority' => 10 ) );
-		$this->ids[1] = self::$query->add_item( array( 'name' => 'Beta Widget',    'status' => 'active',   'priority' => 20 ) );
-		$this->ids[2] = self::$query->add_item( array( 'name' => 'Gamma Gadget',   'status' => 'inactive', 'priority' => 30 ) );
+		$this->ids[0] = self::$query->add_item(
+			array(
+				'name'     => 'Alpha Widget',
+				'status'   => 'active',
+				'priority' => 10,
+			)
+		);
+		$this->ids[1] = self::$query->add_item(
+			array(
+				'name'     => 'Beta Widget',
+				'status'   => 'active',
+				'priority' => 20,
+			)
+		);
+		$this->ids[2] = self::$query->add_item(
+			array(
+				'name'     => 'Gamma Gadget',
+				'status'   => 'inactive',
+				'priority' => 30,
+			)
+		);
 
 		/*
 		 * Add metadata using the 'post' type so rows land in wp_postmeta
@@ -114,10 +132,12 @@ class MetaParserTest extends TestCase {
 	public function test_meta_key_and_value_filter() {
 
 		// Assert expected results.
-		$results = self::$query->query( array(
-			'meta_key'   => 'berlindb_test_color',
-			'meta_value' => 'red',
-		) );
+		$results = self::$query->query(
+			array(
+				'meta_key'   => 'berlindb_test_color',
+				'meta_value' => 'red',
+			)
+		);
 
 		$this->assertCount( 1, $results );
 		$this->assertSame( 'Alpha Widget', $results[0]->name );
@@ -131,14 +151,16 @@ class MetaParserTest extends TestCase {
 	public function test_meta_query_exists() {
 
 		// Assert expected results.
-		$results = self::$query->query( array(
-			'meta_query' => array(
-				array(
-					'key'     => 'berlindb_test_color',
-					'compare' => 'EXISTS',
+		$results = self::$query->query(
+			array(
+				'meta_query' => array(
+					array(
+						'key'     => 'berlindb_test_color',
+						'compare' => 'EXISTS',
+					),
 				),
-			),
-		) );
+			)
+		);
 
 		// Only Alpha and Beta have the color key.
 		$this->assertCount( 2, $results );
@@ -156,14 +178,16 @@ class MetaParserTest extends TestCase {
 	public function test_meta_query_not_exists() {
 
 		// Assert expected results.
-		$results = self::$query->query( array(
-			'meta_query' => array(
-				array(
-					'key'     => 'berlindb_test_color',
-					'compare' => 'NOT EXISTS',
+		$results = self::$query->query(
+			array(
+				'meta_query' => array(
+					array(
+						'key'     => 'berlindb_test_color',
+						'compare' => 'NOT EXISTS',
+					),
 				),
-			),
-		) );
+			)
+		);
 
 		// Only Gamma Gadget has no color meta.
 		$this->assertCount( 1, $results );
@@ -178,16 +202,18 @@ class MetaParserTest extends TestCase {
 	public function test_meta_query_numeric_comparison() {
 
 		// Assert expected results.
-		$results = self::$query->query( array(
-			'meta_query' => array(
-				array(
-					'key'     => 'berlindb_test_score',
-					'value'   => 15,
-					'compare' => '>',
-					'type'    => 'NUMERIC',
+		$results = self::$query->query(
+			array(
+				'meta_query' => array(
+					array(
+						'key'     => 'berlindb_test_score',
+						'value'   => 15,
+						'compare' => '>',
+						'type'    => 'NUMERIC',
+					),
 				),
-			),
-		) );
+			)
+		);
 
 		$this->assertCount( 2, $results );
 
@@ -204,21 +230,23 @@ class MetaParserTest extends TestCase {
 	public function test_meta_query_and_relation() {
 
 		// Assert expected results.
-		$results = self::$query->query( array(
-			'meta_query' => array(
-				'relation' => 'AND',
-				array(
-					'key'     => 'berlindb_test_color',
-					'compare' => 'EXISTS',
+		$results = self::$query->query(
+			array(
+				'meta_query' => array(
+					'relation' => 'AND',
+					array(
+						'key'     => 'berlindb_test_color',
+						'compare' => 'EXISTS',
+					),
+					array(
+						'key'     => 'berlindb_test_score',
+						'value'   => 15,
+						'compare' => '>',
+						'type'    => 'NUMERIC',
+					),
 				),
-				array(
-					'key'     => 'berlindb_test_score',
-					'value'   => 15,
-					'compare' => '>',
-					'type'    => 'NUMERIC',
-				),
-			),
-		) );
+			)
+		);
 
 		// Only Beta Widget has color AND score > 15.
 		$this->assertCount( 1, $results );
@@ -233,19 +261,21 @@ class MetaParserTest extends TestCase {
 	public function test_meta_query_or_relation() {
 
 		// Assert expected results.
-		$results = self::$query->query( array(
-			'meta_query' => array(
-				'relation' => 'OR',
-				array(
-					'key'   => 'berlindb_test_color',
-					'value' => 'red',
+		$results = self::$query->query(
+			array(
+				'meta_query' => array(
+					'relation' => 'OR',
+					array(
+						'key'   => 'berlindb_test_color',
+						'value' => 'red',
+					),
+					array(
+						'key'   => 'berlindb_test_color',
+						'value' => 'blue',
+					),
 				),
-				array(
-					'key'   => 'berlindb_test_color',
-					'value' => 'blue',
-				),
-			),
-		) );
+			)
+		);
 
 		$this->assertCount( 2, $results );
 
@@ -262,15 +292,17 @@ class MetaParserTest extends TestCase {
 	public function test_meta_query_with_count_mode() {
 
 		// Assert expected results.
-		$count = self::$query->query( array(
-			'meta_query' => array(
-				array(
-					'key'     => 'berlindb_test_color',
-					'compare' => 'EXISTS',
+		$count = self::$query->query(
+			array(
+				'meta_query' => array(
+					array(
+						'key'     => 'berlindb_test_color',
+						'compare' => 'EXISTS',
+					),
 				),
-			),
-			'count' => true,
-		) );
+				'count'      => true,
+			)
+		);
 
 		$this->assertSame( 2, (int) $count );
 	}
@@ -281,18 +313,20 @@ class MetaParserTest extends TestCase {
 	 * @since 3.0.0
 	 */
 	public function test_orderby_meta_value_asc() {
-		$results = self::$query->query( array(
-			'meta_key' => 'berlindb_test_color',
-			'orderby'  => 'meta_value',
-			'order'    => 'ASC',
-		) );
+		$results = self::$query->query(
+			array(
+				'meta_key' => 'berlindb_test_color',
+				'orderby'  => 'meta_value',
+				'order'    => 'ASC',
+			)
+		);
 
 		/*
 		 * Only Alpha (red) and Beta (blue) have color meta.
 		 * Alphabetical ASC: 'blue' < 'red' -> Beta first.
 		 */
 		$this->assertCount( 2, $results );
-		$this->assertSame( 'Beta Widget',  $results[0]->name );
+		$this->assertSame( 'Beta Widget', $results[0]->name );
 		$this->assertSame( 'Alpha Widget', $results[1]->name );
 	}
 
@@ -302,16 +336,18 @@ class MetaParserTest extends TestCase {
 	 * @since 3.0.0
 	 */
 	public function test_orderby_meta_value_desc() {
-		$results = self::$query->query( array(
-			'meta_key' => 'berlindb_test_color',
-			'orderby'  => 'meta_value',
-			'order'    => 'DESC',
-		) );
+		$results = self::$query->query(
+			array(
+				'meta_key' => 'berlindb_test_color',
+				'orderby'  => 'meta_value',
+				'order'    => 'DESC',
+			)
+		);
 
 		// Alphabetical DESC: 'red' > 'blue' -> Alpha first.
 		$this->assertCount( 2, $results );
 		$this->assertSame( 'Alpha Widget', $results[0]->name );
-		$this->assertSame( 'Beta Widget',  $results[1]->name );
+		$this->assertSame( 'Beta Widget', $results[1]->name );
 	}
 
 	/**
@@ -327,11 +363,13 @@ class MetaParserTest extends TestCase {
 		add_metadata( 'post', $this->ids[1], 'berlindb_test_rank', '10' );
 		add_metadata( 'post', $this->ids[2], 'berlindb_test_rank', '20' );
 
-		$results = self::$query->query( array(
-			'meta_key' => 'berlindb_test_rank',
-			'orderby'  => 'meta_value_num',
-			'order'    => 'ASC',
-		) );
+		$results = self::$query->query(
+			array(
+				'meta_key' => 'berlindb_test_rank',
+				'orderby'  => 'meta_value_num',
+				'order'    => 'ASC',
+			)
+		);
 
 		/*
 		 * Numeric ASC: 2, 10, 20 -> Alpha, Beta, Gamma.
@@ -339,7 +377,7 @@ class MetaParserTest extends TestCase {
 		 */
 		$this->assertCount( 3, $results );
 		$this->assertSame( 'Alpha Widget', $results[0]->name );
-		$this->assertSame( 'Beta Widget',  $results[1]->name );
+		$this->assertSame( 'Beta Widget', $results[1]->name );
 		$this->assertSame( 'Gamma Gadget', $results[2]->name );
 	}
 
@@ -349,20 +387,22 @@ class MetaParserTest extends TestCase {
 	 * @since 3.0.0
 	 */
 	public function test_orderby_named_clause_key_asc() {
-		$results = self::$query->query( array(
-			'meta_query' => array(
-				'score_clause' => array(
-					'key' => 'berlindb_test_score',
+		$results = self::$query->query(
+			array(
+				'meta_query' => array(
+					'score_clause' => array(
+						'key' => 'berlindb_test_score',
+					),
 				),
-			),
-			'orderby' => 'score_clause',
-			'order'   => 'ASC',
-		) );
+				'orderby'    => 'score_clause',
+				'order'      => 'ASC',
+			)
+		);
 
 		// All three rows have a score (10, 20, 30). ASC -> Alpha, Beta, Gamma.
 		$this->assertCount( 3, $results );
 		$this->assertSame( 'Alpha Widget', $results[0]->name );
-		$this->assertSame( 'Beta Widget',  $results[1]->name );
+		$this->assertSame( 'Beta Widget', $results[1]->name );
 		$this->assertSame( 'Gamma Gadget', $results[2]->name );
 	}
 }

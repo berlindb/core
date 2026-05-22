@@ -415,7 +415,7 @@ class Query {
 		}
 
 		// Invoke a new table schema class.
-		$this->schema_object = new $this->table_schema;
+		$this->schema_object = new $this->table_schema();
 	}
 
 	/**
@@ -467,7 +467,7 @@ class Query {
 			'where'   => array(),
 			'groupby' => '',
 			'orderby' => '',
-			'limits'  => ''
+			'limits'  => '',
 		);
 
 		// Default request clauses are empty strings.
@@ -518,7 +518,7 @@ class Query {
 
 			// Caching.
 			'update_item_cache' => true,
-			'update_meta_cache' => true
+			'update_meta_cache' => true,
 		);
 
 		/** Query Parsers *****************************************************/
@@ -535,7 +535,7 @@ class Query {
 			}
 
 			// Instantiate to read descriptor properties.
-			$parser = new $class;
+			$parser = new $class();
 
 			// Setup the parser.
 			$this->parsers[ $parser->name ] = $parser;
@@ -644,18 +644,18 @@ class Query {
 				$retval = $item_ids;
 			}
 
-		/**
-		 * Maybe perform a second COUNT(*) query immediately if:
-		 *
-		 * - 'count' query var is not truthy
-		 * - 'no_found_row' query var is not truthy
-		 * - 'number' query var is not falsy
-		 *
-		 * This second query uses most of the previously parsed $request_clauses
-		 * and overrides a few to correct the SQL syntax.
-		 *
-		 * @since 3.0.0 Performs a COUNT(*) query using $request_clauses.
-		 */
+			/**
+			 * Maybe perform a second COUNT(*) query immediately if:
+			 *
+			 * - 'count' query var is not truthy
+			 * - 'no_found_row' query var is not truthy
+			 * - 'number' query var is not falsy
+			 *
+			 * This second query uses most of the previously parsed $request_clauses
+			 * and overrides a few to correct the SQL syntax.
+			 *
+			 * @since 3.0.0 Performs a COUNT(*) query using $request_clauses.
+			 */
 		} elseif ( ! $this->get_query_var( 'no_found_rows' ) && $this->get_query_var( 'number' ) ) {
 
 			// Override a few request clauses.
@@ -663,7 +663,7 @@ class Query {
 				array(
 					'fields'  => 'COUNT(*)',
 					'limits'  => '',
-					'orderby' => ''
+					'orderby' => '',
 				),
 				$this->request_clauses
 			);
@@ -1132,9 +1132,9 @@ class Query {
 		$pattern = $this->get_column_field( array( 'name' => $column_name ), 'pattern', '%s' );
 
 		// Query database.
-		$query   = "SELECT * FROM {$table} WHERE {$column_name} = {$pattern} LIMIT 1";
-		$select  = $db->prepare( $query, $column_value );
-		$result  = $db->get_row( $select );
+		$query  = "SELECT * FROM {$table} WHERE {$column_name} = {$pattern} LIMIT 1";
+		$select = $db->prepare( $query, $column_value );
+		$result = $db->get_row( $select );
 
 		// Bail on failure.
 		if ( ! $this->is_success( $result ) ) {
@@ -1164,7 +1164,7 @@ class Query {
 		do_action_ref_array(
 			$this->apply_prefix( "pre_get_{$this->item_name_plural}" ),
 			array(
-				&$this
+				&$this,
 			)
 		);
 
@@ -1190,7 +1190,7 @@ class Query {
 			// Add value to the cache.
 			$this->cache_add( $cache_key, $cache_value, $this->cache_group );
 
-		// Value exists in cache.
+			// Value exists in cache.
 		} else {
 			$result            = $cache_value['item_ids'];
 			$this->found_items = (int) $cache_value['found_items'];
@@ -1371,7 +1371,7 @@ class Query {
 		do_action_ref_array(
 			$this->apply_prefix( "parse_{$this->item_name_plural}_query" ),
 			array(
-				&$this
+				&$this,
 			)
 		);
 	}
@@ -1412,7 +1412,7 @@ class Query {
 			'where'   => $this->parse_where_clause( $join_where['where'] ),
 			'groupby' => $this->parse_groupby( $r['groupby'], 'GROUP BY' ),
 			'orderby' => $this->parse_orderby( $r['orderby'], $r['order'], 'ORDER BY' ),
-			'limits'  => $this->parse_limits( $r['number'], $r['offset'] )
+			'limits'  => $this->parse_limits( $r['number'], $r['offset'] ),
 		);
 
 		// Return clauses.
@@ -1474,7 +1474,7 @@ class Query {
 		if ( empty( $this->parsers ) ) {
 			return array(
 				'join'  => array(),
-				'where' => array()
+				'where' => array(),
 			);
 		}
 
@@ -1556,7 +1556,7 @@ class Query {
 		// Return join/where subclauses.
 		return array(
 			'join'  => $join,
-			'where' => $where
+			'where' => $where,
 		);
 	}
 
@@ -1720,7 +1720,7 @@ class Query {
 			// Use count instead.
 			$retval = $this->parse_count( $count, $groupby );
 
-		// Not counting, so use primary column.
+			// Not counting, so use primary column.
 		} else {
 
 			// Maybe fallback to $query_vars.
@@ -1852,7 +1852,7 @@ class Query {
 		$retval = implode( ',', $names );
 
 		// Return columns.
-		return implode( ' ', array( $before, $retval ) ) ;
+		return implode( ' ', array( $before, $retval ) );
 	}
 
 	/**
@@ -1893,7 +1893,7 @@ class Query {
 			$order  = $this->parse_order( $order );
 			$retval = "{$parsed} {$order}";
 
-		// Ordering by something, so figure it out.
+			// Ordering by something, so figure it out.
 		} else {
 
 			// Cast orderby as an array.
@@ -2105,7 +2105,7 @@ class Query {
 	 * @param string $order The 'order' query variable.
 	 * @return string The sanitized 'order' query variable.
 	 */
-	private function parse_order( $order  = 'DESC' ) {
+	private function parse_order( $order = 'DESC' ) {
 
 		// Bail if malformed.
 		if ( empty( $order ) || ! is_string( $order ) ) {
@@ -2216,7 +2216,7 @@ class Query {
 	private function shape_item_id( $item = 0 ) {
 
 		// Default return value.
-		$retval  = $item;
+		$retval = $item;
 
 		// Get the primary column name.
 		$primary = $this->get_primary_column_name();
@@ -2225,7 +2225,7 @@ class Query {
 		if ( is_object( $item ) && isset( $item->{$primary} ) ) {
 			$retval = $item->{$primary};
 
-		// Array item.
+			// Array item.
 		} elseif ( is_array( $item ) && isset( $item[ $primary ] ) ) {
 			$retval = $item[ $primary ];
 		}
@@ -2295,7 +2295,7 @@ class Query {
 		if ( ( 1 === count( $fields ) ) && ( 'ids' === $fields[0] ) ) {
 			$retval = wp_list_pluck( $items, $primary );
 
-		// Get fields from items.
+			// Get fields from items.
 		} else {
 			$retval = array();
 			$fields = array_flip( $fields );
@@ -2425,7 +2425,7 @@ class Query {
 			$item_id = $this->shape_item_id( $data[ $primary ] );
 
 			// Get item by ID (from database, not cache).
-			$item    = $this->get_item_raw( $primary, $item_id );
+			$item = $this->get_item_raw( $primary, $item_id );
 
 			// Bail if item already exists.
 			if ( ! empty( $item ) ) {
@@ -2526,7 +2526,7 @@ class Query {
 		$item_id = $this->shape_item_id( $item_id );
 
 		// Get item by ID (from database, not cache).
-		$item    = $this->get_item_raw( $primary, $item_id );
+		$item = $this->get_item_raw( $primary, $item_id );
 
 		// Bail if item does not exist.
 		if ( empty( $item ) ) {
@@ -2584,7 +2584,7 @@ class Query {
 		$primary = $this->get_primary_column_name();
 
 		// Get item to update (from database, not cache).
-		$item    = $this->get_item_raw( $primary, $item_id );
+		$item = $this->get_item_raw( $primary, $item_id );
 
 		// Bail if item does not exist to update.
 		if ( empty( $item ) ) {
@@ -2634,7 +2634,7 @@ class Query {
 			$table        = $this->get_table_name();
 			$where        = array( $primary => $item_id );
 			$names        = array_keys( $save );
-			$save_format  = $this->get_columns_field_by( 'name', $names,   'pattern', '%s' );
+			$save_format  = $this->get_columns_field_by( 'name', $names, 'pattern', '%s' );
 			$where_format = $this->get_columns_field_by( 'name', $primary, 'pattern', '%s' );
 			$retval       = $db->update( $table, $save, $where, $save_format, $where_format );
 		}
@@ -2792,7 +2792,7 @@ class Query {
 					$item->{$key} = null;
 				}
 
-			// Set if explicitly allowed.
+				// Set if explicitly allowed.
 			} elseif ( is_array( $item ) ) {
 				$item[ $key ] = $value;
 			} elseif ( is_object( $item ) ) {
@@ -2828,7 +2828,7 @@ class Query {
 		$defaults = $this->get_columns( $r, 'and', 'default' );
 
 		// Combine them.
-		$retval   = array_combine( $names, $defaults );
+		$retval = array_combine( $names, $defaults );
 
 		// Return.
 		return $retval;
@@ -3168,13 +3168,13 @@ class Query {
 	private function get_meta_table_name() {
 
 		// Get the meta type.
-		$type  = $this->get_meta_type();
+		$type = $this->get_meta_type();
 
 		// Append "meta" to end of meta type.
 		$table = "{$type}meta";
 
 		// Variable'ize the database interface, to use inside empty().
-		$db    = $this->get_db();
+		$db = $this->get_db();
 
 		// If not empty, return table name.
 		if ( ! empty( $db->{$table} ) ) {
@@ -3267,7 +3267,7 @@ class Query {
 		$primary = $this->get_primary_column_name();
 
 		// Default return value.
-		$retval  = $this->cache_group;
+		$retval = $this->cache_group;
 
 		// Only allow non-primary groups.
 		if ( ! empty( $group ) && ( $group !== $primary ) ) {
@@ -3427,7 +3427,7 @@ class Query {
 			$item_id = $this->shape_item_id( $items );
 
 			// Get item by ID (from database, not cache).
-			$items   = $this->get_item_raw( $primary, $item_id );
+			$items = $this->get_item_raw( $primary, $item_id );
 		}
 
 		// Bail if no items to cache.
@@ -3731,7 +3731,7 @@ class Query {
 			$this->apply_prefix( "filter_{$this->item_name}_item" ),
 			array(
 				$item,
-				&$this
+				&$this,
 			)
 		);
 	}
@@ -3758,7 +3758,7 @@ class Query {
 			$this->apply_prefix( "the_{$this->item_name_plural}" ),
 			array(
 				$items,
-				&$this
+				&$this,
 			)
 		);
 	}
@@ -3786,7 +3786,7 @@ class Query {
 			$this->apply_prefix( "found_{$this->item_name_plural}_query" ),
 			array(
 				$sql,
-				&$this
+				&$this,
 			)
 		);
 	}
@@ -3813,7 +3813,7 @@ class Query {
 			$this->apply_prefix( "{$this->item_name_plural}_query_clauses" ),
 			array(
 				$clauses,
-				&$this
+				&$this,
 			)
 		);
 	}
@@ -3847,14 +3847,17 @@ class Query {
 	public function get_results( $cols = array(), $where_cols = array(), $limit = 25, $offset = null, $output = OBJECT ) {
 
 		// Parse arguments.
-		$r = wp_parse_args( $where_cols, array(
-			'fields'            => $cols,
-			'number'            => $limit,
-			'offset'            => $offset,
-			'output'            => $output,
-			'update_item_cache' => false,
-			'update_meta_cache' => false,
-		) );
+		$r = wp_parse_args(
+			$where_cols,
+			array(
+				'fields'            => $cols,
+				'number'            => $limit,
+				'offset'            => $offset,
+				'output'            => $output,
+				'update_item_cache' => false,
+				'update_meta_cache' => false,
+			)
+		);
 
 		// Get items.
 		return $this->query( $r );
