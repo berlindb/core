@@ -212,21 +212,4 @@ trait Base {
 			$this->{$key} = $value;
 		}
 	}
-
-	/**
-	 * Stash arguments and class variables.
-	 *
-	 * This is used to stash a copy of the original constructor arguments and
-	 * the object variable values, for later comparison, reuse, or resetting
-	 * back to a previous state.
-	 *
-	 * @since 3.0.0
-	 * @param array $args
-	 */
-	protected function stash_args( $args = array() ) {
-		$this->args = array(
-			'param' => $args,
-			'class' => get_object_vars( $this ),
-		);
-	}
 }

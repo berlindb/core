@@ -131,6 +131,25 @@ trait Boot {
 	}
 
 	/**
+	 * Stash arguments and class variables.
+	 *
+	 * Captures a snapshot of the constructor arguments and the object's
+	 * current property values so parse_args() can merge against them and
+	 * callers can compare, reuse, or reset to a prior state.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param array $args
+	 * @return void
+	 */
+	protected function stash_args( $args = array() ) {
+		$this->args = array(
+			'param' => $args,
+			'class' => get_object_vars( $this ),
+		);
+	}
+
+	/**
 	 * Initialize.
 	 *
 	 * @since 3.0.0
