@@ -11,6 +11,7 @@
 namespace BerlinDB\Tests;
 
 use BerlinDB\Database\Column;
+use BerlinDB\Database\Index;
 use BerlinDB\Tests\Fixtures\TestSchema;
 use Yoast\WPTestUtils\WPIntegration\TestCase;
 
@@ -220,5 +221,231 @@ class SchemaTest extends TestCase {
 		$schema = new TestSchema();
 		$result = $schema->add_item( 'columns', array() );
 		$this->assertFalse( $result );
+	}
+
+	public function test_add_item_returns_false_for_invalid_type() {
+		$schema = new TestSchema();
+		$this->assertFalse( $schema->add_item( 'invalid_type', array( 'name' => 'foo' ) ) );
+	}
+
+	// add_column() / add_index() convenience wrappers.
+
+	public function test_add_column_appends_column_and_returns_instance() {
+		$schema = new TestSchema();
+		$count  = count( $schema->get_columns() );
+		$result = $schema->add_column( array( 'name' => 'extra', 'type' => 'bigint' ) );
+		$this->assertInstanceOf( Column::class, $result );
+		$this->assertCount( $count + 1, $schema->get_columns() );
+	}
+
+	public function test_add_index_appends_index_and_returns_instance() {
+		$schema = new TestSchema();
+		$count  = count( $schema->get_indexes() );
+		$result = $schema->add_index(
+			array(
+				'name'    => 'name',
+				'type'    => 'key',
+				'columns' => array( 'name' ),
+			)
+		);
+		$this->assertInstanceOf( Index::class, $result );
+		$this->assertCount( $count + 1, $schema->get_indexes() );
+	}
+
+	// get_column() / get_index().
+
+	public function test_get_column_returns_column_object_by_name() {
+		$column = self::$schema->get_column( 'name' );
+		$this->assertInstanceOf( Column::class, $column );
+		$this->assertSame( 'name', $column->name );
+	}
+
+	public function test_get_column_returns_false_for_nonexistent_name() {
+		$this->assertFalse( self::$schema->get_column( 'nonexistent_xyz' ) );
+	}
+
+	public function test_get_index_returns_index_object_by_name() {
+		$index = self::$schema->get_index( 'status' );
+		$this->assertInstanceOf( Index::class, $index );
+	}
+
+	public function test_get_index_with_primary_alias_returns_primary_index() {
+		$index = self::$schema->get_index( 'primary' );
+		$this->assertInstanceOf( Index::class, $index );
+		$this->assertSame( 'primary', strtolower( $index->type ) );
+	}
+
+	public function test_get_index_returns_false_for_nonexistent_name() {
+		$this->assertFalse( self::$schema->get_index( 'nonexistent_xyz' ) );
+	}
+
+	// has_column() / has_index().
+
+	public function test_has_column_returns_true_for_existing_column() {
+		$this->assertTrue( self::$schema->has_column( 'name' ) );
+	}
+
+	public function test_has_column_returns_false_for_nonexistent_column() {
+		$this->assertFalse( self::$schema->has_column( 'nonexistent_xyz' ) );
+	}
+
+	public function test_has_index_returns_true_for_existing_index() {
+		$this->assertTrue( self::$schema->has_index( 'status' ) );
+	}
+
+	public function test_has_index_with_primary_alias_returns_true() {
+		$this->assertTrue( self::$schema->has_index( 'primary' ) );
+	}
+
+	public function test_has_index_returns_false_for_nonexistent_index() {
+		$this->assertFalse( self::$schema->has_index( 'nonexistent_xyz' ) );
+	}
+
+	// remove_column() / remove_index().
+
+	public function test_remove_column_removes_column_and_returns_true() {
+		$schema = new TestSchema();
+		$this->assertTrue( $schema->remove_column( 'name' ) );
+		$this->assertFalse( $schema->has_column( 'name' ) );
+	}
+
+	public function test_remove_column_returns_false_for_nonexistent_column() {
+		$schema = new TestSchema();
+		$this->assertFalse( $schema->remove_column( 'nonexistent_xyz' ) );
+	}
+
+	public function test_remove_index_removes_index_by_name_and_returns_true() {
+		$schema = new TestSchema();
+		$this->assertTrue( $schema->remove_index( 'status' ) );
+		$this->assertFalse( $schema->has_index( 'status' ) );
+	}
+
+	public function test_remove_index_with_primary_alias_removes_primary_index() {
+		$schema = new TestSchema();
+		$this->assertTrue( $schema->remove_index( 'primary' ) );
+		$this->assertFalse( $schema->has_index( 'primary' ) );
+	}
+
+	public function test_remove_index_returns_false_for_nonexistent_index() {
+		$schema = new TestSchema();
+		$this->assertFalse( $schema->remove_index( 'nonexistent_xyz' ) );
+	}
+
+	// set_columns() / set_indexes().
+
+	public function test_set_columns_replaces_all_columns() {
+		$schema = new TestSchema();
+		$schema->set_columns(
+			array(
+				array( 'name' => 'foo', 'type' => 'bigint' ),
+				array( 'name' => 'bar', 'type' => 'varchar', 'length' => '50' ),
+			)
+		);
+		$this->assertCount( 2, $schema->get_columns() );
+		$this->assertTrue( $schema->has_column( 'foo' ) );
+		$this->assertFalse( $schema->has_column( 'id' ) );
+	}
+
+	public function test_set_indexes_replaces_all_indexes() {
+		$schema = new TestSchema();
+		$schema->set_indexes(
+			array(
+				array( 'type' => 'primary', 'columns' => array( 'id' ) ),
+			)
+		);
+		$this->assertCount( 1, $schema->get_indexes() );
+		$this->assertFalse( $schema->has_index( 'status' ) );
+		$this->assertTrue( $schema->has_index( 'primary' ) );
+	}
+
+	// is_valid() / get_validation_errors().
+
+	public function test_is_valid_returns_true_for_well_formed_schema() {
+		$this->assertTrue( self::$schema->is_valid() );
+	}
+
+	public function test_get_validation_errors_returns_empty_array_for_valid_schema() {
+		$this->assertSame( array(), self::$schema->get_validation_errors() );
+	}
+
+	public function test_validation_error_for_column_missing_name() {
+		$schema = new TestSchema();
+		$schema->clear();
+		$schema->add_column( array( 'type' => 'bigint' ) );
+		$this->assertNotEmpty( $schema->get_validation_errors() );
+	}
+
+	public function test_validation_error_for_duplicate_column_names() {
+		$schema = new TestSchema();
+		$schema->clear();
+		$schema->add_column( array( 'name' => 'id', 'type' => 'bigint' ) );
+		$schema->add_column( array( 'name' => 'id', 'type' => 'bigint' ) );
+		$errors = $schema->get_validation_errors();
+		$this->assertNotEmpty( $errors );
+		$this->assertStringContainsString( 'Duplicate column name', $errors[0] );
+	}
+
+	public function test_validation_error_for_index_missing_name() {
+		$schema = new TestSchema();
+		$schema->clear();
+		$schema->add_column( array( 'name' => 'id', 'type' => 'bigint' ) );
+		$schema->add_index( array( 'type' => 'key', 'columns' => array( 'id' ) ) );
+		$errors = $schema->get_validation_errors();
+		$this->assertNotEmpty( $errors );
+		$this->assertStringContainsString( 'missing a valid name', $errors[0] );
+	}
+
+	public function test_validation_error_for_duplicate_index_names() {
+		$schema = new TestSchema();
+		$schema->clear();
+		$schema->add_column( array( 'name' => 'id', 'type' => 'bigint' ) );
+		$schema->add_index( array( 'name' => 'id_idx', 'type' => 'key', 'columns' => array( 'id' ) ) );
+		$schema->add_index( array( 'name' => 'id_idx', 'type' => 'key', 'columns' => array( 'id' ) ) );
+		$errors = $schema->get_validation_errors();
+		$this->assertNotEmpty( $errors );
+		$this->assertStringContainsString( 'Duplicate index name', $errors[0] );
+	}
+
+	public function test_validation_error_for_index_referencing_unknown_column() {
+		$schema = new TestSchema();
+		$schema->clear();
+		$schema->add_column( array( 'name' => 'id', 'type' => 'bigint' ) );
+		$schema->add_index(
+			array(
+				'name'    => 'bad_idx',
+				'type'    => 'key',
+				'columns' => array( 'nonexistent' ),
+			)
+		);
+		$errors = $schema->get_validation_errors();
+		$this->assertNotEmpty( $errors );
+		$this->assertStringContainsString( 'unknown column', $errors[0] );
+	}
+
+	public function test_validation_error_for_index_with_no_columns() {
+		$schema = new TestSchema();
+		$schema->clear();
+		$schema->add_column( array( 'name' => 'id', 'type' => 'bigint' ) );
+		$schema->add_index( array( 'name' => 'empty_idx', 'type' => 'key', 'columns' => array() ) );
+		$errors = $schema->get_validation_errors();
+		$this->assertNotEmpty( $errors );
+		$this->assertStringContainsString( 'does not include any columns', $errors[0] );
+	}
+
+	public function test_validation_error_for_multiple_primary_keys() {
+		$schema = new TestSchema();
+		$schema->clear();
+		$schema->add_column( array( 'name' => 'id',     'type' => 'bigint', 'primary' => true ) );
+		$schema->add_column( array( 'name' => 'alt_id', 'type' => 'bigint', 'primary' => true ) );
+		$errors = $schema->get_validation_errors();
+		$this->assertNotEmpty( $errors );
+		$this->assertStringContainsString( 'multiple primary keys', $errors[ count( $errors ) - 1 ] );
+	}
+
+	public function test_get_create_table_string_returns_empty_for_invalid_schema() {
+		$schema = new TestSchema();
+		$schema->clear();
+		$schema->add_column( array( 'type' => 'bigint' ) ); // no name — invalid
+		$this->assertSame( '', $schema->get_create_table_string() );
 	}
 }

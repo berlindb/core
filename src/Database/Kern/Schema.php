@@ -848,7 +848,7 @@ class Schema {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param object $item Index item object.
+	 * @param Index $item Index item object.
 	 *
 	 * @return bool True if the item's type is 'primary', false otherwise.
 	 */
@@ -901,7 +901,8 @@ class Schema {
 	 * included Columns and did not include Indexes.
 	 *
 	 * @since 1.0.0
-	 * @deprecated 3.0.0
+	 * @deprecated 3.0.0 Use get_create_table_string() instead.
+	 * @see get_create_table_string()
 	 *
 	 * @return string
 	 */
