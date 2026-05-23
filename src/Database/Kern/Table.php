@@ -322,11 +322,11 @@ class Table {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param mixed $version Database version to check if upgrade is needed
+	 * @param string $version Database version to check if upgrade is needed
 	 *
 	 * @return bool True if table needs upgrading. False if not.
 	 */
-	public function needs_upgrade( $version = false ) {
+	public function needs_upgrade( $version = '' ) {
 
 		// Use the current table version if none was passed.
 		if ( empty( $version ) ) {
@@ -1169,8 +1169,8 @@ class Table {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param mixed  $version  Database version to check if upgrade is needed
-	 * @param string $callback Callback function or class method to call
+	 * @param string $version  Database version to upgrade to.
+	 * @param string $callback Callback function or class method to call.
 	 *
 	 * @return bool
 	 */
@@ -1313,7 +1313,7 @@ class Table {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param mixed $version Database version to set when upgrading/creating
+	 * @param string $version Database version to set when upgrading/creating.
 	 */
 	private function set_db_version( $version = '' ) {
 

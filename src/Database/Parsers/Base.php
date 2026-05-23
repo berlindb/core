@@ -91,6 +91,7 @@ abstract class Base {
 	 * Returns null for parsers that operate on per-column query vars (e.g. By).
 	 *
 	 * @since 3.0.0
+	 * @api
 	 *
 	 * @return string|null
 	 */

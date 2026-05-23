@@ -623,7 +623,7 @@ class Query {
 	 * @since 1.0.0
 	 * @since 3.0.0 Uses filter_found_items_query().
 	 *
-	 * @param mixed $item_ids Optional array of item IDs
+	 * @param array $item_ids Optional array of item IDs
 	 */
 	private function set_found_items( $item_ids = array() ) {
 
@@ -1033,6 +1033,7 @@ class Query {
 	 * Return the singular item name.
 	 *
 	 * @since 3.0.0
+	 * @api
 	 *
 	 * @return string
 	 */
@@ -1044,6 +1045,7 @@ class Query {
 	 * Return the plural item name.
 	 *
 	 * @since 3.0.0
+	 * @api
 	 *
 	 * @return string
 	 */
@@ -2786,7 +2788,7 @@ class Query {
 	 * @since 1.0.0
 	 *
 	 * @param string $method select|insert|update|delete
-	 * @param mixed  $item   Object|Array of keys/values to reduce
+	 * @param object|array $item Object or array of keys/values to reduce
 	 *
 	 * @return object|array Item with capability-restricted keys removed.
 	 */
@@ -3897,7 +3899,7 @@ class Query {
 	 * @param array  $where_cols Where clauses. Each key-value pair in the array
 	 *                           represents a column and a comparison.
 	 * @param int    $limit      Optional. LIMIT value. Default 25.
-	 * @param mixed  $offset     Optional. OFFSET value. Default null.
+	 * @param int|null $offset   Optional. OFFSET value. Default null.
 	 * @param string $output     Optional. Any of ARRAY_A | ARRAY_N | OBJECT | OBJECT_K constants.
 	 *                           Default OBJECT.
 	 *                           With one of the first three, return an array of
