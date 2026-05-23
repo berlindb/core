@@ -120,4 +120,18 @@ class RowTest extends TestCase {
 
 		$this->assertSame( 'Updated Widget', $row->name );
 	}
+
+	/**
+	 * Test that exists() respects a custom primary_column override.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_exists_respects_custom_primary_column() {
+		$row = new class( array( 'slug' => 'hello' ) ) extends \BerlinDB\Database\Kern\Row {
+			protected $primary_column = 'slug';
+			public $slug = '';
+		};
+
+		$this->assertTrue( $row->exists() );
+	}
 }
