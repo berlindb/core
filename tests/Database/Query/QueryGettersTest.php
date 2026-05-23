@@ -50,11 +50,41 @@ class QueryGettersTest extends TestCase {
 		self::$table->delete_all();
 		wp_cache_flush();
 
-		self::$query->add_item( array( 'name' => 'Alpha', 'status' => 'active',   'priority' => 10 ) );
-		self::$query->add_item( array( 'name' => 'Beta',  'status' => 'active',   'priority' => 20 ) );
-		self::$query->add_item( array( 'name' => 'Gamma', 'status' => 'inactive', 'priority' => 30 ) );
-		self::$query->add_item( array( 'name' => 'Delta', 'status' => 'inactive', 'priority' => 40 ) );
-		self::$query->add_item( array( 'name' => 'Epsilon', 'status' => 'pending', 'priority' => 50 ) );
+		self::$query->add_item(
+			array(
+				'name'     => 'Alpha',
+				'status'   => 'active',
+				'priority' => 10,
+			)
+		);
+		self::$query->add_item(
+			array(
+				'name'     => 'Beta',
+				'status'   => 'active',
+				'priority' => 20,
+			)
+		);
+		self::$query->add_item(
+			array(
+				'name'     => 'Gamma',
+				'status'   => 'inactive',
+				'priority' => 30,
+			)
+		);
+		self::$query->add_item(
+			array(
+				'name'     => 'Delta',
+				'status'   => 'inactive',
+				'priority' => 40,
+			)
+		);
+		self::$query->add_item(
+			array(
+				'name'     => 'Epsilon',
+				'status'   => 'pending',
+				'priority' => 50,
+			)
+		);
 
 		wp_cache_flush();
 	}

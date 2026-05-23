@@ -62,22 +62,24 @@ trait Boot {
 	 * @since 3.0.0
 	 */
 	protected function boot( $args = array() ) {
-		$this->run( function() use ( $args ) {
+		$this->run(
+			function () use ( $args ) {
 
-			// Early.
-			$this->sunrise();
+				// Early.
+				$this->sunrise();
 
-			// Parse arguments.
-			$r = $this->parse_args( $args );
+				// Parse arguments.
+				$r = $this->parse_args( $args );
 
-			// Maybe set variables from arguments.
-			if ( ! empty( $r ) ) {
-				$this->set_vars( $r );
+				// Maybe set variables from arguments.
+				if ( ! empty( $r ) ) {
+						$this->set_vars( $r );
+				}
+
+				// Initialize.
+				$this->init();
 			}
-
-			// Initialize.
-			$this->init();
-		} );
+		);
 	}
 
 	/**

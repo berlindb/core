@@ -388,7 +388,7 @@ class TableTest extends TestCase {
 		$exists = (bool) $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $copy_name ) );
 
 		if ( $exists ) {
-			$wpdb->query( "DROP TABLE IF EXISTS `{$copy_name}`" );
+			$wpdb->query( 'DROP TABLE IF EXISTS `' . esc_sql( $copy_name ) . '`' );
 		}
 
 		$this->restore_table_filters();
@@ -410,8 +410,20 @@ class TableTest extends TestCase {
 		global $wpdb;
 
 		$table_name = $wpdb->berlindb_database_test_widgets;
-		$wpdb->insert( $table_name, array( 'name' => 'Widget A', 'status' => 'active' ) );
-		$wpdb->insert( $table_name, array( 'name' => 'Widget B', 'status' => 'active' ) );
+		$wpdb->insert(
+			$table_name,
+			array(
+				'name'   => 'Widget A',
+				'status' => 'active',
+			)
+		);
+		$wpdb->insert(
+			$table_name,
+			array(
+				'name'   => 'Widget B',
+				'status' => 'active',
+			)
+		);
 
 		$result = self::$table->delete_all();
 

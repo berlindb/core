@@ -18,7 +18,10 @@
     "phpstan/extension-installer": "^1.1",
     "phpunit/phpunit": "^9.6",
     "yoast/phpunit-polyfills": "^1.1.0",
-    "yoast/wp-test-utils": "^1.2"
+    "yoast/wp-test-utils": "^1.2",
+    "squizlabs/php_codesniffer": "^3.9",
+    "wp-coding-standards/wpcs": "^3.1",
+    "dealerdirect/phpcodesniffer-composer-installer": "^1.0"
   },
   "autoload-dev": {
     "psr-4": {
@@ -27,7 +30,11 @@
   },
   "config": {
     "allow-plugins": {
-      "phpstan/extension-installer": true
+      "phpstan/extension-installer": true,
+      "dealerdirect/phpcodesniffer-composer-installer": true
+    },
+    "platform": {
+      "php": "8.2"
     }
   }
 }

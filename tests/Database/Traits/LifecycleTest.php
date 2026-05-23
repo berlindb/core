@@ -73,9 +73,11 @@ class LifecycleTest extends \PHPUnit\Framework\TestCase {
 	public function test_run_calls_start_before_action_and_finish_after() {
 		$log_mid_action = array();
 
-		$this->subject->execute( function() use ( &$log_mid_action ) {
-			$log_mid_action = $this->subject->log;
-		} );
+		$this->subject->execute(
+			function () use ( &$log_mid_action ) {
+				$log_mid_action = $this->subject->log;
+			}
+		);
 
 		// start() must have fired before the action body ran.
 		$this->assertSame( array( 'start' ), $log_mid_action );
@@ -90,9 +92,11 @@ class LifecycleTest extends \PHPUnit\Framework\TestCase {
 	 * @since 3.0.0
 	 */
 	public function test_run_returns_action_return_value() {
-		$result = $this->subject->execute( function() {
-			return 'expected';
-		} );
+		$result = $this->subject->execute(
+			function () {
+				return 'expected';
+			}
+		);
 
 		$this->assertSame( 'expected', $result );
 	}
@@ -107,9 +111,11 @@ class LifecycleTest extends \PHPUnit\Framework\TestCase {
 	 */
 	public function test_run_calls_finish_even_when_action_throws() {
 		try {
-			$this->subject->execute( function() {
-				throw new \RuntimeException( 'boom' );
-			} );
+			$this->subject->execute(
+				function () {
+					throw new \RuntimeException( 'boom' );
+				}
+			);
 		} catch ( \RuntimeException $e ) {
 			// Expected — we only care that finish() still fired.
 		}

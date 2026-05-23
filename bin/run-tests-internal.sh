@@ -34,3 +34,6 @@ if [[ -n "$PHPUNIT_ARGS" ]]; then
 else
 	vendor/bin/phpunit
 fi
+
+printf "\n"
+vendor/bin/phpcs

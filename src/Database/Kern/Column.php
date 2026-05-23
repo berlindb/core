@@ -1291,8 +1291,8 @@ class Column {
 		}
 
 		// Lowercase looks nicer in DDL.
-		$lower  = strtolower( $this->type );
-		$parts  = array();
+		$lower = strtolower( $this->type );
+		$parts = array();
 
 		// Type with optional length.
 		$parts[] = ! empty( $this->length ) && is_numeric( $this->length )
@@ -1304,7 +1304,7 @@ class Column {
 			$parts[] = 'CHARACTER SET binary';
 			$parts[] = 'COLLATE binary';
 
-		// Non-binary column types.
+			// Non-binary column types.
 		} else {
 
 			// Encoding.

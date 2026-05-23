@@ -513,7 +513,12 @@ class OperatorsTest extends TestCase {
 	 * @since 3.0.0
 	 */
 	public function test_get_sql_returns_full_where_expression() {
-		$col = new Column( array( 'name' => 'status', 'type' => 'varchar' ) );
+		$col = new Column(
+			array(
+				'name' => 'status',
+				'type' => 'varchar',
+			)
+		);
 		$sql = ( new Equal() )->get_sql( $col, '', 'active' );
 		$this->assertStringContainsString( '`status`', $sql );
 		$this->assertStringContainsString( '=', $sql );
@@ -526,7 +531,12 @@ class OperatorsTest extends TestCase {
 	 * @since 3.0.0
 	 */
 	public function test_get_sql_includes_alias_in_column_reference() {
-		$col = new Column( array( 'name' => 'status', 'type' => 'varchar' ) );
+		$col = new Column(
+			array(
+				'name' => 'status',
+				'type' => 'varchar',
+			)
+		);
 		$sql = ( new Equal() )->get_sql( $col, 't', 'active' );
 		$this->assertStringContainsString( '`t`.`status`', $sql );
 	}
@@ -539,7 +549,12 @@ class OperatorsTest extends TestCase {
 	 * @since 3.0.0
 	 */
 	public function test_get_sql_returns_empty_when_value_sql_is_empty() {
-		$col = new Column( array( 'name' => 'meta_key', 'type' => 'varchar' ) );
+		$col = new Column(
+			array(
+				'name' => 'meta_key',
+				'type' => 'varchar',
+			)
+		);
 		$this->assertSame( '', ( new NotExists() )->get_sql( $col, '', 'anything' ) );
 	}
 
@@ -552,7 +567,12 @@ class OperatorsTest extends TestCase {
 	 * @since 3.0.0
 	 */
 	public function test_get_sql_uses_sql_compare_for_exists() {
-		$col = new Column( array( 'name' => 'meta_key', 'type' => 'varchar' ) );
+		$col = new Column(
+			array(
+				'name' => 'meta_key',
+				'type' => 'varchar',
+			)
+		);
 		$sql = ( new Exists() )->get_sql( $col, '', 'my_key' );
 		$this->assertStringContainsString( '=', $sql );
 		$this->assertStringNotContainsString( 'EXISTS', $sql );
@@ -564,7 +584,12 @@ class OperatorsTest extends TestCase {
 	 * @since 3.0.0
 	 */
 	public function test_get_sql_with_in_builds_full_expression() {
-		$col = new Column( array( 'name' => 'status', 'type' => 'varchar' ) );
+		$col = new Column(
+			array(
+				'name' => 'status',
+				'type' => 'varchar',
+			)
+		);
 		$sql = ( new In() )->get_sql( $col, '', array( 'active', 'pending' ) );
 		$this->assertStringContainsString( '`status`', $sql );
 		$this->assertStringContainsString( 'IN', $sql );
@@ -577,7 +602,12 @@ class OperatorsTest extends TestCase {
 	 * @since 3.0.0
 	 */
 	public function test_get_sql_with_like_builds_full_expression() {
-		$col = new Column( array( 'name' => 'title', 'type' => 'varchar' ) );
+		$col = new Column(
+			array(
+				'name' => 'title',
+				'type' => 'varchar',
+			)
+		);
 		$sql = $GLOBALS['wpdb']->remove_placeholder_escape( ( new Like() )->get_sql( $col, 't', 'hello' ) );
 		$this->assertStringContainsString( '`t`.`title`', $sql );
 		$this->assertStringContainsString( 'LIKE', $sql );
@@ -593,7 +623,12 @@ class OperatorsTest extends TestCase {
 	 * @since 3.0.0
 	 */
 	public function test_get_sql_derives_pattern_from_column() {
-		$col = new Column( array( 'name' => 'count', 'type' => 'bigint' ) );
+		$col = new Column(
+			array(
+				'name' => 'count',
+				'type' => 'bigint',
+			)
+		);
 		$sql = ( new Equal() )->get_sql( $col, '', 42 );
 		$this->assertStringContainsString( '`count`', $sql );
 		$this->assertStringContainsString( '42', $sql );

@@ -348,7 +348,12 @@ class SchemaTest extends TestCase {
 	public function test_add_column_appends_column_and_returns_instance() {
 		$schema = new TestSchema();
 		$count  = count( $schema->get_columns() );
-		$result = $schema->add_column( array( 'name' => 'extra', 'type' => 'bigint' ) );
+		$result = $schema->add_column(
+			array(
+				'name' => 'extra',
+				'type' => 'bigint',
+			)
+		);
 		$this->assertInstanceOf( Column::class, $result );
 		$this->assertCount( $count + 1, $schema->get_columns() );
 	}
@@ -537,8 +542,15 @@ class SchemaTest extends TestCase {
 		$schema = new TestSchema();
 		$schema->set_columns(
 			array(
-				array( 'name' => 'foo', 'type' => 'bigint' ),
-				array( 'name' => 'bar', 'type' => 'varchar', 'length' => '50' ),
+				array(
+					'name' => 'foo',
+					'type' => 'bigint',
+				),
+				array(
+					'name'   => 'bar',
+					'type'   => 'varchar',
+					'length' => '50',
+				),
 			)
 		);
 		$this->assertCount( 2, $schema->get_columns() );
@@ -555,7 +567,10 @@ class SchemaTest extends TestCase {
 		$schema = new TestSchema();
 		$schema->set_indexes(
 			array(
-				array( 'type' => 'primary', 'columns' => array( 'id' ) ),
+				array(
+					'type'    => 'primary',
+					'columns' => array( 'id' ),
+				),
 			)
 		);
 		$this->assertCount( 1, $schema->get_indexes() );
@@ -603,8 +618,18 @@ class SchemaTest extends TestCase {
 	public function test_validation_error_for_duplicate_column_names() {
 		$schema = new TestSchema();
 		$schema->clear();
-		$schema->add_column( array( 'name' => 'id', 'type' => 'bigint' ) );
-		$schema->add_column( array( 'name' => 'id', 'type' => 'bigint' ) );
+		$schema->add_column(
+			array(
+				'name' => 'id',
+				'type' => 'bigint',
+			)
+		);
+		$schema->add_column(
+			array(
+				'name' => 'id',
+				'type' => 'bigint',
+			)
+		);
 		$errors = $schema->get_validation_errors();
 		$this->assertNotEmpty( $errors );
 		$this->assertStringContainsString( 'Duplicate column name', $errors[0] );
@@ -618,8 +643,18 @@ class SchemaTest extends TestCase {
 	public function test_validation_error_for_index_missing_name() {
 		$schema = new TestSchema();
 		$schema->clear();
-		$schema->add_column( array( 'name' => 'id', 'type' => 'bigint' ) );
-		$schema->add_index( array( 'type' => 'key', 'columns' => array( 'id' ) ) );
+		$schema->add_column(
+			array(
+				'name' => 'id',
+				'type' => 'bigint',
+			)
+		);
+		$schema->add_index(
+			array(
+				'type'    => 'key',
+				'columns' => array( 'id' ),
+			)
+		);
 		$errors = $schema->get_validation_errors();
 		$this->assertNotEmpty( $errors );
 		$this->assertStringContainsString( 'missing a valid name', $errors[0] );
@@ -633,9 +668,26 @@ class SchemaTest extends TestCase {
 	public function test_validation_error_for_duplicate_index_names() {
 		$schema = new TestSchema();
 		$schema->clear();
-		$schema->add_column( array( 'name' => 'id', 'type' => 'bigint' ) );
-		$schema->add_index( array( 'name' => 'id_idx', 'type' => 'key', 'columns' => array( 'id' ) ) );
-		$schema->add_index( array( 'name' => 'id_idx', 'type' => 'key', 'columns' => array( 'id' ) ) );
+		$schema->add_column(
+			array(
+				'name' => 'id',
+				'type' => 'bigint',
+			)
+		);
+		$schema->add_index(
+			array(
+				'name'    => 'id_idx',
+				'type'    => 'key',
+				'columns' => array( 'id' ),
+			)
+		);
+		$schema->add_index(
+			array(
+				'name'    => 'id_idx',
+				'type'    => 'key',
+				'columns' => array( 'id' ),
+			)
+		);
 		$errors = $schema->get_validation_errors();
 		$this->assertNotEmpty( $errors );
 		$this->assertStringContainsString( 'Duplicate index name', $errors[0] );
@@ -649,7 +701,12 @@ class SchemaTest extends TestCase {
 	public function test_validation_error_for_index_referencing_unknown_column() {
 		$schema = new TestSchema();
 		$schema->clear();
-		$schema->add_column( array( 'name' => 'id', 'type' => 'bigint' ) );
+		$schema->add_column(
+			array(
+				'name' => 'id',
+				'type' => 'bigint',
+			)
+		);
 		$schema->add_index(
 			array(
 				'name'    => 'bad_idx',
@@ -670,8 +727,19 @@ class SchemaTest extends TestCase {
 	public function test_validation_error_for_index_with_no_columns() {
 		$schema = new TestSchema();
 		$schema->clear();
-		$schema->add_column( array( 'name' => 'id', 'type' => 'bigint' ) );
-		$schema->add_index( array( 'name' => 'empty_idx', 'type' => 'key', 'columns' => array() ) );
+		$schema->add_column(
+			array(
+				'name' => 'id',
+				'type' => 'bigint',
+			)
+		);
+		$schema->add_index(
+			array(
+				'name'    => 'empty_idx',
+				'type'    => 'key',
+				'columns' => array(),
+			)
+		);
 		$errors = $schema->get_validation_errors();
 		$this->assertNotEmpty( $errors );
 		$this->assertStringContainsString( 'does not include any columns', $errors[0] );
@@ -685,8 +753,20 @@ class SchemaTest extends TestCase {
 	public function test_validation_error_for_multiple_primary_keys() {
 		$schema = new TestSchema();
 		$schema->clear();
-		$schema->add_column( array( 'name' => 'id',     'type' => 'bigint', 'primary' => true ) );
-		$schema->add_column( array( 'name' => 'alt_id', 'type' => 'bigint', 'primary' => true ) );
+		$schema->add_column(
+			array(
+				'name'    => 'id',
+				'type'    => 'bigint',
+				'primary' => true,
+			)
+		);
+		$schema->add_column(
+			array(
+				'name'    => 'alt_id',
+				'type'    => 'bigint',
+				'primary' => true,
+			)
+		);
 		$errors = $schema->get_validation_errors();
 		$this->assertNotEmpty( $errors );
 		$this->assertStringContainsString( 'multiple primary keys', $errors[ count( $errors ) - 1 ] );

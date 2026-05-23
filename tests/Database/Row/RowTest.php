@@ -129,7 +129,7 @@ class RowTest extends TestCase {
 	public function test_exists_respects_custom_primary_column() {
 		$row = new class( array( 'slug' => 'hello' ) ) extends \BerlinDB\Database\Kern\Row {
 			protected $primary_column = 'slug';
-			public $slug = '';
+			public $slug              = '';
 		};
 
 		$this->assertTrue( $row->exists() );

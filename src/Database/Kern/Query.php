@@ -317,11 +317,13 @@ class Query {
 	 * @return array|int Array of items, or number of items when 'count' is passed as a query var.
 	 */
 	public function query( $query = array() ) {
-		return $this->run( function() use ( $query ) {
-			$this->parse_query( $query );
+		return $this->run(
+			function () use ( $query ) {
+				$this->parse_query( $query );
 
-			return $this->get_items();
-		} );
+				return $this->get_items();
+			}
+		);
 	}
 
 	/** Private Setters *******************************************************/
@@ -1534,7 +1536,7 @@ class Query {
 
 			// Instantiate the active parser for this query run.
 			$parsers[ $key ] = new $class( $qv, $this );
-			$new_parser       = $parsers[ $key ];
+			$new_parser      = $parsers[ $key ];
 
 			// Default no subclauses.
 			$subclauses = false;

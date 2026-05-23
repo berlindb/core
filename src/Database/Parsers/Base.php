@@ -181,5 +181,4 @@ abstract class Base {
 		// Set operators.
 		$this->operators = $instances[ $key ];
 	}
-
 }
