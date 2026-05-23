@@ -5,7 +5,7 @@
  * @package     BerlinDB\Tests
  * @copyright   2026 - JJJ and all BerlinDB contributors
  * @license     https://opensource.org/licenses/MIT MIT
- * @since       2.1.0
+ * @since       3.0.0
  */
 
 namespace BerlinDB\Tests;
@@ -19,7 +19,7 @@ use Yoast\WPTestUtils\WPIntegration\TestCase;
  * get_item_name(), get_item_name_plural(), get_request(),
  * get_found_items(), and get_max_num_pages().
  *
- * @since 2.1.0
+ * @since 3.0.0
  */
 class QueryGettersTest extends TestCase {
 
@@ -61,21 +61,41 @@ class QueryGettersTest extends TestCase {
 
 	// get_item_name() / get_item_name_plural().
 
+	/**
+	 * Test that get_item_name returns the singular item name "widget".
+	 *
+	 * @since 3.0.0
+	 */
 	public function test_get_item_name_returns_widget() {
 		$this->assertSame( 'widget', self::$query->get_item_name() );
 	}
 
+	/**
+	 * Test that get_item_name_plural returns the plural item name "widgets".
+	 *
+	 * @since 3.0.0
+	 */
 	public function test_get_item_name_plural_returns_widgets() {
 		$this->assertSame( 'widgets', self::$query->get_item_name_plural() );
 	}
 
 	// get_request().
 
+	/**
+	 * Test that get_request returns a non-empty string after a query has been run.
+	 *
+	 * @since 3.0.0
+	 */
 	public function test_get_request_is_nonempty_string_after_query() {
 		self::$query->query( array( 'number' => 0 ) );
 		$this->assertNotEmpty( self::$query->get_request() );
 	}
 
+	/**
+	 * Test that get_request returns a SQL string containing the SELECT keyword.
+	 *
+	 * @since 3.0.0
+	 */
 	public function test_get_request_contains_select_keyword() {
 		self::$query->query( array( 'number' => 0 ) );
 		$this->assertStringContainsStringIgnoringCase( 'SELECT', self::$query->get_request() );
@@ -83,12 +103,22 @@ class QueryGettersTest extends TestCase {
 
 	// get_found_items().
 
+	/**
+	 * Test that get_found_items matches the number of rows retrieved by a query.
+	 *
+	 * @since 3.0.0
+	 */
 	public function test_get_found_items_matches_retrieved_row_count() {
 		// Default query (no_found_rows => true) — found_items equals returned count.
 		self::$query->query( array( 'number' => 0 ) );
 		$this->assertSame( 5, self::$query->get_found_items() );
 	}
 
+	/**
+	 * Test that get_found_items returns the total row count when no_found_rows is false.
+	 *
+	 * @since 3.0.0
+	 */
 	public function test_get_found_items_with_no_found_rows_false_returns_total_rows() {
 		// no_found_rows => false triggers the secondary COUNT(*) query.
 		self::$query->query(
@@ -100,6 +130,11 @@ class QueryGettersTest extends TestCase {
 		$this->assertSame( 5, self::$query->get_found_items() );
 	}
 
+	/**
+	 * Test that get_found_items reflects the count after a status filter is applied.
+	 *
+	 * @since 3.0.0
+	 */
 	public function test_get_found_items_respects_status_filter() {
 		self::$query->query(
 			array(
@@ -112,6 +147,11 @@ class QueryGettersTest extends TestCase {
 
 	// get_max_num_pages().
 
+	/**
+	 * Test that get_max_num_pages returns one when the page size exactly divides the total row count.
+	 *
+	 * @since 3.0.0
+	 */
 	public function test_get_max_num_pages_with_exact_divisor() {
 		// 5 items, page size 5 → 1 page.
 		self::$query->query(
@@ -123,6 +163,11 @@ class QueryGettersTest extends TestCase {
 		$this->assertSame( 1, self::$query->get_max_num_pages() );
 	}
 
+	/**
+	 * Test that get_max_num_pages rounds up to the nearest whole page.
+	 *
+	 * @since 3.0.0
+	 */
 	public function test_get_max_num_pages_rounds_up() {
 		// 5 items, page size 2 → ceil(5/2) = 3 pages.
 		self::$query->query(
@@ -134,6 +179,11 @@ class QueryGettersTest extends TestCase {
 		$this->assertSame( 3, self::$query->get_max_num_pages() );
 	}
 
+	/**
+	 * Test that get_max_num_pages returns zero when no LIMIT clause is applied.
+	 *
+	 * @since 3.0.0
+	 */
 	public function test_get_max_num_pages_is_zero_for_unlimited_query() {
 		// number => 0 means no LIMIT clause; max_num_pages stays 0 because the
 		// pagination calculation requires a non-zero page size.

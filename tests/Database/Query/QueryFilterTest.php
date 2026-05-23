@@ -111,11 +111,21 @@ class QueryFilterTest extends TestCase {
 
 	// Default query.
 
+	/**
+	 * Test that a query with number set to zero returns all items.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_query_returns_all_items_with_unlimited_number() {
 		$items = self::$query->query( array( 'number' => 0 ) );
 		$this->assertCount( 5, $items );
 	}
 
+	/**
+	 * Test that query results are TestRow instances.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_query_returns_test_row_instances() {
 		$items = self::$query->query( array( 'number' => 1 ) );
 		$this->assertInstanceOf( TestRow::class, $items[0] );
@@ -123,6 +133,11 @@ class QueryFilterTest extends TestCase {
 
 	// Status filtering.
 
+	/**
+	 * Test that filtering by a single status value returns the correct item count.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_filter_by_status_single_value_returns_correct_count() {
 		$items = self::$query->query(
 			array(
@@ -133,6 +148,11 @@ class QueryFilterTest extends TestCase {
 		$this->assertCount( 2, $items );
 	}
 
+	/**
+	 * Test that filtering by a single status value returns only items with that status.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_filter_by_status_single_value_returns_only_matching_items() {
 		$items = self::$query->query(
 			array(
@@ -145,6 +165,11 @@ class QueryFilterTest extends TestCase {
 		}
 	}
 
+	/**
+	 * Test that filtering by status__in with multiple values returns the correct item count.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_filter_by_status_in_returns_correct_count() {
 		// BerlinDB parse_query_var expects comma-separated strings, not PHP arrays.
 		$items = self::$query->query(
@@ -156,6 +181,11 @@ class QueryFilterTest extends TestCase {
 		$this->assertCount( 3, $items );
 	}
 
+	/**
+	 * Test that filtering by status__not_in excludes items with the inactive status.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_filter_by_status_not_in_excludes_inactive() {
 		$items = self::$query->query(
 			array(
@@ -166,6 +196,11 @@ class QueryFilterTest extends TestCase {
 		$this->assertCount( 3, $items );
 	}
 
+	/**
+	 * Test that filtering by status__not_in ensures none of the returned items match the excluded status.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_filter_by_status_not_in_excludes_matching_items() {
 		$items = self::$query->query(
 			array(
@@ -180,6 +215,11 @@ class QueryFilterTest extends TestCase {
 
 	// Priority filtering.
 
+	/**
+	 * Test that filtering by priority__in with multiple values returns the correct item count.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_filter_by_priority_in_returns_correct_count() {
 		$items = self::$query->query(
 			array(
@@ -192,6 +232,11 @@ class QueryFilterTest extends TestCase {
 
 	// ID filtering.
 
+	/**
+	 * Test that filtering by id__in returns only the items with the specified IDs.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_filter_by_id_in_returns_matching_items() {
 		$id_string = implode( ', ', array( $this->ids[0], $this->ids[1] ) );
 		$items     = self::$query->query(
@@ -203,6 +248,11 @@ class QueryFilterTest extends TestCase {
 		$this->assertCount( 2, $items );
 	}
 
+	/**
+	 * Test that filtering by id__not_in excludes the specified item from the results.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_filter_by_id_not_in_excludes_one_item() {
 		$items = self::$query->query(
 			array(
@@ -215,6 +265,11 @@ class QueryFilterTest extends TestCase {
 
 	// Search.
 
+	/**
+	 * Test that a search for "Widget" returns three matching items.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_search_by_widget_returns_three_items() {
 		$items = self::$query->query(
 			array(
@@ -225,6 +280,11 @@ class QueryFilterTest extends TestCase {
 		$this->assertCount( 3, $items );
 	}
 
+	/**
+	 * Test that a search for "Gadget" returns two matching items.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_search_by_gadget_returns_two_items() {
 		$items = self::$query->query(
 			array(
@@ -237,6 +297,11 @@ class QueryFilterTest extends TestCase {
 
 	// Ordering.
 
+	/**
+	 * Test that ordering by name ascending returns the alphabetically first item at index zero.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_orderby_name_asc_returns_alpha_first() {
 		$items = self::$query->query(
 			array(
@@ -248,6 +313,11 @@ class QueryFilterTest extends TestCase {
 		$this->assertSame( 'Alpha Widget', $items[0]->name );
 	}
 
+	/**
+	 * Test that ordering by name descending returns Gamma Gadget at index zero.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_orderby_name_desc_returns_gamma_first() {
 		$items = self::$query->query(
 			array(
@@ -259,6 +329,11 @@ class QueryFilterTest extends TestCase {
 		$this->assertSame( 'Gamma Gadget', $items[0]->name );
 	}
 
+	/**
+	 * Test that ordering by priority descending returns the highest-priority item first.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_orderby_priority_desc_returns_highest_first() {
 		$items = self::$query->query(
 			array(
@@ -270,6 +345,11 @@ class QueryFilterTest extends TestCase {
 		$this->assertSame( 50, (int) $items[0]->priority );
 	}
 
+	/**
+	 * Test that ordering by priority ascending returns the lowest-priority item first.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_orderby_priority_asc_returns_lowest_first() {
 		$items = self::$query->query(
 			array(
@@ -283,11 +363,21 @@ class QueryFilterTest extends TestCase {
 
 	// Pagination.
 
+	/**
+	 * Test that the number argument limits the number of items returned.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_number_limits_result_count() {
 		$items = self::$query->query( array( 'number' => 2 ) );
 		$this->assertCount( 2, $items );
 	}
 
+	/**
+	 * Test that the offset argument skips the correct number of items between pages.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_offset_skips_items() {
 		$first_page  = self::$query->query(
 			array(
@@ -313,11 +403,21 @@ class QueryFilterTest extends TestCase {
 
 	// Count mode.
 
+	/**
+	 * Test that a count query returns the total number of rows in the table.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_count_query_returns_total_row_count() {
 		$count = self::$query->query( array( 'count' => true ) );
 		$this->assertSame( 5, (int) $count );
 	}
 
+	/**
+	 * Test that a count query combined with a status filter returns the correct count.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_count_query_with_status_filter_returns_correct_count() {
 		$count = self::$query->query(
 			array(
@@ -328,6 +428,11 @@ class QueryFilterTest extends TestCase {
 		$this->assertSame( 2, (int) $count );
 	}
 
+	/**
+	 * Test that a count query combined with a not_in filter returns the correct count.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_count_query_with_not_in_filter() {
 		$count = self::$query->query(
 			array(
@@ -340,6 +445,11 @@ class QueryFilterTest extends TestCase {
 
 	// Fields mode.
 
+	/**
+	 * Test that querying with fields set to "ids" returns an array of integer values.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_fields_ids_returns_array_of_integers() {
 		$ids = self::$query->query(
 			array(
@@ -353,6 +463,11 @@ class QueryFilterTest extends TestCase {
 		}
 	}
 
+	/**
+	 * Test that querying with fields set to "ids" returns IDs for all items.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_fields_ids_returns_all_item_ids() {
 		$ids = self::$query->query(
 			array(
@@ -365,6 +480,11 @@ class QueryFilterTest extends TestCase {
 
 	// Found rows / pagination.
 
+	/**
+	 * Test that setting no_found_rows to false causes max_num_pages to be populated.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_no_found_rows_false_populates_max_num_pages() {
 		self::$query->query(
 			array(

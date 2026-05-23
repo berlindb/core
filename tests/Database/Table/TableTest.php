@@ -110,14 +110,29 @@ class TableTest extends TestCase {
 	// Existence.
 	// -------------------------------------------------------------------------
 
+	/**
+	 * Test that the table exists after it has been installed.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_table_exists_after_install() {
 		$this->assertTrue( self::$table->exists() );
 	}
 
+	/**
+	 * Test that needs_upgrade returns false when the stored version is current.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_needs_upgrade_returns_false_when_current() {
 		$this->assertFalse( self::$table->needs_upgrade() );
 	}
 
+	/**
+	 * Test that the table no longer exists after it has been uninstalled.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_table_does_not_exist_after_uninstall() {
 		$this->bypass_table_filters();
 		self::$table->uninstall();
@@ -132,10 +147,20 @@ class TableTest extends TestCase {
 	// Count.
 	// -------------------------------------------------------------------------
 
+	/**
+	 * Test that count returns zero when the table is empty.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_count_returns_zero_on_empty_table() {
 		$this->assertSame( 0, self::$table->count() );
 	}
 
+	/**
+	 * Test that count returns the correct row count after direct inserts.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_count_returns_correct_number_after_direct_inserts() {
 		global $wpdb;
 
@@ -169,6 +194,11 @@ class TableTest extends TestCase {
 	// Drop / recreate.
 	// -------------------------------------------------------------------------
 
+	/**
+	 * Test that drop removes the table from the database.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_drop_removes_the_table() {
 		$this->bypass_table_filters();
 		self::$table->drop();
@@ -183,6 +213,11 @@ class TableTest extends TestCase {
 	// Versioning.
 	// -------------------------------------------------------------------------
 
+	/**
+	 * Test that get_version returns a string value.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_get_version_returns_string() {
 		$version = self::$table->get_version();
 		$this->assertIsString( $version );
@@ -219,14 +254,29 @@ class TableTest extends TestCase {
 	// Column inspection.
 	// -------------------------------------------------------------------------
 
+	/**
+	 * Test that column_exists returns true for the id column.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_column_exists_for_id_column() {
 		$this->assertTrue( self::$table->column_exists( 'id' ) );
 	}
 
+	/**
+	 * Test that column_exists returns true for the name column.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_column_exists_for_name_column() {
 		$this->assertTrue( self::$table->column_exists( 'name' ) );
 	}
 
+	/**
+	 * Test that column_exists returns false for a column name that does not exist.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_column_exists_returns_false_for_unknown_column() {
 		$this->assertFalse( self::$table->column_exists( 'nonexistent_xyz_column' ) );
 	}
@@ -235,6 +285,11 @@ class TableTest extends TestCase {
 	// Status.
 	// -------------------------------------------------------------------------
 
+	/**
+	 * Test that status returns a result object with a non-empty Name property.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_status_returns_result_with_name_property() {
 		$status = self::$table->status();
 		$this->assertNotEmpty( $status );
@@ -245,6 +300,11 @@ class TableTest extends TestCase {
 	// Truncate.
 	// -------------------------------------------------------------------------
 
+	/**
+	 * Test that truncate empties all rows from the table.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_truncate_empties_the_table() {
 		global $wpdb;
 
@@ -273,6 +333,11 @@ class TableTest extends TestCase {
 	// Install / uninstall version tracking.
 	// -------------------------------------------------------------------------
 
+	/**
+	 * Test that install stores the expected database version option.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_install_sets_db_version() {
 		$this->bypass_table_filters();
 		self::$table->uninstall();
@@ -283,6 +348,11 @@ class TableTest extends TestCase {
 		$this->assertSame( '202604230', $version );
 	}
 
+	/**
+	 * Test that uninstall removes the table from the database.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_uninstall_deletes_db_version() {
 		$this->bypass_table_filters();
 		self::$table->uninstall();
