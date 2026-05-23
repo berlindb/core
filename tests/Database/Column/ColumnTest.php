@@ -917,18 +917,19 @@ class ColumnTest extends TestCase {
 	}
 
 	/**
-	 * Test that a bool column auto-detects boolval as its cast.
+	 * Test that a bool column auto-detects cast_bool as its cast.
 	 *
 	 * @since 3.0.0
 	 */
-	public function test_cast_auto_detects_boolval_for_bool() {
+	public function test_cast_auto_detects_cast_bool_for_bool() {
 		$column = new Column(
 			array(
 				'name' => 'active',
 				'type' => 'bool',
 			)
 		);
-		$this->assertSame( 'boolval', $column->cast );
+		$this->assertIsCallable( $column->cast );
+		$this->assertSame( array( $column, 'cast_bool' ), $column->cast );
 	}
 
 	/**
@@ -1085,6 +1086,40 @@ class ColumnTest extends TestCase {
 			)
 		);
 		$this->assertFalse( $column->cast( '0' ) );
+	}
+
+	/**
+	 * Test that cast_bool correctly handles yes/no string values.
+	 *
+	 * boolval('no') returns true (non-empty string); cast_bool('no') returns false.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_cast_bool_handles_yes_no_strings() {
+		$column = new Column(
+			array(
+				'name' => 'active',
+				'type' => 'bool',
+			)
+		);
+		$this->assertTrue( $column->cast( 'yes' ) );
+		$this->assertFalse( $column->cast( 'no' ) );
+	}
+
+	/**
+	 * Test that cast_bool correctly handles on/off string values.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_cast_bool_handles_on_off_strings() {
+		$column = new Column(
+			array(
+				'name' => 'active',
+				'type' => 'bool',
+			)
+		);
+		$this->assertTrue( $column->cast( 'on' ) );
+		$this->assertFalse( $column->cast( 'off' ) );
 	}
 
 	/**

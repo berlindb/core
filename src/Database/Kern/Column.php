@@ -973,7 +973,7 @@ class Column {
 
 		// Bool.
 		if ( $this->is_bool() ) {
-			return 'boolval';
+			return array( $this, 'cast_bool' );
 		}
 
 		// Integer.
@@ -1062,6 +1062,33 @@ class Column {
 
 		// Return the value.
 		return $value;
+	}
+
+	/**
+	 * Cast a value to boolean.
+	 *
+	 * Uses filter_var() to correctly handle common string representations
+	 * ('yes'/'no', 'on'/'off', 'true'/'false', '1'/'0') before falling back
+	 * to a straight (bool) cast for unrecognised values.
+	 *
+	 * @since 3.0.0
+	 * @param mixed $value Value to cast.
+	 * @return bool
+	 */
+	public function cast_bool( $value = false ) {
+
+		// Already a bool.
+		if ( is_bool( $value ) ) {
+			return $value;
+		}
+
+		// Try filter_var first for known string representations.
+		$result = filter_var( $value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE );
+
+		// Return filter result, or fall back to (bool) for anything else.
+		return ( null !== $result )
+			? $result
+			: (bool) $value;
 	}
 
 	/**
