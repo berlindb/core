@@ -92,6 +92,7 @@ class By extends Base {
 	 * @return array{join: list<string>, where: list<string>} {
 	 *     Array containing WHERE SQL clauses to append to a first-order query.
 	 *
+	 *     @type string $join  SQL fragment to append to the main JOIN clause.
 	 *     @type string $where SQL fragment to append to the main WHERE clause.
 	 * }
 	 */

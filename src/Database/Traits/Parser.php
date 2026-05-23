@@ -709,14 +709,13 @@ trait Parser {
 	 * @param string $primary_column Optional. Column in $primary_table that holds the object ID. Unused
 	 *                               at this level; accepted for BC and for subclass overrides. Default ''.
 	 *
-	 * @return array {
+	 * @return array{join: string, where: string} {
 	 *     Array containing JOIN and WHERE SQL clauses to append to the main query,
 	 *     or false if no table exists for the requested type.
 	 *
 	 *     @type string $join  SQL fragment to append to the main JOIN clause.
 	 *     @type string $where SQL fragment to append to the main WHERE clause.
 	 * }
-	 * @return array{join: string, where: string}
 	 */
 	public function get_sql( $type = '', $primary_table = '', $primary_column = '' ) {
 		return $this->get_join_where_clauses();
@@ -751,14 +750,13 @@ trait Parser {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @return array {
+	 * @return array{join: string, where: string} {
 	 *     Array containing JOIN and WHERE SQL clauses to append to the main query,
 	 *     or false if no table exists for the requested type.
 	 *
 	 *     @type string $join  SQL fragment to append to the main JOIN clause.
 	 *     @type string $where SQL fragment to append to the main WHERE clause.
 	 * }
-	 * @return array{join: string, where: string}
 	 */
 	public function get_join_where_clauses() {
 
@@ -786,13 +784,12 @@ trait Parser {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @return array {
+	 * @return array{join: string, where: string} {
 	 *     Array containing JOIN and WHERE SQL clauses to append to the main query.
 	 *
 	 *     @type string $join  SQL fragment to append to the main JOIN clause.
 	 *     @type string $where SQL fragment to append to the main WHERE clause.
 	 * }
-	 * @return array{join: string, where: string}
 	 */
 	protected function get_sql_clauses() {
 
@@ -817,15 +814,6 @@ trait Parser {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array $query Query to parse.
-	 * @param int   $depth Optional. Number of tree levels deep we currently are.
-	 *                     Used to calculate indentation. Default 0.
-	 * @return array {
-	 *     Array containing JOIN and WHERE SQL clauses to append to a single query array.
-	 *
-	 *     @type string $join  SQL fragment to append to the main JOIN clause.
-	 *     @type string $where SQL fragment to append to the main WHERE clause.
-	 * }
 	 * @param array<string|int, mixed> $query Query to parse.
 	 * @param int                      $depth Optional. Number of tree levels deep we currently are. Default 0.
 	 * @return array{join: string, where: string}
@@ -935,15 +923,6 @@ trait Parser {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array  $clause       Query clause (passed by reference).
-	 * @param array  $parent_query Parent query array.
-	 * @param string $clause_key   Optional. The array key used to name the clause.
-	 *                             If not provided, a key will be generated automatically.
-	 * @return array {
-	 *     Array containing WHERE SQL clauses to append to a first-order query.
-	 *
-	 *     @type string $where SQL fragment to append to the main WHERE clause.
-	 * }
 	 * @param array<string, mixed> $clause       Query clause (passed by reference).
 	 * @param array<string, mixed> $parent_query Parent query array.
 	 * @param string               $clause_key   Optional. The array key used to name the clause.
@@ -1095,8 +1074,8 @@ trait Parser {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string           $compare The compare operator to use.
-	 * @param array<int,mixed>|int|string|null $value The value.
+	 * @param string                            $compare The compare operator to use.
+	 * @param array<int, mixed>|int|string|null $value   The value.
 	 *
 	 * @return string|bool|int The value to be used in SQL or false on error.
 	 */
@@ -1157,9 +1136,9 @@ trait Parser {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string                   $compare The compare operator to use.
-	 * @param array<int,mixed>|string|null $value   The value.
-	 * @param string                   $pattern The pattern.
+	 * @param string                        $compare The compare operator to use.
+	 * @param array<int, mixed>|string|null $value   The value.
+	 * @param string                        $pattern The pattern.
 	 *
 	 * @return string|false|int The value to be used in SQL or false on error.
 	 */
@@ -1188,11 +1167,11 @@ trait Parser {
 	 * @since 3.0.0
 	 *
 	 * @param array<string,int>|int|string $datetime       An array of parameters or a strtotime() string
-	 * @param bool             $default_to_max Whether to round up incomplete dates. Supported by values
-	 *                                         of $datetime that are arrays, or string values that are a
-	 *                                         subset of MySQL date format ('Y', 'Y-m', 'Y-m-d', 'Y-m-d H:i').
-	 *                                         Default: false.
-	 * @param string|int   $now                The current UNIX timestamp.
+	 * @param bool                         $default_to_max Whether to round up incomplete dates. Supported by values
+	 *                                                     of $datetime that are arrays, or string values that are a
+	 *                                                     subset of MySQL date format ('Y', 'Y-m', 'Y-m-d', 'Y-m-d H:i').
+	 *                                                     Default: false.
+	 * @param string|int                   $now            The current UNIX timestamp.
 	 *
 	 * @return string|false A MySQL format date/time or false on failure
 	 */
@@ -1494,10 +1473,10 @@ trait Parser {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string            $column_name Column name.
+	 * @param string             $column_name Column name.
 	 * @param list<mixed>|string $values      Array of values.
-	 * @param bool              $wrap        To wrap in parenthesis.
-	 * @param string            $pattern     Pattern to prepare with.
+	 * @param bool               $wrap        To wrap in parenthesis.
+	 * @param string             $pattern     Pattern to prepare with.
 	 *
 	 * @return string Escaped/prepared SQL, possibly wrapped in parenthesis.
 	 */

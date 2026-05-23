@@ -128,7 +128,7 @@ class Table {
 	 * Table name.
 	 *
 	 * @since 1.0.0
-	 * @var  string
+	 * @var   string
 	 */
 	protected $table_name = '';
 

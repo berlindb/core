@@ -294,13 +294,8 @@ class Meta extends Base {
 	 * @param string $primary_column Optional. Column in $primary_table that holds the object ID.
 	 *                               When empty, sourced from $this->caller. Default ''.
 	 *
-	 * @return string[]|false {
-	 *     Array containing JOIN and WHERE SQL clauses to append to the main query,
-	 *     or false if no meta table exists for the requested type.
-	 *
-	 *     @type string $join  SQL fragment to append to the main JOIN clause.
-	 *     @type string $where SQL fragment to append to the main WHERE clause.
-	 * }
+	 * @return array{join: string, where: string}|false Array with 'join' and 'where' SQL fragments,
+	 *                                                   or false if no meta table exists for the type.
 	 */
 	public function get_sql( $type = '', $primary_table = '', $primary_column = '' ) {
 
@@ -347,13 +342,8 @@ class Meta extends Base {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @return string[]|false {
-	 *     Array containing JOIN and WHERE SQL clauses to append to the main query,
-	 *     or false if no meta table exists for the requested type.
-	 *
-	 *     @type string $join  SQL fragment to append to the main JOIN clause.
-	 *     @type string $where SQL fragment to append to the main WHERE clause.
-	 * }
+	 * @return array{join: string, where: string}|false Array with 'join' and 'where' SQL fragments,
+	 *                                                   or false if no meta table exists for the type.
 	 */
 	public function get_join_where_clauses() {
 

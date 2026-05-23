@@ -1484,7 +1484,7 @@ class Query {
 	 * @since 3.0.0
 	 *
 	 * @param array<string, mixed> $query_vars Query vars.
-	 * @return array{join: array<string, mixed>, where: array<string, mixed>}
+	 * @return array{join: array<string, string>, where: array<string, string>}
 	 */
 	private function parse_join_where_parsers( $query_vars = array() ) {
 
@@ -2783,7 +2783,7 @@ class Query {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param string                         $method select|insert|update|delete
+	 * @param string                     $method select|insert|update|delete
 	 * @param object|array<string, mixed> $item   Object or array of keys/values to reduce.
 	 *
 	 * @return object|array<string, mixed> Item with capability-restricted keys removed.
