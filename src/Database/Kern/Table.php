@@ -742,9 +742,13 @@ class Table {
 	 *
 	 * Pair with copy().
 	 *
+	 * Note: the BerlinDB plugin prefix ($this->prefix) is applied
+	 * automatically, but the WordPress table prefix ($wpdb->prefix) is not.
+	 * Include it in $new_table_name if needed.
+	 *
 	 * @since 3.0.0
 	 *
-	 * @param string $new_table_name The name of the new table, no prefix
+	 * @param string $new_table_name The name of the new table, without the BerlinDB plugin prefix.
 	 *
 	 * @return bool
 	 */
@@ -780,9 +784,13 @@ class Table {
 	 *
 	 * Pair with duplicate().
 	 *
+	 * Note: the BerlinDB plugin prefix ($this->prefix) is applied
+	 * automatically, but the WordPress table prefix ($wpdb->prefix) is not.
+	 * Include it in $new_table_name if needed.
+	 *
 	 * @since 1.1.0
 	 *
-	 * @param string $new_table_name The name of the new table, no prefix
+	 * @param string $new_table_name The name of the destination table, without the BerlinDB plugin prefix.
 	 *
 	 * @return bool
 	 */
@@ -841,9 +849,15 @@ class Table {
 	/**
 	 * Rename this database table.
 	 *
+	 * Note: the BerlinDB plugin prefix ($this->prefix) is applied
+	 * automatically, but the WordPress table prefix ($wpdb->prefix) is not.
+	 * Include it in $new_table_name if needed. After a successful rename,
+	 * $this->table_name is not updated — callers are responsible for
+	 * refreshing any references to the old name.
+	 *
 	 * @since 3.0.0
 	 *
-	 * @param string $new_table_name The new name of the current table, no prefix
+	 * @param string $new_table_name The new name for this table, without the BerlinDB plugin prefix.
 	 *
 	 * @return bool
 	 */

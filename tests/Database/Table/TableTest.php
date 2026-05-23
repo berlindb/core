@@ -364,6 +364,39 @@ class TableTest extends TestCase {
 	}
 
 	// -------------------------------------------------------------------------
+	// Duplicate.
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Test that duplicate creates a table with the same structure as the original.
+	 *
+	 * TestTable has no BerlinDB plugin prefix, so apply_prefix() is a no-op and
+	 * the copy is created at exactly the name passed in (without $wpdb->prefix),
+	 * which is the documented behaviour for this method.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_duplicate_creates_table_with_structure_of_original() {
+		global $wpdb;
+
+		$copy_name = 'berlindb_database_test_widgets_dup';
+
+		$this->bypass_table_filters();
+
+		$result = self::$table->duplicate( $copy_name );
+		$exists = (bool) $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $copy_name ) );
+
+		if ( $exists ) {
+			$wpdb->query( "DROP TABLE IF EXISTS `{$copy_name}`" );
+		}
+
+		$this->restore_table_filters();
+
+		$this->assertTrue( $result );
+		$this->assertTrue( $exists );
+	}
+
+	// -------------------------------------------------------------------------
 	// Delete all.
 	// -------------------------------------------------------------------------
 
