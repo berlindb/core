@@ -61,12 +61,12 @@ class Between extends Base {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array|string $value   Two-element array or comma/space-delimited string. Only the first two elements are used.
+	 * @param array<int, mixed>|string $value   Two-element array or comma/space-delimited string. Only the first two elements are used.
 	 * @param string       $pattern Optional. A wpdb::prepare() placeholder. Default '%s'.
 	 *
 	 * @return string Prepared SQL fragment: `low AND high`.
 	 */
-	public function get_sql( $value = null, $pattern = '%s' ) {
+	public function get_value_sql( $value = null, $pattern = '%s' ) {
 
 		// Get the database interface.
 		$db = $this->get_db();
@@ -81,11 +81,16 @@ class Between extends Base {
 			$value = preg_split( '/[,\s]+/', trim( $value ) );
 		}
 
-		// Setup the SQL fragment.
-		$between = "{$pattern} AND {$pattern}";
-
 		// Use only the first two elements.
 		$value = array_slice( $value, 0, 2 );
+
+		// Bail if fewer than two values — BETWEEN requires both a low and high bound.
+		if ( count( $value ) < 2 ) {
+			return '';
+		}
+
+		// Setup the SQL fragment.
+		$between = "{$pattern} AND {$pattern}";
 
 		// Return prepared SQL fragment.
 		return $db->prepare( $between, $value );

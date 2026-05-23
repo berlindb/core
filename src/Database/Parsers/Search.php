@@ -4,13 +4,15 @@
  *
  * @package     Database
  * @subpackage  Search
- * @copyright   2021-2022 - JJJ and all BerlinDB contributors
+ * @copyright   2021-2026 - JJJ and all BerlinDB contributors
  * @license     https://opensource.org/licenses/MIT MIT
  * @since       3.0.0
  */
+declare( strict_types = 1 );
+
 namespace BerlinDB\Database\Parsers;
 
-// Exit if accessed directly
+// Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -18,8 +20,6 @@ defined( 'ABSPATH' ) || exit;
  * search and search_columns.
  *
  * @since 3.0.0
-declare( strict_types = 1 );
-
  */
 class Search extends Base {
 
@@ -37,7 +37,7 @@ class Search extends Base {
 
 	/**
 	 * @since 3.0.0
-	 * @var array
+	 * @var array<string, bool>
 	 */
 	protected $column_filter = array( 'searchable' => true );
 
@@ -60,9 +60,9 @@ class Search extends Base {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array $first_keys Array of first-order keys.
+	 * @param list<string> $first_keys Array of first-order keys.
 	 *
-	 * @return array The first-order keys.
+	 * @return list<string> The first-order keys.
 	 */
 	protected function get_first_keys( $first_keys = array() ) {
 		$first_keys = array();
@@ -82,33 +82,34 @@ class Search extends Base {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array  $clause       Query clause (passed by reference).
-	 * @param array  $parent_query Parent query array.
-	 * @param string $clause_key   Optional. The array key used to name the clause in the original
-	 *                             query parameters. If not provided, a key will be generated automatically.
-	 * @return array {
+	 * @param array<string, mixed> $clause       Query clause (passed by reference).
+	 * @param array<string, mixed> $parent_query Parent query array.
+	 * @param string               $clause_key   Optional. The array key used to name the clause in the original
+	 *                                           query parameters. If not provided, a key will be generated automatically.
+	 * @return array{join: list<string>, where: list<string>} {
 	 *     Array containing WHERE SQL clauses to append to a first-order query.
 	 *
+	 *     @type string $join  SQL fragment to append to the main JOIN clause.
 	 *     @type string $where SQL fragment to append to the main WHERE clause.
 	 * }
 	 */
 	public function get_sql_for_clause( &$clause = array(), $parent_query = array(), $clause_key = '' ) {
 
-		// Bail if no search
+		// Bail if no search.
 		if ( empty( $this->first_keys ) || empty( $clause['search'] ) ) {
 			return array(
 				'join'  => array(),
-				'where' => array()
+				'where' => array(),
 			);
 		}
 
-		// Default value
+		// Default value.
 		$where = array();
 
-		// Default to all searchable columns
+		// Default to all searchable columns.
 		$search_columns = $this->first_keys;
 
-		// Intersect against known searchable columns
+		// Intersect against known searchable columns.
 		if ( ! empty( $clause['search_columns'] ) ) {
 			$search_columns = array_intersect(
 				$clause['search_columns'],
@@ -116,23 +117,23 @@ class Search extends Base {
 			);
 		}
 
-		// Filter search columns
+		// Filter search columns.
 		$search_columns = $this->filter_search_columns( $search_columns );
 
 		// Strip the _search suffix and get the aliased SQL column names.
 		$sql_columns = array();
 		foreach ( $search_columns as $key ) {
 			$name          = str_replace( '_search', '', $key );
-			$sql_columns[] = $this->caller( 'get_column_name_aliased', $name ) ?? $name;
+			$sql_columns[] = $this->caller( 'get_quoted_column_name_aliased', $name ) ?? $name;
 		}
 
-		// Add search query clause
+		// Add search query clause.
 		$where['search'] = $this->get_search_sql( $clause['search'], $sql_columns );
 
-		// Return join/where
+		// Return join/where.
 		return array(
 			'join'  => array(),
-			'where' => $where
+			'where' => array_values( $where ),
 		);
 	}
 
@@ -143,48 +144,48 @@ class Search extends Base {
 	 * @since 1.0.0
 	 * @since 3.0.0 Bail early if parameters are empty.
 	 *
-	 * @param string $string       Search string.
-	 * @param array  $column_names Columns to search.
+	 * @param string       $string       Search string.
+	 * @param list<string> $column_names Columns to search.
 	 * @return string Search SQL.
 	 */
 	private function get_search_sql( $string = '', $column_names = array() ) {
 
-		// Bail if malformed string
+		// Bail if malformed string.
 		if ( empty( $string ) || ! is_scalar( $string ) ) {
 			return '';
 		}
 
-		// Bail if malformed columns
+		// Bail if malformed columns.
 		if ( empty( $column_names ) || ! is_array( $column_names ) ) {
 			return '';
 		}
 
-		// Get the database interface
+		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available
+		// Bail if no database interface is available.
 		if ( empty( $db ) ) {
 			return '';
 		}
 
-		// Array or String
+		// Array or String.
 		$like = ( false !== strpos( $string, '*' ) )
 			? '%' . implode( '%', array_map( array( $db, 'esc_like' ), explode( '*', $string ) ) ) . '%'
 			: '%' . $db->esc_like( $string ) . '%';
 
-		// Default array
+		// Default array.
 		$searches = array();
 
-		// Build search SQL
+		// Build search SQL.
 		foreach ( $column_names as $column ) {
 			$searches[] = $db->prepare( "{$column} LIKE %s", $like );
 		}
 
-		// Concatinate
+		// Concatinate.
 		$values = implode( ' OR ', $searches );
 		$retval = '(' . $values . ')';
 
-		// Return the clause
+		// Return the clause.
 		return $retval;
 	}
 
@@ -193,8 +194,8 @@ class Search extends Base {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array $search_columns All of the columns to search.
-	 * @return array
+	 * @param list<string> $search_columns All of the columns to search.
+	 * @return list<string>
 	 */
 	public function filter_search_columns( $search_columns = array() ) {
 
@@ -202,6 +203,9 @@ class Search extends Base {
 		if ( empty( $this->caller ) ) {
 			return $search_columns;
 		}
+
+		// Generate filter name based on the plural item name, with prefix if set.
+		$filter_name = $this->apply_prefix( $this->caller( 'get_item_name_plural' ) . '_search_columns' );
 
 		/**
 		 * Filters the columns to search by.
@@ -213,10 +217,10 @@ class Search extends Base {
 		 * @param \BerlinDB\Database\Query $query          Current query instance.
 		 */
 		return (array) apply_filters_ref_array(
-			$this->apply_prefix( "{$this->caller->item_name_plural}_search_columns" ),
+			$filter_name,
 			array(
 				$search_columns,
-				&$this
+				&$this,
 			)
 		);
 	}

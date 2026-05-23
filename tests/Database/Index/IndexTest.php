@@ -10,7 +10,7 @@
 
 namespace BerlinDB\Tests;
 
-use BerlinDB\Database\Index;
+use BerlinDB\Database\Kern\Index;
 use Yoast\WPTestUtils\WPIntegration\TestCase;
 
 /**
@@ -88,9 +88,11 @@ class IndexTest extends TestCase {
 	public function test_columns_are_sanitized_and_filtered() {
 
 		// Assert expected results.
-		$index = new Index( array(
-			'columns' => array( ' status ', 'Bad Col!', 42, '', '__' ),
-		) );
+		$index = new Index(
+			array(
+				'columns' => array( ' status ', 'Bad Col!', 42, '', '__' ),
+			)
+		);
 
 		$this->assertSame( array( 'status', 'bad_col' ), $index->columns );
 	}
@@ -115,10 +117,12 @@ class IndexTest extends TestCase {
 	public function test_method_and_using_are_normalized_to_uppercase() {
 
 		// Assert expected results.
-		$index = new Index( array(
-			'method' => 'hash',
-			'using'  => 'btree',
-		) );
+		$index = new Index(
+			array(
+				'method' => 'hash',
+				'using'  => 'btree',
+			)
+		);
 
 		$this->assertSame( 'HASH', $index->method );
 		$this->assertSame( 'BTREE', $index->using );
@@ -144,14 +148,16 @@ class IndexTest extends TestCase {
 	public function test_primary_index_create_string_is_generated() {
 
 		// Assert expected results.
-		$index = new Index( array(
-			'type'    => 'primary',
-			'columns' => array( 'id' ),
-		) );
+		$index = new Index(
+			array(
+				'type'    => 'primary',
+				'columns' => array( 'id' ),
+			)
+		);
 
 		$sql = $index->get_create_string();
 		$this->assertStringContainsString( 'PRIMARY KEY (`id`)', $sql );
-		$this->assertStringContainsString( 'USING BTREE', $sql );
+		$this->assertStringNotContainsString( 'USING', $sql );
 	}
 
 	/**
@@ -162,11 +168,13 @@ class IndexTest extends TestCase {
 	public function test_unique_index_create_string_is_generated() {
 
 		// Assert expected results.
-		$index = new Index( array(
-			'name'    => 'status_idx',
-			'type'    => 'unique',
-			'columns' => array( 'status' ),
-		) );
+		$index = new Index(
+			array(
+				'name'    => 'status_idx',
+				'type'    => 'unique',
+				'columns' => array( 'status' ),
+			)
+		);
 
 		$sql = $index->get_create_string();
 		$this->assertStringContainsString( 'UNIQUE KEY `status_idx` (`status`)', $sql );
@@ -180,11 +188,13 @@ class IndexTest extends TestCase {
 	public function test_fulltext_index_create_string_is_generated() {
 
 		// Assert expected results.
-		$index = new Index( array(
-			'name'    => 'name_idx',
-			'type'    => 'fulltext',
-			'columns' => array( 'name' ),
-		) );
+		$index = new Index(
+			array(
+				'name'    => 'name_idx',
+				'type'    => 'fulltext',
+				'columns' => array( 'name' ),
+			)
+		);
 
 		$sql = $index->get_create_string();
 		$this->assertStringContainsString( 'FULLTEXT KEY `name_idx` (`name`)', $sql );
@@ -198,11 +208,13 @@ class IndexTest extends TestCase {
 	public function test_standard_key_create_string_is_generated() {
 
 		// Assert expected results.
-		$index = new Index( array(
-			'name'    => 'status_idx',
-			'type'    => 'key',
-			'columns' => array( 'status' ),
-		) );
+		$index = new Index(
+			array(
+				'name'    => 'status_idx',
+				'type'    => 'key',
+				'columns' => array( 'status' ),
+			)
+		);
 
 		$sql = $index->get_create_string();
 		$this->assertStringContainsString( 'KEY `status_idx` (`status`)', $sql );
@@ -216,12 +228,14 @@ class IndexTest extends TestCase {
 	public function test_unique_true_forces_unique_key_sql() {
 
 		// Assert expected results.
-		$index = new Index( array(
-			'name'    => 'status_idx',
-			'type'    => 'key',
-			'unique'  => true,
-			'columns' => array( 'status' ),
-		) );
+		$index = new Index(
+			array(
+				'name'    => 'status_idx',
+				'type'    => 'key',
+				'unique'  => true,
+				'columns' => array( 'status' ),
+			)
+		);
 
 		$sql = $index->get_create_string();
 		$this->assertStringContainsString( 'UNIQUE KEY `status_idx` (`status`)', $sql );
@@ -235,10 +249,12 @@ class IndexTest extends TestCase {
 	public function test_create_string_returns_empty_when_key_name_is_missing() {
 
 		// Assert expected results.
-		$index = new Index( array(
-			'type'    => 'key',
-			'columns' => array( 'status' ),
-		) );
+		$index = new Index(
+			array(
+				'type'    => 'key',
+				'columns' => array( 'status' ),
+			)
+		);
 
 		$this->assertSame( '', $index->get_create_string() );
 	}
@@ -251,13 +267,15 @@ class IndexTest extends TestCase {
 	public function test_using_overrides_method_in_create_sql() {
 
 		// Assert expected results.
-		$index = new Index( array(
-			'name'    => 'status_idx',
-			'type'    => 'key',
-			'columns' => array( 'status' ),
-			'method'  => 'HASH',
-			'using'   => 'BTREE',
-		) );
+		$index = new Index(
+			array(
+				'name'    => 'status_idx',
+				'type'    => 'key',
+				'columns' => array( 'status' ),
+				'method'  => 'HASH',
+				'using'   => 'BTREE',
+			)
+		);
 
 		$sql = $index->get_create_string();
 		$this->assertStringContainsString( 'USING BTREE', $sql );
@@ -272,15 +290,59 @@ class IndexTest extends TestCase {
 	public function test_comment_is_escaped_in_create_sql() {
 
 		// Assert expected results.
-		$index = new Index( array(
-			'name'    => 'status_idx',
-			'type'    => 'key',
-			'columns' => array( 'status' ),
-			'comment' => "owner's index",
-		) );
+		$index = new Index(
+			array(
+				'name'    => 'status_idx',
+				'type'    => 'key',
+				'columns' => array( 'status' ),
+				'comment' => "owner's index",
+			)
+		);
 
 		$sql = $index->get_create_string();
 		$this->assertStringContainsString( "COMMENT 'owner\\'s index'", $sql );
+	}
+
+	/**
+	 * Test that a composite index includes all column names in the create string.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_composite_index_includes_all_columns() {
+
+		// Assert expected results.
+		$index = new Index(
+			array(
+				'name'    => 'name_status_idx',
+				'type'    => 'key',
+				'columns' => array( 'name', 'status', 'priority' ),
+			)
+		);
+
+		$sql = $index->get_create_string();
+		$this->assertStringContainsString( 'KEY `name_status_idx` (`name`, `status`, `priority`)', $sql );
+	}
+
+	/**
+	 * Test that no USING clause is added when both method and using are empty.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_no_using_clause_when_method_and_using_are_empty() {
+
+		// Assert expected results.
+		$index = new Index(
+			array(
+				'name'    => 'status_idx',
+				'type'    => 'key',
+				'columns' => array( 'status' ),
+				'method'  => '',
+				'using'   => '',
+			)
+		);
+
+		$sql = $index->get_create_string();
+		$this->assertStringNotContainsString( 'USING', $sql );
 	}
 
 	/**
@@ -291,11 +353,13 @@ class IndexTest extends TestCase {
 	public function test_to_array_includes_key_attributes() {
 
 		// Assert expected results.
-		$index = new Index( array(
-			'name'    => 'status_idx',
-			'type'    => 'key',
-			'columns' => array( 'status' ),
-		) );
+		$index = new Index(
+			array(
+				'name'    => 'status_idx',
+				'type'    => 'key',
+				'columns' => array( 'status' ),
+			)
+		);
 
 		$arr = $index->to_array();
 		$this->assertArrayHasKey( 'name', $arr );

@@ -11,9 +11,9 @@
 
 declare( strict_types = 1 );
 
-namespace BerlinDB\Database;
+namespace BerlinDB\Database\Kern;
 
-// Exit if accessed directly
+// Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -33,7 +33,6 @@ defined( 'ABSPATH' ) || exit;
  * @since 1.0.0
  * @since 3.0.0 Added Index support, validation, and item mutation methods.
  */
-#[\AllowDynamicProperties]
 class Schema {
 
 	/**
@@ -41,8 +40,8 @@ class Schema {
 	 *
 	 * @since 3.0.0
 	 */
-	use Traits\Base;
-	use Traits\Boot;
+	use \BerlinDB\Database\Traits\Base;
+	use \BerlinDB\Database\Traits\Boot;
 
 	/** Types *****************************************************************/
 
@@ -98,7 +97,7 @@ class Schema {
 	 *
 	 * @since 3.0.0
 	 */
-	protected function sunrise() {
+	protected function sunrise(): void {
 		$this->setup();
 	}
 
@@ -108,7 +107,7 @@ class Schema {
 	 *
 	 * @since 3.0.0
 	 */
-	protected function init() {
+	protected function init(): void {
 		$this->setup();
 	}
 
@@ -121,7 +120,7 @@ class Schema {
 	 *
 	 * @since 3.0.0
 	 */
-	public function setup() {
+	public function setup(): void {
 
 		// Legacy support for pre-set $columns array.
 		if ( ! empty( $this->columns ) && is_array( $this->columns ) ) {
@@ -146,7 +145,7 @@ class Schema {
 	 *                     'columns', 'indexes', or their singular aliases.
 	 *                     Default empty string clears everything.
 	 */
-	public function clear( $type = '' ) {
+	public function clear( $type = '' ): void {
 
 		// Clearing a specific collection.
 		if ( ! empty( $type ) ) {
@@ -157,7 +156,7 @@ class Schema {
 				$this->{$type} = array();
 			}
 
-		// Clearing everything.
+			// Clearing everything.
 		} else {
 			$this->columns = array();
 			$this->indexes = array();
@@ -173,13 +172,13 @@ class Schema {
 	 * - add_item( $type, $data )
 	 * - add_item( $type, $class, $data )
 	 *
-	 * @param string                    $type          Item collection type. Accepts
-	 *                                                 'columns' or 'indexes' (and
-	 *                                                 their singular aliases).
-	 * @param string|array|Column|Index $class_or_data Class name (legacy signature)
-	 *                                                 or item data (current signature).
-	 * @param array|Column|Index        $data          Optional item data when using
-	 *                                                 the legacy signature.
+	 * @param string                                   $type          Item collection type. Accepts
+	 *                                                                'columns' or 'indexes' (and
+	 *                                                                their singular aliases).
+	 * @param string|array<string, mixed>|Column|Index $class_or_data Class name (legacy signature)
+	 *                                                                or item data (current signature).
+	 * @param array<string, mixed>|Column|Index        $data          Optional item data when using
+	 *                                                                the legacy signature.
 	 *
 	 * @return Column|Index|false The added item object, or false on failure.
 	 */
@@ -359,9 +358,9 @@ class Schema {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string              $type  Item collection type. Accepts 'columns'
-	 *                                   or 'indexes' (and their singular aliases).
-	 * @param array[]|Column[]|Index[] $items Array of argument arrays or item objects.
+	 * @param string                                      $type  Item collection type. Accepts 'columns'
+	 *                                                           or 'indexes' (and their singular aliases).
+	 * @param list<array<string, mixed>>|Column[]|Index[] $items Array of argument arrays or item objects.
 	 *
 	 * @return Column[]|Index[]
 	 */
@@ -379,9 +378,9 @@ class Schema {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string              $type   Item collection type. Accepts 'columns'
-	 *                                    or 'indexes' (and their singular aliases).
-	 * @param array[]|Column[]|Index[] $values Array of argument arrays or item objects.
+	 * @param string                              $type   Item collection type. Accepts 'columns'
+	 *                                                    or 'indexes' (and their singular aliases).
+	 * @param list<array<string, mixed>>|Column[]|Index[] $values Array of argument arrays or item objects.
 	 *
 	 * @return Column[]|Index[] The newly built collection.
 	 */
@@ -457,8 +456,8 @@ class Schema {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string            $class Fully-qualified class name to instantiate.
-	 * @param array|Column|Index $data  Argument array or existing item object.
+	 * @param string                            $class Fully-qualified class name to instantiate.
+	 * @param array<string, mixed>|Column|Index $data  Argument array or existing item object.
 	 *
 	 * @return Column|Index|false The item object, or false on failure.
 	 */
@@ -518,7 +517,7 @@ class Schema {
 		}
 
 		// Two-space indent for readability inside CREATE TABLE.
-		$indent  = '  ';
+		$indent = '  ';
 
 		// Accumulate SQL fragments.
 		$strings = array();
@@ -547,7 +546,7 @@ class Schema {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array|Column $data Argument array or existing Column object.
+	 * @param array<string, mixed>|Column $data Argument array or existing Column object.
 	 *
 	 * @return Column|false The added Column object, or false on failure.
 	 */
@@ -597,7 +596,7 @@ class Schema {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array[]|Column[] $columns Array of argument arrays or Column objects.
+	 * @param list<array<string, mixed>>|Column[] $columns Array of argument arrays or Column objects.
 	 *
 	 * @return Column[]
 	 */
@@ -625,7 +624,7 @@ class Schema {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array|Index $data Argument array or existing Index object.
+	 * @param array<string, mixed>|Index $data Argument array or existing Index object.
 	 *
 	 * @return Index|false The added Index object, or false on failure.
 	 */
@@ -677,7 +676,7 @@ class Schema {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array[]|Index[] $indexes Array of argument arrays or Index objects.
+	 * @param list<array<string, mixed>>|Index[] $indexes Array of argument arrays or Index objects.
 	 *
 	 * @return Index[]
 	 */
@@ -721,7 +720,7 @@ class Schema {
 		// Build SQL fragments for each collection.
 		$strings = array(
 			$this->get_items_create_string( 'columns' ),
-			$this->get_items_create_string( 'indexes' )
+			$this->get_items_create_string( 'indexes' ),
 		);
 
 		// Join non-empty fragments.
@@ -753,13 +752,13 @@ class Schema {
 		$columns = $this->get_columns();
 		$indexes = $this->get_indexes();
 
-		$column_names   = array();
-		$index_names    = array();
-		$primary_count  = 0;
+		$column_names  = array();
+		$index_names   = array();
+		$primary_count = 0;
 
 		foreach ( $columns as $column ) {
 
-			$column_name = isset( $column->name )
+			$column_name = ! empty( $column->name )
 				? $this->sanitize_index_name( $column->name )
 				: false;
 
@@ -785,7 +784,7 @@ class Schema {
 
 			$index_name = $is_primary
 				? 'primary'
-				: ( isset( $index->name ) ? $this->sanitize_index_name( $index->name ) : false );
+				: ( ! empty( $index->name ) ? $this->sanitize_index_name( $index->name ) : false );
 
 			if ( empty( $index_name ) ) {
 				$errors[] = 'Schema index is missing a valid name.';
@@ -802,7 +801,7 @@ class Schema {
 				++$primary_count;
 			}
 
-			$index_columns = isset( $index->columns )
+			$index_columns = ! empty( $index->columns )
 				? (array) $index->columns
 				: array();
 
@@ -849,14 +848,12 @@ class Schema {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param object $item Index item object.
+	 * @param Index $item Index item object.
 	 *
 	 * @return bool True if the item's type is 'primary', false otherwise.
 	 */
 	private function is_primary_index( $item ) {
-		$type = isset( $item->type )
-			? strtolower( trim( (string) $item->type ) )
-			: '';
+		$type = strtolower( trim( $item->type ) );
 
 		return ( 'primary' === $type );
 	}
@@ -902,7 +899,8 @@ class Schema {
 	 * included Columns and did not include Indexes.
 	 *
 	 * @since 1.0.0
-	 * @deprecated 3.0.0
+	 * @deprecated 3.0.0 Use get_create_table_string() instead.
+	 * @see get_create_table_string()
 	 *
 	 * @return string
 	 */

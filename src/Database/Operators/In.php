@@ -4,7 +4,7 @@
  *
  * @package     Database
  * @subpackage  Operators
- * @copyright   2021-2022 - JJJ and all BerlinDB contributors
+ * @copyright   2021-2026 - JJJ and all BerlinDB contributors
  * @license     https://opensource.org/licenses/MIT MIT
  * @since       3.0.0
  */
@@ -61,12 +61,12 @@ class In extends Base {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array|string $value   Array of values or a comma/space-delimited string.
+	 * @param array<int, mixed>|string $value   Array of values or a comma/space-delimited string.
 	 * @param string       $pattern Optional. A wpdb::prepare() placeholder. Default '%s'.
 	 *
 	 * @return string Prepared SQL fragment: `(v1, v2, ...)`.
 	 */
-	public function get_sql( $value = null, $pattern = '%s' ) {
+	public function get_value_sql( $value = null, $pattern = '%s' ) {
 
 		// Get the database interface.
 		$db = $this->get_db();
@@ -79,6 +79,11 @@ class In extends Base {
 		// Maybe split a comma- or space-delimited string into an array.
 		if ( is_scalar( $value ) ) {
 			$value = preg_split( '/[,\s]+/', trim( $value ) );
+		}
+
+		// Bail if empty — IN () is invalid SQL.
+		if ( empty( $value ) ) {
+			return '';
 		}
 
 		// Build a parenthesised placeholder list for each value.

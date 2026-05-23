@@ -12,24 +12,23 @@ declare( strict_types = 1 );
 
 namespace BerlinDB\Database\Traits;
 
-// Exit if accessed directly
+// Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
 
 /**
- * The base class that all other database base classes extend.
+ * The Base Trait provides shared utilities to all BerlinDB classes.
  *
- * This class attempts to provide some universal immutability to all other
- * classes that extend it, starting with a magic getter, but likely expanding
- * into a magic call handler and others.
+ * Composes Environment, Error, Magic, and Sanitizer. Provides the global
+ * $prefix property, to_array(), set_vars(), apply_prefix(), and first_letters().
+ * Magic __get() and __isset() behaviour is delegated to the Magic trait.
  *
  * @since 3.0.0
- *
- * @property array<string, mixed> $args
  */
 trait Base {
 
 	use Environment;
 	use Error;
+	use Magic;
 	use Sanitizer;
 
 	/** Global Properties *****************************************************/
@@ -45,59 +44,14 @@ trait Base {
 	/** Public ****************************************************************/
 
 	/**
-	 * Magic isset().
+	 * Converts the object's public properties to an array.
+	 *
+	 * Only public properties are included. Protected and private properties
+	 * are not visible to get_object_vars() when called from a public method.
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param string $key
-	 * @return mixed
-	 */
-	public function __isset( $key = '' ) {
-
-		// Class method to try and call.
-		$method = "get_{$key}";
-
-		// Return callable method exists.
-		if ( is_callable( array( $this, $method ) ) ) {
-			return true;
-		}
-
-		// Return property if exists.
-		return property_exists( $this, $key );
-	}
-
-	/**
-	 * Magic get().
-	 *
-	 * @since 1.0.0
-	 *
-	 * @param string $key
-	 * @return mixed
-	 */
-	public function __get( $key = '' ) {
-
-		// Class method to try and call.
-		$method = "get_{$key}";
-
-		// Return get method results if callable.
-		if ( is_callable( array( $this, $method ) ) ) {
-			return call_user_func( array( $this, $method ) );
-
-		// Return property value if exists.
-		} elseif ( property_exists( $this, $key ) ) {
-			return $this->{$key};
-		}
-
-		// Return null if not exists.
-		return null;
-	}
-
-	/**
-	 * Converts the given object to an array.
-	 *
-	 * @since 1.0.0
-	 *
-	 * @return array Array version of the given object.
+	 * @return array<string, mixed>
 	 */
 	public function to_array() {
 		return get_object_vars( $this );
@@ -106,14 +60,19 @@ trait Base {
 	/** Protected *************************************************************/
 
 	/**
-	 * Maybe append the prefix to string.
+	 * Prepend the plugin prefix ($this->prefix) to a string.
+	 *
+	 * Applies the plugin-level prefix only (e.g. 'edd_orders'). The
+	 * WordPress table prefix ($wpdb->prefix) is a separate concern and is
+	 * NOT added here. Already-prefixed strings are returned as-is to
+	 * prevent double-prefixing.
 	 *
 	 * @since 1.0.0
 	 * @since 3.0.0 Prevents double prefixing.
 	 *
-	 * @param string $string
-	 * @param string $sep
-	 * @return string
+	 * @param string $string The string to prefix.
+	 * @param string $sep    Separator placed between prefix and string. Default '_'.
+	 * @return string The prefixed string, or the original string if $prefix is empty.
 	 */
 	protected function apply_prefix( $string = '', $sep = '_' ) {
 
@@ -166,19 +125,19 @@ trait Base {
 		}
 
 		// Default return value.
-		$retval  = '';
+		$retval = '';
 
 		// Trim spaces off the ends.
 		$unspace = trim( $string );
 
-		// Only non-accented table names (avoid truncation)
+		// Only non-accented table names (avoid truncation).
 		$accents = remove_accents( $unspace );
 
 		// Convert to lowercase.
-		$lower   = strtolower( $accents );
+		$lower = strtolower( $accents );
 
 		// Explode into parts.
-		$parts   = explode( $sep, $lower );
+		$parts = explode( $sep, $lower );
 
 		// Loop through parts and concatenate the first letters together.
 		foreach ( $parts as $part ) {
@@ -193,9 +152,9 @@ trait Base {
 	 * Set class variables from arguments.
 	 *
 	 * @since 1.0.0
-	 * @param array $args
+	 * @param array<string, mixed> $args
 	 */
-	protected function set_vars( $args = array() ) {
+	protected function set_vars( $args = array() ): void {
 
 		// Bail if empty or not an array.
 		if ( empty( $args ) ) {
@@ -212,22 +171,4 @@ trait Base {
 			$this->{$key} = $value;
 		}
 	}
-
-	/**
-	 * Stash arguments and class variables.
-	 *
-	 * This is used to stash a copy of the original constructor arguments and
-	 * the object variable values, for later comparison, reuse, or resetting
-	 * back to a previous state.
-	 *
-	 * @since 3.0.0
-	 * @param array $args
-	 */
-	protected function stash_args( $args = array() ) {
-		$this->args = array(
-			'param' => $args,
-			'class' => get_object_vars( $this )
-		);
-	}
-
 }

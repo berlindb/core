@@ -10,7 +10,7 @@
 
 namespace BerlinDB\Tests\Fixtures;
 
-use BerlinDB\Database\Table;
+use BerlinDB\Database\Kern\Table;
 
 /**
  * Concrete Table implementation for test_widgets table.
@@ -39,7 +39,7 @@ final class TestTable extends Table {
 	 * @since 2.1.0
 	 * @var string
 	 */
-	protected $name = 'berlindb_test_widgets';
+	protected $name = 'berlindb_database_test_widgets';
 
 	/**
 	 * Current table version.

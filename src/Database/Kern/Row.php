@@ -11,9 +11,9 @@
 
 declare( strict_types = 1 );
 
-namespace BerlinDB\Database;
+namespace BerlinDB\Database\Kern;
 
-// Exit if accessed directly
+// Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -29,7 +29,6 @@ defined( 'ABSPATH' ) || exit;
  *
  * @since 1.0.0
  */
-#[\AllowDynamicProperties]
 class Row {
 
 	/**
@@ -37,19 +36,31 @@ class Row {
 	 *
 	 * @since 3.0.0
 	 */
-	use Traits\Base;
-	use Traits\Boot;
-	use Traits\Casts;
+	use \BerlinDB\Database\Traits\Base;
+	use \BerlinDB\Database\Traits\Boot;
+	use \BerlinDB\Database\Traits\Cast;
+
+	/** Properties ************************************************************/
+
+	/**
+	 * Name of the primary key column for this row.
+	 *
+	 * Override in subclasses when the primary key is not named 'id'.
+	 *
+	 * @since 3.0.0
+	 * @var string
+	 */
+	protected $primary_column = 'id';
 
 	/** Methods ***************************************************************/
 
 	/**
-	 * Late lifecycle hook.
+	 * Apply casts after properties are set.
 	 *
 	 * @since 3.0.0
 	 */
-	protected function init() {
-		$this->init_casts();
+	protected function init(): void {
+		$this->apply_casts();
 	}
 
 	/**
@@ -60,6 +71,6 @@ class Row {
 	 * @return bool
 	 */
 	public function exists() {
-		return ! empty( $this->id );
+		return ! empty( $this->{$this->primary_column} );
 	}
 }

@@ -11,13 +11,14 @@
 namespace BerlinDB\Tests;
 
 use BerlinDB\Database\Parsers\Base as ParserBase;
+use BerlinDB\Database\Operators\Base as OperatorBase;
 use BerlinDB\Database\Parsers\Meta as MetaParser;
 use BerlinDB\Database\Query as BerlinQuery;
 use BerlinDB\Tests\Fixtures\TestQuery;
 use Yoast\WPTestUtils\WPIntegration\TestCase;
 
 /**
- * Spy parser used to capture the parser handoff from parse_where_parsers().
+ * Spy parser used to capture the parser handoff from parse_join_where_parsers().
  *
  * @since 2.1.0
  */
@@ -62,12 +63,12 @@ class QueryParserSpy extends ParserBase {
 	 * @since 2.1.0
 	 */
 	public static function reset() {
-		self::$primary_table      = null;
-		self::$primary_column     = null;
-		self::$type               = null;
-		self::$query_alias        = null;
-		self::$caller_table_name  = null;
-		self::$caller_meta_type   = null;
+		self::$primary_table     = null;
+		self::$primary_column    = null;
+		self::$type              = null;
+		self::$query_alias       = null;
+		self::$caller_table_name = null;
+		self::$caller_meta_type  = null;
 	}
 
 	/**
@@ -85,16 +86,16 @@ class QueryParserSpy extends ParserBase {
 	/**
 	 * Capture the parser inputs and return empty SQL fragments.
 	 *
-	 * This spy verifies that parse_where_parsers() uses the modern approach
+	 * This spy verifies that parse_join_where_parsers() uses the modern approach
 	 * of having parsers call $this->caller() to fetch values directly.
 	 *
-	 * @since 2.1.0
+	 * @since 3.0.0
 	 *
-	 * @return array{join: array, where: array}
+	 * @return array{join: string, where: string}
 	 */
-	public function get_sql() {
+	public function get_join_where_clauses() {
 
-		// Capture values as empty (no longer passed as positional parameters).
+		// Parameters are never passed positionally in 3.0.0+.
 		self::$type           = '';
 		self::$primary_table  = '';
 		self::$primary_column = '';
@@ -105,8 +106,8 @@ class QueryParserSpy extends ParserBase {
 		self::$caller_meta_type  = $this->caller( 'get_meta_type' );
 
 		return array(
-			'join'  => array(),
-			'where' => array(),
+			'join'  => '',
+			'where' => '',
 		);
 	}
 
@@ -129,7 +130,7 @@ class QueryParserSpy extends ParserBase {
 }
 
 /**
- * Query fixture that overrides the accessor methods parse_where_parsers() now uses.
+ * Query fixture that overrides the accessor methods parse_join_where_parsers() now uses.
  *
  * @since 2.1.0
  */
@@ -137,21 +138,6 @@ class QueryParserSpyQuery extends TestQuery {
 
 	/** @var string[] */
 	protected $query_var_parsers = array( QueryParserSpy::class );
-
-	/**
-	 * Avoid running a real query when the fixture is constructed without args.
-	 *
-	 * @since 2.1.0
-	 *
-	 * @param array $args Optional. Query args.
-	 */
-	protected function parse_args( $args = array() ) {
-		if ( empty( $args ) ) {
-			return;
-		}
-
-		parent::parse_args( $args );
-	}
 
 	/**
 	 * Return a resolved table name that differs from the raw property value.
@@ -248,22 +234,85 @@ class QueryMetaCallerSpy {
 }
 
 /**
- * Tests for Query::parse_where_parsers().
+ * Minimal operator used to prove custom operator class registration works.
+ *
+ * @since 3.0.0
+ */
+class QueryOperatorSpy extends OperatorBase {
+
+	/** @var string */
+	protected $name = 'spy_operator';
+
+	/** @var string */
+	protected $compare = 'SPY';
+
+	/** @var bool */
+	protected $positive = true;
+
+	/** @var bool */
+	protected $multi = false;
+
+	/** @var bool */
+	protected $numeric = false;
+}
+
+/**
+ * Parser fixture used to prove parser class registration works.
+ *
+ * @since 3.0.0
+ */
+class QueryParserRegistrySpy extends ParserBase {
+
+	/** @var string */
+	protected $name = 'registry_spy';
+
+	/** @var string|null */
+	protected $query_var = 'registry_spy';
+
+	/** @var array */
+	protected $column_filter = array();
+
+	/** @var string */
+	protected $column_suffix = '';
+
+	/** @var mixed */
+	protected $default = null;
+
+	/**
+	 * Satisfy the abstract parser contract.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param array  $clause       Optional. Unused.
+	 * @param array  $parent_query Optional. Unused.
+	 * @param string $clause_key   Optional. Unused.
+	 * @return array{join: array, where: array}
+	 */
+	public function get_sql_for_clause( &$clause = array(), $parent_query = array(), $clause_key = '' ) {
+		return array(
+			'join'  => array(),
+			'where' => array(),
+		);
+	}
+}
+
+/**
+ * Tests for Query::parse_join_where_parsers().
  *
  * @since 2.1.0
  */
 class QueryParserTest extends TestCase {
 
 	/**
-	 * Ensure parse_where_parsers() no longer threads table metadata through positional args.
+	 * Ensure parse_join_where_parsers() no longer threads table metadata through positional args.
 	 *
 	 * @since 2.1.0
 	 */
-	public function test_parse_where_parsers_uses_caller_methods_for_parser_inputs() {
+	public function test_parse_join_where_parsers_uses_caller_methods_for_parser_inputs() {
 		$query = new QueryParserSpyQuery();
 		QueryParserSpy::reset();
 
-		$method = new \ReflectionMethod( BerlinQuery::class, 'parse_where_parsers' );
+		$method = new \ReflectionMethod( BerlinQuery::class, 'parse_join_where_parsers' );
 		if ( PHP_VERSION_ID < 80100 ) {
 			$method->setAccessible( true );
 		}
@@ -285,7 +334,7 @@ class QueryParserTest extends TestCase {
 
 		// Modern approach: Parsers call $this->caller() methods directly.
 		$this->assertSame( 'resolved_test_widgets', QueryParserSpy::$caller_table_name );
-		$this->assertSame( 'widget', QueryParserSpy::$caller_meta_type );
+		$this->assertSame( 'berlindb_database_widget', QueryParserSpy::$caller_meta_type );
 
 		// Result should be the empty fragments returned by the spy.
 		$this->assertSame(
@@ -302,11 +351,11 @@ class QueryParserTest extends TestCase {
 	 *
 	 * @since 2.1.0
 	 */
-	public function test_parse_where_parsers_sanitizes_alias_conservatively() {
+	public function test_parse_join_where_parsers_sanitizes_alias_conservatively() {
 		$query = new QueryParserAliasSpyQuery();
 		QueryParserSpy::reset();
 
-		$method = new \ReflectionMethod( BerlinQuery::class, 'parse_where_parsers' );
+		$method = new \ReflectionMethod( BerlinQuery::class, 'parse_join_where_parsers' );
 		if ( PHP_VERSION_ID < 80100 ) {
 			$method->setAccessible( true );
 		}
@@ -329,9 +378,9 @@ class QueryParserTest extends TestCase {
 	 *
 	 * @since 2.1.0
 	 */
-	public function test_parse_where_parsers_normalizes_alias_underscores() {
+	public function test_parse_join_where_parsers_normalizes_alias_underscores() {
 		// Create a test query that returns an alias with consecutive underscores.
-		$query = new class extends QueryParserSpyQuery {
+		$query = new class() extends QueryParserSpyQuery {
 			public function get_table_alias() {
 				return 'resolved__tw___alias';
 			}
@@ -339,7 +388,7 @@ class QueryParserTest extends TestCase {
 
 		QueryParserSpy::reset();
 
-		$method = new \ReflectionMethod( BerlinQuery::class, 'parse_where_parsers' );
+		$method = new \ReflectionMethod( BerlinQuery::class, 'parse_join_where_parsers' );
 		if ( PHP_VERSION_ID < 80100 ) {
 			$method->setAccessible( true );
 		}
@@ -374,5 +423,106 @@ class QueryParserTest extends TestCase {
 		$this->assertSame( 'post_id', $parser->meta_column );
 		$this->assertSame( 'resolved_meta_widgets', $parser->primary_table );
 		$this->assertSame( 'resolved_widget_id', $parser->primary_column );
+	}
+
+	/**
+	 * Ensure query parser classes can be extended through the registration hook.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_query_var_parsers_can_be_registered_via_filter() {
+		$filter = function ( $classes, $query ) {
+			$this->assertInstanceOf( BerlinQuery::class, $query );
+
+			return array( QueryParserRegistrySpy::class );
+		};
+
+		add_filter( 'berlindb_database_query_var_parsers', $filter, 10, 2 );
+
+		try {
+			$query = new class() extends TestQuery {};
+
+			$parser_classes = new \ReflectionProperty( BerlinQuery::class, 'query_var_parsers' );
+			if ( PHP_VERSION_ID < 80100 ) {
+				$parser_classes->setAccessible( true );
+			}
+
+			$this->assertSame( array( QueryParserRegistrySpy::class ), $parser_classes->getValue( $query ) );
+
+			$parsers = new \ReflectionProperty( BerlinQuery::class, 'parsers' );
+			if ( PHP_VERSION_ID < 80100 ) {
+				$parsers->setAccessible( true );
+			}
+
+			$this->assertArrayHasKey( 'registry_spy', $parsers->getValue( $query ) );
+		} finally {
+			remove_filter( 'berlindb_database_query_var_parsers', $filter, 10 );
+		}
+	}
+
+	/**
+	 * Ensure parser operator classes can be extended through the registration hook.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_operator_classes_can_be_registered_via_filter() {
+		$filter = function ( $classes, $parser ) {
+			$this->assertInstanceOf( ParserBase::class, $parser );
+
+			return array( QueryOperatorSpy::class );
+		};
+
+		add_filter( 'berlindb_database_operator_classes', $filter, 10, 2 );
+
+		try {
+			$parser = new QueryOperatorSpyParser();
+
+			$this->assertCount( 1, $parser->operators );
+			$this->assertInstanceOf( QueryOperatorSpy::class, $parser->operators[0] );
+			$this->assertSame( 'spy_operator', $parser->operators[0]->name );
+			$this->assertSame( 'SPY', $parser->operators[0]->compare );
+		} finally {
+			remove_filter( 'berlindb_database_operator_classes', $filter, 10 );
+		}
+	}
+}
+
+/**
+ * Parser fixture used to exercise the operator registration hook.
+ *
+ * @since 3.0.0
+ */
+class QueryOperatorSpyParser extends ParserBase {
+
+	/** @var string */
+	protected $name = 'operator_spy';
+
+	/** @var string|null */
+	protected $query_var = 'operator_spy';
+
+	/** @var array */
+	protected $column_filter = array();
+
+	/** @var string */
+	protected $column_suffix = '';
+
+	/** @var mixed */
+	protected $default = null;
+
+	/**
+	 * Satisfy the abstract parser contract.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param array  $clause       Optional. Unused.
+	 * @param array  $parent_query Optional. Unused.
+	 * @param string $clause_key   Optional. Unused.
+	 * @return array{join: array, where: array}
+	 */
+	public function get_sql_for_clause( &$clause = array(), $parent_query = array(), $clause_key = '' ) {
+		return array(
+			'join'  => array(),
+			'where' => array(),
+		);
 	}
 }

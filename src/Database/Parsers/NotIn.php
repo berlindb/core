@@ -4,7 +4,7 @@
  *
  * @package     Database
  * @subpackage  Parsers
- * @copyright   2021-2022 - JJJ and all BerlinDB contributors
+ * @copyright   2021-2026 - JJJ and all BerlinDB contributors
  * @license     https://opensource.org/licenses/MIT MIT
  * @since       3.0.0
  */
@@ -12,7 +12,7 @@ declare( strict_types = 1 );
 
 namespace BerlinDB\Database\Parsers;
 
-// Exit if accessed directly
+// Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -39,7 +39,7 @@ class NotIn extends Base {
 
 	/**
 	 * @since 3.0.0
-	 * @var array
+	 * @var array<string, bool>
 	 */
 	protected $column_filter = array( 'not_in' => true );
 
@@ -62,9 +62,9 @@ class NotIn extends Base {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array $first_keys Array of first-order keys.
+	 * @param list<string> $first_keys Array of first-order keys.
 	 *
-	 * @return array The first-order keys.
+	 * @return list<string> The first-order keys.
 	 */
 	protected function get_first_keys( $first_keys = array() ) {
 		$first_keys = array();
@@ -84,20 +84,21 @@ class NotIn extends Base {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array  $clause       Query clause (passed by reference).
-	 * @param array  $parent_query Parent query array.
-	 * @param string $clause_key   Optional. The array key used to name the clause in the original
-	 *                             query parameters. If not provided, a key will be generated automatically.
-	 * @return array {
+	 * @param array<string, mixed> $clause       Query clause (passed by reference).
+	 * @param array<string, mixed> $parent_query Parent query array.
+	 * @param string               $clause_key   Optional. The array key used to name the clause in the original
+	 *                                           query parameters. If not provided, a key will be generated automatically.
+	 * @return array{join: list<string>, where: list<string>} {
 	 *     Array containing WHERE SQL clauses to append to a first-order query.
 	 *
+	 *     @type string $join  SQL fragment to append to the main JOIN clause.
 	 *     @type string $where SQL fragment to append to the main WHERE clause.
 	 * }
 	 */
 	public function get_sql_for_clause( &$clause = array(), $parent_query = array(), $clause_key = '' ) {
 
 		// Get the database interface.
-		$db  = $this->get_db();
+		$db = $this->get_db();
 
 		// Get __in's in clause.
 		$ins = $this->get_first_order_clauses( $clause );
@@ -106,7 +107,7 @@ class NotIn extends Base {
 		if ( empty( $db ) || empty( $ins ) ) {
 			return array(
 				'join'  => array(),
-				'where' => array()
+				'where' => array(),
 			);
 		}
 
@@ -114,9 +115,9 @@ class NotIn extends Base {
 		$where = array();
 
 		// Loop through ins.
-		foreach ( $ins as $column => $query_var ) {
+		foreach ( array_keys( $ins ) as $column ) {
 
-			// Parse query var
+			// Parse query var.
 			$values = $this->caller( 'parse_query_var', $clause, $column );
 
 			// Skip if parse fails.
@@ -124,20 +125,20 @@ class NotIn extends Base {
 				continue;
 			}
 
-			// Get pattern and aliased name
+			// Get pattern and aliased name.
 			$name    = str_replace( '__not_in', '', $column );
 			$pattern = $this->caller( 'get_column_field', array( 'name' => $name ), 'pattern', '%s' );
-			$aliased = $this->caller( 'get_column_name_aliased', $name );
+			$aliased = $this->caller( 'get_quoted_column_name_aliased', $name );
 
-			// Convert single item arrays to literal column comparisons
+			// Convert single item arrays to literal column comparisons.
 			if ( 1 === count( $values ) ) {
 				$statement      = "{$aliased} != {$pattern}";
 				$column_value   = reset( $values );
 				$where[ $name ] = $db->prepare( $statement, $column_value );
 
-			// Implode
+				// Implode.
 			} else {
-				$in_values          = $this->caller( 'get_in_sql', $column, $values, true, $pattern );
+				$in_values        = $this->caller( 'get_in_sql', $name, $values, true, $pattern );
 				$where[ $column ] = "{$aliased} NOT IN {$in_values}";
 			}
 		}
@@ -145,7 +146,7 @@ class NotIn extends Base {
 		// Return join/where array.
 		return array(
 			'join'  => array(),
-			'where' => $where
+			'where' => array_values( $where ),
 		);
 	}
 }

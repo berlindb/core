@@ -24,226 +24,454 @@ use Yoast\WPTestUtils\WPIntegration\TestCase;
  */
 class ColumnTest extends TestCase {
 
-	// Default property values
+	// Default property values.
 
+	/**
+	 * Test that the default name property is an empty string.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_default_name_is_empty_string() {
 		$column = new Column();
 		$this->assertSame( '', $column->name );
 	}
 
+	/**
+	 * Test that the default type property is an empty string.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_default_type_is_empty_string() {
 		$column = new Column();
 		$this->assertSame( '', $column->type );
 	}
 
+	/**
+	 * Test that the default unsigned property is true.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_default_unsigned_is_true() {
 		$column = new Column();
 		$this->assertTrue( $column->unsigned );
 	}
 
+	/**
+	 * Test that the default allow_null property is false.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_default_allow_null_is_false() {
 		$column = new Column();
 		$this->assertFalse( $column->allow_null );
 	}
 
+	/**
+	 * Test that the default primary property is false when not explicitly set.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_default_primary_is_false() {
-		$column = new Column( array( 'name' => 'id', 'type' => 'bigint' ) );
+		$column = new Column(
+			array(
+				'name' => 'id',
+				'type' => 'bigint',
+			)
+		);
 		$this->assertFalse( $column->primary );
 	}
 
-	// Type detection
+	// Type detection.
 
+	/**
+	 * Test that is_numeric returns true for a bigint column.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_is_numeric_returns_true_for_bigint() {
-		$column = new Column( array( 'name' => 'id', 'type' => 'bigint' ) );
+		$column = new Column(
+			array(
+				'name' => 'id',
+				'type' => 'bigint',
+			)
+		);
 		$this->assertTrue( $column->is_numeric() );
 	}
 
+	/**
+	 * Test that is_int returns true for a bigint column.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_is_int_returns_true_for_bigint() {
-		$column = new Column( array( 'name' => 'id', 'type' => 'bigint' ) );
+		$column = new Column(
+			array(
+				'name' => 'id',
+				'type' => 'bigint',
+			)
+		);
 		$this->assertTrue( $column->is_int() );
 	}
 
+	/**
+	 * Test that is_text returns false for a bigint column.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_is_text_returns_false_for_bigint() {
-		$column = new Column( array( 'name' => 'id', 'type' => 'bigint' ) );
+		$column = new Column(
+			array(
+				'name' => 'id',
+				'type' => 'bigint',
+			)
+		);
 		$this->assertFalse( $column->is_text() );
 	}
 
+	/**
+	 * Test that is_text returns true for a varchar column.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_is_text_returns_true_for_varchar() {
-		$column = new Column( array( 'name' => 'title', 'type' => 'varchar', 'length' => '255' ) );
+		$column = new Column(
+			array(
+				'name'   => 'title',
+				'type'   => 'varchar',
+				'length' => '255',
+			)
+		);
 		$this->assertTrue( $column->is_text() );
 	}
 
+	/**
+	 * Test that is_numeric returns false for a varchar column.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_is_numeric_returns_false_for_varchar() {
-		$column = new Column( array( 'name' => 'title', 'type' => 'varchar', 'length' => '255' ) );
+		$column = new Column(
+			array(
+				'name'   => 'title',
+				'type'   => 'varchar',
+				'length' => '255',
+			)
+		);
 		$this->assertFalse( $column->is_numeric() );
 	}
 
+	/**
+	 * Test that is_date_time returns true for a datetime column.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_is_date_time_returns_true_for_datetime() {
-		$column = new Column( array( 'name' => 'created', 'type' => 'datetime' ) );
+		$column = new Column(
+			array(
+				'name' => 'created',
+				'type' => 'datetime',
+			)
+		);
 		$this->assertTrue( $column->is_date_time() );
 	}
 
+	/**
+	 * Test that is_date_time returns false for a varchar column.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_is_date_time_returns_false_for_varchar() {
-		$column = new Column( array( 'name' => 'title', 'type' => 'varchar', 'length' => '255' ) );
+		$column = new Column(
+			array(
+				'name'   => 'title',
+				'type'   => 'varchar',
+				'length' => '255',
+			)
+		);
 		$this->assertFalse( $column->is_date_time() );
 	}
 
-	// special_args(): primary → cache_key
+	// special_args(): primary → cache_key.
 
+	/**
+	 * Test that setting primary to true also forces cache_key to true.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_primary_true_forces_cache_key_true() {
-		$column = new Column( array( 'name' => 'id', 'type' => 'bigint', 'primary' => true ) );
+		$column = new Column(
+			array(
+				'name'    => 'id',
+				'type'    => 'bigint',
+				'primary' => true,
+			)
+		);
 		$this->assertTrue( $column->primary );
 		$this->assertTrue( $column->cache_key );
 	}
 
-	// special_args(): uuid
+	// special_args(): uuid.
 
+	/**
+	 * Test that setting uuid to true forces the column name to "uuid".
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_uuid_true_forces_name_to_uuid() {
 		$column = new Column( array( 'uuid' => true ) );
 		$this->assertSame( 'uuid', $column->name );
 	}
 
+	/**
+	 * Test that setting uuid to true forces the column type to VARCHAR.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_uuid_true_forces_type_to_varchar() {
 		$column = new Column( array( 'uuid' => true ) );
 		$this->assertSame( 'VARCHAR', $column->type );
 	}
 
+	/**
+	 * Test that setting uuid to true forces the column length to 100.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_uuid_true_forces_length_to_100() {
 		$column = new Column( array( 'uuid' => true ) );
 		$this->assertSame( 100, $column->length );
 	}
 
+	/**
+	 * Test that setting uuid to true disables the in filter.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_uuid_true_disables_in() {
 		$column = new Column( array( 'uuid' => true ) );
 		$this->assertFalse( $column->in );
 	}
 
+	/**
+	 * Test that setting uuid to true disables the not_in filter.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_uuid_true_disables_not_in() {
 		$column = new Column( array( 'uuid' => true ) );
 		$this->assertFalse( $column->not_in );
 	}
 
+	/**
+	 * Test that setting uuid to true disables the searchable flag.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_uuid_true_disables_searchable() {
 		$column = new Column( array( 'uuid' => true ) );
 		$this->assertFalse( $column->searchable );
 	}
 
+	/**
+	 * Test that setting uuid to true disables the sortable flag.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_uuid_true_disables_sortable() {
 		$column = new Column( array( 'uuid' => true ) );
 		$this->assertFalse( $column->sortable );
 	}
 
-	// special_args(): SERIAL extra
+	// special_args(): SERIAL extra.
 
+	/**
+	 * Test that a SERIAL extra value forces the column type to BIGINT.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_serial_extra_forces_bigint_type() {
 		$column = new Column( array( 'extra' => 'SERIAL' ) );
 		$this->assertSame( 'BIGINT', $column->type );
 	}
 
+	/**
+	 * Test that a SERIAL extra value forces the primary flag to true.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_serial_extra_forces_primary_true() {
 		$column = new Column( array( 'extra' => 'SERIAL' ) );
 		$this->assertTrue( $column->primary );
 	}
 
+	/**
+	 * Test that a SERIAL extra value forces the extra field to AUTO_INCREMENT.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_serial_extra_forces_auto_increment() {
 		$column = new Column( array( 'extra' => 'SERIAL' ) );
 		$this->assertSame( 'AUTO_INCREMENT', $column->extra );
 	}
 
+	/**
+	 * Test that a SERIAL extra value forces the unsigned flag to true.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_serial_extra_forces_unsigned_true() {
 		$column = new Column( array( 'extra' => 'SERIAL' ) );
 		$this->assertTrue( $column->unsigned );
 	}
 
-	// get_create_string()
+	// get_create_string().
 
+	/**
+	 * Test that the create string for a primary column contains the column name.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_get_create_string_for_primary_column_contains_name() {
-		$column = new Column( array(
-			'name'    => 'id',
-			'type'    => 'bigint',
-			'length'  => '20',
-			'primary' => true,
-			'extra'   => 'auto_increment',
-		) );
-		$sql = $column->get_create_string();
+		$column = new Column(
+			array(
+				'name'    => 'id',
+				'type'    => 'bigint',
+				'length'  => '20',
+				'primary' => true,
+				'extra'   => 'auto_increment',
+			)
+		);
+		$sql    = $column->get_create_string();
 		$this->assertStringContainsString( '`id`', $sql );
 	}
 
+	/**
+	 * Test that the create string for a primary column contains the column type.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_get_create_string_for_primary_column_contains_type() {
-		$column = new Column( array(
-			'name'    => 'id',
-			'type'    => 'bigint',
-			'length'  => '20',
-			'primary' => true,
-			'extra'   => 'auto_increment',
-		) );
-		$sql = $column->get_create_string();
+		$column = new Column(
+			array(
+				'name'    => 'id',
+				'type'    => 'bigint',
+				'length'  => '20',
+				'primary' => true,
+				'extra'   => 'auto_increment',
+			)
+		);
+		$sql    = $column->get_create_string();
 		$this->assertStringContainsString( 'bigint(20)', $sql );
 	}
 
+	/**
+	 * Test that the create string for a primary column contains the unsigned keyword.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_get_create_string_for_primary_column_contains_unsigned() {
-		$column = new Column( array(
-			'name'     => 'id',
-			'type'     => 'bigint',
-			'length'   => '20',
-			'unsigned' => true,
-			'primary'  => true,
-			'extra'    => 'auto_increment',
-		) );
-		$sql = $column->get_create_string();
+		$column = new Column(
+			array(
+				'name'     => 'id',
+				'type'     => 'bigint',
+				'length'   => '20',
+				'unsigned' => true,
+				'primary'  => true,
+				'extra'    => 'auto_increment',
+			)
+		);
+		$sql    = $column->get_create_string();
 		$this->assertStringContainsString( 'unsigned', $sql );
 	}
 
+	/**
+	 * Test that the create string for a primary column contains AUTO_INCREMENT.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_get_create_string_for_primary_column_contains_auto_increment() {
-		$column = new Column( array(
-			'name'   => 'id',
-			'type'   => 'bigint',
-			'length' => '20',
-			'extra'  => 'auto_increment',
-		) );
-		$sql = $column->get_create_string();
+		$column = new Column(
+			array(
+				'name'   => 'id',
+				'type'   => 'bigint',
+				'length' => '20',
+				'extra'  => 'auto_increment',
+			)
+		);
+		$sql    = $column->get_create_string();
 		$this->assertStringContainsString( 'AUTO_INCREMENT', $sql );
 	}
 
+	/**
+	 * Test that the create string for a varchar column contains the specified length.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_get_create_string_for_varchar_column_contains_length() {
-		$column = new Column( array(
-			'name'    => 'title',
-			'type'    => 'varchar',
-			'length'  => '200',
-			'default' => '',
-		) );
-		$sql = $column->get_create_string();
+		$column = new Column(
+			array(
+				'name'    => 'title',
+				'type'    => 'varchar',
+				'length'  => '200',
+				'default' => '',
+			)
+		);
+		$sql    = $column->get_create_string();
 		$this->assertStringContainsString( 'varchar(200)', $sql );
 	}
 
+	/**
+	 * Test that the create string for a non-nullable varchar column contains NOT NULL.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_get_create_string_for_varchar_column_contains_not_null() {
-		$column = new Column( array(
-			'name'       => 'title',
-			'type'       => 'varchar',
-			'length'     => '200',
-			'allow_null' => false,
-		) );
-		$sql = $column->get_create_string();
+		$column = new Column(
+			array(
+				'name'       => 'title',
+				'type'       => 'varchar',
+				'length'     => '200',
+				'allow_null' => false,
+			)
+		);
+		$sql    = $column->get_create_string();
 		$this->assertStringContainsString( 'not null', $sql );
 	}
 
+	/**
+	 * Test that the create string for a datetime column contains the datetime type.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_get_create_string_for_datetime_column_contains_type() {
-		$column = new Column( array(
-			'name' => 'created_at',
-			'type' => 'datetime',
-		) );
-		$sql = $column->get_create_string();
+		$column = new Column(
+			array(
+				'name' => 'created_at',
+				'type' => 'datetime',
+			)
+		);
+		$sql    = $column->get_create_string();
 		$this->assertStringContainsString( 'datetime', $sql );
 	}
 
-	// Validation helpers
+	// Validation helpers.
 
+	/**
+	 * Test that validate_uuid generates a urn:uuid: prefixed string for an empty value.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_validate_uuid_generates_urn_prefix_for_empty_value() {
 		$column = new Column( array( 'uuid' => true ) );
 		$result = $column->validate_uuid( '' );
 		$this->assertStringStartsWith( 'urn:uuid:', $result );
 	}
 
+	/**
+	 * Test that validate_uuid preserves an existing valid urn:uuid: value unchanged.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_validate_uuid_preserves_existing_urn_uuid() {
 		$column   = new Column( array( 'uuid' => true ) );
 		$existing = 'urn:uuid:550e8400-e29b-41d4-a716-446655440000';
@@ -251,72 +479,646 @@ class ColumnTest extends TestCase {
 		$this->assertSame( $existing, $result );
 	}
 
+	/**
+	 * Test that validate_int coerces a numeric string to an integer.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_validate_int_coerces_string_to_int() {
-		$column = new Column( array( 'name' => 'count', 'type' => 'bigint' ) );
+		$column = new Column(
+			array(
+				'name' => 'count',
+				'type' => 'bigint',
+			)
+		);
 		$result = $column->validate_int( '42' );
 		$this->assertSame( 42, $result );
 	}
 
+	/**
+	 * Test that validate_datetime returns a well-formed datetime string unchanged.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_validate_datetime_returns_valid_datetime_string() {
-		$column = new Column( array( 'name' => 'created', 'type' => 'datetime' ) );
+		$column = new Column(
+			array(
+				'name' => 'created',
+				'type' => 'datetime',
+			)
+		);
 		$result = $column->validate_datetime( '2024-01-15 10:30:00' );
 		$this->assertSame( '2024-01-15 10:30:00', $result );
 	}
 
+	/**
+	 * Test that validate_datetime returns an empty value when given an empty input.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_validate_datetime_returns_empty_string_for_empty_value() {
-		// validate_datetime() returns $this->default for empty values, so the
-		// column must have the zero-date default for this assertion to hold.
-		$column = new Column( array( 'name' => 'created', 'type' => 'datetime' ) );
+		/*
+		 * validate_datetime() returns $this->default for empty values, so the
+		 * column must have the zero-date default for this assertion to hold.
+		 */
+		$column = new Column(
+			array(
+				'name' => 'created',
+				'type' => 'datetime',
+			)
+		);
 		$result = $column->validate_datetime( '' );
 		$this->assertEmpty( $result );
 	}
 
-	// Base::__get() magic getter
+	// Base::__get() magic getter.
 
+	/**
+	 * Test that the magic getter accesses a protected sortable property correctly.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_magic_getter_accesses_protected_sortable_property() {
-		$column = new Column( array( 'name' => 'title', 'type' => 'varchar', 'sortable' => true ) );
+		$column = new Column(
+			array(
+				'name'     => 'title',
+				'type'     => 'varchar',
+				'sortable' => true,
+			)
+		);
 		$this->assertTrue( $column->sortable );
 	}
 
+	/**
+	 * Test that the magic getter returns null for a nonexistent property.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_magic_getter_returns_null_for_nonexistent_property() {
 		$column = new Column();
 		$this->assertNull( $column->nonexistent_property_xyz );
 	}
 
-	// Capabilities
+	// Capabilities.
 
+	/**
+	 * Test that the default caps array contains all four CRUD operation keys.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_caps_defaults_contain_all_four_operations() {
-		$column = new Column( array( 'name' => 'id', 'type' => 'bigint' ) );
+		$column = new Column(
+			array(
+				'name' => 'id',
+				'type' => 'bigint',
+			)
+		);
 		$this->assertArrayHasKey( 'select', $column->caps );
 		$this->assertArrayHasKey( 'insert', $column->caps );
 		$this->assertArrayHasKey( 'update', $column->caps );
 		$this->assertArrayHasKey( 'delete', $column->caps );
 	}
 
+	/**
+	 * Test that caps default to the "exist" capability for each operation.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_caps_default_to_exist_capability() {
-		$column = new Column( array( 'name' => 'id', 'type' => 'bigint' ) );
+		$column = new Column(
+			array(
+				'name' => 'id',
+				'type' => 'bigint',
+			)
+		);
 		$this->assertSame( 'exist', $column->caps['insert'] );
 	}
 
-	// to_array()
+	// to_array().
 
+	/**
+	 * Test that to_array includes the name key with its value.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_to_array_includes_name_key() {
-		$column = new Column( array( 'name' => 'status', 'type' => 'varchar' ) );
+		$column = new Column(
+			array(
+				'name' => 'status',
+				'type' => 'varchar',
+			)
+		);
 		$arr    = $column->to_array();
 		$this->assertArrayHasKey( 'name', $arr );
 		$this->assertSame( 'status', $arr['name'] );
 	}
 
+	/**
+	 * Test that to_array includes the type key.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_to_array_includes_type_key() {
-		$column = new Column( array( 'name' => 'status', 'type' => 'VARCHAR' ) );
+		$column = new Column(
+			array(
+				'name' => 'status',
+				'type' => 'VARCHAR',
+			)
+		);
 		$arr    = $column->to_array();
 		$this->assertArrayHasKey( 'type', $arr );
 	}
 
+	/**
+	 * Test that to_array includes the primary key with a true value when set.
+	 *
+	 * @since 2.1.0
+	 */
 	public function test_to_array_includes_primary_key() {
-		$column = new Column( array( 'name' => 'id', 'type' => 'bigint', 'primary' => true ) );
+		$column = new Column(
+			array(
+				'name'    => 'id',
+				'type'    => 'bigint',
+				'primary' => true,
+			)
+		);
 		$arr    = $column->to_array();
 		$this->assertArrayHasKey( 'primary', $arr );
 		$this->assertTrue( $arr['primary'] );
+	}
+
+	// get_create_string() — type SQL branches.
+
+	/**
+	 * Test that the create string omits any type clause when no type is set.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_get_create_string_without_type_omits_type_clause() {
+		$column = new Column( array( 'name' => 'x' ) );
+		$sql    = $column->get_create_string();
+		$this->assertStringNotContainsString( 'bigint', $sql );
+		$this->assertStringNotContainsString( 'varchar', $sql );
+	}
+
+	/**
+	 * Test that the create string includes a CHARACTER SET clause when encoding is specified.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_get_create_string_with_encoding_includes_character_set() {
+		$column = new Column(
+			array(
+				'name'     => 'body',
+				'type'     => 'text',
+				'encoding' => 'utf8mb4',
+			)
+		);
+		$sql    = $column->get_create_string();
+		$this->assertStringContainsString( 'CHARACTER SET utf8mb4', $sql );
+	}
+
+	/**
+	 * Test that the create string includes a COLLATE clause when collation is specified.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_get_create_string_with_collation_includes_collate() {
+		$column = new Column(
+			array(
+				'name'      => 'body',
+				'type'      => 'text',
+				'collation' => 'utf8mb4_unicode_ci',
+			)
+		);
+		$sql    = $column->get_create_string();
+		$this->assertStringContainsString( 'COLLATE utf8mb4_unicode_ci', $sql );
+	}
+
+	/**
+	 * Test that the create string for a binary type uses binary charset and collation.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_get_create_string_binary_type_uses_binary_charset_and_collation() {
+		$column = new Column(
+			array(
+				'name'   => 'hash',
+				'type'   => 'varbinary',
+				'length' => '32',
+			)
+		);
+		$sql    = $column->get_create_string();
+		$this->assertStringContainsString( 'CHARACTER SET binary', $sql );
+		$this->assertStringContainsString( 'COLLATE binary', $sql );
+	}
+
+	/**
+	 * Test that the binary flag on a text column appends a _bin collation suffix.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_get_create_string_binary_flag_on_text_uses_bin_collation() {
+		$column = new Column(
+			array(
+				'name'      => 'slug',
+				'type'      => 'varchar',
+				'length'    => '200',
+				'binary'    => true,
+				'collation' => 'utf8mb4',
+			)
+		);
+		$sql    = $column->get_create_string();
+		$this->assertStringContainsString( 'COLLATE utf8mb4_bin', $sql );
+	}
+
+	// get_create_string() — default SQL branches.
+
+	/**
+	 * Test that an allow_null column with a null default produces a "default null" clause.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_get_create_string_allow_null_with_null_default_uses_default_null() {
+		$column = new Column(
+			array(
+				'name'       => 'note',
+				'type'       => 'text',
+				'allow_null' => true,
+				'default'    => null,
+			)
+		);
+		$sql    = $column->get_create_string();
+		$this->assertStringContainsString( 'default null', $sql );
+	}
+
+	/**
+	 * Test that a text column without an explicit default outputs an empty string default.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_get_create_string_text_column_without_default_outputs_empty_default() {
+		// Text columns with no explicit default (i.e. default = '') produce "default ''".
+		$column = new Column(
+			array(
+				'name' => 'note',
+				'type' => 'text',
+			)
+		);
+		$sql    = $column->get_create_string();
+		$this->assertStringContainsString( "default ''", $sql );
+	}
+
+	/**
+	 * Test that a bigint column without an explicit default outputs a zero default.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_get_create_string_bigint_column_defaults_to_zero() {
+		$column = new Column(
+			array(
+				'name' => 'count',
+				'type' => 'bigint',
+			)
+		);
+		$sql    = $column->get_create_string();
+		$this->assertStringContainsString( "default '0'", $sql );
+	}
+
+	/**
+	 * Test that an AUTO_INCREMENT column omits the default value clause.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_get_create_string_auto_increment_column_omits_default() {
+		$column = new Column(
+			array(
+				'name'  => 'id',
+				'type'  => 'bigint',
+				'extra' => 'auto_increment',
+			)
+		);
+		$sql    = $column->get_create_string();
+		$this->assertStringNotContainsString( "default '0'", $sql );
+	}
+
+	/**
+	 * Test that a datetime column uses the zero-date string as its default value.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_get_create_string_datetime_column_uses_zero_date_default() {
+		$column = new Column(
+			array(
+				'name' => 'created_at',
+				'type' => 'datetime',
+			)
+		);
+		$sql    = $column->get_create_string();
+		$this->assertStringContainsString( "default '0000-00-00 00:00:00'", $sql );
+	}
+
+	/**
+	 * Test that a custom string default value appears in the create string output.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_get_create_string_custom_string_default_appears_in_output() {
+		// 'validate' => 'strval' preserves the string through sanitize_default().
+		$column = new Column(
+			array(
+				'name'     => 'status',
+				'type'     => 'varchar',
+				'length'   => '20',
+				'default'  => 'active',
+				'validate' => 'strval',
+			)
+		);
+		$sql    = $column->get_create_string();
+		$this->assertStringContainsString( "default 'active'", $sql );
+	}
+
+	/**
+	 * Test that a timestamp column with an ON UPDATE extra produces the correct SQL clause.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_get_create_string_timestamp_with_on_update_extra() {
+		$column = new Column(
+			array(
+				'name'  => 'modified_at',
+				'type'  => 'timestamp',
+				'extra' => 'ON UPDATE CURRENT_TIMESTAMP',
+			)
+		);
+		$sql    = $column->get_create_string();
+		$this->assertStringContainsString( 'ON UPDATE current_timestamp()', $sql );
+	}
+
+	// Cast attribute — auto-detection.
+
+	/**
+	 * Test that a column with args but no type has a null cast after construction.
+	 *
+	 * When no args are passed at all, parse_args() bails early and validate_args()
+	 * never runs, so $cast stays as ''. With args present, sanitize_cast fires and
+	 * returns null when no type can be matched.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_default_cast_is_null_for_typeless_column() {
+		$column = new Column( array( 'name' => 'x' ) );
+		$this->assertNull( $column->cast );
+	}
+
+	/**
+	 * Test that a bigint column auto-detects intval as its cast.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_cast_auto_detects_intval_for_bigint() {
+		$column = new Column(
+			array(
+				'name' => 'count',
+				'type' => 'bigint',
+			)
+		);
+		$this->assertSame( 'intval', $column->cast );
+	}
+
+	/**
+	 * Test that a float column auto-detects floatval as its cast.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_cast_auto_detects_floatval_for_float() {
+		$column = new Column(
+			array(
+				'name' => 'price',
+				'type' => 'float',
+			)
+		);
+		$this->assertSame( 'floatval', $column->cast );
+	}
+
+	/**
+	 * Test that a decimal column auto-detects floatval as its cast.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_cast_auto_detects_floatval_for_decimal() {
+		$column = new Column(
+			array(
+				'name' => 'amount',
+				'type' => 'decimal',
+			)
+		);
+		$this->assertSame( 'floatval', $column->cast );
+	}
+
+	/**
+	 * Test that a bool column auto-detects boolval as its cast.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_cast_auto_detects_boolval_for_bool() {
+		$column = new Column(
+			array(
+				'name' => 'active',
+				'type' => 'bool',
+			)
+		);
+		$this->assertSame( 'boolval', $column->cast );
+	}
+
+	/**
+	 * Test that a varchar column auto-detects strval as its cast.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_cast_auto_detects_strval_for_varchar() {
+		$column = new Column(
+			array(
+				'name'   => 'title',
+				'type'   => 'varchar',
+				'length' => '255',
+			)
+		);
+		$this->assertSame( 'strval', $column->cast );
+	}
+
+	/**
+	 * Test that a text column auto-detects strval as its cast.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_cast_auto_detects_strval_for_text() {
+		$column = new Column(
+			array(
+				'name' => 'body',
+				'type' => 'text',
+			)
+		);
+		$this->assertSame( 'strval', $column->cast );
+	}
+
+	/**
+	 * Test that a datetime column has a null cast after construction.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_cast_is_null_for_datetime() {
+		$column = new Column(
+			array(
+				'name' => 'created_at',
+				'type' => 'datetime',
+			)
+		);
+		$this->assertNull( $column->cast );
+	}
+
+	/**
+	 * Test that a varbinary column has a null cast after construction.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_cast_is_null_for_binary() {
+		$column = new Column(
+			array(
+				'name'   => 'hash',
+				'type'   => 'varbinary',
+				'length' => '32',
+			)
+		);
+		$this->assertNull( $column->cast );
+	}
+
+	/**
+	 * Test that an explicit callable cast overrides auto-detection.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_cast_accepts_explicit_callable() {
+		$column = new Column(
+			array(
+				'name' => 'meta',
+				'type' => 'longtext',
+				'cast' => 'maybe_unserialize',
+			)
+		);
+		$this->assertSame( 'maybe_unserialize', $column->cast );
+	}
+
+	/**
+	 * Test that an invalid cast value falls back to auto-detection.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_cast_invalid_value_falls_back_to_auto_detection() {
+		$column = new Column(
+			array(
+				'name' => 'count',
+				'type' => 'bigint',
+				'cast' => 'not_a_real_function_xyz',
+			)
+		);
+		$this->assertSame( 'intval', $column->cast );
+	}
+
+	// cast() method.
+
+	/**
+	 * Test that cast() coerces a numeric string to an integer for a bigint column.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_cast_method_coerces_string_to_int_for_bigint() {
+		$column = new Column(
+			array(
+				'name' => 'count',
+				'type' => 'bigint',
+			)
+		);
+		$this->assertSame( 42, $column->cast( '42' ) );
+	}
+
+	/**
+	 * Test that cast() coerces a numeric string to a float for a float column.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_cast_method_coerces_string_to_float_for_float() {
+		$column = new Column(
+			array(
+				'name' => 'price',
+				'type' => 'float',
+			)
+		);
+		$this->assertSame( 3.14, $column->cast( '3.14' ) );
+	}
+
+	/**
+	 * Test that cast() coerces a truthy string to true for a bool column.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_cast_method_coerces_truthy_string_to_true_for_bool() {
+		$column = new Column(
+			array(
+				'name' => 'active',
+				'type' => 'bool',
+			)
+		);
+		$this->assertTrue( $column->cast( '1' ) );
+	}
+
+	/**
+	 * Test that cast() coerces a falsy string to false for a bool column.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_cast_method_coerces_falsy_string_to_false_for_bool() {
+		$column = new Column(
+			array(
+				'name' => 'active',
+				'type' => 'bool',
+			)
+		);
+		$this->assertFalse( $column->cast( '0' ) );
+	}
+
+	/**
+	 * Test that cast() is a passthrough for a datetime column.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_cast_method_is_passthrough_for_datetime() {
+		$column = new Column(
+			array(
+				'name' => 'created_at',
+				'type' => 'datetime',
+			)
+		);
+		$value  = '2024-01-15 10:30:00';
+		$this->assertSame( $value, $column->cast( $value ) );
+	}
+
+	/**
+	 * Test that cast() applies a custom callable.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_cast_method_applies_custom_callable() {
+		$serialized = serialize( array( 'foo' => 'bar' ) );
+		$column     = new Column(
+			array(
+				'name' => 'meta',
+				'type' => 'longtext',
+				'cast' => 'maybe_unserialize',
+			)
+		);
+		$result     = $column->cast( $serialized );
+		$this->assertIsArray( $result );
+		$this->assertSame( 'bar', $result['foo'] );
 	}
 }

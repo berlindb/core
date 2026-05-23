@@ -4,7 +4,7 @@
  *
  * @package     Database
  * @subpackage  Parsers
- * @copyright   2021-2022 - JJJ and all BerlinDB contributors
+ * @copyright   2021-2026 - JJJ and all BerlinDB contributors
  * @license     https://opensource.org/licenses/MIT MIT
  * @since       3.0.0
  */
@@ -12,15 +12,16 @@ declare( strict_types = 1 );
 
 namespace BerlinDB\Database\Parsers;
 
-// Exit if accessed directly
+// Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
 
 /**
  * Abstract base class for all query var parsers.
  *
  * Owns the Traits\Parser use so that concrete parsers only need to extend
- * this class. Declares get_sql_for_clause() abstract to enforce that every
- * concrete parser provides its own SQL-building logic.
+ * this class. Traits\Parser provides a Column-aware default implementation of
+ * get_sql_for_clause(); concrete parsers override it only when they require
+ * specialised JOIN logic, type casting, or column handling.
  *
  * @since 3.0.0
  */
@@ -50,7 +51,7 @@ abstract class Base {
 	 * An empty array means all columns are considered.
 	 *
 	 * @since 3.0.0
-	 * @var array
+	 * @var array<string, bool>
 	 */
 	protected $column_filter = array();
 
@@ -72,7 +73,81 @@ abstract class Base {
 	 */
 	protected $default = null;
 
+	/**
+	 * Whether this parser contributes ORDER BY SQL via get_orderby_sql().
+	 * Parsers that override get_orderby_sql() should set this to true so
+	 * Query::get_parsers( array( 'sortable' => true ) ) can find them
+	 * without iterating every registered parser.
+	 *
+	 * @since 3.0.0
+	 * @var bool
+	 */
+	public $sortable = false;
+
 	/** Methods ***************************************************************/
+
+	/**
+	 * Return the top-level query var key this parser consumes.
+	 *
+	 * Returns null for parsers that operate on per-column query vars (e.g. By).
+	 *
+	 * @since 3.0.0
+	 * @api
+	 *
+	 * @return string|null
+	 */
+	public function get_query_var() {
+		return $this->query_var;
+	}
+
+	/**
+	 * Get the default operator class list.
+	 *
+	 * This is filterable so individual parser families can register custom
+	 * operators without replacing the shared parser contract.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @return string[]
+	 */
+	protected function get_operator_classes() {
+
+		// Default set of operator classes.
+		$operators = array(
+			'BerlinDB\\Database\\Operators\\Between',
+			'BerlinDB\\Database\\Operators\\Equal',
+			'BerlinDB\\Database\\Operators\\Exists',
+			'BerlinDB\\Database\\Operators\\GreaterThan',
+			'BerlinDB\\Database\\Operators\\GreaterThanOrEqual',
+			'BerlinDB\\Database\\Operators\\In',
+			'BerlinDB\\Database\\Operators\\LessThan',
+			'BerlinDB\\Database\\Operators\\LessThanOrEqual',
+			'BerlinDB\\Database\\Operators\\Like',
+			'BerlinDB\\Database\\Operators\\NotBetween',
+			'BerlinDB\\Database\\Operators\\NotEqual',
+			'BerlinDB\\Database\\Operators\\NotExists',
+			'BerlinDB\\Database\\Operators\\NotIn',
+			'BerlinDB\\Database\\Operators\\NotLike',
+			'BerlinDB\\Database\\Operators\\NotRegexp',
+			'BerlinDB\\Database\\Operators\\Regexp',
+			'BerlinDB\\Database\\Operators\\Rlike',
+		);
+
+		/**
+		 * Filter the default operator class list.
+		 *
+		 * @since 3.0.0
+		 * @param string[] $operators Array of fully-qualified Operator class names.
+		 * @param Base     $parser    Current Parser instance.
+		 */
+		return (array) apply_filters_ref_array(
+			'berlindb_database_operator_classes',
+			array(
+				$operators,
+				&$this,
+			)
+		);
+	}
 
 	/**
 	 * Populate $this->operators with one shared instance per Operator class.
@@ -85,62 +160,25 @@ abstract class Base {
 	 *
 	 * @since 3.0.0
 	 */
-	protected function set_operators() {
-		static $instances = null;
+	protected function set_operators(): void {
+		static $instances = array();
 
-		if ( null === $instances ) {
+		$classes = $this->get_operator_classes();
+		$key     = md5( maybe_serialize( $classes ) );
 
-			// Known classes.
-			$classes = array(
-				'BerlinDB\\Database\\Operators\\Between',
-				'BerlinDB\\Database\\Operators\\Equal',
-				'BerlinDB\\Database\\Operators\\Exists',
-				'BerlinDB\\Database\\Operators\\GreaterThan',
-				'BerlinDB\\Database\\Operators\\GreaterThanOrEqual',
-				'BerlinDB\\Database\\Operators\\In',
-				'BerlinDB\\Database\\Operators\\LessThan',
-				'BerlinDB\\Database\\Operators\\LessThanOrEqual',
-				'BerlinDB\\Database\\Operators\\Like',
-				'BerlinDB\\Database\\Operators\\NotBetween',
-				'BerlinDB\\Database\\Operators\\NotEqual',
-				'BerlinDB\\Database\\Operators\\NotExists',
-				'BerlinDB\\Database\\Operators\\NotIn',
-				'BerlinDB\\Database\\Operators\\NotLike',
-				'BerlinDB\\Database\\Operators\\NotRegexp',
-				'BerlinDB\\Database\\Operators\\Regexp',
-				'BerlinDB\\Database\\Operators\\Rlike',
-			);
+		if ( ! isset( $instances[ $key ] ) ) {
+			$instances[ $key ] = array();
 
-			// Instantiate the classes.
-			$instances = array_map( static function ( $class ) {
-				return new $class();
-			}, $classes );
+			foreach ( $classes as $class ) {
+				if ( ! class_exists( $class ) ) {
+					continue;
+				}
+
+				$instances[ $key ][] = new $class();
+			}
 		}
 
 		// Set operators.
-		$this->operators = $instances;
+		$this->operators = $instances[ $key ];
 	}
-
-	/**
-	 * Generate SQL JOIN and WHERE clauses for a first-order query clause.
-	 *
-	 * "First-order" means that it's an array with a recognised first-order key
-	 * (e.g. 'value', 'year', 'key') rather than a nested sub-query.
-	 *
-	 * @since 3.0.0
-	 *
-	 * @param array  $clause       Query clause (passed by reference).
-	 * @param array  $parent_query Parent query array.
-	 * @param string $clause_key   Optional. The array key used to name the clause
-	 *                             in the original query parameters. If not provided,
-	 *                             a key will be generated automatically.
-	 *
-	 * @return array {
-	 *     Array containing JOIN and WHERE SQL clauses to append to the main query.
-	 *
-	 *     @type string $join  SQL fragment to append to the main JOIN clause.
-	 *     @type string $where SQL fragment to append to the main WHERE clause.
-	 * }
-	 */
-	abstract public function get_sql_for_clause( &$clause = array(), $parent_query = array(), $clause_key = '' );
 }

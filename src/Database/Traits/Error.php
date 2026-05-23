@@ -12,7 +12,7 @@ declare( strict_types = 1 );
 
 namespace BerlinDB\Database\Traits;
 
-// Exit if accessed directly
+// Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -31,15 +31,21 @@ trait Error {
 	protected $last_error = false;
 
 	/**
-	 * Check if an operation succeeded.
+	 * Check if a database operation succeeded.
 	 *
-	 * Note: While "0" or "''" may be the return value of a successful result,
-	 *       for the purposes of database queries and this method, it isn't.
-	 *       When using this method, take care that your possible results do not
-	 *       pass falsy values on success.
+	 * Returns true for any value except false, null, 0, and WP_Error:
+	 * - false    — wpdb query error
+	 * - null     — wpdb get_row() found no matching row
+	 * - 0        — query ran but matched or affected zero rows
+	 * - WP_Error — an explicit error object (also stashed in $last_error)
+	 *
+	 * If you need different semantics — for example, treating 0 as success
+	 * for a DELETE on an empty table — check the result directly instead of
+	 * delegating to this method.
 	 *
 	 * @since 1.0.0
-	 * @since 3.0.0 Minor refactor to improve readability.
+	 * @since 3.0.0 null added as a failure sentinel alongside false.
+	 *              WP_Error is now stashed in $last_error.
 	 *
 	 * @param mixed $result Optional. Default false. Any value to check.
 	 * @return bool
@@ -49,14 +55,16 @@ trait Error {
 		// Default return value.
 		$retval = false;
 
-		// Non-empty is success.
-		if ( ! empty( $result ) ) {
-			$retval = true;
+		// false (query error), null (no row found), and 0 (nothing matched) are failures.
+		if ( ! in_array( $result, array( null, false, 0 ), true ) ) {
 
-			// But Error is still fail, so stash it.
+			// WP_Error is a failure; stash it for the caller.
 			if ( is_wp_error( $result ) ) {
 				$this->last_error = $result;
-				$retval           = false;
+
+				// Any other value is a success.
+			} else {
+				$retval = true;
 			}
 		}
 

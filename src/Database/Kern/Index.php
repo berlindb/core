@@ -10,7 +10,7 @@
  */
 declare( strict_types = 1 );
 
-namespace BerlinDB\Database;
+namespace BerlinDB\Database\Kern;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -34,11 +34,10 @@ defined( 'ABSPATH' ) || exit;
  *     @type string   $using     USING clause for index type (optional).
  * }
  */
-#[\AllowDynamicProperties]
 class Index {
 
-	use Traits\Base;
-	use Traits\Boot;
+	use \BerlinDB\Database\Traits\Base;
+	use \BerlinDB\Database\Traits\Boot;
 
 	/** Attributes ************************************************************/
 
@@ -62,7 +61,7 @@ class Index {
 	 * Array of columns the index consists of.
 	 *
 	 * @since 3.0.0
-	 * @var   array  Default empty array.
+	 * @var   list<string>  Default empty array.
 	 */
 	public $columns = array();
 
@@ -101,14 +100,14 @@ class Index {
 	/** Argument validation ***************************************************/
 
 	/**
-	* Normalize and sanitize all arguments passed to Index.
-	*
-	* @since 3.0.0
-	*
-	* @param array $args
-	*
-	* @return array
-	*/
+	 * Normalize and sanitize all arguments passed to Index.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param array<string, mixed> $args
+	 *
+	 * @return array<string, mixed>
+	 */
 	protected function validate_args( $args = array() ) {
 
 		// Array of callbacks for specific keys.
@@ -117,7 +116,7 @@ class Index {
 			'type'    => 'strtolower',
 			'unique'  => 'wp_validate_boolean',
 			'method'  => 'strtoupper',
-			'comment' => 'wp_kses_data',
+			'comment' => array( $this, 'sanitize_comment' ),
 			'using'   => 'strtoupper',
 			'columns' => array( $this, 'sanitize_columns' ),
 		);
@@ -132,7 +131,7 @@ class Index {
 			if ( isset( $callbacks[ $key ] ) && is_callable( $callbacks[ $key ] ) ) {
 				$r[ $key ] = call_user_func( $callbacks[ $key ], $value );
 
-			// Otherwise assign the value as-is.
+				// Otherwise assign the value as-is.
 			} else {
 				$r[ $key ] = $value;
 			}
@@ -145,12 +144,12 @@ class Index {
 	/** Public Helpers ********************************************************/
 
 	/**
-	* Get the CREATE clause for this index.
-	*
-	* @since 3.0.0
-	*
-	* @return string
-	*/
+	 * Get the CREATE clause for this index.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @return string
+	 */
 	public function get_create_string() {
 
 		// Bail if no columns are provided.
@@ -159,9 +158,7 @@ class Index {
 		}
 
 		// Prepare the column list as back-ticked for SQL.
-		$columns = array_map( function( $col ) {
-			return "`$col`";
-		}, $this->columns );
+		$columns = array_map( array( $this, 'quote_identifier' ), $this->columns );
 
 		// Standardize the index type and prepare base SQL fragment.
 		$type = strtoupper( $this->type );
@@ -200,13 +197,18 @@ class Index {
 			$sql = 'KEY `' . $this->name . '` (' . $csql . ')';
 		}
 
-		// Optionally specify index method if set (prefer explicit "using").
-		$algorithm = ! empty( $this->using )
-			? $this->using
-			: $this->method;
+		// USING is only valid for regular KEY and UNIQUE KEY — not PRIMARY or FULLTEXT.
+		if ( ! in_array( $type, array( 'PRIMARY', 'FULLTEXT' ), true ) ) {
 
-		if ( '' !== $algorithm ) {
-			$sql .= ' USING ' . $algorithm;
+			// Prefer explicit "using" over the default method.
+			$algorithm = ! empty( $this->using )
+				? $this->using
+				: $this->method;
+
+			// Append USING clause if method is specified.
+			if ( '' !== $algorithm ) {
+				$sql .= ' USING ' . $algorithm;
+			}
 		}
 
 		// Optionally specify comment if set.
@@ -220,13 +222,13 @@ class Index {
 	/** Private Sanitizers ****************************************************/
 
 	/**
-	* Sanitize the columns array.
-	*
-	* @since 3.0.0
-	*
-	* @param array $columns
-	* @return array
-	*/
+	 * Sanitize the columns array.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param list<string> $columns
+	 * @return list<string>
+	 */
 	private function sanitize_columns( $columns = array() ) {
 
 		$columns = array_filter( (array) $columns, 'is_string' );
@@ -235,8 +237,13 @@ class Index {
 		$columns = array_map( array( $this, 'sanitize_index_name' ), $columns );
 
 		// Remove failed sanitization results and reset array keys.
-		return array_values( array_filter( $columns, function( $column ) {
-			return ! empty( $column );
-		} ) );
+		return array_values(
+			array_filter(
+				$columns,
+				function ( $column ) {
+					return ! empty( $column );
+				}
+			)
+		);
 	}
 }

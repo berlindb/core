@@ -10,7 +10,7 @@
 
 namespace BerlinDB\Tests\Fixtures;
 
-use BerlinDB\Database\Schema;
+use BerlinDB\Database\Kern\Schema;
 
 /**
  * Minimal Schema fixture covering all common column flags.
@@ -31,14 +31,14 @@ class TestSchema extends Schema {
 
 		// Primary key.
 		array(
-			'name'     => 'id',
-			'type'     => 'bigint',
-			'length'   => '20',
-			'unsigned' => true,
-			'extra'    => 'auto_increment',
-			'default'  => false,
-			'cache_key'=> true,
-			'sortable' => true,
+			'name'      => 'id',
+			'type'      => 'bigint',
+			'length'    => '20',
+			'unsigned'  => true,
+			'extra'     => 'auto_increment',
+			'default'   => false,
+			'cache_key' => true,
+			'sortable'  => true,
 		),
 
 		// Searchable, sortable varchar.

@@ -46,8 +46,10 @@ if ( ! file_exists( $_tests_dir . '/includes/functions.php' ) ) {
 // Give access to tests_add_filter().
 require_once $_tests_dir . '/includes/functions.php';
 
-// BerlinDB is a library loaded via Composer — no plugin to activate.
-// bootstrap_it() defines ABSPATH, which every src/ file guards against.
+/*
+ * BerlinDB is a library loaded via Composer — no plugin to activate.
+ * bootstrap_it() defines ABSPATH, which every src/ file guards against.
+ */
 WPIntegration\bootstrap_it();
 
 // Load test fixture classes after ABSPATH is defined.

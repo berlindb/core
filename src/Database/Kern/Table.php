@@ -11,9 +11,9 @@
 
 declare( strict_types = 1 );
 
-namespace BerlinDB\Database;
+namespace BerlinDB\Database\Kern;
 
-// Exit if accessed directly
+// Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -33,7 +33,6 @@ defined( 'ABSPATH' ) || exit;
  *
  * @since 1.0.0
  */
-#[\AllowDynamicProperties]
 class Table {
 
 	/**
@@ -41,8 +40,8 @@ class Table {
 	 *
 	 * @since 3.0.0
 	 */
-	use Traits\Base;
-	use Traits\Boot;
+	use \BerlinDB\Database\Traits\Base;
+	use \BerlinDB\Database\Traits\Boot;
 
 	/** Attributes ************************************************************/
 
@@ -63,10 +62,33 @@ class Table {
 	protected $description = '';
 
 	/**
+	 * Plugin-level prefix for table names, hooks, and cache groups.
+	 *
+	 * Set this to your plugin's unique slug (e.g. 'edd', 'give') so that
+	 * tables, hooks, and cache groups are namespaced to your plugin.
+	 *
+	 * Declare it as a class property in your subclass — it is read during
+	 * construction before setup() runs, so it is always available when
+	 * table names are assembled.
+	 *
+	 * apply_prefix() uses this value to produce the prefixed table name
+	 * (e.g. 'edd_orders'). The WordPress table prefix ($wpdb->prefix,
+	 * e.g. 'wp_') is separate and is always prepended by set_db_interface(),
+	 * making the final name 'wp_edd_orders'.
+	 *
+	 * Inherited from the Base trait, it is redeclared here so subclass authors
+	 * see it alongside the other table properties.
+	 *
+	 * @since 1.0.0
+	 * @var   string
+	 */
+	protected $prefix = '';
+
+	/**
 	 * Database version.
 	 *
 	 * @since 1.0.0
-	 * @var   mixed
+	 * @var   string
 	 */
 	protected $version = '';
 
@@ -90,9 +112,9 @@ class Table {
 	 * Current database version.
 	 *
 	 * @since 1.0.0
-	 * @var   mixed
+	 * @var   string
 	 */
-	protected $db_version = 0;
+	protected $db_version = '';
 
 	/**
 	 * Table prefix, including the site prefix.
@@ -106,7 +128,7 @@ class Table {
 	 * Table name.
 	 *
 	 * @since 1.0.0
-	 * @var  string
+	 * @var   string
 	 */
 	protected $table_name = '';
 
@@ -119,7 +141,7 @@ class Table {
 	protected $prefixed_name = '';
 
 	/**
-	 * Table schema.
+	 * Table schema class name.
 	 *
 	 * @since 1.0.0
 	 * @var   string
@@ -138,7 +160,7 @@ class Table {
 	 * Typically empty; probably ignore.
 	 *
 	 * By default, tables do not have comments. This is unused by any other
-	 * relative code, but you can include less than 1024 characters here.
+	 * relative code, but you can include up to 2048 characters here.
 	 *
 	 * @since 3.0.0
 	 * @var   string
@@ -149,35 +171,43 @@ class Table {
 	 * Key => value array of versions => methods.
 	 *
 	 * @since 1.0.0
-	 * @var   array
+	 * @var   array<string, callable|string>
 	 */
 	protected $upgrades = array();
+
+	/**
+	 * Instantiated schema object, populated by set_schema() during boot.
+	 *
+	 * @since 3.0.0
+	 * @var   Schema|null
+	 */
+	private $schema_object = null;
 
 	/**
 	 * Called after initialization.
 	 *
 	 * @since 3.0.0
 	 */
-	protected function init() {
+	protected function init(): void {
 
-		// Setup this database table
+		// Setup this database table.
 		$this->setup();
 
-		// Bail if setup failed
+		// Bail if setup failed.
 		if ( empty( $this->name ) || empty( $this->db_version_key ) ) {
 			return;
 		}
 
-		// Add table to the database interface
+		// Add table to the database interface.
 		$this->set_db_interface();
 
-		// Add the database schema
-		$this->add_schema();
+		// Add the database schema.
+		$this->set_schema();
 
-		// Add hooks
+		// Add hooks.
 		$this->add_hooks();
 
-		// Maybe force upgrade if testing
+		// Maybe force upgrade if testing.
 		if ( $this->is_testing() ) {
 			$this->maybe_upgrade();
 		}
@@ -189,15 +219,15 @@ class Table {
 	 * Validate arguments after they are parsed.
 	 *
 	 * @since 3.0.0
-	 * @param array $args Default empty array.
-	 * @return array
+	 * @param array<string, mixed> $args Default empty array.
+	 * @return array<string, mixed>
 	 */
 	protected function validate_args( $args = array() ) {
 
-		// Sanitization callbacks
+		// Sanitization callbacks.
 		$callbacks = array(
 
-			// Table
+			// Table.
 			'name'              => array( $this, 'sanitize_table_name' ),
 			'description'       => 'wp_kses_data',
 			'version'           => 'wp_kses_data',
@@ -209,56 +239,38 @@ class Table {
 			'prefixed_name'     => array( $this, 'sanitize_table_name' ),
 			'schema'            => '',
 			'charset_collation' => 'wp_kses_data',
-			'comment'           => array( $this, 'sanitize_extra' ),
+			'comment'           => function ( $v ) {
+				return $this->sanitize_comment( $v, 2048 );
+			},
 
-			// Extras
-			'upgrades'          => ''
+			// Extras.
+			'upgrades'          => '',
 		);
 
-		// Default return arguments
+		// Default return arguments.
 		$r = array();
 
-		// Loop through and try to execute callbacks
+		// Loop through and try to execute callbacks.
 		foreach ( $args as $key => $value ) {
 
-			// Callback is callable
+			// Callback is callable.
 			if ( isset( $callbacks[ $key ] ) && is_callable( $callbacks[ $key ] ) ) {
 				$r[ $key ] = call_user_func( $callbacks[ $key ], $value );
 
-			/**
-			 * Key has no validation method.
-			 *
-			 * Trust that the value has been validated. This may change in a
-			 * future version.
-			 */
+				/**
+				 * Key has no validation method.
+				 *
+				 * Trust that the value has been validated. This may change in a
+				 * future version.
+				 */
 			} else {
 				$r[ $key ] = $value;
 			}
 		}
 
-		// Return sanitized arguments
+		// Return sanitized arguments.
 		return $r;
 	}
-
-	/** Magic *****************************************************************/
-
-	/**
- 	 * Compatibility for clone() method for PHP versions less than 7.0.
- 	 *
- 	 * See: https://github.com/sugarcalendar/core/issues/105
- 	 *
- 	 * This shim will be removed at a later date.
- 	 *
- 	 * @since 2.0.20
- 	 *
- 	 * @param string $function
- 	 * @param array  $args
- 	 */
- 	public function __call( $function = '', $args = array() ) {
- 		if ( 'clone' === $function ) {
- 			call_user_func_array( array( $this, '_clone' ), $args );
- 		}
- 	}
 
 	/** Multisite *************************************************************/
 
@@ -271,14 +283,14 @@ class Table {
 	 *
 	 * @param int $site_id The site being switched to
 	 */
-	public function switch_blog( $site_id = 0 ) {
+	public function switch_blog( $site_id = 0 ): void {
 
-		// Update DB version based on the current site
+		// Update DB version based on the current site.
 		if ( ! $this->is_global() ) {
 			$this->db_version = get_blog_option( $site_id, $this->db_version_key, false );
 		}
 
-		// Update interface for switched site
+		// Update interface for switched site.
 		$this->set_db_interface();
 	}
 
@@ -293,38 +305,37 @@ class Table {
 	 *
 	 * @since 1.0.0
 	 */
-	public function maybe_upgrade() {
+	public function maybe_upgrade(): void {
 
-		// Bail if not upgradeable
+		// Bail if not upgradeable.
 		if ( ! $this->is_upgradeable() ) {
 			return;
 		}
 
-		// Bail if upgrade not needed
+		// Bail if upgrade not needed.
 		if ( ! $this->needs_upgrade() ) {
 			return;
 		}
 
-		// Bail if locked
+		// Bail if locked.
 		if ( ! $this->lock_upgrades() ) {
 			return;
 		}
 
-		// Upgrade or install, always release the lock afterward
+		// Upgrade or install, always release the lock afterward.
 		try {
 
-			// Upgrade
+			// Upgrade.
 			if ( $this->exists() ) {
 				$this->upgrade();
 
-			// Install
+				// Install.
 			} else {
 				$this->install();
 			}
-
 		} finally {
 
-			// Always release the lock, even if an exception occurred
+			// Always release the lock, even if an exception occurred.
 			$this->unlock_upgrades();
 		}
 	}
@@ -334,24 +345,24 @@ class Table {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param mixed $version Database version to check if upgrade is needed
+	 * @param string $version Database version to check if upgrade is needed
 	 *
 	 * @return bool True if table needs upgrading. False if not.
 	 */
-	public function needs_upgrade( $version = false ) {
+	public function needs_upgrade( $version = '' ) {
 
-		// Use the current table version if none was passed
+		// Use the current table version if none was passed.
 		if ( empty( $version ) ) {
 			$version = $this->version;
 		}
 
-		// Get the current database version
+		// Get the current database version.
 		$this->get_db_version();
 
 		// Is this database table up to date?
 		$is_current = version_compare( (string) $this->db_version, (string) $version, '>=' );
 
-		// Return false if current, true if out of date
+		// Return false if current, true if out of date.
 		return ( true === $is_current )
 			? false
 			: true;
@@ -366,12 +377,12 @@ class Table {
 	 */
 	public function is_upgradeable() {
 
-		// Bail if global and upgrading global tables is not allowed
+		// Bail if global and upgrading global tables is not allowed.
 		if ( $this->is_global() && ! wp_should_upgrade_global_tables() ) {
 			return false;
 		}
 
-		// Kinda weird, but assume it is
+		// Kinda weird, but assume it is.
 		return true;
 	}
 
@@ -398,12 +409,12 @@ class Table {
 	 *
 	 * @since 1.0.0
 	 */
-	public function install() {
+	public function install(): void {
 
-		// Try to create the table
+		// Try to create the table.
 		$created = $this->create();
 
-		// Set the DB version if create was successful
+		// Set the DB version if create was successful.
 		if ( true === $created ) {
 			$this->set_db_version();
 		}
@@ -418,12 +429,12 @@ class Table {
 	 *
 	 * @since 1.0.0
 	 */
-	public function uninstall() {
+	public function uninstall(): void {
 
-		// Try to drop the table
+		// Try to drop the table.
 		$dropped = $this->drop();
 
-		// Delete the DB version if drop was successful or table does not exist
+		// Delete the DB version if drop was successful or table does not exist.
 		if ( ( true === $dropped ) || ! $this->exists() ) {
 			$this->delete_db_version();
 		}
@@ -440,16 +451,16 @@ class Table {
 	 */
 	public function exists() {
 
-		// Get the database interface
+		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available
+		// Bail if no database interface is available.
 		if ( empty( $db ) ) {
 			return false;
 		}
 
-		// Query statement
-		$sql      = "SHOW TABLES LIKE %s";
+		// Query statement.
+		$sql      = 'SHOW TABLES LIKE %s';
 		$like     = $db->esc_like( $this->table_name );
 		$prepared = $db->prepare( $sql, $like );
 		$result   = $db->get_var( $prepared );
@@ -465,20 +476,21 @@ class Table {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @return object
+	 * @return object|false Table status object, or false if the database is
+	 *                      unavailable or the table does not exist.
 	 */
 	public function status() {
 
-		// Get the database interface
+		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available
+		// Bail if no database interface is available.
 		if ( empty( $db ) ) {
 			return false;
 		}
 
-		// Query statement
-		$sql      = "SHOW TABLE STATUS LIKE %s";
+		// Query statement.
+		$sql      = 'SHOW TABLE STATUS LIKE %s';
 		$like     = $db->esc_like( $this->table_name );
 		$prepared = $db->prepare( $sql, $like );
 		$query    = (array) $db->get_results( $prepared );
@@ -495,23 +507,23 @@ class Table {
 	 *
 	 * @since 1.2.0
 	 *
-	 * @return mixed Array on success, False on failure
+	 * @return list<mixed>|false Array of column rows on success, false on failure.
 	 */
 	public function columns() {
 
-		// Get the database interface
+		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available
+		// Bail if no database interface is available.
 		if ( empty( $db ) ) {
 			return false;
 		}
 
-		// Query statement
+		// Query statement.
 		$sql    = "SHOW FULL COLUMNS FROM {$this->table_name}";
 		$result = $db->get_results( $sql );
 
-		// Return the results
+		// Return the results.
 		return $this->is_success( $result )
 			? $result
 			: false;
@@ -522,23 +534,23 @@ class Table {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @return mixed Array on success, False on failure
+	 * @return list<mixed>|false Array of index rows on success, false on failure.
 	 */
 	public function indexes() {
 
-		// Get the database interface
+		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available
+		// Bail if no database interface is available.
 		if ( empty( $db ) ) {
 			return false;
 		}
 
-		// Query statement
+		// Query statement.
 		$sql    = "SHOW INDEXES FROM {$this->table_name}";
 		$result = $db->get_results( $sql );
 
-		// Return the results
+		// Return the results.
 		return $this->is_success( $result )
 			? $result
 			: false;
@@ -549,16 +561,16 @@ class Table {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array|Index $args Index arguments or an Index object.
+	 * @param array<string, mixed>|Index $args Index arguments or an Index object.
 	 *
 	 * @return bool
 	 */
 	public function add_index( $args = array() ) {
 
-		// Get the database interface
+		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available
+		// Bail if no database interface is available.
 		if ( empty( $db ) ) {
 			return false;
 		}
@@ -576,7 +588,7 @@ class Table {
 			return false;
 		}
 
-		// Query statement
+		// Query statement.
 		$sql    = "ALTER TABLE {$this->table_name} ADD {$index_sql}";
 		$result = $db->query( $sql );
 
@@ -595,23 +607,23 @@ class Table {
 	 */
 	public function drop_index( $name = '' ) {
 
-		// Get the database interface
+		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available
+		// Bail if no database interface is available.
 		if ( empty( $db ) ) {
 			return false;
 		}
 
-		// Sanitize the index name
+		// Sanitize the index name.
 		$name = $this->sanitize_column_name( $name );
 
-		// Bail if index name is invalid
+		// Bail if index name is invalid.
 		if ( empty( $name ) ) {
 			return false;
 		}
 
-		// Query statement
+		// Query statement.
 		$sql = ( 'primary' === strtolower( $name ) )
 			? "ALTER TABLE {$this->table_name} DROP PRIMARY KEY"
 			: "ALTER TABLE {$this->table_name} DROP INDEX `{$name}`";
@@ -631,31 +643,28 @@ class Table {
 	 */
 	public function create() {
 
-		// Get the database interface
+		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available
+		// Bail if no database interface is available.
 		if ( empty( $db ) ) {
 			return false;
 		}
 
-		// Narrow schema to object before calling methods on it.
-		$schema = $this->schema;
-
-		// Bail if no schema to call
-		if ( ! is_object( $schema ) || ! is_callable( array( $schema, 'get_create_table_string' ) ) ) {
+		// Bail if no schema to call.
+		if ( ! is_callable( array( $this->schema_object, 'get_create_table_string' ) ) ) {
 			return false;
 		}
 
-		// Get the "CREATE TABLE" string
-		$create_table_string = $schema->get_create_table_string();
+		// Get the "CREATE TABLE" string.
+		$create_table_string = $this->schema_object->get_create_table_string();
 
 		// Bail if no create string.
 		if ( empty( $create_table_string ) ) {
 			return false;
 		}
 
-		// Required parts
+		// Required parts.
 		$sql = array(
 			'CREATE TABLE',
 			$this->table_name,
@@ -663,12 +672,12 @@ class Table {
 			$this->charset_collation,
 		);
 
-		// Maybe append comment
+		// Maybe append comment.
 		if ( ! empty( $this->comment ) ) {
 			$sql[] = "COMMENT='" . addslashes( $this->comment ) . "'";
 		}
 
-		// Query statement
+		// Query statement.
 		$query  = implode( ' ', array_filter( $sql ) );
 		$result = $db->query( $query );
 
@@ -685,15 +694,15 @@ class Table {
 	 */
 	public function drop() {
 
-		// Get the database interface
+		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available
+		// Bail if no database interface is available.
 		if ( empty( $db ) ) {
 			return false;
 		}
 
-		// Query statement
+		// Query statement.
 		$sql    = "DROP TABLE {$this->table_name}";
 		$result = $db->query( $sql );
 
@@ -710,15 +719,15 @@ class Table {
 	 */
 	public function truncate() {
 
-		// Get the database interface
+		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available
+		// Bail if no database interface is available.
 		if ( empty( $db ) ) {
 			return false;
 		}
 
-		// Query statement
+		// Query statement.
 		$sql    = "TRUNCATE TABLE {$this->table_name}";
 		$result = $db->query( $sql );
 
@@ -735,91 +744,99 @@ class Table {
 	 */
 	public function delete_all() {
 
-		// Get the database interface
+		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available
+		// Bail if no database interface is available.
 		if ( empty( $db ) ) {
 			return false;
 		}
 
-		// Query statement
+		// Query statement.
 		$sql    = "DELETE FROM {$this->table_name}";
 		$result = $db->query( $sql );
 
-		// Return the results
-		return $result;
+		// Return true as long as no SQL error occurred; 0 rows deleted is still a success.
+		return false !== $result;
 	}
 
 	/**
-	 * Clone this database table.
+	 * Duplicate this database table.
 	 *
 	 * Pair with copy().
 	 *
-	 * @since 1.1.0
+	 * Both the WordPress table prefix and the BerlinDB plugin prefix are
+	 * applied to the new table name automatically, matching how
+	 * $this->table_name is built.
 	 *
-	 * @param string $new_table_name The name of the new table, no prefix
+	 * @since 3.0.0
+	 *
+	 * @param string $new_table_name The name of the new table, without any prefix.
 	 *
 	 * @return bool
 	 */
-	public function _clone( $new_table_name = '' ) {
+	public function duplicate( $new_table_name = '' ) {
 
-		// Get the database interface
+		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available
+		// Bail if no database interface is available.
 		if ( empty( $db ) ) {
 			return false;
 		}
 
-		// Sanitize the new table name
+		// Sanitize the new table name.
 		$table_name = $this->sanitize_table_name( $new_table_name );
 
-		// Bail if new table name is invalid
+		// Bail if new table name is invalid.
 		if ( empty( $table_name ) ) {
 			return false;
 		}
 
-		// Query statement
-		$table  = $this->apply_prefix( $table_name );
+		// Query statement.
+		$table  = $this->table_prefix . $this->apply_prefix( $table_name );
 		$sql    = "CREATE TABLE {$table} LIKE {$this->table_name}";
 		$result = $db->query( $sql );
 
-		// Did the table get cloned?
+		// Did the table get duplicated?
 		return $this->is_success( $result );
 	}
 
 	/**
 	 * Copy the contents of this table to a new table.
 	 *
-	 * Pair with clone().
+	 * Pair with duplicate().
+	 *
+	 * Both the WordPress table prefix and the BerlinDB plugin prefix are
+	 * applied to the new table name automatically, matching how
+	 * $this->table_name is built.
 	 *
 	 * @since 1.1.0
 	 *
-	 * @param string $new_table_name The name of the new table, no prefix
+	 * @param string $new_table_name The name of the destination table, without any prefix.
 	 *
 	 * @return bool
 	 */
 	public function copy( $new_table_name = '' ) {
 
-		// Get the database interface
+		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available
+		// Bail if no database interface is available.
 		if ( empty( $db ) ) {
 			return false;
 		}
 
-		// Sanitize the new table name
+		// Sanitize the new table name.
 		$table_name = $this->sanitize_table_name( $new_table_name );
 
-		// Bail if new table name is invalid
+		// Bail if new table name is invalid.
 		if ( empty( $table_name ) ) {
 			return false;
 		}
 
-		// Query statement
-		$table  = $this->apply_prefix( $table_name );
+		// Query statement.
+		$table  = $this->table_prefix . $this->apply_prefix( $table_name );
 		$sql    = "INSERT INTO {$table} SELECT * FROM {$this->table_name}";
 		$result = $db->query( $sql );
 
@@ -836,51 +853,58 @@ class Table {
 	 */
 	public function count() {
 
-		// Get the database interface
+		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available
+		// Bail if no database interface is available.
 		if ( empty( $db ) ) {
 			return 0;
 		}
 
-		// Query statement
+		// Query statement.
 		$sql    = "SELECT COUNT(*) FROM {$this->table_name}";
 		$result = $db->get_var( $sql );
 
-		// 0 on error/empty, number of rows on success
+		// 0 on error/empty, number of rows on success.
 		return intval( $result );
 	}
 
 	/**
 	 * Rename this database table.
 	 *
+	 * Both the WordPress table prefix and the BerlinDB plugin prefix are
+	 * applied to the new table name automatically, matching how
+	 * $this->table_name is built.
+	 *
+	 * After a successful rename, $this->table_name is not updated — callers
+	 * are responsible for refreshing any references to the old name.
+	 *
 	 * @since 3.0.0
 	 *
-	 * @param string $new_table_name The new name of the current table, no prefix
+	 * @param string $new_table_name The new name for this table, without any prefix.
 	 *
 	 * @return bool
 	 */
 	public function rename( $new_table_name = '' ) {
 
-		// Get the database interface
+		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available
+		// Bail if no database interface is available.
 		if ( empty( $db ) ) {
 			return false;
 		}
 
-		// Sanitize the new table name
+		// Sanitize the new table name.
 		$table_name = $this->sanitize_table_name( $new_table_name );
 
-		// Bail if new table name is invalid
+		// Bail if new table name is invalid.
 		if ( empty( $table_name ) ) {
 			return false;
 		}
 
-		// Query statement
-		$table  = $this->apply_prefix( $table_name );
+		// Query statement.
+		$table  = $this->table_prefix . $this->apply_prefix( $table_name );
 		$sql    = "RENAME TABLE {$this->table_name} TO {$table}";
 		$result = $db->query( $sql );
 
@@ -900,15 +924,15 @@ class Table {
 	 */
 	public function column_exists( $name = '' ) {
 
-		// Get the database interface
+		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available
+		// Bail if no database interface is available.
 		if ( empty( $db ) ) {
 			return false;
 		}
 
-		// Query statement
+		// Query statement.
 		$sql      = "SHOW COLUMNS FROM {$this->table_name} LIKE %s";
 		$name     = $this->sanitize_column_name( $name );
 		$like     = $db->esc_like( $name );
@@ -932,20 +956,20 @@ class Table {
 	 */
 	public function index_exists( $name = '', $column = 'Key_name' ) {
 
-		// Get the database interface
+		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available
+		// Bail if no database interface is available.
 		if ( empty( $db ) ) {
 			return false;
 		}
 
-		// Limit $column to Key or Column name, until we can do better
+		// Limit $column to Key or Column name, until we can do better.
 		if ( ! in_array( $column, array( 'Key_name', 'Column_name' ), true ) ) {
 			$column = 'Key_name';
 		}
 
-		// Query statement
+		// Query statement.
 		$sql      = "SHOW INDEXES FROM {$this->table_name} WHERE {$column} LIKE %s";
 		$name     = $this->sanitize_column_name( $name );
 		$like     = $db->esc_like( $name );
@@ -969,20 +993,20 @@ class Table {
 	 */
 	public function analyze() {
 
-		// Get the database interface
+		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available
+		// Bail if no database interface is available.
 		if ( empty( $db ) ) {
 			return false;
 		}
 
-		// Query statement
+		// Query statement.
 		$sql    = "ANALYZE TABLE {$this->table_name}";
 		$query  = (array) $db->get_results( $sql );
 		$result = end( $query );
 
-		// Return message text
+		// Return message text.
 		return ! empty( $result->Msg_text )
 			? $result->Msg_text
 			: false;
@@ -999,27 +1023,27 @@ class Table {
 	 */
 	public function check() {
 
-		// Get the database interface
+		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available
+		// Bail if no database interface is available.
 		if ( empty( $db ) ) {
 			return false;
 		}
 
-		// Query statement
+		// Query statement.
 		$sql    = "CHECK TABLE {$this->table_name}";
 		$query  = (array) $db->get_results( $sql );
 		$result = end( $query );
 
-		// Return message text
+		// Return message text.
 		return ! empty( $result->Msg_text )
 			? $result->Msg_text
 			: false;
 	}
 
 	/**
-	 * Get the Checksum this database table.
+	 * Get the Checksum of this database table.
 	 *
 	 * See: https://dev.mysql.com/doc/refman/8.0/en/checksum-table.html
 	 *
@@ -1029,20 +1053,20 @@ class Table {
 	 */
 	public function checksum() {
 
-		// Get the database interface
+		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available
+		// Bail if no database interface is available.
 		if ( empty( $db ) ) {
 			return false;
 		}
 
-		// Query statement
+		// Query statement.
 		$sql    = "CHECKSUM TABLE {$this->table_name}";
 		$query  = (array) $db->get_results( $sql );
 		$result = end( $query );
 
-		// Return checksum
+		// Return checksum.
 		return ! empty( $result->Checksum )
 			? $result->Checksum
 			: false;
@@ -1059,20 +1083,20 @@ class Table {
 	 */
 	public function optimize() {
 
-		// Get the database interface
+		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available
+		// Bail if no database interface is available.
 		if ( empty( $db ) ) {
 			return false;
 		}
 
-		// Query statement
+		// Query statement.
 		$sql    = "OPTIMIZE TABLE {$this->table_name}";
 		$query  = (array) $db->get_results( $sql );
 		$result = end( $query );
 
-		// Return message text
+		// Return message text.
 		return ! empty( $result->Msg_text )
 			? $result->Msg_text
 			: false;
@@ -1090,20 +1114,20 @@ class Table {
 	 */
 	public function repair() {
 
-		// Get the database interface
+		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available
+		// Bail if no database interface is available.
 		if ( empty( $db ) ) {
 			return false;
 		}
 
-		// Query statement
+		// Query statement.
 		$sql    = "REPAIR TABLE {$this->table_name}";
 		$query  = (array) $db->get_results( $sql );
 		$result = end( $query );
 
-		// Return message text
+		// Return message text.
 		return ! empty( $result->Msg_text )
 			? $result->Msg_text
 			: false;
@@ -1120,33 +1144,33 @@ class Table {
 	 */
 	public function upgrade() {
 
-		// Get pending upgrades
+		// Get pending upgrades.
 		$upgrades = $this->get_pending_upgrades();
 
-		// Bail if no upgrades
+		// Bail if no upgrades.
 		if ( empty( $upgrades ) ) {
 			$this->set_db_version();
 
-			// Return, without failure
+			// Return, without failure.
 			return true;
 		}
 
-		// Default result
+		// Default result.
 		$result = false;
 
-		// Try to do the upgrades
+		// Try to do the upgrades.
 		foreach ( $upgrades as $version => $callback ) {
 
-			// Do the upgrade
+			// Do the upgrade.
 			$result = $this->upgrade_to( $version, $callback );
 
-			// Bail if an error occurs, to avoid skipping upgrades
+			// Bail if an error occurs, to avoid skipping upgrades.
 			if ( ! $this->is_success( $result ) ) {
 				return false;
 			}
 		}
 
-		// Success/fail
+		// Success/fail.
 		return $this->is_success( $result );
 	}
 
@@ -1155,26 +1179,26 @@ class Table {
 	 *
 	 * @since 1.1.0
 	 *
-	 * @return array Array of upgrade callbacks, keyed by their db version.
+	 * @return array<string, mixed> Array of upgrade callbacks, keyed by their db version.
 	 */
 	public function get_pending_upgrades() {
 
-		// Default return value
+		// Default return value.
 		$upgrades = array();
 
-		// Bail if no upgrades, or no database version to compare to
+		// Bail if no upgrades, or no database version to compare to.
 		if ( empty( $this->upgrades ) || empty( $this->db_version ) ) {
 			return $upgrades;
 		}
 
-		// Loop through all upgrades, and pick out the ones that need doing
+		// Loop through all upgrades, and pick out the ones that need doing.
 		foreach ( $this->upgrades as $version => $callback ) {
 			if ( true === version_compare( (string) $version, (string) $this->db_version, '>' ) ) {
 				$upgrades[ $version ] = $callback;
 			}
 		}
 
-		// Return
+		// Return.
 		return $upgrades;
 	}
 
@@ -1183,19 +1207,19 @@ class Table {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param mixed  $version  Database version to check if upgrade is needed
-	 * @param string $callback Callback function or class method to call
+	 * @param string $version  Database version to upgrade to.
+	 * @param string $callback Callback function or class method to call.
 	 *
 	 * @return bool
 	 */
 	public function upgrade_to( $version = '', $callback = '' ) {
 
-		// Bail if no upgrade is needed
+		// Bail if no upgrade is needed.
 		if ( ! $this->needs_upgrade( $version ) ) {
 			return false;
 		}
 
-		// Allow self-named upgrade callbacks
+		// Allow self-named upgrade callbacks.
 		if ( empty( $callback ) ) {
 			$callback = $version;
 		}
@@ -1203,24 +1227,24 @@ class Table {
 		// Is the callback... callable?
 		$callable = $this->get_callable( $callback );
 
-		// Bail if no callable upgrade was found
+		// Bail if no callable upgrade was found.
 		if ( empty( $callable ) ) {
 			return false;
 		}
 
-		// Do the upgrade
+		// Do the upgrade.
 		$result  = call_user_func( $callable );
 		$success = $this->is_success( $result );
 
-		// Bail if upgrade failed
+		// Bail if upgrade failed.
 		if ( true !== $success ) {
 			return false;
 		}
 
-		// Set the database version to this successful version
+		// Set the database version to this successful version.
 		$this->set_db_version( $version );
 
-		// Return success
+		// Return success.
 		return true;
 	}
 
@@ -1231,35 +1255,35 @@ class Table {
 	 *
 	 * @since 1.0.0
 	 */
-	private function setup() {
+	private function setup(): void {
 
-		// Bail if no database interface is available
+		// Bail if no database interface is available.
 		if ( ! $this->get_db() ) {
 			return;
 		}
 
-		// Sanitize this database table name
+		// Sanitize this database table name.
 		$this->name = $this->sanitize_table_name( $this->name );
 
-		// Bail if database table name sanitization failed
+		// Bail if database table name sanitization failed.
 		if ( false === $this->name ) {
 			return;
 		}
 
-		// Separator
+		// Separator.
 		$glue = '_';
 
-		// Setup the prefixed name
+		// Setup the prefixed name.
 		$this->prefixed_name = $this->apply_prefix( $this->name, $glue );
 
-		// Maybe create database key
+		// Maybe create database key.
 		if ( empty( $this->db_version_key ) ) {
 			$this->db_version_key = implode(
 				$glue,
 				array(
 					sanitize_key( $this->db_global ),
 					$this->prefixed_name,
-					'version'
+					'version',
 				)
 			);
 		}
@@ -1273,50 +1297,50 @@ class Table {
 	 *
 	 * @since 1.0.0
 	 */
-	private function set_db_interface() {
+	private function set_db_interface(): void {
 
-		// Get the database interface
+		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available
+		// Bail if no database interface is available.
 		if ( empty( $db ) ) {
 			return;
 		}
 
-		// Set variables for global tables
+		// Set variables for global tables.
 		if ( $this->is_global() ) {
 			$site_id = 0;
 			$tables  = 'ms_global_tables';
 
-		// Set variables for per-site tables
+			// Set variables for per-site tables.
 		} else {
 			$site_id = null;
 			$tables  = 'tables';
 		}
 
-		// Set table prefix and prefix table name
-		$this->table_prefix  = $db->get_blog_prefix( $site_id );
+		// Set table prefix and prefix table name.
+		$this->table_prefix = $db->get_blog_prefix( $site_id );
 
-		// Get the prefixed table name
+		// Get the prefixed table name.
 		$prefixed_table_name = "{$this->table_prefix}{$this->prefixed_name}";
 
-		// Set the database interface
+		// Set the database interface.
 		$db->{$this->prefixed_name} = $this->table_name = $prefixed_table_name;
 
-		// Create the array if it does not exist
+		// Create the array if it does not exist.
 		if ( ! isset( $db->{$tables} ) ) {
 			$db->{$tables} = array();
 		}
 
-		// Add table to the global table array
+		// Add table to the global table array.
 		$db->{$tables}[] = $this->prefixed_name;
 
-		// Charset
+		// Charset.
 		if ( ! empty( $db->charset ) ) {
 			$this->charset_collation = "DEFAULT CHARACTER SET {$db->charset}";
 		}
 
-		// Collation
+		// Collation.
 		if ( ! empty( $db->collate ) ) {
 			$this->charset_collation .= " COLLATE {$db->collate}";
 		}
@@ -1327,21 +1351,21 @@ class Table {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param mixed $version Database version to set when upgrading/creating
+	 * @param string $version Database version to set when upgrading/creating.
 	 */
-	private function set_db_version( $version = '' ) {
+	private function set_db_version( $version = '' ): void {
 
-		// If no version is passed during an upgrade, use the current version
+		// If no version is passed during an upgrade, use the current version.
 		if ( empty( $version ) ) {
 			$version = $this->version;
 		}
 
-		// Update the DB version
+		// Update the DB version.
 		$this->is_global()
 			? update_network_option( get_main_network_id(), $this->db_version_key, $version )
-			:         update_option(                        $this->db_version_key, $version );
+			: update_option( $this->db_version_key, $version );
 
-		// Set the DB version
+		// Set the DB version.
 		$this->db_version = $version;
 	}
 
@@ -1350,10 +1374,10 @@ class Table {
 	 *
 	 * @since 1.0.0
 	 */
-	private function get_db_version() {
+	private function get_db_version(): void {
 		$this->db_version = $this->is_global()
 			? get_network_option( get_main_network_id(), $this->db_version_key, '' )
-			:         get_option(                        $this->db_version_key, '' );
+			: get_option( $this->db_version_key, '' );
 	}
 
 	/**
@@ -1361,10 +1385,12 @@ class Table {
 	 *
 	 * @since 1.0.0
 	 */
-	private function delete_db_version() {
-		$this->db_version = $this->is_global()
+	private function delete_db_version(): void {
+		$this->is_global()
 			? delete_network_option( get_main_network_id(), $this->db_version_key )
-			:         delete_option(                        $this->db_version_key );
+			: delete_option( $this->db_version_key );
+
+		$this->db_version = '';
 	}
 
 	/**
@@ -1380,25 +1406,25 @@ class Table {
 	 */
 	private function lock_upgrades() {
 
-		// Generate a unique lock key for this table
+		// Generate a unique lock key for this table.
 		$lock_key = $this->db_version_key . '_upgrade_lock';
 
-		// Check if a lock already exists
+		// Check if a lock already exists.
 		$lock_exists = $this->is_global()
 			? get_site_transient( $lock_key )
 			: get_transient( $lock_key );
 
-		// If a lock already exists, return false
+		// If a lock already exists, return false.
 		if ( false !== $lock_exists ) {
 			return false;
 		}
 
-		// Create the lock transient
+		// Create the lock transient.
 		$lock_set = $this->is_global()
 			? set_site_transient( $lock_key, time(), 900 )
 			: set_transient( $lock_key, time(), 900 );
 
-		// Return whether the lock was successfully created
+		// Return whether the lock was successfully created.
 		return (bool) $lock_set;
 	}
 
@@ -1414,25 +1440,32 @@ class Table {
 	 */
 	private function unlock_upgrades() {
 
-		// Generate the same lock key used in lock_upgrades()
+		// Generate the same lock key used in lock_upgrades().
 		$lock_key = $this->db_version_key . '_upgrade_lock';
 
-		// Delete the lock transient
+		// Delete the lock transient.
 		$deleted = $this->is_global()
 			? delete_site_transient( $lock_key )
 			: delete_transient( $lock_key );
 
-		// Return whether the lock was successfully released
+		// Return whether the lock was successfully released.
 		return (bool) $deleted;
 	}
 
 	/**
-	 * Add the schema class.
+	 * Setup the Schema object.
 	 *
 	 * @since 3.0.0
 	 */
-	private function add_schema() {
-		$this->schema = new $this->schema;
+	private function set_schema(): void {
+
+		// Bail if no table schema.
+		if ( empty( $this->schema ) || ! class_exists( $this->schema ) ) {
+			return;
+		}
+
+		// Invoke a new table schema class.
+		$this->schema_object = new $this->schema();
 	}
 
 	/**
@@ -1440,11 +1473,11 @@ class Table {
 	 *
 	 * @since 1.0.0
 	 */
-	private function add_hooks() {
+	private function add_hooks(): void {
 
-		// Add table to the global database object
-		add_action( 'switch_blog', array( $this, 'switch_blog'   ) );
-		add_action( 'admin_init',  array( $this, 'maybe_upgrade' ) );
+		// Add table to the global database object.
+		add_action( 'switch_blog', array( $this, 'switch_blog' ) );
+		add_action( 'admin_init', array( $this, 'maybe_upgrade' ) );
 	}
 
 	/**
@@ -1466,21 +1499,21 @@ class Table {
 	 *
 	 * @param string $callback
 	 *
-	 * @return mixed Callable string, or false if not callable
+	 * @return array<int, mixed>|string|false Resolved callable, or false if not callable.
 	 */
 	private function get_callable( $callback = '' ) {
 
-		// Default return value
+		// Default return value.
 		$callable = $callback;
 
-		// Look for global function
+		// Look for global function.
 		if ( ! is_callable( $callable ) ) {
 
-			// Fallback to local class method
+			// Fallback to local class method.
 			$callable = array( $this, $callback );
 			if ( ! is_callable( $callable ) ) {
 
-				// Fallback to class method prefixed with "__"
+				// Fallback to class method prefixed with "__".
 				$callable = array( $this, "__{$callback}" );
 				if ( ! is_callable( $callable ) ) {
 					$callable = false;
@@ -1488,7 +1521,7 @@ class Table {
 			}
 		}
 
-		// Return callable string, or false if not callable
+		// Return callable string, or false if not callable.
 		return $callable;
 	}
 }

@@ -1,0 +1,7 @@
+parameters:
+    level: 6
+    paths:
+        - src/
+    bootstrapFiles:
+        - vendor/szepeviktor/phpstan-wordpress/bootstrap.php
+    treatPhpDocTypesAsCertain: false

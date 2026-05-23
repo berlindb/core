@@ -12,7 +12,7 @@ declare( strict_types = 1 );
 
 namespace BerlinDB\Database\Traits;
 
-// Exit if accessed directly
+// Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -45,11 +45,11 @@ trait Sanitizer {
 		// Trim spaces off the ends.
 		$unspace = trim( $id );
 
-		// Only non-accented table names (avoid truncation)
+		// Only non-accented table names (avoid truncation).
 		$accents = remove_accents( $unspace );
 
 		// Convert to lowercase if required.
-		$chars   = ( true === $lowercase )
+		$chars = ( true === $lowercase )
 			? strtolower( $accents )
 			: $accents;
 
@@ -57,15 +57,15 @@ trait Sanitizer {
 		$replace = preg_replace( $disallowed_pattern, $replacement, $chars );
 
 		// Replace hyphens with single underscores if required.
-		$under   = ( true === $normalize_hyphens )
+		$under = ( true === $normalize_hyphens )
 			? str_replace( '-', '_', $replace )
 			: $replace;
 
-		// Normalize ALL consecutive underscores to single underscore (not just __)
-		$single  = preg_replace( '/_+/', '_', $under );
+		// Normalize ALL consecutive underscores to single underscore (not just __).
+		$single = preg_replace( '/_+/', '_', $under );
 
 		// Remove leading/trailing underscores.
-		$clean   = trim( $single, '_' );
+		$clean = trim( $single, '_' );
 
 		// Bail if table name was garbaged or return the cleaned table name.
 		return empty( $clean )
@@ -151,5 +151,50 @@ trait Sanitizer {
 	 */
 	protected function sanitize_index_name( $name = '' ) {
 		return $this->sanitize_identifier( $name, '/[^a-z0-9_\-]/', '_', true, true );
+	}
+
+	/**
+	 * Sanitize a comment string for use in a MySQL COMMENT clause.
+	 *
+	 * MySQL enforces a 1024-character limit on column comments and a 2048-character
+	 * limit on table comments. Null bytes are stripped because they break SQL even
+	 * when escaped with addslashes. The caller is responsible for escaping the
+	 * returned value before embedding it in SQL (e.g. via addslashes).
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param string $comment    Raw comment value.
+	 * @param int    $max_length Maximum allowed character length. Default 1024.
+	 *
+	 * @return string Sanitized comment.
+	 */
+	protected function sanitize_comment( $comment = '', $max_length = 1024 ) {
+
+		// Strip HTML tags and normalize whitespace.
+		$clean = sanitize_textarea_field( $comment );
+
+		// Remove null bytes which break SQL even when escaped.
+		$clean = str_replace( "\0", '', $clean );
+
+		// Enforce the MySQL COMMENT maximum length.
+		return substr( $clean, 0, $max_length );
+	}
+
+	/**
+	 * Wrap a sanitized identifier in MySQL backtick quotes.
+	 *
+	 * Must be called after the identifier has already been passed through one of
+	 * the sanitize_*_name() methods, which ensure only safe characters remain.
+	 * Any literal backtick that somehow survived sanitization is doubled so the
+	 * resulting SQL identifier is always valid.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param string $identifier A sanitized table name, column name, or alias.
+	 *
+	 * @return string Backtick-quoted identifier, e.g. `column_name`.
+	 */
+	protected function quote_identifier( $identifier = '' ) {
+		return '`' . str_replace( '`', '``', (string) $identifier ) . '`';
 	}
 }

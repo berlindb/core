@@ -7,21 +7,27 @@ Use it to move data out of custom Post Types & Taxonomies and into custom databa
 Ensure perform reliably and scale effortlessly in highly available WordPress based web applications.
 
 ## Mission
+
 The primary mission of BerlinDB is to democratize data storage.
 
 ### Phase 1
+
 Minimize the effort required to perform routine & repetitive database interactions.
 
 ### Phase 2
+
 Achieve platform agnosticism through smart abstractions and interoperability layers.
 
 ### Phase 3
+
 Generate the custom code that is necessary from any existing database table structure.
 
 ### Phase 4
+
 Automate database table structure changes for a seamless upgrade/rollback experience.
 
 ### Phase 5
+
 Manage all database connections to directly support reads, writes, clones, splitting, and sharding.
 
 ## Name
@@ -43,6 +49,38 @@ The code in this repository represents the cumulative effort of dozens of indivi
 These projects all require custom database tables to achieve their goals (and to meet the expectations that their users have in them) to perform and scale flawlessly in a highly available WordPress based web application.
 
 Interested in contributing? See the [contributing guide](/CONTRIBUTING.md).
+
+## Development
+
+### Running Tests
+
+Tests run inside Docker against a real MariaDB + WordPress install.
+
+**First run** (creates the test database and downloads WordPress):
+```bash
+WP_VERSION=6.7 docker compose -f docker-compose-phpunit.yml run --rm php
+```
+
+**Subsequent runs** (database already exists — skip creation to avoid the error):
+```bash
+WP_VERSION=6.7 docker compose -f docker-compose-phpunit.yml run -e SKIP_DB_CREATE=true --rm php
+```
+
+To run a specific test or filter:
+```bash
+WP_VERSION=6.7 docker compose -f docker-compose-phpunit.yml run \
+  -e SKIP_DB_CREATE=true \
+  -e PHPUNIT_ARGS="--filter LifecycleTest" \
+  --rm php
+```
+
+### Static Analysis
+
+```bash
+vendor/bin/phpstan analyse --memory-limit=512M
+```
+
+Configured at `phpstan.neon` — level 5 with WordPress stubs.
 
 ## Support
 

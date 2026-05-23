@@ -10,7 +10,7 @@
 
 namespace BerlinDB\Tests\Fixtures;
 
-use BerlinDB\Database\Query;
+use BerlinDB\Database\Kern\Query;
 
 /**
  * Query implementation for the test_widgets table.
@@ -24,7 +24,10 @@ use BerlinDB\Database\Query;
 class TestQuery extends Query {
 
 	/** @var string */
-	protected $table_name = 'berlindb_test_widgets';
+	protected $prefix = 'berlindb_database';
+
+	/** @var string */
+	protected $table_name = 'test_widgets';
 
 	/** @var string */
 	protected $table_alias = 'tw';
