@@ -81,11 +81,16 @@ class NotBetween extends Base {
 			$value = preg_split( '/[,\s]+/', trim( $value ) );
 		}
 
-		// Setup the NOT BETWEEN fragment with two placeholders.
-		$not_between = "{$pattern} AND {$pattern}";
-
 		// Use only the first two elements.
 		$value = array_slice( $value, 0, 2 );
+
+		// Bail if fewer than two values — NOT BETWEEN requires both a low and high bound.
+		if ( count( $value ) < 2 ) {
+			return '';
+		}
+
+		// Setup the NOT BETWEEN fragment with two placeholders.
+		$not_between = "{$pattern} AND {$pattern}";
 
 		// Return prepared SQL fragment.
 		return $db->prepare( $not_between, $value );

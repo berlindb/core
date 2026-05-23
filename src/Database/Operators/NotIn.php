@@ -81,6 +81,11 @@ class NotIn extends Base {
 			$value = preg_split( '/[,\s]+/', trim( $value ) );
 		}
 
+		// Bail if empty — NOT IN () is invalid SQL.
+		if ( empty( $value ) ) {
+			return '';
+		}
+
 		// Build a parenthesised placeholder list for each value.
 		$in = '(' . substr( str_repeat( ",{$pattern}", count( $value ) ), 1 ) . ')';
 

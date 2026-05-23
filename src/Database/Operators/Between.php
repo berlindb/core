@@ -81,11 +81,16 @@ class Between extends Base {
 			$value = preg_split( '/[,\s]+/', trim( $value ) );
 		}
 
-		// Setup the SQL fragment.
-		$between = "{$pattern} AND {$pattern}";
-
 		// Use only the first two elements.
 		$value = array_slice( $value, 0, 2 );
+
+		// Bail if fewer than two values — BETWEEN requires both a low and high bound.
+		if ( count( $value ) < 2 ) {
+			return '';
+		}
+
+		// Setup the SQL fragment.
+		$between = "{$pattern} AND {$pattern}";
 
 		// Return prepared SQL fragment.
 		return $db->prepare( $between, $value );

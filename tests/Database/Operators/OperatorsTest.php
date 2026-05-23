@@ -353,6 +353,26 @@ class OperatorsTest extends TestCase {
 		$this->assertSame( $in, $not_in );
 	}
 
+	/**
+	 * Test that In::get_sql returns an empty string for an empty value list.
+	 *
+	 * IN () is invalid SQL; the guard prevents a malformed query.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_in_get_sql_returns_empty_for_empty_array() {
+		$this->assertSame( '', ( new In() )->get_sql( array() ) );
+	}
+
+	/**
+	 * Test that NotIn::get_sql returns an empty string for an empty value list.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_not_in_get_sql_returns_empty_for_empty_array() {
+		$this->assertSame( '', ( new NotIn() )->get_sql( array() ) );
+	}
+
 	// -------------------------------------------------------------------------
 	// Between / NotBetween.
 	// -------------------------------------------------------------------------
@@ -400,6 +420,27 @@ class OperatorsTest extends TestCase {
 		$between     = ( new Between() )->get_sql( array( 1, 10 ) );
 		$not_between = ( new NotBetween() )->get_sql( array( 1, 10 ) );
 		$this->assertSame( $between, $not_between );
+	}
+
+	/**
+	 * Test that Between::get_sql returns an empty string when fewer than two values are given.
+	 *
+	 * BETWEEN requires both a low and high bound; a single value would produce
+	 * a mismatched placeholder arity in wpdb::prepare().
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_between_get_sql_returns_empty_for_single_value() {
+		$this->assertSame( '', ( new Between() )->get_sql( array( 5 ) ) );
+	}
+
+	/**
+	 * Test that NotBetween::get_sql returns an empty string when fewer than two values are given.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_not_between_get_sql_returns_empty_for_single_value() {
+		$this->assertSame( '', ( new NotBetween() )->get_sql( array( 5 ) ) );
 	}
 
 	// -------------------------------------------------------------------------
