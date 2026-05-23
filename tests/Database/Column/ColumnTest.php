@@ -431,4 +431,152 @@ class ColumnTest extends TestCase {
 		$this->assertArrayHasKey( 'primary', $arr );
 		$this->assertTrue( $arr['primary'] );
 	}
+
+	// get_create_string() — type SQL branches.
+
+	public function test_get_create_string_without_type_omits_type_clause() {
+		$column = new Column( array( 'name' => 'x' ) );
+		$sql    = $column->get_create_string();
+		$this->assertStringNotContainsString( 'bigint', $sql );
+		$this->assertStringNotContainsString( 'varchar', $sql );
+	}
+
+	public function test_get_create_string_with_encoding_includes_character_set() {
+		$column = new Column(
+			array(
+				'name'     => 'body',
+				'type'     => 'text',
+				'encoding' => 'utf8mb4',
+			)
+		);
+		$sql    = $column->get_create_string();
+		$this->assertStringContainsString( 'CHARACTER SET utf8mb4', $sql );
+	}
+
+	public function test_get_create_string_with_collation_includes_collate() {
+		$column = new Column(
+			array(
+				'name'      => 'body',
+				'type'      => 'text',
+				'collation' => 'utf8mb4_unicode_ci',
+			)
+		);
+		$sql    = $column->get_create_string();
+		$this->assertStringContainsString( 'COLLATE utf8mb4_unicode_ci', $sql );
+	}
+
+	public function test_get_create_string_binary_type_uses_binary_charset_and_collation() {
+		$column = new Column(
+			array(
+				'name'   => 'hash',
+				'type'   => 'varbinary',
+				'length' => '32',
+			)
+		);
+		$sql    = $column->get_create_string();
+		$this->assertStringContainsString( 'CHARACTER SET binary', $sql );
+		$this->assertStringContainsString( 'COLLATE binary', $sql );
+	}
+
+	public function test_get_create_string_binary_flag_on_text_uses_bin_collation() {
+		$column = new Column(
+			array(
+				'name'      => 'slug',
+				'type'      => 'varchar',
+				'length'    => '200',
+				'binary'    => true,
+				'collation' => 'utf8mb4',
+			)
+		);
+		$sql    = $column->get_create_string();
+		$this->assertStringContainsString( 'COLLATE utf8mb4_bin', $sql );
+	}
+
+	// get_create_string() — default SQL branches.
+
+	public function test_get_create_string_allow_null_with_null_default_uses_default_null() {
+		$column = new Column(
+			array(
+				'name'       => 'note',
+				'type'       => 'text',
+				'allow_null' => true,
+				'default'    => null,
+			)
+		);
+		$sql    = $column->get_create_string();
+		$this->assertStringContainsString( 'default null', $sql );
+	}
+
+	public function test_get_create_string_text_column_without_default_outputs_empty_default() {
+		// Text columns with no explicit default (i.e. default = '') produce "default ''".
+		$column = new Column(
+			array(
+				'name' => 'note',
+				'type' => 'text',
+			)
+		);
+		$sql    = $column->get_create_string();
+		$this->assertStringContainsString( "default ''", $sql );
+	}
+
+	public function test_get_create_string_bigint_column_defaults_to_zero() {
+		$column = new Column(
+			array(
+				'name' => 'count',
+				'type' => 'bigint',
+			)
+		);
+		$sql    = $column->get_create_string();
+		$this->assertStringContainsString( "default '0'", $sql );
+	}
+
+	public function test_get_create_string_auto_increment_column_omits_default() {
+		$column = new Column(
+			array(
+				'name'  => 'id',
+				'type'  => 'bigint',
+				'extra' => 'auto_increment',
+			)
+		);
+		$sql    = $column->get_create_string();
+		$this->assertStringNotContainsString( "default '0'", $sql );
+	}
+
+	public function test_get_create_string_datetime_column_uses_zero_date_default() {
+		$column = new Column(
+			array(
+				'name' => 'created_at',
+				'type' => 'datetime',
+			)
+		);
+		$sql    = $column->get_create_string();
+		$this->assertStringContainsString( "default '0000-00-00 00:00:00'", $sql );
+	}
+
+	public function test_get_create_string_custom_string_default_appears_in_output() {
+		// 'validate' => 'strval' preserves the string through sanitize_default().
+		$column = new Column(
+			array(
+				'name'     => 'status',
+				'type'     => 'varchar',
+				'length'   => '20',
+				'default'  => 'active',
+				'validate' => 'strval',
+			)
+		);
+		$sql    = $column->get_create_string();
+		$this->assertStringContainsString( "default 'active'", $sql );
+	}
+
+	public function test_get_create_string_timestamp_with_on_update_extra() {
+		$column = new Column(
+			array(
+				'name'  => 'modified_at',
+				'type'  => 'timestamp',
+				'extra' => 'ON UPDATE CURRENT_TIMESTAMP',
+			)
+		);
+		$sql    = $column->get_create_string();
+		$this->assertStringContainsString( 'ON UPDATE current_timestamp()', $sql );
+	}
 }

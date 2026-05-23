@@ -1336,9 +1336,15 @@ class Column {
 	 */
 	private function get_default_sql() {
 
-		// Explicit default: trust it when not auto-incrementing.
-		if ( ! empty( $this->default ) && ! $this->is_extra( 'AUTO_INCREMENT' ) ) {
-			return "default '{$this->default}'";
+		/*
+		 * Literal false: suppress the default clause entirely.
+		 *
+		 * Not reachable via the constructor (sanitize_default() converts false
+		 * to ''), but honored when $default is assigned directly by a subclass
+		 * or plugin.
+		 */
+		if ( false === $this->default ) {
+			return '';
 		}
 
 		// Null default: emit 'default null' only when null is allowed.
@@ -1346,9 +1352,9 @@ class Column {
 			return 'default null';
 		}
 
-		// Literal false: caller explicitly requested no default clause.
-		if ( false === $this->default ) {
-			return '';
+		// Explicit default: trust it when not auto-incrementing.
+		if ( ! empty( $this->default ) && ! $this->is_extra( 'AUTO_INCREMENT' ) ) {
+			return "default '{$this->default}'";
 		}
 
 		// Numeric — use 0 unless the column is auto-incrementing.
