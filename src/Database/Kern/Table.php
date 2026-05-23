@@ -453,7 +453,8 @@ class Table {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @return object
+	 * @return object|false Table status object, or false if the database is
+	 *                      unavailable or the table does not exist.
 	 */
 	public function status() {
 

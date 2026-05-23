@@ -86,6 +86,19 @@ abstract class Base {
 	/** Methods ***************************************************************/
 
 	/**
+	 * Return the top-level query var key this parser consumes.
+	 *
+	 * Returns null for parsers that operate on per-column query vars (e.g. By).
+	 *
+	 * @since 3.0.0
+	 *
+	 * @return string|null
+	 */
+	public function get_query_var() {
+		return $this->query_var;
+	}
+
+	/**
 	 * Get the default operator class list.
 	 *
 	 * This is filterable so individual parser families can register custom

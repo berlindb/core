@@ -309,20 +309,26 @@ class Query {
 	/**
 	 * Parse the query arguments.
 	 *
+	 * Overrides Boot::parse_args(). Runs the query immediately and returns an
+	 * empty array so Boot's boot() loop skips the set_vars() call — Query
+	 * manages its own state via query() rather than via property assignment.
+	 *
 	 * @since 3.0.0
 	 *
 	 * @param array $args
-	 * @return void
+	 * @return array Always empty — Boot should not call set_vars() for queries.
 	 */
 	protected function parse_args( $args = array() ) {
 
 		// Bail if no args.
 		if ( empty( $args ) ) {
-			return;
+			return array();
 		}
 
 		// Parse the query and get items.
 		$this->query( $args );
+
+		return array();
 	}
 
 	/**
@@ -863,10 +869,10 @@ class Query {
 	 * Uses get_column_field() to allow passing of a default value.
 	 *
 	 * @since 3.0.0
-	 * @param string $key     Name of property to compare $values to.
-	 * @param array  $values  Values to get a column by.
-	 * @param string $field   Field to get from a column.
-	 * @param mixed  $default Default to use if no field is set.
+	 * @param string       $key     Name of property to compare $values to.
+	 * @param array|string $values  Values to get a column by. Scalar values are wrapped in an array.
+	 * @param string       $field   Field to get from a column.
+	 * @param mixed        $default Default to use if no field is set.
 	 * @return array
 	 */
 	public function get_columns_field_by( $key = '', $values = array(), $field = '', $default = false ) {
@@ -1506,7 +1512,8 @@ class Query {
 			$qv = $query_vars;
 
 			// Check if $query_vars contains the query_var for this parser.
-			if ( ! is_null( $descriptor->query_var ) && ! empty( $query_vars[ $descriptor->query_var ] ) ) {
+			$parser_query_var = $descriptor->get_query_var();
+			if ( ! is_null( $parser_query_var ) && ! empty( $query_vars[ $parser_query_var ] ) ) {
 
 				/**
 				 * Narrow the scope to just this parser's query_var sub-array,
@@ -1524,11 +1531,11 @@ class Query {
 				 *   The is_array() guard keeps it on the full $query_vars.
 				 */
 				if (
-					$this->query_var_default_value !== $query_vars[ $descriptor->query_var ]
+					$this->query_var_default_value !== $query_vars[ $parser_query_var ]
 					&&
-					is_array( $query_vars[ $descriptor->query_var ] )
+					is_array( $query_vars[ $parser_query_var ] )
 				) {
-					$qv = $query_vars[ $descriptor->query_var ];
+					$qv = $query_vars[ $parser_query_var ];
 				}
 			}
 
@@ -2751,7 +2758,7 @@ class Query {
 	 * @since 1.0.0
 	 *
 	 * @param array $item
-	 * @return array|false False on error, Array of validated values on success
+	 * @return array Validated item array.
 	 */
 	private function validate_item( $item = array() ) {
 

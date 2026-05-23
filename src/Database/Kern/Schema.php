@@ -758,7 +758,7 @@ class Schema {
 
 		foreach ( $columns as $column ) {
 
-			$column_name = isset( $column->name )
+			$column_name = ! empty( $column->name )
 				? $this->sanitize_index_name( $column->name )
 				: false;
 
@@ -784,7 +784,7 @@ class Schema {
 
 			$index_name = $is_primary
 				? 'primary'
-				: ( isset( $index->name ) ? $this->sanitize_index_name( $index->name ) : false );
+				: ( ! empty( $index->name ) ? $this->sanitize_index_name( $index->name ) : false );
 
 			if ( empty( $index_name ) ) {
 				$errors[] = 'Schema index is missing a valid name.';
@@ -801,7 +801,7 @@ class Schema {
 				++$primary_count;
 			}
 
-			$index_columns = isset( $index->columns )
+			$index_columns = ! empty( $index->columns )
 				? (array) $index->columns
 				: array();
 

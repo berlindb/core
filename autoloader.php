@@ -39,7 +39,7 @@ spl_autoload_register(
 			$file   = sprintf( '%1$s/src/%2$s.php', __DIR__, $name );
 
 			if ( is_file( $file ) ) {
-				require $file;
+				require_once $file;
 
 				if ( class_exists( $target, false ) && ! class_exists( $class_name, false ) ) {
 					class_alias( $target, $class_name );
@@ -74,6 +74,6 @@ spl_autoload_register(
 		}
 
 		// Require the file.
-		require $file;
+		require_once $file;
 	}
 );
