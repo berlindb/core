@@ -951,7 +951,7 @@ class Column {
 	 * @since 3.0.0 Explicit support for decimal, int, and numeric types.
 	 * @param callable|string $callback Default empty string. A callable or
 	 *                                  the name of a callable function.
-	 * @return string|callable The most appropriate callback for the value.
+	 * @return callable|string The most appropriate callback for the value.
 	 */
 	private function sanitize_validation( $callback = '' ) {
 
