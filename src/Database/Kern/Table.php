@@ -65,7 +65,7 @@ class Table {
 	 * Database version.
 	 *
 	 * @since 1.0.0
-	 * @var   mixed
+	 * @var   string
 	 */
 	protected $version = '';
 
@@ -89,9 +89,9 @@ class Table {
 	 * Current database version.
 	 *
 	 * @since 1.0.0
-	 * @var   mixed
+	 * @var   string
 	 */
-	protected $db_version = 0;
+	protected $db_version = '';
 
 	/**
 	 * Table prefix, including the site prefix.
@@ -156,7 +156,7 @@ class Table {
 	 * Instantiated schema object, populated by set_schema() during boot.
 	 *
 	 * @since 3.0.0
-	 * @var   object|null
+	 * @var   Schema|null
 	 */
 	private $schema_object = null;
 
@@ -1005,7 +1005,7 @@ class Table {
 	}
 
 	/**
-	 * Get the Checksum this database table.
+	 * Get the Checksum of this database table.
 	 *
 	 * See: https://dev.mysql.com/doc/refman/8.0/en/checksum-table.html
 	 *
@@ -1348,9 +1348,11 @@ class Table {
 	 * @since 1.0.0
 	 */
 	private function delete_db_version() {
-		$this->db_version = $this->is_global()
+		$this->is_global()
 			? delete_network_option( get_main_network_id(), $this->db_version_key )
 			: delete_option( $this->db_version_key );
+
+		$this->db_version = '';
 	}
 
 	/**
@@ -1459,7 +1461,7 @@ class Table {
 	 *
 	 * @param string $callback
 	 *
-	 * @return string|false Resolved callable string, or false if not callable.
+	 * @return array|string|false Resolved callable, or false if not callable.
 	 */
 	private function get_callable( $callback = '' ) {
 

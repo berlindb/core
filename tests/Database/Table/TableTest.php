@@ -362,4 +362,201 @@ class TableTest extends TestCase {
 
 		$this->assertFalse( $exists );
 	}
+
+	// -------------------------------------------------------------------------
+	// Delete all.
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Test that delete_all removes all rows and returns true.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_delete_all_removes_all_rows_and_returns_true() {
+		global $wpdb;
+
+		$table_name = $wpdb->berlindb_database_test_widgets;
+		$wpdb->insert( $table_name, array( 'name' => 'Widget A', 'status' => 'active' ) );
+		$wpdb->insert( $table_name, array( 'name' => 'Widget B', 'status' => 'active' ) );
+
+		$result = self::$table->delete_all();
+
+		$this->assertTrue( $result );
+		$this->assertSame( 0, self::$table->count() );
+	}
+
+	// -------------------------------------------------------------------------
+	// Columns.
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Test that columns returns an array of objects.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_columns_returns_array_of_column_objects() {
+		$result = self::$table->columns();
+		$this->assertIsArray( $result );
+		$this->assertNotEmpty( $result );
+		$this->assertIsObject( $result[0] );
+	}
+
+	/**
+	 * Test that the columns result includes the id column.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_columns_result_includes_id_column() {
+		$result = self::$table->columns();
+		$fields = array_column( (array) $result, 'Field' );
+		$this->assertContains( 'id', $fields );
+	}
+
+	// -------------------------------------------------------------------------
+	// Indexes.
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Test that indexes returns an array of objects.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_indexes_returns_array_of_index_objects() {
+		$result = self::$table->indexes();
+		$this->assertIsArray( $result );
+		$this->assertNotEmpty( $result );
+		$this->assertIsObject( $result[0] );
+	}
+
+	/**
+	 * Test that index_exists returns true for the primary key.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_index_exists_returns_true_for_primary_key() {
+		$this->assertTrue( self::$table->index_exists( 'PRIMARY' ) );
+	}
+
+	/**
+	 * Test that index_exists returns false for an index that does not exist.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_index_exists_returns_false_for_nonexistent_index() {
+		$this->assertFalse( self::$table->index_exists( 'nonexistent_idx_xyz' ) );
+	}
+
+	/**
+	 * Test the full add_index / drop_index lifecycle.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_add_index_and_drop_index_lifecycle() {
+		$added = self::$table->add_index(
+			array(
+				'name'    => 'test_name_idx',
+				'type'    => 'key',
+				'columns' => array( 'name' ),
+			)
+		);
+		$this->assertTrue( $added );
+		$this->assertTrue( self::$table->index_exists( 'test_name_idx' ) );
+
+		$dropped = self::$table->drop_index( 'test_name_idx' );
+		$this->assertTrue( $dropped );
+		$this->assertFalse( self::$table->index_exists( 'test_name_idx' ) );
+	}
+
+	// -------------------------------------------------------------------------
+	// Upgrade helpers.
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Test that is_upgradeable returns true for a non-global table.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_is_upgradeable_returns_true_for_non_global_table() {
+		$this->assertTrue( self::$table->is_upgradeable() );
+	}
+
+	/**
+	 * Test that get_pending_upgrades returns an empty array when the stored
+	 * version is equal to or greater than all registered upgrade versions.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_get_pending_upgrades_returns_empty_when_version_is_current() {
+		update_option( self::$table->get_db_version_key(), '999999999' );
+		self::$table->get_version();
+
+		$pending = self::$table->get_pending_upgrades();
+
+		update_option( self::$table->get_db_version_key(), self::$table->get_schema_version() );
+		self::$table->get_version();
+
+		$this->assertEmpty( $pending );
+	}
+
+	/**
+	 * Test that get_pending_upgrades returns the registered callback when the
+	 * stored version is lower than a registered upgrade version.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_get_pending_upgrades_returns_callback_when_version_is_outdated() {
+		update_option( self::$table->get_db_version_key(), '202604229' );
+		self::$table->get_version();
+
+		$pending = self::$table->get_pending_upgrades();
+
+		update_option( self::$table->get_db_version_key(), self::$table->get_schema_version() );
+		self::$table->get_version();
+
+		$this->assertArrayHasKey( '202604231', $pending );
+	}
+
+	// -------------------------------------------------------------------------
+	// Maintenance.
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Test that analyze returns a string message or false.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_analyze_returns_string_or_false() {
+		$result = self::$table->analyze();
+		$this->assertTrue( is_string( $result ) || false === $result );
+	}
+
+	/**
+	 * Test that check returns a string message or false.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_check_returns_string_or_false() {
+		$result = self::$table->check();
+		$this->assertTrue( is_string( $result ) || false === $result );
+	}
+
+	/**
+	 * Test that checksum returns a value or false.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_checksum_returns_value_or_false() {
+		$result = self::$table->checksum();
+		$this->assertTrue( is_string( $result ) || is_int( $result ) || false === $result );
+	}
+
+	/**
+	 * Test that optimize returns a string message or false.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_optimize_returns_string_or_false() {
+		$result = self::$table->optimize();
+		$this->assertTrue( is_string( $result ) || false === $result );
+	}
 }
