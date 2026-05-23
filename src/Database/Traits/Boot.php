@@ -87,6 +87,13 @@ trait Boot {
 	 */
 	protected function sunrise() {}
 
+	/**
+	 * Initialize.
+	 *
+	 * @since 3.0.0
+	 */
+	protected function init() {}
+
 	/** Argument Handlers *****************************************************/
 
 	/**
@@ -163,11 +170,4 @@ trait Boot {
 			'class' => get_object_vars( $this ),
 		);
 	}
-
-	/**
-	 * Initialize.
-	 *
-	 * @since 3.0.0
-	 */
-	protected function init() {}
 }
