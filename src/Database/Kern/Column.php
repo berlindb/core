@@ -49,7 +49,8 @@ defined( 'ABSPATH' ) || exit;
  *     @type bool     $not_in         Is __not_in supported?
  *     @type bool     $cache_key      Is this column queried independently?
  *     @type bool     $transition     Does this column transition between changes?
- *     @type string   $validate       A callback function used to validate on save.
+ *     @type callable $cast           A callback used to cast the value after it is read from the database.
+ *     @type callable $validate       A callback function used to validate on save.
  *     @type array    $caps           Array of capabilities to check.
  *     @type array    $aliases        Array of possible column name aliases.
  *     @type array    $relationships  Array of columns in other tables this column relates to.
@@ -422,6 +423,17 @@ class Column {
 	/** Callback Attributes ***************************************************/
 
 	/**
+	 * Maybe cast this data after it is read from the database.
+	 *
+	 * By default, column data is cast based on the type of column that it is.
+	 * You can set this to any callable to override the default cast behavior.
+	 *
+	 * @since 3.0.0
+	 * @var   callable|string Default empty string.
+	 */
+	public $cast = '';
+
+	/**
 	 * Maybe validate this data before it is written to the database.
 	 *
 	 * By default, column data is validated based on the type of column that it
@@ -512,6 +524,7 @@ class Column {
 
 			// Extras.
 			'pattern'       => array( $this, 'sanitize_pattern' ),
+			'cast'          => array( $this, 'sanitize_cast' ),
 			'validate'      => array( $this, 'sanitize_validation' ),
 			'caps'          => array( $this, 'sanitize_capabilities' ),
 			'aliases'       => array( $this, 'sanitize_aliases' ),
@@ -941,6 +954,48 @@ class Column {
 	}
 
 	/**
+	 * Sanitize the cast callback.
+	 *
+	 * Returns the callback if callable. Otherwise infers a sensible default
+	 * from the column type. Returns null for types with no default cast
+	 * (datetime, binary, etc.) so that cast() is a no-op for them.
+	 *
+	 * @since 3.0.0
+	 * @param callable|string $callback Default empty string.
+	 * @return callable|null
+	 */
+	private function sanitize_cast( $callback = '' ) {
+
+		// Return callback if it's callable.
+		if ( is_callable( $callback ) ) {
+			return $callback;
+		}
+
+		// Bool.
+		if ( $this->is_bool() ) {
+			return 'boolval';
+		}
+
+		// Integer.
+		if ( $this->is_int() ) {
+			return 'intval';
+		}
+
+		// Decimal.
+		if ( $this->is_decimal() ) {
+			return 'floatval';
+		}
+
+		// Text.
+		if ( $this->is_text() ) {
+			return 'strval';
+		}
+
+		// No default cast for other types (datetime, binary, etc.).
+		return null;
+	}
+
+	/**
 	 * Sanitize the validation callback.
 	 *
 	 * This method accepts a function or method, and will return it if it is
@@ -990,6 +1045,24 @@ class Column {
 	}
 
 	/** Public Validators *****************************************************/
+
+	/**
+	 * Cast a value after it is read from the database.
+	 *
+	 * @since 3.0.0
+	 * @param mixed $value Default empty string. Value to cast.
+	 * @return mixed
+	 */
+	public function cast( $value = '' ) {
+
+		// Return the callback (already sanitized as callable).
+		if ( ! empty( $this->cast ) && is_callable( $this->cast ) ) {
+			return call_user_func( $this->cast, $value );
+		}
+
+		// Return the value.
+		return $value;
+	}
 
 	/**
 	 * Validate a value.

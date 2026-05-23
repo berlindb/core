@@ -38,6 +38,7 @@ class Row {
 	 */
 	use \BerlinDB\Database\Traits\Base;
 	use \BerlinDB\Database\Traits\Boot;
+	use \BerlinDB\Database\Traits\Cast;
 
 	/** Properties ************************************************************/
 
@@ -52,6 +53,15 @@ class Row {
 	protected $primary_column = 'id';
 
 	/** Methods ***************************************************************/
+
+	/**
+	 * Apply casts after properties are set.
+	 *
+	 * @since 3.0.0
+	 */
+	protected function init(): void {
+		$this->apply_casts();
+	}
 
 	/**
 	 * Determines whether the current row exists.

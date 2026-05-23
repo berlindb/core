@@ -854,4 +854,271 @@ class ColumnTest extends TestCase {
 		$sql    = $column->get_create_string();
 		$this->assertStringContainsString( 'ON UPDATE current_timestamp()', $sql );
 	}
+
+	// Cast attribute — auto-detection.
+
+	/**
+	 * Test that a column with args but no type has a null cast after construction.
+	 *
+	 * When no args are passed at all, parse_args() bails early and validate_args()
+	 * never runs, so $cast stays as ''. With args present, sanitize_cast fires and
+	 * returns null when no type can be matched.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_default_cast_is_null_for_typeless_column() {
+		$column = new Column( array( 'name' => 'x' ) );
+		$this->assertNull( $column->cast );
+	}
+
+	/**
+	 * Test that a bigint column auto-detects intval as its cast.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_cast_auto_detects_intval_for_bigint() {
+		$column = new Column(
+			array(
+				'name' => 'count',
+				'type' => 'bigint',
+			)
+		);
+		$this->assertSame( 'intval', $column->cast );
+	}
+
+	/**
+	 * Test that a float column auto-detects floatval as its cast.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_cast_auto_detects_floatval_for_float() {
+		$column = new Column(
+			array(
+				'name' => 'price',
+				'type' => 'float',
+			)
+		);
+		$this->assertSame( 'floatval', $column->cast );
+	}
+
+	/**
+	 * Test that a decimal column auto-detects floatval as its cast.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_cast_auto_detects_floatval_for_decimal() {
+		$column = new Column(
+			array(
+				'name' => 'amount',
+				'type' => 'decimal',
+			)
+		);
+		$this->assertSame( 'floatval', $column->cast );
+	}
+
+	/**
+	 * Test that a bool column auto-detects boolval as its cast.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_cast_auto_detects_boolval_for_bool() {
+		$column = new Column(
+			array(
+				'name' => 'active',
+				'type' => 'bool',
+			)
+		);
+		$this->assertSame( 'boolval', $column->cast );
+	}
+
+	/**
+	 * Test that a varchar column auto-detects strval as its cast.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_cast_auto_detects_strval_for_varchar() {
+		$column = new Column(
+			array(
+				'name'   => 'title',
+				'type'   => 'varchar',
+				'length' => '255',
+			)
+		);
+		$this->assertSame( 'strval', $column->cast );
+	}
+
+	/**
+	 * Test that a text column auto-detects strval as its cast.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_cast_auto_detects_strval_for_text() {
+		$column = new Column(
+			array(
+				'name' => 'body',
+				'type' => 'text',
+			)
+		);
+		$this->assertSame( 'strval', $column->cast );
+	}
+
+	/**
+	 * Test that a datetime column has a null cast after construction.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_cast_is_null_for_datetime() {
+		$column = new Column(
+			array(
+				'name' => 'created_at',
+				'type' => 'datetime',
+			)
+		);
+		$this->assertNull( $column->cast );
+	}
+
+	/**
+	 * Test that a varbinary column has a null cast after construction.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_cast_is_null_for_binary() {
+		$column = new Column(
+			array(
+				'name'   => 'hash',
+				'type'   => 'varbinary',
+				'length' => '32',
+			)
+		);
+		$this->assertNull( $column->cast );
+	}
+
+	/**
+	 * Test that an explicit callable cast overrides auto-detection.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_cast_accepts_explicit_callable() {
+		$column = new Column(
+			array(
+				'name' => 'meta',
+				'type' => 'longtext',
+				'cast' => 'maybe_unserialize',
+			)
+		);
+		$this->assertSame( 'maybe_unserialize', $column->cast );
+	}
+
+	/**
+	 * Test that an invalid cast value falls back to auto-detection.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_cast_invalid_value_falls_back_to_auto_detection() {
+		$column = new Column(
+			array(
+				'name' => 'count',
+				'type' => 'bigint',
+				'cast' => 'not_a_real_function_xyz',
+			)
+		);
+		$this->assertSame( 'intval', $column->cast );
+	}
+
+	// cast() method.
+
+	/**
+	 * Test that cast() coerces a numeric string to an integer for a bigint column.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_cast_method_coerces_string_to_int_for_bigint() {
+		$column = new Column(
+			array(
+				'name' => 'count',
+				'type' => 'bigint',
+			)
+		);
+		$this->assertSame( 42, $column->cast( '42' ) );
+	}
+
+	/**
+	 * Test that cast() coerces a numeric string to a float for a float column.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_cast_method_coerces_string_to_float_for_float() {
+		$column = new Column(
+			array(
+				'name' => 'price',
+				'type' => 'float',
+			)
+		);
+		$this->assertSame( 3.14, $column->cast( '3.14' ) );
+	}
+
+	/**
+	 * Test that cast() coerces a truthy string to true for a bool column.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_cast_method_coerces_truthy_string_to_true_for_bool() {
+		$column = new Column(
+			array(
+				'name' => 'active',
+				'type' => 'bool',
+			)
+		);
+		$this->assertTrue( $column->cast( '1' ) );
+	}
+
+	/**
+	 * Test that cast() coerces a falsy string to false for a bool column.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_cast_method_coerces_falsy_string_to_false_for_bool() {
+		$column = new Column(
+			array(
+				'name' => 'active',
+				'type' => 'bool',
+			)
+		);
+		$this->assertFalse( $column->cast( '0' ) );
+	}
+
+	/**
+	 * Test that cast() is a passthrough for a datetime column.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_cast_method_is_passthrough_for_datetime() {
+		$column = new Column(
+			array(
+				'name' => 'created_at',
+				'type' => 'datetime',
+			)
+		);
+		$value  = '2024-01-15 10:30:00';
+		$this->assertSame( $value, $column->cast( $value ) );
+	}
+
+	/**
+	 * Test that cast() applies a custom callable.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_cast_method_applies_custom_callable() {
+		$serialized = serialize( array( 'foo' => 'bar' ) );
+		$column     = new Column(
+			array(
+				'name' => 'meta',
+				'type' => 'longtext',
+				'cast' => 'maybe_unserialize',
+			)
+		);
+		$result     = $column->cast( $serialized );
+		$this->assertIsArray( $result );
+		$this->assertSame( 'bar', $result['foo'] );
+	}
 }

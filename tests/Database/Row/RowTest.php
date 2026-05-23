@@ -134,4 +134,134 @@ class RowTest extends TestCase {
 
 		$this->assertTrue( $row->exists() );
 	}
+
+	// Cast trait — $casts applied on construction.
+
+	/**
+	 * Test that a string is cast to int when $casts maps the property to intval.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_casts_coerce_string_to_int() {
+		$row = new class( array( 'count' => '42' ) ) extends \BerlinDB\Database\Kern\Row {
+			public $count    = 0;
+			protected $casts = array( 'count' => 'intval' );
+		};
+
+		$this->assertSame( 42, $row->count );
+		$this->assertIsInt( $row->count );
+	}
+
+	/**
+	 * Test that a string is cast to float when $casts maps the property to floatval.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_casts_coerce_string_to_float() {
+		$row = new class( array( 'price' => '9.99' ) ) extends \BerlinDB\Database\Kern\Row {
+			public $price    = 0.0;
+			protected $casts = array( 'price' => 'floatval' );
+		};
+
+		$this->assertSame( 9.99, $row->price );
+		$this->assertIsFloat( $row->price );
+	}
+
+	/**
+	 * Test that a truthy string is cast to true when $casts maps the property to boolval.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_casts_coerce_truthy_string_to_true() {
+		$row = new class( array( 'active' => '1' ) ) extends \BerlinDB\Database\Kern\Row {
+			public $active   = false;
+			protected $casts = array( 'active' => 'boolval' );
+		};
+
+		$this->assertTrue( $row->active );
+	}
+
+	/**
+	 * Test that a falsy string is cast to false when $casts maps the property to boolval.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_casts_coerce_falsy_string_to_false() {
+		$row = new class( array( 'active' => '0' ) ) extends \BerlinDB\Database\Kern\Row {
+			public $active   = true;
+			protected $casts = array( 'active' => 'boolval' );
+		};
+
+		$this->assertFalse( $row->active );
+	}
+
+	/**
+	 * Test that a serialized string is unserialized when $casts uses maybe_unserialize.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_casts_unserialize_serialized_string() {
+		$serialized = serialize( array( 'foo' => 'bar' ) );
+		$row        = new class( array( 'meta' => $serialized ) ) extends \BerlinDB\Database\Kern\Row {
+			public $meta     = '';
+			protected $casts = array( 'meta' => 'maybe_unserialize' );
+		};
+
+		$this->assertIsArray( $row->meta );
+		$this->assertSame( 'bar', $row->meta['foo'] );
+	}
+
+	/**
+	 * Test that $casts applies multiple casts in a single Row.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_casts_applies_multiple_casts() {
+		$row = new class(
+			array(
+				'id'    => '5',
+				'price' => '19.99',
+			)
+		) extends \BerlinDB\Database\Kern\Row {
+			public $id       = 0;
+			public $price    = 0.0;
+			protected $casts = array(
+				'id'    => 'intval',
+				'price' => 'floatval',
+			);
+		};
+
+		$this->assertSame( 5, $row->id );
+		$this->assertSame( 19.99, $row->price );
+	}
+
+	/**
+	 * Test that $casts silently skips properties that do not exist on the Row.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_casts_skips_nonexistent_properties_without_error() {
+		$row = new class( array( 'id' => '3' ) ) extends \BerlinDB\Database\Kern\Row {
+			public $id       = 0;
+			protected $casts = array(
+				'id'          => 'intval',
+				'nonexistent' => 'intval',
+			);
+		};
+
+		$this->assertSame( 3, $row->id );
+	}
+
+	/**
+	 * Test that the base Row has an empty $casts array and values pass through unchanged.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_base_row_casts_are_empty_and_values_pass_through() {
+		$row = new TestRow( array( 'priority' => '7' ) );
+
+		// priority is declared as int on TestRow, but no cast is defined,
+		// so the raw string from the DB is preserved.
+		$this->assertSame( '7', $row->priority );
+	}
 }
