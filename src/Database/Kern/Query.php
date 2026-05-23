@@ -922,10 +922,17 @@ class Query {
 	/** Public Getters ********************************************************/
 
 	/**
-	 * Return the table name.
+	 * Return the fully-qualified table name for use in SQL statements.
 	 *
-	 * Prefixed by the $table_prefix global, or get_blog_prefix() if
-	 * is_multisite().
+	 * The WordPress table prefix ($wpdb->prefix) is resolved by looking up
+	 * $wpdb->{$this->table_name} — a dynamic property that Table::set_db_interface()
+	 * registers when the corresponding Table class is instantiated. This means
+	 * multisite prefix changes (triggered by the switch_blog action) are always
+	 * reflected here automatically, because Table owns and updates that property.
+	 *
+	 * If $wpdb does not have the property registered (i.e. the Table class has
+	 * not been instantiated), this falls back to $this->table_name, which carries
+	 * only the plugin prefix — not the WordPress table prefix.
 	 *
 	 * @since 1.0.0
 	 *
@@ -943,10 +950,11 @@ class Query {
 	}
 
 	/**
-	 * Return the table alias.
+	 * Return the table alias for use in SQL statements.
 	 *
-	 * Prefixed by the $table_prefix global, or get_blog_prefix() if
-	 * is_multisite().
+	 * The alias is set during sunrise() and carries only the plugin prefix
+	 * ($this->prefix). It is never looked up via $wpdb — aliases are
+	 * SQL-local and do not require the WordPress table prefix.
 	 *
 	 * @since 3.0.0
 	 *

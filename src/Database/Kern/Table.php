@@ -62,6 +62,29 @@ class Table {
 	protected $description = '';
 
 	/**
+	 * Plugin-level prefix for table names, hooks, and cache groups.
+	 *
+	 * Set this to your plugin's unique slug (e.g. 'edd', 'give') so that
+	 * tables, hooks, and cache groups are namespaced to your plugin.
+	 *
+	 * Declare it as a class property in your subclass — it is read during
+	 * construction before setup() runs, so it is always available when
+	 * table names are assembled.
+	 *
+	 * apply_prefix() uses this value to produce the prefixed table name
+	 * (e.g. 'edd_orders'). The WordPress table prefix ($wpdb->prefix,
+	 * e.g. 'wp_') is separate and is always prepended by set_db_interface(),
+	 * making the final name 'wp_edd_orders'.
+	 *
+	 * Inherited from the Base trait, it is redeclared here so subclass authors
+	 * see it alongside the other table properties.
+	 *
+	 * @since 1.0.0
+	 * @var   string
+	 */
+	protected $prefix = '';
+
+	/**
 	 * Database version.
 	 *
 	 * @since 1.0.0
@@ -742,13 +765,13 @@ class Table {
 	 *
 	 * Pair with copy().
 	 *
-	 * Note: the BerlinDB plugin prefix ($this->prefix) is applied
-	 * automatically, but the WordPress table prefix ($wpdb->prefix) is not.
-	 * Include it in $new_table_name if needed.
+	 * Both the WordPress table prefix and the BerlinDB plugin prefix are
+	 * applied to the new table name automatically, matching how
+	 * $this->table_name is built.
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string $new_table_name The name of the new table, without the BerlinDB plugin prefix.
+	 * @param string $new_table_name The name of the new table, without any prefix.
 	 *
 	 * @return bool
 	 */
@@ -771,7 +794,7 @@ class Table {
 		}
 
 		// Query statement.
-		$table  = $this->apply_prefix( $table_name );
+		$table  = $this->table_prefix . $this->apply_prefix( $table_name );
 		$sql    = "CREATE TABLE {$table} LIKE {$this->table_name}";
 		$result = $db->query( $sql );
 
@@ -784,13 +807,13 @@ class Table {
 	 *
 	 * Pair with duplicate().
 	 *
-	 * Note: the BerlinDB plugin prefix ($this->prefix) is applied
-	 * automatically, but the WordPress table prefix ($wpdb->prefix) is not.
-	 * Include it in $new_table_name if needed.
+	 * Both the WordPress table prefix and the BerlinDB plugin prefix are
+	 * applied to the new table name automatically, matching how
+	 * $this->table_name is built.
 	 *
 	 * @since 1.1.0
 	 *
-	 * @param string $new_table_name The name of the destination table, without the BerlinDB plugin prefix.
+	 * @param string $new_table_name The name of the destination table, without any prefix.
 	 *
 	 * @return bool
 	 */
@@ -813,7 +836,7 @@ class Table {
 		}
 
 		// Query statement.
-		$table  = $this->apply_prefix( $table_name );
+		$table  = $this->table_prefix . $this->apply_prefix( $table_name );
 		$sql    = "INSERT INTO {$table} SELECT * FROM {$this->table_name}";
 		$result = $db->query( $sql );
 
@@ -849,15 +872,16 @@ class Table {
 	/**
 	 * Rename this database table.
 	 *
-	 * Note: the BerlinDB plugin prefix ($this->prefix) is applied
-	 * automatically, but the WordPress table prefix ($wpdb->prefix) is not.
-	 * Include it in $new_table_name if needed. After a successful rename,
-	 * $this->table_name is not updated — callers are responsible for
-	 * refreshing any references to the old name.
+	 * Both the WordPress table prefix and the BerlinDB plugin prefix are
+	 * applied to the new table name automatically, matching how
+	 * $this->table_name is built.
+	 *
+	 * After a successful rename, $this->table_name is not updated — callers
+	 * are responsible for refreshing any references to the old name.
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string $new_table_name The new name for this table, without the BerlinDB plugin prefix.
+	 * @param string $new_table_name The new name for this table, without any prefix.
 	 *
 	 * @return bool
 	 */
@@ -880,7 +904,7 @@ class Table {
 		}
 
 		// Query statement.
-		$table  = $this->apply_prefix( $table_name );
+		$table  = $this->table_prefix . $this->apply_prefix( $table_name );
 		$sql    = "RENAME TABLE {$this->table_name} TO {$table}";
 		$result = $db->query( $sql );
 

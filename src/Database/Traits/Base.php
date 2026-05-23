@@ -60,14 +60,19 @@ trait Base {
 	/** Protected *************************************************************/
 
 	/**
-	 * Maybe append the prefix to string.
+	 * Prepend the plugin prefix ($this->prefix) to a string.
+	 *
+	 * Applies the plugin-level prefix only (e.g. 'edd_orders'). The
+	 * WordPress table prefix ($wpdb->prefix) is a separate concern and is
+	 * NOT added here. Already-prefixed strings are returned as-is to
+	 * prevent double-prefixing.
 	 *
 	 * @since 1.0.0
 	 * @since 3.0.0 Prevents double prefixing.
 	 *
-	 * @param string $string
-	 * @param string $sep
-	 * @return string
+	 * @param string $string The string to prefix.
+	 * @param string $sep    Separator placed between prefix and string. Default '_'.
+	 * @return string The prefixed string, or the original string if $prefix is empty.
 	 */
 	protected function apply_prefix( $string = '', $sep = '_' ) {
 

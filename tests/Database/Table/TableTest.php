@@ -370,20 +370,21 @@ class TableTest extends TestCase {
 	/**
 	 * Test that duplicate creates a table with the same structure as the original.
 	 *
-	 * TestTable has no BerlinDB plugin prefix, so apply_prefix() is a no-op and
-	 * the copy is created at exactly the name passed in (without $wpdb->prefix),
-	 * which is the documented behaviour for this method.
+	 * The copy receives the full prefixed name: $wpdb->prefix + plugin prefix +
+	 * the name passed in. TestTable has no plugin prefix, so the copy lands at
+	 * {$wpdb->prefix}berlindb_database_test_widgets_dup.
 	 *
 	 * @since 3.0.0
 	 */
 	public function test_duplicate_creates_table_with_structure_of_original() {
 		global $wpdb;
 
-		$copy_name = 'berlindb_database_test_widgets_dup';
+		$copy_base = 'berlindb_database_test_widgets_dup';
+		$copy_name = $wpdb->prefix . $copy_base;
 
 		$this->bypass_table_filters();
 
-		$result = self::$table->duplicate( $copy_name );
+		$result = self::$table->duplicate( $copy_base );
 		$exists = (bool) $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $copy_name ) );
 
 		if ( $exists ) {
