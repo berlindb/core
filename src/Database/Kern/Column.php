@@ -190,7 +190,7 @@ class Column {
 	 * See: https://dev.mysql.com/doc/refman/8.0/en/data-type-defaults.html
 	 *
 	 * @since 1.0.0
-	 * @var   bool|int|string Default empty string.
+	 * @var   bool|int|string|null Default empty string.
 	 */
 	public $default = '';
 
@@ -757,8 +757,7 @@ class Column {
 	 *
 	 * @since 1.0.0
 	 * @since 3.0.0 Empty $type returns false.
-	 * @param array[string] $type Default empty string. The type to check. Also
-	 *                            accepts an array.
+	 * @param array<string>|string $type The type to check.
 	 * @return bool True if type matches.
 	 */
 	private function is_type( $type = '' ) {
@@ -781,11 +780,10 @@ class Column {
 	}
 
 	/**
-	 * Return if this column is of a certain type.
+	 * Return if this column has a certain extra value.
 	 *
 	 * @since 3.0.0
-	 * @param array[string] $extra Default empty string. The extra to check.
-	 *                             Also accepts an array.
+	 * @param array<string>|string $extra The extra value to check.
 	 * @return bool True if extra matches.
 	 */
 	private function is_extra( $extra = '' ) {
@@ -897,8 +895,8 @@ class Column {
 	 *
 	 * @since 1.0.0
 	 * @since 3.0.0 Uses validate()
-	 * @param int|string|null $default
-	 * @return int|string|null
+	 * @param mixed $default
+	 * @return mixed
 	 */
 	private function sanitize_default( $default = '' ) {
 		return $this->validate( $default );
@@ -953,7 +951,7 @@ class Column {
 	 * @since 3.0.0 Explicit support for decimal, int, and numeric types.
 	 * @param string $callback Default empty string. A callable PHP function
 	 *                         name or method.
-	 * @return string The most appropriate callback function for the value.
+	 * @return string|callable The most appropriate callback for the value.
 	 */
 	private function sanitize_validation( $callback = '' ) {
 
@@ -1000,9 +998,9 @@ class Column {
 	 * unexpected values from being saved in the database.
 	 *
 	 * @since 3.0.0
-	 * @param int|string|null $value   Default empty string. Value to validate.
-	 * @param int|string|null $default Default empty string. Fallback if invalid.
-	 * @return int|string|null
+	 * @param mixed $value   Default empty string. Value to validate.
+	 * @param mixed $default Default empty string. Fallback if invalid.
+	 * @return mixed
 	 */
 	public function validate( $value = '', $default = '' ) {
 
@@ -1029,8 +1027,8 @@ class Column {
 	 * Will return the $default if $allow_null is false.
 	 *
 	 * @since 3.0.0
-	 * @param int|string|null $value Default empty string.
-	 * @return int|string|null
+	 * @param mixed $value Default empty string.
+	 * @return mixed
 	 */
 	public function validate_null( $value = '' ) {
 
@@ -1279,6 +1277,104 @@ class Column {
 	/** Table Helpers *********************************************************/
 
 	/**
+	 * Return the SQL type fragment for this column, including character set
+	 * and collation where applicable.
+	 *
+	 * @since 3.0.0
+	 * @return string
+	 */
+	private function get_type_sql() {
+
+		// Bail if no type.
+		if ( empty( $this->type ) ) {
+			return '';
+		}
+
+		// Lowercase looks nicer in DDL.
+		$lower  = strtolower( $this->type );
+		$parts  = array();
+
+		// Type with optional length.
+		$parts[] = ! empty( $this->length ) && is_numeric( $this->length )
+			? "{$lower}({$this->length})"
+			: $lower;
+
+		// Binary column types use fixed charset/collation.
+		if ( $this->is_binary() ) {
+			$parts[] = 'CHARACTER SET binary';
+			$parts[] = 'COLLATE binary';
+
+		// Non-binary column types.
+		} else {
+
+			// Encoding.
+			if ( ! empty( $this->encoding ) ) {
+				$parts[] = "CHARACTER SET {$this->encoding}";
+			}
+
+			// Collation.
+			if ( ! empty( $this->collation ) ) {
+
+				// Binary text uses "_bin" collation.
+				$parts[] = ( ! empty( $this->binary ) && $this->is_text() )
+					? "COLLATE {$this->collation}_bin"
+					: "COLLATE {$this->collation}";
+			}
+		}
+
+		return implode( ' ', $parts );
+	}
+
+	/**
+	 * Return the SQL DEFAULT clause fragment for this column.
+	 *
+	 * Returns an empty string when no default clause should be emitted
+	 * (e.g. AUTO_INCREMENT columns, or when $default is literal false).
+	 *
+	 * @since 3.0.0
+	 * @return string
+	 */
+	private function get_default_sql() {
+
+		// Explicit default: trust it when not auto-incrementing.
+		if ( ! empty( $this->default ) && ! $this->is_extra( 'AUTO_INCREMENT' ) ) {
+			return "default '{$this->default}'";
+		}
+
+		// Null default: emit 'default null' only when null is allowed.
+		if ( ( true === $this->allow_null ) && ( null === $this->default ) ) {
+			return 'default null';
+		}
+
+		// Literal false: caller explicitly requested no default clause.
+		if ( false === $this->default ) {
+			return '';
+		}
+
+		// Numeric — use 0 unless the column is auto-incrementing.
+		if ( $this->is_numeric() ) {
+			return $this->is_extra( 'AUTO_INCREMENT' ) ? '' : "default '0'";
+		}
+
+		// Datetime or timestamp.
+		if ( $this->is_type( array( 'datetime', 'timestamp' ) ) ) {
+			if ( $this->is_extra( 'ON UPDATE CURRENT_TIMESTAMP' ) ) {
+				return 'ON UPDATE current_timestamp()';
+			}
+
+			// @todo NO_ZERO_DATE
+			if ( $this->is_type( 'datetime' ) ) {
+				return "default '0000-00-00 00:00:00'";
+			}
+
+			return '';
+		}
+
+		// All other types (strings, binary, etc.).
+		return "default ''";
+	}
+
+	/**
 	 * Return a string representation of this column's properties as part of
 	 * the "CREATE" string of a Table.
 	 *
@@ -1296,38 +1392,9 @@ class Column {
 		}
 
 		// Type.
-		if ( ! empty( $this->type ) ) {
-
-			// Lower looks nicer here for some reason...
-			$lower = strtolower( $this->type );
-
-			// Length.
-			$create[] = ! empty( $this->length ) && is_numeric( $this->length )
-				? "{$lower}({$this->length})"
-				: $lower;
-
-			// Binary column types.
-			if ( $this->is_binary() ) {
-				$create[] = 'CHARACTER SET binary';
-				$create[] = 'COLLATE binary';
-
-				// Non-binary column types.
-			} else {
-
-				// Encoding.
-				if ( ! empty( $this->encoding ) ) {
-					$create[] = "CHARACTER SET {$this->encoding}";
-				}
-
-				// Collation.
-				if ( ! empty( $this->collation ) ) {
-
-					// Binary text uses "_bin" collation.
-					$create[] = ( ! empty( $this->binary ) && $this->is_text() )
-						? "COLLATE {$this->collation}_bin"
-						: "COLLATE {$this->collation}";
-				}
-			}
+		$type_sql = $this->get_type_sql();
+		if ( ! empty( $type_sql ) ) {
+			$create[] = $type_sql;
 		}
 
 		/**
@@ -1352,41 +1419,10 @@ class Column {
 			$create[] = 'not null';
 		}
 
-		// Default supplied, so trust it (for now...).
-		if ( ! empty( $this->default ) && ! $this->is_extra( 'AUTO_INCREMENT' ) ) {
-			$create[] = "default '{$this->default}'";
-
-			// allow_null with literal null defaults to null.
-		} elseif ( ( true === $this->allow_null ) && ( null === $this->default ) ) {
-			$create[] = 'default null';
-
-			// Literal false means no default value.
-		} elseif ( false !== $this->default ) {
-
-			// Numeric (ints and decimals).
-			if ( $this->is_numeric() ) {
-
-				// Default "0" if _not_ autoincrementing (primary).
-				if ( ! $this->is_extra( 'AUTO_INCREMENT' ) ) {
-					$create[] = "default '0'";
-				}
-
-				// Datetime or Timestamp.
-			} elseif ( $this->is_type( array( 'datetime', 'timestamp' ) ) ) {
-
-				// Using the CURRENT_TIMESTAMP constant.
-				if ( $this->is_extra( 'ON UPDATE CURRENT_TIMESTAMP' ) ) {
-					$create[] = 'ON UPDATE current_timestamp()';
-
-					// @todo NO_ZERO_DATE
-				} elseif ( $this->is_type( 'datetime' ) ) {
-					$create[] = "default '0000-00-00 00:00:00'";
-				}
-
-				// All string types (texts and blobs).
-			} else {
-				$create[] = "default ''";
-			}
+		// Default.
+		$default_sql = $this->get_default_sql();
+		if ( ! empty( $default_sql ) ) {
+			$create[] = $default_sql;
 		}
 
 		// Extra.
