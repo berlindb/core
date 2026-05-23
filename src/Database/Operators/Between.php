@@ -93,6 +93,6 @@ class Between extends Base {
 		$between = "{$pattern} AND {$pattern}";
 
 		// Return prepared SQL fragment.
-		return $db->prepare( $between, $value );
+		return (string) $db->prepare( $between, $value );
 	}
 }

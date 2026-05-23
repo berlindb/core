@@ -448,7 +448,7 @@ class Date extends Base {
 
 			// Only add to where if valid datetime.
 			if ( false !== $after ) {
-				$where[] = $db->prepare( "{$column} {$gt} {$pattern}", $after );
+				$where[] = (string) $db->prepare( "{$column} {$gt} {$pattern}", $after );
 			}
 		}
 
@@ -457,7 +457,7 @@ class Date extends Base {
 
 			// Only add to where if valid datetime.
 			if ( false !== $before ) {
-				$where[] = $db->prepare( "{$column} {$lt} {$pattern}", $before );
+				$where[] = (string) $db->prepare( "{$column} {$lt} {$pattern}", $before );
 			}
 		}
 

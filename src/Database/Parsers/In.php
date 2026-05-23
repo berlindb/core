@@ -140,7 +140,7 @@ class In extends Base {
 			if ( 1 === count( $values ) ) {
 				$statement      = "{$aliased} = {$pattern}";
 				$column_value   = reset( $values );
-				$where[ $name ] = $db->prepare( $statement, $column_value );
+				$where[ $name ] = (string) $db->prepare( $statement, $column_value );
 
 				// Implode.
 			} else {

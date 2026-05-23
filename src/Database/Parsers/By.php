@@ -134,7 +134,7 @@ class By extends Base {
 			if ( 1 === count( $values ) ) {
 				$statement        = "{$aliased} = {$pattern}";
 				$column_value     = reset( $values );
-				$where[ $column ] = $db->prepare( $statement, $column_value );
+				$where[ $column ] = (string) $db->prepare( $statement, $column_value );
 
 				// Implode.
 			} else {

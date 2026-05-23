@@ -90,6 +90,6 @@ class In extends Base {
 		$in = '(' . substr( str_repeat( ",{$pattern}", count( $value ) ), 1 ) . ')';
 
 		// Return prepared SQL fragment.
-		return $db->prepare( $in, $value );
+		return (string) $db->prepare( $in, $value );
 	}
 }

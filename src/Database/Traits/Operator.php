@@ -145,7 +145,8 @@ trait Operator {
 			$value = trim( $value );
 		}
 
-		return $db->prepare( $pattern, $value );
+		// Return prepared SQL fragment, or empty string if prepare() returns falsy.
+		return (string) $db->prepare( $pattern, $value );
 	}
 
 	/**

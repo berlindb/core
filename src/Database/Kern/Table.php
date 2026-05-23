@@ -524,8 +524,8 @@ class Table {
 		$result = $db->get_results( $sql );
 
 		// Return the results.
-		return $this->is_success( $result )
-			? $result
+		return ( $this->is_success( $result ) && is_array( $result ) )
+			? array_values( $result )
 			: false;
 	}
 
@@ -551,8 +551,8 @@ class Table {
 		$result = $db->get_results( $sql );
 
 		// Return the results.
-		return $this->is_success( $result )
-			? $result
+		return ( $this->is_success( $result ) && is_array( $result ) )
+			? array_values( $result )
 			: false;
 	}
 

@@ -78,6 +78,6 @@ class Like extends Base {
 		$value = '%' . $db->esc_like( trim( (string) $value ) ) . '%';
 
 		// Return prepared SQL fragment.
-		return $db->prepare( $pattern, $value );
+		return (string) $db->prepare( $pattern, $value );
 	}
 }

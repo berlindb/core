@@ -56,6 +56,11 @@ trait Sanitizer {
 		// Keep only allowed characters, either by removing or replacing disallowed ones.
 		$replace = preg_replace( $disallowed_pattern, $replacement, $chars );
 
+		// Ensure the replacement result is a string.
+		if ( ! is_string( $replace ) ) {
+			return false;
+		}
+
 		// Replace hyphens with single underscores if required.
 		$under = ( true === $normalize_hyphens )
 			? str_replace( '-', '_', $replace )

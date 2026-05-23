@@ -1145,7 +1145,7 @@ class Query {
 		$result = $db->get_row( $select );
 
 		// Bail on failure.
-		if ( ! $this->is_success( $result ) ) {
+		if ( ! $this->is_success( $result ) || ! is_object( $result ) ) {
 			return false;
 		}
 
@@ -1564,7 +1564,7 @@ class Query {
 
 			// Set where (removing " AND " from subclauses).
 			if ( ! empty( $subclauses['where'] ) ) {
-				$where[ $key ] = preg_replace( '/^\s*AND\s*/', '', $subclauses['where'] );
+				$where[ $key ] = (string) preg_replace( '/^\s*AND\s*/', '', $subclauses['where'] );
 			}
 		}
 

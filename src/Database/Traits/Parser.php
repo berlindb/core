@@ -1461,8 +1461,13 @@ trait Parser {
 		// Build the SQL.
 		$query = "DATE_FORMAT( {$column}, %s ) {$compare} %f";
 
-		// Return the prepared SQL.
-		return $db->prepare( $query, $format, $time );
+		// Prepare the SQL.
+		$prepared = $db->prepare( $query, $format, $time );
+
+		// Return the prepared SQL, or false if prepare() returns falsy.
+		return is_string( $prepared )
+			? $prepared
+			: false;
 	}
 
 	/**

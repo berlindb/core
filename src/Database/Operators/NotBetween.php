@@ -93,6 +93,6 @@ class NotBetween extends Base {
 		$not_between = "{$pattern} AND {$pattern}";
 
 		// Return prepared SQL fragment.
-		return $db->prepare( $not_between, $value );
+		return (string) $db->prepare( $not_between, $value );
 	}
 }
