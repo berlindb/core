@@ -124,7 +124,7 @@ class Query {
 	 * are the expected class.
 	 *
 	 * @since 1.0.0
-	 * @var   mixed
+	 * @var   string
 	 */
 	protected $item_shape = __NAMESPACE__ . '\\Row';
 
@@ -222,6 +222,8 @@ class Query {
 	 * @var   \BerlinDB\Database\Parsers\Base[]
 	 */
 	protected $parsers = array();
+
+	/** Results ***************************************************************/
 
 	/**
 	 * Array of items retrieved by the SQL query.
