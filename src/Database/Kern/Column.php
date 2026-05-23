@@ -907,7 +907,7 @@ class Column {
 	 *
 	 * @since 1.0.0
 	 * @since 3.0.0 Falls back to using is_ methods if invalid param
-	 * @param string $pattern Default '%s'. Allowed values: %s, %d, $f
+	 * @param string $pattern Default '%s'. Allowed values: %s, %d, %f
 	 * @return string Default '%s'.
 	 */
 	private function sanitize_pattern( $pattern = '%s' ) {
@@ -949,8 +949,8 @@ class Column {
 	 *
 	 * @since 1.0.0
 	 * @since 3.0.0 Explicit support for decimal, int, and numeric types.
-	 * @param string $callback Default empty string. A callable PHP function
-	 *                         name or method.
+	 * @param callable|string $callback Default empty string. A callable or
+	 *                                  the name of a callable function.
 	 * @return string|callable The most appropriate callback for the value.
 	 */
 	private function sanitize_validation( $callback = '' ) {
