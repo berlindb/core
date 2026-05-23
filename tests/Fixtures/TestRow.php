@@ -10,7 +10,7 @@
 
 namespace BerlinDB\Tests\Fixtures;
 
-use BerlinDB\Database\Row;
+use BerlinDB\Database\Kern\Row;
 
 /**
  * Typed row wrapper for test_widgets table rows.

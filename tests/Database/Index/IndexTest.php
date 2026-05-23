@@ -10,7 +10,7 @@
 
 namespace BerlinDB\Tests;
 
-use BerlinDB\Database\Index;
+use BerlinDB\Database\Kern\Index;
 use Yoast\WPTestUtils\WPIntegration\TestCase;
 
 /**

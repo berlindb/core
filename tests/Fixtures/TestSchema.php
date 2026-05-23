@@ -10,7 +10,7 @@
 
 namespace BerlinDB\Tests\Fixtures;
 
-use BerlinDB\Database\Schema;
+use BerlinDB\Database\Kern\Schema;
 
 /**
  * Minimal Schema fixture covering all common column flags.

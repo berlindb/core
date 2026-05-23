@@ -10,7 +10,7 @@
 
 namespace BerlinDB\Tests\Fixtures;
 
-use BerlinDB\Database\Query;
+use BerlinDB\Database\Kern\Query;
 
 /**
  * Query implementation for the test_widgets table.
