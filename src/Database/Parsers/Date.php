@@ -394,7 +394,7 @@ class Date extends Base {
 
 		// Get first-order clauses.
 		$now           = $this->get_now( $clause );
-		$column        = $this->get_column( $clause );
+		$column_name   = $this->get_column( $clause );
 		$compare       = $this->get_compare( $clause );
 		$start_of_week = $this->get_start_of_week( $clause );
 		$inclusive     = ! empty( $clause['inclusive'] );
@@ -403,18 +403,23 @@ class Date extends Base {
 		 * Bail if no date column is resolved — this clause doesn't belong to a
 		 * date query (e.g. a non-date sub-array accidentally matched first_keys).
 		 */
-		if ( empty( $column ) ) {
+		if ( empty( $column_name ) ) {
 			return array(
 				'join'  => array(),
 				'where' => array(),
 			);
 		}
 
-		/*
-		 * Qualify the column with the primary table alias via the caller Query,
-		 * falling back to the bare column name if no caller is set.
-		 */
-		$column = $this->caller( 'get_quoted_column_name_aliased', $column ) ?? $column;
+		// Resolve and qualify the column, validating date_query support.
+		$column = $this->get_column_sql( $column_name, array( 'date_query' => true ) );
+
+		// Bail if the name doesn't map to a schema date column.
+		if ( empty( $column ) ) {
+			return array(
+				'join'  => array(),
+				'where' => array(),
+			);
+		}
 
 		// Assign greater-than and less-than values.
 		$lt = '<';
@@ -542,13 +547,7 @@ class Date extends Base {
 		// Strip the suffix to get the bare column name.
 		$column_name = substr( $orderby, 0, -strlen( $this->column_suffix ) );
 
-		// Verify the column has date_query support.
-		$date_cols = $this->caller( 'get_columns', array( 'date_query' => true ), 'and', 'name' );
-		if ( ! in_array( $column_name, $date_cols, true ) ) {
-			return '';
-		}
-
-		// Return the qualified column name.
-		return $this->caller( 'get_quoted_column_name_aliased', $column_name, $alias );
+		// Return the qualified column name, validating date_query support.
+		return $this->get_column_sql( $column_name, array( 'date_query' => true ), $alias );
 	}
 }

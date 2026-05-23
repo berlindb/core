@@ -563,6 +563,41 @@ trait Parser {
 	}
 
 	/**
+	 * Resolve a schema column to its backtick-quoted, alias-prefixed SQL name.
+	 *
+	 * Looks up the column by name, optionally restricting the match to columns
+	 * that satisfy $filter (e.g. array('date_query' => true)). Returns an empty
+	 * string when the column doesn't exist or doesn't match the filter, so callers
+	 * can use empty() as a bail condition without a separate isset check.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param string $name   Column name to look up.
+	 * @param array  $filter Optional. Additional column attributes to match. Default empty.
+	 * @param bool   $alias  Optional. Whether to prefix with the table alias. Default true.
+	 *
+	 * @return string Backtick-quoted SQL reference, or empty string on failure.
+	 */
+	protected function get_column_sql( string $name, array $filter = array(), bool $alias = true ): string {
+
+		// Look up the column, merging any extra filter criteria.
+		$col = $this->caller( 'get_column_by', array_merge( array( 'name' => $name ), $filter ) );
+
+		// Bail if the column doesn't exist or doesn't match the filter.
+		if ( empty( $col ) ) {
+			return '';
+		}
+
+		// Resolve the table alias when requested.
+		$table_alias = $alias
+			? ( $this->caller( 'get_table_alias' ) ?? '' )
+			: '';
+
+		// Return the qualified column name.
+		return $col->get_name_sql( $table_alias );
+	}
+
+	/**
 	 * Determines and validates which comparison operator to use.
 	 *
 	 * Compare must be in the $comparison_keys array.
@@ -962,6 +997,7 @@ trait Parser {
 				return $retval;
 			}
 
+			// Get the qualified column name for SQL.
 			$alias = $this->caller( 'get_table_alias' ) ?? '';
 			$expr  = $operator->get_sql( $col, $alias, $clause['value'] );
 
