@@ -775,7 +775,7 @@ class Query {
 	 * @param array  $args    Arguments to get a column by.
 	 * @param string $field   Field to get from a column.
 	 * @param mixed  $default Default to use if no field is set.
-	 * @return mixed Column object, or false
+	 * @return mixed Value of the requested field, or $default if not found.
 	 */
 	public function get_column_field( $args = array(), $field = '', $default = false ) {
 
@@ -794,7 +794,7 @@ class Query {
 	 * @since 1.0.0
 	 *
 	 * @param array $args Arguments to get a column by.
-	 * @return mixed Column object, or false
+	 * @return \BerlinDB\Database\Kern\Column|false Column object, or false if not found.
 	 */
 	public function get_column_by( $args = array() ) {
 
@@ -1251,8 +1251,7 @@ class Query {
 	 * @since 1.0.0
 	 * @since 3.0.0 Uses wp_parse_list() instead of wp_parse_id_list()
 	 *
-	 * @return mixed An array of item IDs if a full query. A single count of
-	 *               item IDs if a count query.
+	 * @return array Array of item IDs for a full query, or query results for a count query.
 	 */
 	private function get_item_ids() {
 
@@ -2147,7 +2146,7 @@ class Query {
 	 * @since 1.0.0
 	 *
 	 * @param mixed $item ID of item, or row from database
-	 * @return mixed False on error, Object of single-object class type on success
+	 * @return object Shaped item object.
 	 */
 	private function shape_item( $item = 0 ) {
 
@@ -2789,7 +2788,7 @@ class Query {
 	 * @param string $method select|insert|update|delete
 	 * @param mixed  $item   Object|Array of keys/values to reduce
 	 *
-	 * @return mixed Object|Array without keys the current user does not have caps for
+	 * @return object|array Item with capability-restricted keys removed.
 	 */
 	private function reduce_item( $method = 'update', $item = array() ) {
 

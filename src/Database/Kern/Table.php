@@ -484,7 +484,7 @@ class Table {
 	 *
 	 * @since 1.2.0
 	 *
-	 * @return mixed Array on success, False on failure
+	 * @return array|false Array of column rows on success, false on failure.
 	 */
 	public function columns() {
 
@@ -511,7 +511,7 @@ class Table {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @return mixed Array on success, False on failure
+	 * @return array|false Array of index rows on success, false on failure.
 	 */
 	public function indexes() {
 
@@ -1459,7 +1459,7 @@ class Table {
 	 *
 	 * @param string $callback
 	 *
-	 * @return mixed Callable string, or false if not callable
+	 * @return string|false Resolved callable string, or false if not callable.
 	 */
 	private function get_callable( $callback = '' ) {
 
