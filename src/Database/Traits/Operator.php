@@ -15,14 +15,20 @@ namespace BerlinDB\Database\Traits;
 // Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
 
+use BerlinDB\Database\Kern\Column;
+
 /**
  * Trait providing shared state and default SQL-generation logic for comparison operators.
  *
  * Concrete operator classes (in the Operators/ directory) use this trait and
- * declare their descriptor properties. The default get_sql() handles all scalar
- * operators (=, !=, >, >=, <, <=, EXISTS, REGEXP, NOT REGEXP, RLIKE). Operator
- * classes with non-scalar behaviour (IN, BETWEEN, LIKE, NOT EXISTS, etc.)
- * override get_sql() directly.
+ * declare their descriptor properties. The default get_value_sql() handles all
+ * scalar operators (=, !=, >, >=, <, <=, EXISTS, REGEXP, NOT REGEXP, RLIKE).
+ * Operator classes with non-scalar behaviour (IN, BETWEEN, LIKE, NOT EXISTS,
+ * etc.) override get_value_sql() directly.
+ *
+ * get_sql() assembles the full WHERE expression ({column} {compare} {value})
+ * using get_sql_compare() and get_value_sql(). It lives here so concrete
+ * classes rarely need to override it.
  *
  * @since 3.0.0
  */
@@ -113,18 +119,18 @@ trait Operator {
 	 * Generate the SQL value fragment for this operator.
 	 *
 	 * Default implementation for scalar operators. Returns only the value/operand
-	 * side of the comparison — not the column name or the operator itself. The
-	 * caller is responsible for assembling the full WHERE expression:
-	 * "{column} {compare} {get_sql()}".
+	 * side of the comparison — not the column name or the operator itself.
+	 * Multi-value and non-standard operators (IN, BETWEEN, LIKE, NOT EXISTS, etc.)
+	 * override this method in their concrete class.
 	 *
 	 * @since 3.0.0
 	 *
 	 * @param mixed  $value   The value(s) to compare against.
 	 * @param string $pattern Optional. A wpdb::prepare() placeholder. Default '%s'.
 	 *
-	 * @return string Prepared SQL value fragment.
+	 * @return string Prepared SQL value fragment, or empty string on failure.
 	 */
-	public function get_sql( $value = null, $pattern = '%s' ) {
+	public function get_value_sql( $value = null, $pattern = '%s' ) {
 
 		// Get the database interface.
 		$db = $this->get_db();
@@ -140,5 +146,35 @@ trait Operator {
 		}
 
 		return $db->prepare( $pattern, $value );
+	}
+
+	/**
+	 * Generate the full SQL WHERE expression for this operator.
+	 *
+	 * Assembles "{column} {compare} {value}" using the Column's own SQL
+	 * representation, get_sql_compare(), and get_value_sql(). The pattern is
+	 * derived from $col->pattern so callers do not need to supply it separately.
+	 * Returns an empty string when get_value_sql() returns '' (e.g. NOT EXISTS).
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param Column $col   The schema column providing its name, alias, and pattern.
+	 * @param string $alias Optional. Table alias to prefix the column reference. Default empty.
+	 * @param mixed  $value The value(s) to compare against.
+	 *
+	 * @return string Full SQL expression, or empty string when not applicable.
+	 */
+	public function get_sql( Column $col, string $alias = '', $value = null ): string {
+
+		// Get the prepared value fragment, deriving the pattern from the column.
+		$value_sql = $this->get_value_sql( $value, $col->pattern );
+
+		// Bail if no value fragment — operator has no value side (e.g. NOT EXISTS).
+		if ( '' === $value_sql ) {
+			return '';
+		}
+
+		// Assemble and return the full expression.
+		return $col->get_name_sql( $alias ) . ' ' . $this->get_sql_compare() . ' ' . $value_sql;
 	}
 }

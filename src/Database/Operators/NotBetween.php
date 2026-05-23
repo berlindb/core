@@ -66,7 +66,7 @@ class NotBetween extends Base {
 	 *
 	 * @return string Prepared SQL fragment: `low AND high`.
 	 */
-	public function get_sql( $value = null, $pattern = '%s' ) {
+	public function get_value_sql( $value = null, $pattern = '%s' ) {
 
 		// Get the database interface.
 		$db = $this->get_db();

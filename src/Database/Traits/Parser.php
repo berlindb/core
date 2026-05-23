@@ -883,6 +883,12 @@ trait Parser {
 	/**
 	 * Generate SQL for a query clause.
 	 *
+	 * Default Column-aware implementation. Validates the clause key against the
+	 * schema, derives quoting and pattern from the Column object, and delegates
+	 * full expression assembly to the operator. Concrete parsers should override
+	 * this method when they require specialised JOIN logic, type casting, or
+	 * column filtering beyond what the schema lookup provides.
+	 *
 	 * @since 3.0.0
 	 *
 	 * @param array  $clause       Query clause (passed by reference).
@@ -930,22 +936,38 @@ trait Parser {
 		}
 
 		// Get comparison from clause.
-		$compare = $clause['compare'];
+		$compare  = $clause['compare'];
+		$operator = $this->get_operator( $compare );
 
-		// Resolve the SQL operator (may differ from the compare identifier).
-		$operator    = $this->get_operator( $compare );
-		$sql_compare = $operator ? $operator->get_sql_compare() : $compare;
+		// Fallback to Equal for any unrecognized compare string.
+		if ( false === $operator ) {
+			$operator = $this->get_operator( '=' );
+		}
 
 		/** Build the WHERE clause ********************************************/
 
-		// Column name and value.
+		// Column object and value.
 		if ( array_key_exists( 'key', $clause ) && array_key_exists( 'value', $clause ) ) {
-			$column = $this->sanitize_column_name( $clause['key'] );
-			$where  = $this->build_value( $compare, $clause['value'], '%s' );
+			$name = $this->sanitize_column_name( $clause['key'] );
 
-			// Maybe add column, compare, & where to return value.
-			if ( ! empty( $where ) ) {
-				$retval['where'][] = "{$column} {$sql_compare} {$where}";
+			// Bail if the key doesn't sanitize to a valid column name.
+			if ( empty( $name ) ) {
+				return $retval;
+			}
+
+			// Bail if the column doesn't exist in the schema.
+			$col = $this->caller( 'get_column_by', array( 'name' => $name ) );
+
+			if ( empty( $col ) ) {
+				return $retval;
+			}
+
+			$alias = $this->caller( 'get_table_alias' ) ?? '';
+			$expr  = $operator->get_sql( $col, $alias, $clause['value'] );
+
+			// Maybe add the WHERE expression.
+			if ( ! empty( $expr ) ) {
+				$retval['where'][] = $expr;
 			}
 		}
 
@@ -1102,7 +1124,7 @@ trait Parser {
 			$operator = $this->get_operator( '=' );
 		}
 
-		return $operator->get_sql( $value, $pattern );
+		return $operator->get_value_sql( $value, $pattern );
 	}
 
 	/**

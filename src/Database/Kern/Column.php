@@ -1381,6 +1381,29 @@ class Column {
 	}
 
 	/**
+	 * Return the backtick-quoted column name for use in query expressions.
+	 *
+	 * When $alias is provided it is quoted and prepended, producing the fully
+	 * qualified form used in WHERE and SELECT clauses: `alias`.`column`.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param string $alias Optional. Table alias to prefix. Default empty (no alias).
+	 *
+	 * @return string Quoted SQL reference, e.g. `alias`.`column` or `column`.
+	 */
+	public function get_name_sql( string $alias = '' ): string {
+
+		// Quote the column name.
+		$quoted = $this->quote_identifier( $this->name );
+
+		// Return the column name, optionally prefixed with the quoted alias.
+		return ! empty( $alias )
+			? $this->quote_identifier( $alias ) . '.' . $quoted
+			: $quoted;
+	}
+
+	/**
 	 * Return a string representation of this column's properties as part of
 	 * the "CREATE" string of a Table.
 	 *
@@ -1394,7 +1417,7 @@ class Column {
 
 		// Name.
 		if ( ! empty( $this->name ) ) {
-			$create[] = "`{$this->name}`";
+			$create[] = $this->get_name_sql();
 		}
 
 		// Type.

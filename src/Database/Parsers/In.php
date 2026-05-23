@@ -199,9 +199,7 @@ class In extends Base {
 		}
 
 		// Maybe alias the column name.
-		$aliased = $alias
-			? $this->caller( 'get_quoted_column_name_aliased', $column_name, $alias )
-			: $this->quote_identifier( $column_name );
+		$aliased = $this->caller( 'get_quoted_column_name_aliased', $column_name, $alias );
 
 		// Return the FIELD() expression.
 		return "FIELD( {$aliased}, {$item_in} )";

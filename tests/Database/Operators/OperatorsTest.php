@@ -10,6 +10,7 @@
 
 namespace BerlinDB\Tests;
 
+use BerlinDB\Database\Kern\Column;
 use BerlinDB\Database\Operators\Between;
 use BerlinDB\Database\Operators\Equal;
 use BerlinDB\Database\Operators\Exists;
@@ -32,9 +33,9 @@ use Yoast\WPTestUtils\WPIntegration\TestCase;
 /**
  * Tests for all BerlinDB operator classes.
  *
- * Covers descriptor properties ($compare, $positive, $multi, $numeric) and
- * the get_sql() output for each operator, including overridden implementations
- * in In, NotIn, Between, NotBetween, Like, NotLike, Exists, and NotExists.
+ * Covers descriptor properties ($compare, $positive, $multi, $numeric),
+ * get_value_sql() output for each operator, and the full-expression get_sql()
+ * method on the trait.
  *
  * @since 3.0.0
  */
@@ -290,27 +291,27 @@ class OperatorsTest extends TestCase {
 	}
 
 	// -------------------------------------------------------------------------
-	// Scalar get_sql (trait default).
+	// Scalar get_value_sql (trait default).
 	// -------------------------------------------------------------------------
 
 	/**
-	 * Test that the default get_sql prepares a scalar string value.
+	 * Test that the default get_value_sql prepares a scalar string value.
 	 *
 	 * @since 3.0.0
 	 */
-	public function test_scalar_get_sql_prepares_string_value() {
-		$sql = ( new Equal() )->get_sql( 'active' );
+	public function test_scalar_get_value_sql_prepares_string_value() {
+		$sql = ( new Equal() )->get_value_sql( 'active' );
 		$this->assertStringContainsString( 'active', $sql );
 	}
 
 	/**
-	 * Test that the default get_sql trims leading and trailing whitespace.
+	 * Test that the default get_value_sql trims leading and trailing whitespace.
 	 *
 	 * @since 3.0.0
 	 */
-	public function test_scalar_get_sql_trims_whitespace() {
-		$trimmed = ( new Equal() )->get_sql( 'active' );
-		$padded  = ( new Equal() )->get_sql( '  active  ' );
+	public function test_scalar_get_value_sql_trims_whitespace() {
+		$trimmed = ( new Equal() )->get_value_sql( 'active' );
+		$padded  = ( new Equal() )->get_value_sql( '  active  ' );
 		$this->assertSame( $trimmed, $padded );
 	}
 
@@ -319,12 +320,12 @@ class OperatorsTest extends TestCase {
 	// -------------------------------------------------------------------------
 
 	/**
-	 * Test that In::get_sql produces a parenthesised list from an array.
+	 * Test that In::get_value_sql produces a parenthesised list from an array.
 	 *
 	 * @since 3.0.0
 	 */
-	public function test_in_get_sql_with_array_produces_parenthesised_list() {
-		$sql = ( new In() )->get_sql( array( 'active', 'inactive' ) );
+	public function test_in_get_value_sql_with_array_produces_parenthesised_list() {
+		$sql = ( new In() )->get_value_sql( array( 'active', 'inactive' ) );
 		$this->assertStringStartsWith( '(', $sql );
 		$this->assertStringEndsWith( ')', $sql );
 		$this->assertStringContainsString( 'active', $sql );
@@ -332,45 +333,45 @@ class OperatorsTest extends TestCase {
 	}
 
 	/**
-	 * Test that In::get_sql splits a comma-delimited string into values.
+	 * Test that In::get_value_sql splits a comma-delimited string into values.
 	 *
 	 * @since 3.0.0
 	 */
-	public function test_in_get_sql_splits_delimited_string() {
-		$from_array  = ( new In() )->get_sql( array( 'a', 'b', 'c' ) );
-		$from_string = ( new In() )->get_sql( 'a, b, c' );
+	public function test_in_get_value_sql_splits_delimited_string() {
+		$from_array  = ( new In() )->get_value_sql( array( 'a', 'b', 'c' ) );
+		$from_string = ( new In() )->get_value_sql( 'a, b, c' );
 		$this->assertSame( $from_array, $from_string );
 	}
 
 	/**
-	 * Test that NotIn::get_sql produces the same parenthesised fragment as In.
+	 * Test that NotIn::get_value_sql produces the same parenthesised fragment as In.
 	 *
 	 * @since 3.0.0
 	 */
-	public function test_not_in_get_sql_produces_same_fragment_as_in() {
-		$in     = ( new In() )->get_sql( array( 'active', 'pending' ) );
-		$not_in = ( new NotIn() )->get_sql( array( 'active', 'pending' ) );
+	public function test_not_in_get_value_sql_produces_same_fragment_as_in() {
+		$in     = ( new In() )->get_value_sql( array( 'active', 'pending' ) );
+		$not_in = ( new NotIn() )->get_value_sql( array( 'active', 'pending' ) );
 		$this->assertSame( $in, $not_in );
 	}
 
 	/**
-	 * Test that In::get_sql returns an empty string for an empty value list.
+	 * Test that In::get_value_sql returns an empty string for an empty value list.
 	 *
 	 * IN () is invalid SQL; the guard prevents a malformed query.
 	 *
 	 * @since 3.0.0
 	 */
-	public function test_in_get_sql_returns_empty_for_empty_array() {
-		$this->assertSame( '', ( new In() )->get_sql( array() ) );
+	public function test_in_get_value_sql_returns_empty_for_empty_array() {
+		$this->assertSame( '', ( new In() )->get_value_sql( array() ) );
 	}
 
 	/**
-	 * Test that NotIn::get_sql returns an empty string for an empty value list.
+	 * Test that NotIn::get_value_sql returns an empty string for an empty value list.
 	 *
 	 * @since 3.0.0
 	 */
-	public function test_not_in_get_sql_returns_empty_for_empty_array() {
-		$this->assertSame( '', ( new NotIn() )->get_sql( array() ) );
+	public function test_not_in_get_value_sql_returns_empty_for_empty_array() {
+		$this->assertSame( '', ( new NotIn() )->get_value_sql( array() ) );
 	}
 
 	// -------------------------------------------------------------------------
@@ -378,69 +379,69 @@ class OperatorsTest extends TestCase {
 	// -------------------------------------------------------------------------
 
 	/**
-	 * Test that Between::get_sql produces a low AND high fragment from an array.
+	 * Test that Between::get_value_sql produces a low AND high fragment from an array.
 	 *
 	 * @since 3.0.0
 	 */
-	public function test_between_get_sql_with_array_produces_and_fragment() {
-		$sql = ( new Between() )->get_sql( array( 1, 10 ) );
+	public function test_between_get_value_sql_with_array_produces_and_fragment() {
+		$sql = ( new Between() )->get_value_sql( array( 1, 10 ) );
 		$this->assertStringContainsString( ' AND ', $sql );
 		$this->assertStringContainsString( '1', $sql );
 		$this->assertStringContainsString( '10', $sql );
 	}
 
 	/**
-	 * Test that Between::get_sql splits a space-delimited string.
+	 * Test that Between::get_value_sql splits a space-delimited string.
 	 *
 	 * @since 3.0.0
 	 */
-	public function test_between_get_sql_splits_delimited_string() {
-		$from_array  = ( new Between() )->get_sql( array( 1, 10 ) );
-		$from_string = ( new Between() )->get_sql( '1 10' );
+	public function test_between_get_value_sql_splits_delimited_string() {
+		$from_array  = ( new Between() )->get_value_sql( array( 1, 10 ) );
+		$from_string = ( new Between() )->get_value_sql( '1 10' );
 		$this->assertSame( $from_array, $from_string );
 	}
 
 	/**
-	 * Test that Between::get_sql only uses the first two values from the array.
+	 * Test that Between::get_value_sql only uses the first two values from the array.
 	 *
 	 * @since 3.0.0
 	 */
-	public function test_between_get_sql_uses_only_first_two_values() {
-		$two   = ( new Between() )->get_sql( array( 1, 10 ) );
-		$three = ( new Between() )->get_sql( array( 1, 10, 99 ) );
+	public function test_between_get_value_sql_uses_only_first_two_values() {
+		$two   = ( new Between() )->get_value_sql( array( 1, 10 ) );
+		$three = ( new Between() )->get_value_sql( array( 1, 10, 99 ) );
 		$this->assertSame( $two, $three );
 	}
 
 	/**
-	 * Test that NotBetween::get_sql produces the same fragment as Between.
+	 * Test that NotBetween::get_value_sql produces the same fragment as Between.
 	 *
 	 * @since 3.0.0
 	 */
-	public function test_not_between_get_sql_produces_same_fragment_as_between() {
-		$between     = ( new Between() )->get_sql( array( 1, 10 ) );
-		$not_between = ( new NotBetween() )->get_sql( array( 1, 10 ) );
+	public function test_not_between_get_value_sql_produces_same_fragment_as_between() {
+		$between     = ( new Between() )->get_value_sql( array( 1, 10 ) );
+		$not_between = ( new NotBetween() )->get_value_sql( array( 1, 10 ) );
 		$this->assertSame( $between, $not_between );
 	}
 
 	/**
-	 * Test that Between::get_sql returns an empty string when fewer than two values are given.
+	 * Test that Between::get_value_sql returns an empty string when fewer than two values are given.
 	 *
 	 * BETWEEN requires both a low and high bound; a single value would produce
 	 * a mismatched placeholder arity in wpdb::prepare().
 	 *
 	 * @since 3.0.0
 	 */
-	public function test_between_get_sql_returns_empty_for_single_value() {
-		$this->assertSame( '', ( new Between() )->get_sql( array( 5 ) ) );
+	public function test_between_get_value_sql_returns_empty_for_single_value() {
+		$this->assertSame( '', ( new Between() )->get_value_sql( array( 5 ) ) );
 	}
 
 	/**
-	 * Test that NotBetween::get_sql returns an empty string when fewer than two values are given.
+	 * Test that NotBetween::get_value_sql returns an empty string when fewer than two values are given.
 	 *
 	 * @since 3.0.0
 	 */
-	public function test_not_between_get_sql_returns_empty_for_single_value() {
-		$this->assertSame( '', ( new NotBetween() )->get_sql( array( 5 ) ) );
+	public function test_not_between_get_value_sql_returns_empty_for_single_value() {
+		$this->assertSame( '', ( new NotBetween() )->get_value_sql( array( 5 ) ) );
 	}
 
 	// -------------------------------------------------------------------------
@@ -448,33 +449,33 @@ class OperatorsTest extends TestCase {
 	// -------------------------------------------------------------------------
 
 	/**
-	 * Test that Like::get_sql wraps the value in % wildcards.
+	 * Test that Like::get_value_sql wraps the value in % wildcards.
 	 *
 	 * @since 3.0.0
 	 */
-	public function test_like_get_sql_wraps_value_in_wildcards() {
-		$sql = ( new Like() )->get_sql( 'hello' );
+	public function test_like_get_value_sql_wraps_value_in_wildcards() {
+		$sql = $GLOBALS['wpdb']->remove_placeholder_escape( ( new Like() )->get_value_sql( 'hello' ) );
 		$this->assertStringContainsString( '%hello%', $sql );
 	}
 
 	/**
-	 * Test that Like::get_sql escapes LIKE special characters with esc_like.
+	 * Test that Like::get_value_sql escapes LIKE special characters with esc_like.
 	 *
 	 * @since 3.0.0
 	 */
-	public function test_like_get_sql_escapes_like_special_chars() {
-		$sql = ( new Like() )->get_sql( '50% off' );
+	public function test_like_get_value_sql_escapes_like_special_chars() {
+		$sql = $GLOBALS['wpdb']->remove_placeholder_escape( ( new Like() )->get_value_sql( '50% off' ) );
 		$this->assertStringContainsString( '\%', $sql );
 	}
 
 	/**
-	 * Test that NotLike::get_sql produces the same fragment as Like.
+	 * Test that NotLike::get_value_sql produces the same fragment as Like.
 	 *
 	 * @since 3.0.0
 	 */
-	public function test_not_like_get_sql_produces_same_fragment_as_like() {
-		$like     = ( new Like() )->get_sql( 'hello' );
-		$not_like = ( new NotLike() )->get_sql( 'hello' );
+	public function test_not_like_get_value_sql_produces_same_fragment_as_like() {
+		$like     = ( new Like() )->get_value_sql( 'hello' );
+		$not_like = ( new NotLike() )->get_value_sql( 'hello' );
 		$this->assertSame( $like, $not_like );
 	}
 
@@ -483,22 +484,118 @@ class OperatorsTest extends TestCase {
 	// -------------------------------------------------------------------------
 
 	/**
-	 * Test that Exists::get_sql prepares a scalar value normally.
+	 * Test that Exists::get_value_sql prepares a scalar value normally.
 	 *
 	 * @since 3.0.0
 	 */
-	public function test_exists_get_sql_prepares_value() {
-		$sql = ( new Exists() )->get_sql( 'my_meta_key' );
+	public function test_exists_get_value_sql_prepares_value() {
+		$sql = ( new Exists() )->get_value_sql( 'my_meta_key' );
 		$this->assertStringContainsString( 'my_meta_key', $sql );
 	}
 
 	/**
-	 * Test that NotExists::get_sql always returns an empty string.
+	 * Test that NotExists::get_value_sql always returns an empty string.
 	 *
 	 * @since 3.0.0
 	 */
-	public function test_not_exists_get_sql_always_returns_empty_string() {
-		$this->assertSame( '', ( new NotExists() )->get_sql( 'anything' ) );
-		$this->assertSame( '', ( new NotExists() )->get_sql() );
+	public function test_not_exists_get_value_sql_always_returns_empty_string() {
+		$this->assertSame( '', ( new NotExists() )->get_value_sql( 'anything' ) );
+		$this->assertSame( '', ( new NotExists() )->get_value_sql() );
+	}
+
+	// -------------------------------------------------------------------------
+	// get_sql (full WHERE expression).
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Test that get_sql returns the full WHERE expression for a scalar operator.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_get_sql_returns_full_where_expression() {
+		$col = new Column( array( 'name' => 'status', 'type' => 'varchar' ) );
+		$sql = ( new Equal() )->get_sql( $col, '', 'active' );
+		$this->assertStringContainsString( '`status`', $sql );
+		$this->assertStringContainsString( '=', $sql );
+		$this->assertStringContainsString( 'active', $sql );
+	}
+
+	/**
+	 * Test that get_sql prefixes the column reference with the table alias.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_get_sql_includes_alias_in_column_reference() {
+		$col = new Column( array( 'name' => 'status', 'type' => 'varchar' ) );
+		$sql = ( new Equal() )->get_sql( $col, 't', 'active' );
+		$this->assertStringContainsString( '`t`.`status`', $sql );
+	}
+
+	/**
+	 * Test that get_sql returns an empty string when get_value_sql returns empty.
+	 *
+	 * NotExists::get_value_sql() always returns '' so get_sql() short-circuits.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_get_sql_returns_empty_when_value_sql_is_empty() {
+		$col = new Column( array( 'name' => 'meta_key', 'type' => 'varchar' ) );
+		$this->assertSame( '', ( new NotExists() )->get_sql( $col, '', 'anything' ) );
+	}
+
+	/**
+	 * Test that get_sql uses get_sql_compare (not $compare) in the expression.
+	 *
+	 * Exists has $compare='EXISTS' but get_sql_compare() returns '=', so the
+	 * assembled expression uses '=' rather than 'EXISTS'.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_get_sql_uses_sql_compare_for_exists() {
+		$col = new Column( array( 'name' => 'meta_key', 'type' => 'varchar' ) );
+		$sql = ( new Exists() )->get_sql( $col, '', 'my_key' );
+		$this->assertStringContainsString( '=', $sql );
+		$this->assertStringNotContainsString( 'EXISTS', $sql );
+	}
+
+	/**
+	 * Test that get_sql with In builds a full IN expression.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_get_sql_with_in_builds_full_expression() {
+		$col = new Column( array( 'name' => 'status', 'type' => 'varchar' ) );
+		$sql = ( new In() )->get_sql( $col, '', array( 'active', 'pending' ) );
+		$this->assertStringContainsString( '`status`', $sql );
+		$this->assertStringContainsString( 'IN', $sql );
+		$this->assertStringContainsString( 'active', $sql );
+	}
+
+	/**
+	 * Test that get_sql with Like builds a full LIKE expression with wildcards.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_get_sql_with_like_builds_full_expression() {
+		$col = new Column( array( 'name' => 'title', 'type' => 'varchar' ) );
+		$sql = $GLOBALS['wpdb']->remove_placeholder_escape( ( new Like() )->get_sql( $col, 't', 'hello' ) );
+		$this->assertStringContainsString( '`t`.`title`', $sql );
+		$this->assertStringContainsString( 'LIKE', $sql );
+		$this->assertStringContainsString( '%hello%', $sql );
+	}
+
+	/**
+	 * Test that get_sql derives the prepare pattern from the column type.
+	 *
+	 * An integer column has pattern '%d'; get_sql() reads this from $col->pattern
+	 * so the caller does not need to supply it separately.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_get_sql_derives_pattern_from_column() {
+		$col = new Column( array( 'name' => 'count', 'type' => 'bigint' ) );
+		$sql = ( new Equal() )->get_sql( $col, '', 42 );
+		$this->assertStringContainsString( '`count`', $sql );
+		$this->assertStringContainsString( '42', $sql );
 	}
 }

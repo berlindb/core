@@ -870,7 +870,22 @@ class Query {
 	 */
 	public function get_quoted_column_name_aliased( $column_name = '', $alias = true ) {
 
-		// Default return value.
+		// Delegate to the Column object when one exists in the schema.
+		$column_object = $this->get_column_by( array( 'name' => $column_name ) );
+
+		// Column object exists
+		if ( ! empty( $column_object ) ) {
+
+			// Maybe get the table alias for the column name.
+			$table_alias = ( true === $alias )
+				? $this->get_table_alias()
+				: '';
+
+			// Return the column name, with alias if requested.
+			return $column_object->get_name_sql( $table_alias );
+		}
+
+		// Fallback for non-schema identifiers (e.g. meta table columns).
 		$retval = $this->quote_identifier( $column_name );
 
 		// Maybe prepend the quoted table alias.

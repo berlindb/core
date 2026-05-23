@@ -853,9 +853,7 @@ class Schema {
 	 * @return bool True if the item's type is 'primary', false otherwise.
 	 */
 	private function is_primary_index( $item ) {
-		$type = isset( $item->type )
-			? strtolower( trim( (string) $item->type ) )
-			: '';
+		$type = strtolower( trim( $item->type ) );
 
 		return ( 'primary' === $type );
 	}
