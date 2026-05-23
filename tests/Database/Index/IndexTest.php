@@ -304,6 +304,48 @@ class IndexTest extends TestCase {
 	}
 
 	/**
+	 * Test that a composite index includes all column names in the create string.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_composite_index_includes_all_columns() {
+
+		// Assert expected results.
+		$index = new Index(
+			array(
+				'name'    => 'name_status_idx',
+				'type'    => 'key',
+				'columns' => array( 'name', 'status', 'priority' ),
+			)
+		);
+
+		$sql = $index->get_create_string();
+		$this->assertStringContainsString( 'KEY `name_status_idx` (`name`, `status`, `priority`)', $sql );
+	}
+
+	/**
+	 * Test that no USING clause is added when both method and using are empty.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_no_using_clause_when_method_and_using_are_empty() {
+
+		// Assert expected results.
+		$index = new Index(
+			array(
+				'name'    => 'status_idx',
+				'type'    => 'key',
+				'columns' => array( 'status' ),
+				'method'  => '',
+				'using'   => '',
+			)
+		);
+
+		$sql = $index->get_create_string();
+		$this->assertStringNotContainsString( 'USING', $sql );
+	}
+
+	/**
 	 * Test that to array includes key attributes.
 	 *
 	 * @since 3.0.0

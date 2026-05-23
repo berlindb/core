@@ -100,14 +100,14 @@ class Index {
 	/** Argument validation ***************************************************/
 
 	/**
-	* Normalize and sanitize all arguments passed to Index.
-	*
-	* @since 3.0.0
-	*
-	* @param array $args
-	*
-	* @return array
-	*/
+	 * Normalize and sanitize all arguments passed to Index.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param array $args
+	 *
+	 * @return array
+	 */
 	protected function validate_args( $args = array() ) {
 
 		// Array of callbacks for specific keys.
@@ -144,12 +144,12 @@ class Index {
 	/** Public Helpers ********************************************************/
 
 	/**
-	* Get the CREATE clause for this index.
-	*
-	* @since 3.0.0
-	*
-	* @return string
-	*/
+	 * Get the CREATE clause for this index.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @return string
+	 */
 	public function get_create_string() {
 
 		// Bail if no columns are provided.
@@ -222,13 +222,13 @@ class Index {
 	/** Private Sanitizers ****************************************************/
 
 	/**
-	* Sanitize the columns array.
-	*
-	* @since 3.0.0
-	*
-	* @param array $columns
-	* @return array
-	*/
+	 * Sanitize the columns array.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param array $columns
+	 * @return array
+	 */
 	private function sanitize_columns( $columns = array() ) {
 
 		$columns = array_filter( (array) $columns, 'is_string' );
