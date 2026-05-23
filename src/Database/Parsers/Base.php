@@ -51,7 +51,7 @@ abstract class Base {
 	 * An empty array means all columns are considered.
 	 *
 	 * @since 3.0.0
-	 * @var array
+	 * @var array<string, bool>
 	 */
 	protected $column_filter = array();
 
@@ -160,7 +160,7 @@ abstract class Base {
 	 *
 	 * @since 3.0.0
 	 */
-	protected function set_operators() {
+	protected function set_operators(): void {
 		static $instances = array();
 
 		$classes = $this->get_operator_classes();

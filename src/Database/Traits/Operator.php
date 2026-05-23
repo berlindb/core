@@ -94,9 +94,9 @@ trait Operator {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array $args Key-value pairs matching operator properties.
+	 * @param array<string, mixed> $args Key-value pairs matching operator properties.
 	 */
-	protected function init( $args = array() ) {
+	protected function init( array $args = array() ): void {
 		$this->set_vars( $args );
 	}
 

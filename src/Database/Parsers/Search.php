@@ -37,7 +37,7 @@ class Search extends Base {
 
 	/**
 	 * @since 3.0.0
-	 * @var array
+	 * @var array<string, bool>
 	 */
 	protected $column_filter = array( 'searchable' => true );
 
@@ -60,9 +60,9 @@ class Search extends Base {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array $first_keys Array of first-order keys.
+	 * @param list<string> $first_keys Array of first-order keys.
 	 *
-	 * @return array The first-order keys.
+	 * @return list<string> The first-order keys.
 	 */
 	protected function get_first_keys( $first_keys = array() ) {
 		$first_keys = array();
@@ -82,11 +82,11 @@ class Search extends Base {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array  $clause       Query clause (passed by reference).
-	 * @param array  $parent_query Parent query array.
-	 * @param string $clause_key   Optional. The array key used to name the clause in the original
-	 *                             query parameters. If not provided, a key will be generated automatically.
-	 * @return array {
+	 * @param array<string, mixed> $clause       Query clause (passed by reference).
+	 * @param array<string, mixed> $parent_query Parent query array.
+	 * @param string               $clause_key   Optional. The array key used to name the clause in the original
+	 *                                           query parameters. If not provided, a key will be generated automatically.
+	 * @return array{join: list<string>, where: list<string>} {
 	 *     Array containing WHERE SQL clauses to append to a first-order query.
 	 *
 	 *     @type string $where SQL fragment to append to the main WHERE clause.
@@ -132,7 +132,7 @@ class Search extends Base {
 		// Return join/where.
 		return array(
 			'join'  => array(),
-			'where' => $where,
+			'where' => array_values( $where ),
 		);
 	}
 
@@ -143,8 +143,8 @@ class Search extends Base {
 	 * @since 1.0.0
 	 * @since 3.0.0 Bail early if parameters are empty.
 	 *
-	 * @param string $string       Search string.
-	 * @param array  $column_names Columns to search.
+	 * @param string       $string       Search string.
+	 * @param list<string> $column_names Columns to search.
 	 * @return string Search SQL.
 	 */
 	private function get_search_sql( $string = '', $column_names = array() ) {
@@ -193,8 +193,8 @@ class Search extends Base {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array $search_columns All of the columns to search.
-	 * @return array
+	 * @param list<string> $search_columns All of the columns to search.
+	 * @return list<string>
 	 */
 	public function filter_search_columns( $search_columns = array() ) {
 

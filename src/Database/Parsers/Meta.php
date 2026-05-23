@@ -102,7 +102,7 @@ class Meta extends Base {
 
 	/**
 	 * @since 3.0.0
-	 * @var array
+	 * @var array<string, bool>
 	 */
 	protected $column_filter = array( 'primary' => true );
 
@@ -161,7 +161,7 @@ class Meta extends Base {
 	 * A flat list of table aliases used in JOIN clauses.
 	 *
 	 * @since 3.0.0
-	 * @var array
+	 * @var list<string>
 	 */
 	public $table_aliases = array();
 
@@ -173,9 +173,9 @@ class Meta extends Base {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array $first_keys Unused. Subclass always returns a fixed set.
+	 * @param list<string> $first_keys Unused. Subclass always returns a fixed set.
 	 *
-	 * @return array The first-order keys.
+	 * @return list<string> The first-order keys.
 	 */
 	protected function get_first_keys( $first_keys = array() ) {
 		return array(
@@ -204,9 +204,9 @@ class Meta extends Base {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array $qv The query variables.
+	 * @param array<string, mixed> $qv The query variables.
 	 *
-	 * @return array The normalised meta_query array.
+	 * @return array<string, mixed> The normalised meta_query array.
 	 */
 	protected function parse_query_vars( $qv = array() ) {
 
@@ -396,11 +396,11 @@ class Meta extends Base {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array  $clause       Query clause (passed by reference).
-	 * @param array  $parent_query Parent query array.
-	 * @param string $clause_key   Optional. The array key used to name the clause in the original `$meta_query`
-	 *                             parameters. If not provided, a key will be generated automatically.
-	 * @return array {
+	 * @param array<string, mixed> $clause       Query clause (passed by reference).
+	 * @param array<string, mixed> $parent_query Parent query array.
+	 * @param string               $clause_key   Optional. The array key used to name the clause in the original `$meta_query`
+	 *                                           parameters. If not provided, a key will be generated automatically.
+	 * @return array{join: list<string>, where: list<string>} {
 	 *     Array containing JOIN and WHERE SQL clause fragments for a first-order query.
 	 *     Both values are arrays of strings; the caller merges them into final SQL.
 	 *

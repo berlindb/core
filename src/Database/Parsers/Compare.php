@@ -40,7 +40,7 @@ class Compare extends Base {
 
 	/**
 	 * @since 3.0.0
-	 * @var array
+	 * @var array<string, bool>
 	 */
 	protected $column_filter = array( 'primary' => true );
 
@@ -61,9 +61,9 @@ class Compare extends Base {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array $first_keys Array of first-order keys.
+	 * @param list<string> $first_keys Array of first-order keys.
 	 *
-	 * @return array The first-order keys.
+	 * @return list<string> The first-order keys.
 	 */
 	protected function get_first_keys( $first_keys = array() ) {
 		return array( 'key', 'value' );

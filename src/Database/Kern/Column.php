@@ -440,7 +440,7 @@ class Column {
 	 * column data, typically based on roles or capabilities.
 	 *
 	 * @since 1.0.0
-	 * @var   array
+	 * @var   array<string, mixed>
 	 */
 	public $caps = array();
 
@@ -451,7 +451,7 @@ class Column {
 	 * without requiring complex architectural backwards compatibility support.
 	 *
 	 * @since 1.0.0
-	 * @var   array
+	 * @var   list<string>
 	 */
 	public $aliases = array();
 
@@ -463,7 +463,7 @@ class Column {
 	 * class to help prime related items.
 	 *
 	 * @since 1.0.0
-	 * @var   array
+	 * @var   list<mixed>
 	 */
 	public $relationships = array();
 
@@ -473,8 +473,8 @@ class Column {
 	 * @since 1.0.0 Private.
 	 * @since 3.0.0 Protected.
 	 *
-	 * @param array $args Default empty array.
-	 * @return array
+	 * @param array<string, mixed> $args Default empty array.
+	 * @return array<string, mixed>
 	 */
 	protected function validate_args( $args = array() ) {
 
@@ -550,8 +550,8 @@ class Column {
 	 *
 	 * @since 1.0.0
 	 * @since 3.0.0 Added support for SERIAL "extra" values.
-	 * @param array $args Default empty array.
-	 * @return array
+	 * @param array<string, mixed> $args Default empty array.
+	 * @return array<string, mixed>
 	 */
 	protected function special_args( $args = array() ) {
 
@@ -811,8 +811,8 @@ class Column {
 	 * Sanitize capabilities array.
 	 *
 	 * @since 1.0.0
-	 * @param array $caps Default empty array.
-	 * @return array
+	 * @param array<string, mixed> $caps Default empty array.
+	 * @return array<string, mixed>
 	 */
 	private function sanitize_capabilities( $caps = array() ) {
 		return wp_parse_args(
@@ -833,8 +833,8 @@ class Column {
 	 * renaming a Column and wanting to continue supporting the old name(s).
 	 *
 	 * @since 1.0.0
-	 * @param array $aliases Default empty array.
-	 * @return array
+	 * @param list<string> $aliases Default empty array.
+	 * @return list<string>
 	 */
 	private function sanitize_aliases( $aliases = array() ) {
 		$func    = array( $this, 'sanitize_column_name' );
@@ -849,8 +849,8 @@ class Column {
 	 *
 	 * @todo
 	 * @since 1.0.0
-	 * @param array $relationships Default empty array.
-	 * @return array
+	 * @param list<mixed> $relationships Default empty array.
+	 * @return list<mixed>
 	 */
 	private function sanitize_relationships( $relationships = array() ) {
 		return array_filter( $relationships );

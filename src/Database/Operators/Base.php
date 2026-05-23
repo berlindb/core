@@ -40,7 +40,7 @@ abstract class Base {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array $args Optional. Key-value pairs to set on the instance. Default empty.
+	 * @param array<string, mixed> $args Optional. Key-value pairs to set on the instance. Default empty.
 	 */
 	public function __construct( $args = array() ) {
 		if ( ! empty( $args ) ) {

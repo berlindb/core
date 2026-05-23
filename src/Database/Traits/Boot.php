@@ -41,7 +41,7 @@ trait Boot {
 	 *   'class' — snapshot of all object properties at construction time
 	 *
 	 * @since 3.0.0
-	 * @var   array
+	 * @var   array<string, mixed>
 	 */
 	protected $args = array();
 
@@ -50,7 +50,7 @@ trait Boot {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param array $args
+	 * @param array<string, mixed> $args
 	 */
 	public function __construct( $args = array() ) {
 		$this->boot( $args );
@@ -60,8 +60,16 @@ trait Boot {
 	 * Initialize the table.
 	 *
 	 * @since 3.0.0
+	 *
+	 * @param array<string, mixed>|object $args
 	 */
-	protected function boot( $args = array() ) {
+	protected function boot( $args = array() ): void {
+
+		// Row subclasses pass a raw stdClass from the database — normalize to array.
+		if ( is_object( $args ) ) {
+			$args = (array) $args;
+		}
+
 		$this->run(
 			function () use ( $args ) {
 
@@ -87,14 +95,14 @@ trait Boot {
 	 *
 	 * @since 3.0.0
 	 */
-	protected function sunrise() {}
+	protected function sunrise(): void {}
 
 	/**
 	 * Initialize.
 	 *
 	 * @since 3.0.0
 	 */
-	protected function init() {}
+	protected function init(): void {}
 
 	/** Argument Handlers *****************************************************/
 
@@ -102,8 +110,8 @@ trait Boot {
 	 * Parse arguments.
 	 *
 	 * @since 3.0.0 Arguments are stashed. Bails if $args is empty.
-	 * @param array $args Default empty array.
-	 * @return array
+	 * @param array<string, mixed> $args Default empty array.
+	 * @return array<string, mixed>
 	 */
 	protected function parse_args( $args = array() ) {
 
@@ -132,8 +140,8 @@ trait Boot {
 	 * Parse special arguments.
 	 *
 	 * @since 3.0.0
-	 * @param array $args
-	 * @return array
+	 * @param array<string, mixed> $args
+	 * @return array<string, mixed>
 	 */
 	protected function special_args( $args = array() ) {
 		return $args;
@@ -143,8 +151,8 @@ trait Boot {
 	 * Validate arguments.
 	 *
 	 * @since 3.0.0
-	 * @param array $args
-	 * @return array
+	 * @param array<string, mixed> $args
+	 * @return array<string, mixed>
 	 */
 	protected function validate_args( $args = array() ) {
 		return $args;
@@ -163,7 +171,7 @@ trait Boot {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array $args
+	 * @param array<string, mixed> $args
 	 * @return void
 	 */
 	protected function stash_args( $args = array() ) {

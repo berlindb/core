@@ -152,9 +152,9 @@ trait Base {
 	 * Set class variables from arguments.
 	 *
 	 * @since 1.0.0
-	 * @param array $args
+	 * @param array<string, mixed> $args
 	 */
-	protected function set_vars( $args = array() ) {
+	protected function set_vars( $args = array() ): void {
 
 		// Bail if empty or not an array.
 		if ( empty( $args ) ) {

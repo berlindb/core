@@ -61,7 +61,7 @@ class Index {
 	 * Array of columns the index consists of.
 	 *
 	 * @since 3.0.0
-	 * @var   array  Default empty array.
+	 * @var   list<string>  Default empty array.
 	 */
 	public $columns = array();
 
@@ -104,9 +104,9 @@ class Index {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array $args
+	 * @param array<string, mixed> $args
 	 *
-	 * @return array
+	 * @return array<string, mixed>
 	 */
 	protected function validate_args( $args = array() ) {
 
@@ -226,8 +226,8 @@ class Index {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array $columns
-	 * @return array
+	 * @param list<string> $columns
+	 * @return list<string>
 	 */
 	private function sanitize_columns( $columns = array() ) {
 

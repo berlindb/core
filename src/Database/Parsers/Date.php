@@ -136,7 +136,7 @@ class Date extends Base {
 
 	/**
 	 * @since 3.0.0
-	 * @var array
+	 * @var array<string, bool>
 	 */
 	protected $column_filter = array( 'date_query' => true );
 
@@ -165,9 +165,9 @@ class Date extends Base {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array $first_keys Array of first-order keys.
+	 * @param list<string> $first_keys Array of first-order keys.
 	 *
-	 * @return array The first-order keys.
+	 * @return list<string> The first-order keys.
 	 */
 	protected function get_first_keys( $first_keys = array() ) {
 		return array(
@@ -197,7 +197,7 @@ class Date extends Base {
 	 * This method only generates debug notices for these cases.
 	 *
 	 * @since 3.0.0
-	 * @param array $date_query The date_query array.
+	 * @param array<string, mixed> $date_query The date_query array.
 	 * @return bool True if all values in the query are valid, false if one or more fail.
 	 */
 	public function validate_values( $date_query = array() ) {
@@ -372,12 +372,12 @@ class Date extends Base {
 	 *
 	 * @since  3.0.0
 	 *
-	 * @param array  $clause       Query clause (passed by reference).
-	 * @param array  $parent_query Parent query array.
-	 * @param string $clause_key   Optional. The array key used to name the clause.
-	 *                             If not provided, a key will be generated automatically.
+	 * @param array<string, mixed> $clause       Query clause (passed by reference).
+	 * @param array<string, mixed> $parent_query Parent query array.
+	 * @param string               $clause_key   Optional. The array key used to name the clause.
+	 *                                           If not provided, a key will be generated automatically.
 	 *
-	 * @return array {
+	 * @return array{join: list<string>, where: list<string>} {
 	 *     Array containing JOIN and WHERE SQL clauses to append to the main query.
 	 *
 	 *     @type string $join  SQL fragment to append to the main JOIN clause.

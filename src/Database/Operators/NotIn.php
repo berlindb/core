@@ -61,7 +61,7 @@ class NotIn extends Base {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array|string $value   Array of values or a comma/space-delimited string.
+	 * @param array<int, mixed>|string $value   Array of values or a comma/space-delimited string.
 	 * @param string       $pattern Optional. A wpdb::prepare() placeholder. Default '%s'.
 	 *
 	 * @return string Prepared SQL fragment: `(v1, v2, ...)`.

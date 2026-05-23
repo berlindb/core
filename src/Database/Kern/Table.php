@@ -171,7 +171,7 @@ class Table {
 	 * Key => value array of versions => methods.
 	 *
 	 * @since 1.0.0
-	 * @var   array
+	 * @var   array<string, callable|string>
 	 */
 	protected $upgrades = array();
 
@@ -188,7 +188,7 @@ class Table {
 	 *
 	 * @since 3.0.0
 	 */
-	protected function init() {
+	protected function init(): void {
 
 		// Setup this database table.
 		$this->setup();
@@ -219,8 +219,8 @@ class Table {
 	 * Validate arguments after they are parsed.
 	 *
 	 * @since 3.0.0
-	 * @param array $args Default empty array.
-	 * @return array
+	 * @param array<string, mixed> $args Default empty array.
+	 * @return array<string, mixed>
 	 */
 	protected function validate_args( $args = array() ) {
 
@@ -283,7 +283,7 @@ class Table {
 	 *
 	 * @param int $site_id The site being switched to
 	 */
-	public function switch_blog( $site_id = 0 ) {
+	public function switch_blog( $site_id = 0 ): void {
 
 		// Update DB version based on the current site.
 		if ( ! $this->is_global() ) {
@@ -305,7 +305,7 @@ class Table {
 	 *
 	 * @since 1.0.0
 	 */
-	public function maybe_upgrade() {
+	public function maybe_upgrade(): void {
 
 		// Bail if not upgradeable.
 		if ( ! $this->is_upgradeable() ) {
@@ -409,7 +409,7 @@ class Table {
 	 *
 	 * @since 1.0.0
 	 */
-	public function install() {
+	public function install(): void {
 
 		// Try to create the table.
 		$created = $this->create();
@@ -429,7 +429,7 @@ class Table {
 	 *
 	 * @since 1.0.0
 	 */
-	public function uninstall() {
+	public function uninstall(): void {
 
 		// Try to drop the table.
 		$dropped = $this->drop();
@@ -507,7 +507,7 @@ class Table {
 	 *
 	 * @since 1.2.0
 	 *
-	 * @return array|false Array of column rows on success, false on failure.
+	 * @return list<mixed>|false Array of column rows on success, false on failure.
 	 */
 	public function columns() {
 
@@ -534,7 +534,7 @@ class Table {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @return array|false Array of index rows on success, false on failure.
+	 * @return list<mixed>|false Array of index rows on success, false on failure.
 	 */
 	public function indexes() {
 
@@ -561,7 +561,7 @@ class Table {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array|Index $args Index arguments or an Index object.
+	 * @param array<string, mixed>|Index $args Index arguments or an Index object.
 	 *
 	 * @return bool
 	 */
@@ -1179,7 +1179,7 @@ class Table {
 	 *
 	 * @since 1.1.0
 	 *
-	 * @return array Array of upgrade callbacks, keyed by their db version.
+	 * @return array<string, mixed> Array of upgrade callbacks, keyed by their db version.
 	 */
 	public function get_pending_upgrades() {
 
@@ -1255,7 +1255,7 @@ class Table {
 	 *
 	 * @since 1.0.0
 	 */
-	private function setup() {
+	private function setup(): void {
 
 		// Bail if no database interface is available.
 		if ( ! $this->get_db() ) {
@@ -1297,7 +1297,7 @@ class Table {
 	 *
 	 * @since 1.0.0
 	 */
-	private function set_db_interface() {
+	private function set_db_interface(): void {
 
 		// Get the database interface.
 		$db = $this->get_db();
@@ -1353,7 +1353,7 @@ class Table {
 	 *
 	 * @param string $version Database version to set when upgrading/creating.
 	 */
-	private function set_db_version( $version = '' ) {
+	private function set_db_version( $version = '' ): void {
 
 		// If no version is passed during an upgrade, use the current version.
 		if ( empty( $version ) ) {
@@ -1374,7 +1374,7 @@ class Table {
 	 *
 	 * @since 1.0.0
 	 */
-	private function get_db_version() {
+	private function get_db_version(): void {
 		$this->db_version = $this->is_global()
 			? get_network_option( get_main_network_id(), $this->db_version_key, '' )
 			: get_option( $this->db_version_key, '' );
@@ -1385,7 +1385,7 @@ class Table {
 	 *
 	 * @since 1.0.0
 	 */
-	private function delete_db_version() {
+	private function delete_db_version(): void {
 		$this->is_global()
 			? delete_network_option( get_main_network_id(), $this->db_version_key )
 			: delete_option( $this->db_version_key );
@@ -1457,7 +1457,7 @@ class Table {
 	 *
 	 * @since 3.0.0
 	 */
-	private function set_schema() {
+	private function set_schema(): void {
 
 		// Bail if no table schema.
 		if ( empty( $this->schema ) || ! class_exists( $this->schema ) ) {
@@ -1473,7 +1473,7 @@ class Table {
 	 *
 	 * @since 1.0.0
 	 */
-	private function add_hooks() {
+	private function add_hooks(): void {
 
 		// Add table to the global database object.
 		add_action( 'switch_blog', array( $this, 'switch_blog' ) );
@@ -1499,7 +1499,7 @@ class Table {
 	 *
 	 * @param string $callback
 	 *
-	 * @return array|string|false Resolved callable, or false if not callable.
+	 * @return array<int, mixed>|string|false Resolved callable, or false if not callable.
 	 */
 	private function get_callable( $callback = '' ) {
 
