@@ -389,6 +389,14 @@ class Date extends Base {
 		// Get the database interface.
 		$db = $this->get_db();
 
+		// Bail if no database interface is available.
+		if ( empty( $db ) ) {
+			return array(
+				'join'  => array(),
+				'where' => array(),
+			);
+		}
+
 		// The sub-parts of a $where part.
 		$where = array();
 

@@ -159,7 +159,7 @@ class Query {
 	 * not touched directly until this can be vetted and opened up.
 	 *
 	 * @since 3.0.0
-	 * @var   Schema
+	 * @var   Schema|null|object
 	 */
 	private $schema_object = null;
 
@@ -229,7 +229,7 @@ class Query {
 	 * Array of items retrieved by the SQL query.
 	 *
 	 * @since 1.0.0
-	 * @var   list<object>|int
+	 * @var   list<object>|array<int|string, mixed>|int
 	 */
 	public $items = array();
 
@@ -470,6 +470,7 @@ class Query {
 			}
 
 			// Instantiate to read descriptor properties.
+			/** @var \BerlinDB\Database\Parsers\Base $parser */
 			$parser = new $class();
 
 			// Setup the parser.
@@ -684,7 +685,7 @@ class Query {
 	 * @return list<string>
 	 */
 	public function get_column_names( $args = array(), $operator = 'and' ) {
-		return $this->get_columns( $args, $operator, 'name' );
+		return array_values( array_filter( $this->get_columns( $args, $operator, 'name' ), 'is_string' ) );
 	}
 
 	/**
@@ -800,10 +801,10 @@ class Query {
 	 * Uses get_column_field() to allow passing of a default value.
 	 *
 	 * @since 3.0.0
-	 * @param string             $key     Name of property to compare $values to.
-	 * @param list<mixed>|string $values  Values to get a column by. Scalar values are wrapped in an array.
-	 * @param string             $field   Field to get from a column.
-	 * @param mixed              $default Default to use if no field is set.
+	 * @param string              $key     Name of property to compare $values to.
+	 * @param array<mixed>|string $values  Values to get a column by. Scalar values are wrapped in an array.
+	 * @param string              $field   Field to get from a column.
+	 * @param mixed               $default Default to use if no field is set.
 	 * @return list<mixed>
 	 */
 	public function get_columns_field_by( $key = '', $values = array(), $field = '', $default = false ) {
@@ -1157,7 +1158,7 @@ class Query {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @return list<object>|int Array of items, or number of items when 'count' is passed as a query var.
+	 * @return array<int|string, mixed>|int Array of items, or number of items when 'count' is passed as a query var.
 	 */
 	private function get_items() {
 
@@ -1169,7 +1170,7 @@ class Query {
 		 *
 		 * @since 1.0.0
 		 *
-		 * @param \BerlinDB\Database\Query &$this Current instance passed by reference.
+		 * @param \BerlinDB\Database\Kern\Query $query Current instance passed by reference.
 		 */
 		do_action_ref_array(
 			$action_name,
@@ -1244,7 +1245,7 @@ class Query {
 	 * @since 1.0.0
 	 * @since 3.0.0 Uses wp_parse_list() instead of wp_parse_id_list()
 	 *
-	 * @return list<int|string>|string Array of item IDs for a full query, or query results for a count query.
+	 * @return array<bool|float|int|string>|array<string, mixed>[]|string|null Array of item IDs for a full query, or query results for a count query.
 	 */
 	private function get_item_ids() {
 
@@ -1382,7 +1383,7 @@ class Query {
 		 *
 		 * @since 1.0.0
 		 *
-		 * @param \BerlinDB\Database\Query &$this Current instance passed by reference.
+		 * @param \BerlinDB\Database\Kern\Query $query Current instance passed by reference.
 		 */
 		do_action_ref_array(
 			$action_name,
@@ -1849,6 +1850,8 @@ class Query {
 			$groupby = (array) $groupby;
 		}
 
+		$groupby = array_values( $groupby );
+
 		// Get the intersection of allowed column names to groupby columns.
 		$intersect = $this->get_columns_field_by( 'name', $groupby );
 
@@ -2182,7 +2185,7 @@ class Query {
 	 *
 	 * @param list<int|string> $items  Array of item IDs to shape.
 	 * @param list<string>     $fields Fields to get from items.
-	 * @return list<object>
+	 * @return array<int|string, mixed>
 	 */
 	private function shape_items( $items = array(), $fields = array() ) {
 
@@ -2200,7 +2203,10 @@ class Query {
 		// Loop through items and get each item individually.
 		if ( ! empty( $items ) ) {
 			foreach ( $items as $item ) {
-				$retval[] = $this->get_item( $item );
+				$shaped = $this->get_item( $item );
+				if ( false !== $shaped ) {
+					$retval[] = $shaped;
+				}
 			}
 		}
 
@@ -2665,7 +2671,7 @@ class Query {
 		$this->transition_item( $item_id, $save, $item );
 
 		// Return.
-		return $retval;
+		return (bool) $retval;
 	}
 
 	/**
@@ -2741,12 +2747,12 @@ class Query {
 		 */
 		do_action(
 			$action_name,
-			$item_id,
-			$retval
+			(int) $item_id,
+			(bool) $retval
 		);
 
 		// Return.
-		return $retval;
+		return (bool) $retval;
 	}
 
 	/**
@@ -2923,7 +2929,7 @@ class Query {
 			 * @param mixed $new_value The value being transitioned TO.
 			 * @param int   $item_id   The ID of the item that is transitioning.
 			 */
-			do_action( $key_action, $old_value, $new_value, $item_id );
+			do_action( $key_action, $old_value, $new_value, (int) $item_id );
 		}
 	}
 
@@ -3024,7 +3030,7 @@ class Query {
 		$meta_type = $this->get_meta_type();
 
 		// Return results of updating meta data.
-		return update_metadata( $meta_type, $item_id, $meta_key, $meta_value, $prev_value );
+		return (bool) update_metadata( $meta_type, $item_id, $meta_key, $meta_value, $prev_value );
 	}
 
 	/**

@@ -42,7 +42,7 @@ trait Environment {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @return bool|\wpdb Database interface, or False if not set.
+	 * @return \wpdb|false Database interface, or False if not set.
 	 */
 	protected function get_db() {
 		global ${$this->db_global};

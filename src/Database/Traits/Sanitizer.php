@@ -33,7 +33,7 @@ trait Sanitizer {
 	 * @param bool   $lowercase          Whether to lowercase before sanitizing.
 	 * @param bool   $normalize_hyphens  Whether to convert hyphens to underscores.
 	 *
-	 * @return bool|string Sanitized value on success, false on error.
+	 * @return string|false Sanitized value on success, false on error.
 	 */
 	private function sanitize_identifier( $id = '', $disallowed_pattern = '', $replacement = '', $lowercase = false, $normalize_hyphens = false ) {
 
@@ -87,7 +87,7 @@ trait Sanitizer {
 	 *
 	 * @param string $name The SQL table name.
 	 *
-	 * @return bool|string Sanitized table name on success, false on error.
+	 * @return string|false Sanitized table name on success, false on error.
 	 */
 	protected function sanitize_table_name( $name = '' ) {
 		return $this->sanitize_identifier( $name, '/[^a-zA-Z0-9_\-]/', '', false, true );
@@ -107,7 +107,7 @@ trait Sanitizer {
 	 *
 	 * @param string $alias The SQL table alias.
 	 *
-	 * @return bool|string Sanitized alias on success, false on error.
+	 * @return string|false Sanitized alias on success, false on error.
 	 */
 	protected function sanitize_table_alias( $alias = '' ) {
 		return $this->sanitize_identifier( $alias, '/[^a-zA-Z0-9_]/', '_', false, false );
@@ -127,7 +127,7 @@ trait Sanitizer {
 	 *
 	 * @param string $name The SQL column name.
 	 *
-	 * @return bool|string Sanitized column name on success, false on error.
+	 * @return string|false Sanitized column name on success, false on error.
 	 */
 	protected function sanitize_column_name( $name = '' ) {
 		return $this->sanitize_identifier( $name, '/[^a-zA-Z0-9_\-]/', '', false, true );
@@ -147,7 +147,7 @@ trait Sanitizer {
 	 *
 	 * @param string $name The SQL index name.
 	 *
-	 * @return bool|string Sanitized index name on success, false on error.
+	 * @return string|false Sanitized index name on success, false on error.
 	 */
 	protected function sanitize_index_name( $name = '' ) {
 		return $this->sanitize_identifier( $name, '/[^a-z0-9_\-]/', '_', true, true );

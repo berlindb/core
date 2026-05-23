@@ -179,7 +179,7 @@ class Table {
 	 * Instantiated schema object, populated by set_schema() during boot.
 	 *
 	 * @since 3.0.0
-	 * @var   Schema|null
+	 * @var   Schema|null|object
 	 */
 	private $schema_object = null;
 
@@ -1263,12 +1263,14 @@ class Table {
 		}
 
 		// Sanitize this database table name.
-		$this->name = $this->sanitize_table_name( $this->name );
+		$sanitized_name = $this->sanitize_table_name( $this->name );
 
 		// Bail if database table name sanitization failed.
-		if ( false === $this->name ) {
+		if ( false === $sanitized_name ) {
 			return;
 		}
+
+		$this->name = $sanitized_name;
 
 		// Separator.
 		$glue = '_';

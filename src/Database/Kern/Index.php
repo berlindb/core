@@ -231,19 +231,29 @@ class Index {
 	 */
 	private function sanitize_columns( $columns = array() ) {
 
-		$columns = array_filter( (array) $columns, 'is_string' );
+		// Bail if not an array.
+		if ( ! is_array( $columns ) ) {
+			return array();
+		}
 
-		// Normalize and sanitize column names for safe identifier usage.
-		$columns = array_map( array( $this, 'sanitize_index_name' ), $columns );
+		// Default return value.
+		$sanitized = array();
 
-		// Remove failed sanitization results and reset array keys.
-		return array_values(
-			array_filter(
-				$columns,
-				function ( $column ) {
-					return ! empty( $column );
+		// Loop through columns and sanitize each one.
+		foreach ( (array) $columns as $column ) {
+			if ( is_string( $column ) ) {
+
+				// Sanitize the column name.
+				$name = $this->sanitize_index_name( $column );
+
+				// Only include valid column names.
+				if ( is_string( $name ) ) {
+					$sanitized[] = $name;
 				}
-			)
-		);
+			}
+		}
+
+		// Return the sanitized columns array.
+		return $sanitized;
 	}
 }

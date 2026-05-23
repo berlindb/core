@@ -326,12 +326,21 @@ class Meta extends Base {
 		$this->table_aliases = array();
 
 		// Meta.
-		$this->meta_table  = $this->sanitize_table_name( $meta_table );
-		$this->meta_column = $this->sanitize_column_name( "{$type}_id" );
+		$meta_table_sanitized  = $this->sanitize_table_name( $meta_table );
+		$meta_column_sanitized = $this->sanitize_column_name( "{$type}_id" );
 
 		// Primary.
-		$this->primary_table  = $this->sanitize_table_name( $primary_table );
-		$this->primary_column = $this->sanitize_column_name( $primary_column );
+		$primary_table_sanitized  = $this->sanitize_table_name( $primary_table );
+		$primary_column_sanitized = $this->sanitize_column_name( $primary_column );
+
+		if ( false === $meta_table_sanitized || false === $meta_column_sanitized || false === $primary_table_sanitized || false === $primary_column_sanitized ) {
+			return false;
+		}
+
+		$this->meta_table     = $meta_table_sanitized;
+		$this->meta_column    = $meta_column_sanitized;
+		$this->primary_table  = $primary_table_sanitized;
+		$this->primary_column = $primary_column_sanitized;
 
 		// Delegate to the shared implementation (bypasses this override).
 		return parent::get_join_where_clauses();
@@ -368,12 +377,21 @@ class Meta extends Base {
 		$this->table_aliases = array();
 
 		// Meta.
-		$this->meta_table  = $this->sanitize_table_name( $meta_table );
-		$this->meta_column = $this->sanitize_column_name( "{$type}_id" );
+		$meta_table_sanitized  = $this->sanitize_table_name( $meta_table );
+		$meta_column_sanitized = $this->sanitize_column_name( "{$type}_id" );
 
 		// Primary.
-		$this->primary_table  = $this->sanitize_table_name( $primary_table );
-		$this->primary_column = $this->sanitize_column_name( $primary_column );
+		$primary_table_sanitized  = $this->sanitize_table_name( $primary_table );
+		$primary_column_sanitized = $this->sanitize_column_name( $primary_column );
+
+		if ( false === $meta_table_sanitized || false === $meta_column_sanitized || false === $primary_table_sanitized || false === $primary_column_sanitized ) {
+			return false;
+		}
+
+		$this->meta_table     = $meta_table_sanitized;
+		$this->meta_column    = $meta_column_sanitized;
+		$this->primary_table  = $primary_table_sanitized;
+		$this->primary_column = $primary_column_sanitized;
 
 		// Delegate to the shared implementation (bypasses this override).
 		return parent::get_join_where_clauses();

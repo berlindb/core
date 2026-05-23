@@ -852,9 +852,10 @@ class Column {
 	private function sanitize_aliases( $aliases = array() ) {
 		$func    = array( $this, 'sanitize_column_name' );
 		$aliases = array_filter( $aliases );
-		$retval  = array_map( $func, $aliases );
+		$mapped  = array_map( $func, $aliases );
+		$retval  = array_filter( $mapped, 'is_string' );
 
-		return $retval;
+		return array_values( $retval );
 	}
 
 	/**
@@ -866,7 +867,7 @@ class Column {
 	 * @return list<mixed>
 	 */
 	private function sanitize_relationships( $relationships = array() ) {
-		return array_filter( $relationships );
+		return array_values( array_filter( $relationships ) );
 	}
 
 	/**

@@ -1487,6 +1487,11 @@ trait Parser {
 			return '';
 		}
 
+		// Maybe cast to array.
+		if ( ! is_array( $values ) ) {
+			$values = (array) $values;
+		}
+
 		// Get the database interface.
 		$db = $this->get_db();
 

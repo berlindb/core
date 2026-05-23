@@ -207,6 +207,11 @@ class Schema {
 			return false;
 		}
 
+		// Bail if $data is a string.
+		if ( is_string( $data ) ) {
+			return false;
+		}
+
 		// Instantiate from array/object data.
 		$retval = $this->create_item( $class, $data );
 
@@ -475,11 +480,15 @@ class Schema {
 
 		// Array data is passed to the item constructor.
 		if ( is_array( $data ) ) {
-			return new $class( $data );
+			$retval = new $class( $data );
+
+			/** @var Column|Index $retval */
+			return $retval;
 		}
 
 		// Already-instantiated object.
 		if ( $data instanceof $class ) {
+			/** @var Column|Index $data */
 			return $data;
 		}
 
@@ -524,7 +533,7 @@ class Schema {
 
 		// Build a SQL fragment for each item.
 		foreach ( $this->{$type} as $item ) {
-			if ( method_exists( $item, 'get_create_string' ) ) {
+			if ( is_object( $item ) && method_exists( $item, 'get_create_string' ) ) {
 				$string = $item->get_create_string();
 
 				if ( '' !== $string ) {
@@ -551,7 +560,11 @@ class Schema {
 	 * @return Column|false The added Column object, or false on failure.
 	 */
 	public function add_column( $data = array() ) {
-		return $this->add_item( 'columns', $data );
+		$retval = $this->add_item( 'columns', $data );
+
+		return ( $retval instanceof Column )
+			? $retval
+			: false;
 	}
 
 	/**
@@ -562,7 +575,10 @@ class Schema {
 	 * @return Column[]
 	 */
 	public function get_columns() {
-		return $this->get_items( 'columns' );
+		$items = $this->get_items( 'columns' );
+
+		/** @var Column[] $items */
+		return $items;
 	}
 
 	/**
@@ -575,7 +591,11 @@ class Schema {
 	 * @return Column|false The matching Column object, or false if not found.
 	 */
 	public function get_column( $name = '' ) {
-		return $this->get_item( 'columns', $name );
+		$retval = $this->get_item( 'columns', $name );
+
+		return ( $retval instanceof Column )
+			? $retval
+			: false;
 	}
 
 	/**
@@ -601,7 +621,10 @@ class Schema {
 	 * @return Column[]
 	 */
 	public function set_columns( $columns = array() ) {
-		return $this->set_items( 'columns', $columns );
+		$items = $this->set_items( 'columns', $columns );
+
+		/** @var Column[] $items */
+		return $items;
 	}
 
 	/**
@@ -629,7 +652,11 @@ class Schema {
 	 * @return Index|false The added Index object, or false on failure.
 	 */
 	public function add_index( $data = array() ) {
-		return $this->add_item( 'indexes', $data );
+		$retval = $this->add_item( 'indexes', $data );
+
+		return ( $retval instanceof Index )
+			? $retval
+			: false;
 	}
 
 	/**
@@ -640,7 +667,10 @@ class Schema {
 	 * @return Index[]
 	 */
 	public function get_indexes() {
-		return $this->get_items( 'indexes' );
+		$items = $this->get_items( 'indexes' );
+
+		/** @var Index[] $items */
+		return $items;
 	}
 
 	/**
@@ -655,7 +685,11 @@ class Schema {
 	 * @return Index|false The matching Index object, or false if not found.
 	 */
 	public function get_index( $name = '' ) {
-		return $this->get_item( 'indexes', $name );
+		$retval = $this->get_item( 'indexes', $name );
+
+		return ( $retval instanceof Index )
+			? $retval
+			: false;
 	}
 
 	/**
@@ -681,7 +715,10 @@ class Schema {
 	 * @return Index[]
 	 */
 	public function set_indexes( $indexes = array() ) {
-		return $this->set_items( 'indexes', $indexes );
+		$items = $this->set_items( 'indexes', $indexes );
+
+		/** @var Index[] $items */
+		return $items;
 	}
 
 	/**
@@ -848,7 +885,7 @@ class Schema {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param Index $item Index item object.
+	 * @param Index|Column $item Index or Column item object.
 	 *
 	 * @return bool True if the item's type is 'primary', false otherwise.
 	 */

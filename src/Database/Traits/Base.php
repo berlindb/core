@@ -136,6 +136,11 @@ trait Base {
 		// Convert to lowercase.
 		$lower = strtolower( $accents );
 
+		// Ensure separator is a non-empty string.
+		if ( ! is_string( $sep ) || '' === $sep ) {
+			$sep = '_';
+		}
+
 		// Explode into parts.
 		$parts = explode( $sep, $lower );
 

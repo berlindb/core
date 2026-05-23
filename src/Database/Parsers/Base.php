@@ -24,6 +24,12 @@ defined( 'ABSPATH' ) || exit;
  * specialised JOIN logic, type casting, or column handling.
  *
  * @since 3.0.0
+ *
+ * @property-read string $name
+ * @property-read string|null $query_var
+ * @property-read mixed $default
+ * @property-read array<string, bool> $column_filter
+ * @property-read string $column_suffix
  */
 abstract class Base {
 

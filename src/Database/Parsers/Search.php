@@ -111,10 +111,10 @@ class Search extends Base {
 
 		// Intersect against known searchable columns.
 		if ( ! empty( $clause['search_columns'] ) ) {
-			$search_columns = array_intersect(
-				$clause['search_columns'],
+			$search_columns = array_values( array_intersect(
+				(array) $clause['search_columns'],
 				$this->first_keys
-			);
+			) );
 		}
 
 		// Filter search columns.
@@ -207,6 +207,10 @@ class Search extends Base {
 		// Generate filter name based on the plural item name, with prefix if set.
 		$filter_name = $this->apply_prefix( $this->caller( 'get_item_name_plural' ) . '_search_columns' );
 
+		if ( '' === $filter_name ) {
+			return $search_columns;
+		}
+
 		/**
 		 * Filters the columns to search by.
 		 *
@@ -216,12 +220,14 @@ class Search extends Base {
 		 * @param array                    $search_columns Array of column names to be searched.
 		 * @param \BerlinDB\Database\Query $query          Current query instance.
 		 */
-		return (array) apply_filters_ref_array(
+		$retval = (array) apply_filters_ref_array(
 			$filter_name,
 			array(
 				$search_columns,
 				&$this,
 			)
 		);
+
+		return array_values( array_filter( $retval, 'is_string' ) );
 	}
 }
