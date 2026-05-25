@@ -287,7 +287,7 @@ class Table {
 
 		// Update DB version based on the current site.
 		if ( ! $this->is_global() ) {
-			$db_version = get_blog_option( $site_id, $this->db_version_key, false );
+			$db_version       = get_blog_option( $site_id, $this->db_version_key, false );
 			$this->db_version = is_scalar( $db_version ) ? (string) $db_version : '';
 		}
 

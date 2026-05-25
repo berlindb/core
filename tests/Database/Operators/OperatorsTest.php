@@ -469,6 +469,16 @@ class OperatorsTest extends TestCase {
 	}
 
 	/**
+	 * Test that Like::get_value_sql escapes literal underscores with esc_like.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_like_get_value_sql_escapes_literal_underscore() {
+		$sql = $GLOBALS['wpdb']->remove_placeholder_escape( ( new Like() )->get_value_sql( 'code_1' ) );
+		$this->assertStringContainsString( '\_', $sql );
+	}
+
+	/**
 	 * Test that NotLike::get_value_sql produces the same fragment as Like.
 	 *
 	 * @since 3.0.0

@@ -187,6 +187,60 @@ class SearchParserTest extends TestCase {
 	}
 
 	/**
+	 * Test that a literal percent sign in the search term is escaped.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_search_escapes_literal_percent_sign() {
+		self::$query->add_item(
+			array(
+				'name'     => 'Literal 50% Match',
+				'status'   => 'active',
+				'priority' => 60,
+			)
+		);
+		self::$query->add_item(
+			array(
+				'name'     => 'Literal 50x Match',
+				'status'   => 'active',
+				'priority' => 70,
+			)
+		);
+
+		$results = self::$query->query( array( 'search' => '50%' ) );
+
+		$this->assertCount( 1, $results );
+		$this->assertSame( 'Literal 50% Match', $results[0]->name );
+	}
+
+	/**
+	 * Test that a literal underscore in the search term is escaped.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_search_escapes_literal_underscore() {
+		self::$query->add_item(
+			array(
+				'name'     => 'Literal code_1 Match',
+				'status'   => 'active',
+				'priority' => 60,
+			)
+		);
+		self::$query->add_item(
+			array(
+				'name'     => 'Literal codeA1 Match',
+				'status'   => 'active',
+				'priority' => 70,
+			)
+		);
+
+		$results = self::$query->query( array( 'search' => 'code_1' ) );
+
+		$this->assertCount( 1, $results );
+		$this->assertSame( 'Literal code_1 Match', $results[0]->name );
+	}
+
+	/**
 	 * Test that search is case-insensitive (MySQL LIKE default).
 	 *
 	 * @since 3.0.0

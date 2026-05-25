@@ -515,9 +515,9 @@ class Date extends Base {
 		// Straight value compare.
 		if ( isset( $clause['value'] ) ) {
 			$narrowed       = $this->narrow_value( $clause['value'] );
-			$value_to_build = is_array( $narrowed ) ? $narrowed : (is_null( $narrowed ) ? null : (string) $narrowed);
+			$value_to_build = is_array( $narrowed ) ? $narrowed : ( is_null( $narrowed ) ? null : (string) $narrowed );
 			$value          = $this->build_value( $compare, $value_to_build );
-			$where[] = "{$column} {$compare} {$value}";
+			$where[]        = "{$column} {$compare} {$value}";
 		}
 
 		// Hour/Minute/Second.

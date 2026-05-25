@@ -78,7 +78,10 @@ class NotBetween extends Base {
 
 		// Maybe split a comma- or space-delimited string into an array.
 		if ( is_scalar( $value ) ) {
-			$value = preg_split( '/[,\s]+/', trim( $value ) ) ?: array();
+			$value = preg_split( '/[,\s]+/', trim( $value ) );
+			$value = false !== $value
+				? $value
+				: array();
 		}
 
 		// Use only the first two elements.

@@ -935,7 +935,7 @@ class Query {
 			: $this->parsers;
 
 		// Filter parsers.
-		$field_val = is_string( $field ) ? $field : (is_bool( $field ) ? $field : false);
+		$field_val = is_string( $field ) ? $field : ( is_bool( $field ) ? $field : false );
 		$filter    = wp_filter_object_list( $source, $args, $operator, $field_val );
 
 		// Return parsers or empty array.
@@ -1234,7 +1234,7 @@ class Query {
 			if ( is_int( $number ) || is_string( $number ) ) {
 				$number_int = (int) $number;
 				if ( ! empty( $number_int ) ) {
-					$this->set_current( 'max_num_pages', (int) ceil( (int)$found_items / $number_int ) );
+					$this->set_current( 'max_num_pages', (int) ceil( (int) $found_items / $number_int ) );
 				}
 			}
 		}
@@ -1243,15 +1243,15 @@ class Query {
 		if ( $this->get_query_var( 'count' ) ) {
 
 			// Set items.
-			$this->items = is_array( $result ) ? $result : (is_int( $result ) ? $result : (is_scalar( $result ) ? (int) $result : 0));
+			$this->items = is_array( $result ) ? $result : ( is_int( $result ) ? $result : ( is_scalar( $result ) ? (int) $result : 0 ) );
 
 			// Not grouping, so cast to int.
 			if ( ! $this->get_query_var( 'groupby' ) ) {
-				$this->items = is_int( $result ) ? $result : (is_scalar( $result ) ? (int) $result : 0);
+				$this->items = is_int( $result ) ? $result : ( is_scalar( $result ) ? (int) $result : 0 );
 			}
 
 			// Return.
-			return is_array( $this->items ) ? $this->items : (is_int( $this->items ) ? $this->items : 0);
+			return is_array( $this->items ) ? $this->items : ( is_int( $this->items ) ? $this->items : 0 );
 		}
 
 		// Set items from result.
@@ -1263,7 +1263,7 @@ class Query {
 		}
 
 		// Return array of items.
-		return is_array( $this->items ) ? $this->items : (is_int( $this->items ) ? $this->items : array());
+		return is_array( $this->items ) ? $this->items : ( is_int( $this->items ) ? $this->items : array() );
 	}
 
 	/**
@@ -1389,8 +1389,8 @@ class Query {
 		$this->set_current( 'query_var_originals', wp_parse_args( $query ) );
 
 		// Setup the $query_vars parsed var.
-		$originals     = $this->get_current( 'query_var_originals' );
-		$originals_val = is_array( $originals ) ? $originals : (is_string( $originals ) ? $originals : array());
+		$originals        = $this->get_current( 'query_var_originals' );
+		$originals_val    = is_array( $originals ) ? $originals : ( is_string( $originals ) ? $originals : array() );
 		$this->query_vars = wp_parse_args(
 			$originals_val,
 			$this->query_var_defaults
@@ -2038,7 +2038,7 @@ class Query {
 		// Maybe fallback to query_clauses.
 		if ( empty( $clauses ) ) {
 			$clauses_val = $this->get_current( 'query_clauses', array() );
-			$clauses     = is_array( $clauses_val ) ? $clauses_val : (is_string( $clauses_val ) ? $clauses_val : array());
+			$clauses     = is_array( $clauses_val ) ? $clauses_val : ( is_string( $clauses_val ) ? $clauses_val : array() );
 		}
 
 		// Default return value.
@@ -2293,7 +2293,7 @@ class Query {
 
 		// Return the validated item ID.
 		$validated = $this->validate_item_field( $retval, $primary );
-		return ( is_int( $validated ) || is_string( $validated ) ) ? $validated : (is_scalar( $validated ) ? (string) $validated : 0);
+		return ( is_int( $validated ) || is_string( $validated ) ) ? $validated : ( is_scalar( $validated ) ? (string) $validated : 0 );
 	}
 
 	/**
@@ -2359,10 +2359,15 @@ class Query {
 
 			// Get fields from items.
 		} else {
-			$retval = array();
-			$fields_to_flip = array_values( array_filter( $fields, function( $v ) {
-				return is_int( $v ) || is_string( $v );
-			} ) );
+			$retval         = array();
+			$fields_to_flip = array_values(
+				array_filter(
+					$fields,
+					function ( $v ) {
+						return is_int( $v ) || is_string( $v );
+					}
+				)
+			);
 			/** @var array<int|string> $fields_to_flip */
 			$fields = array_flip( $fields_to_flip );
 
@@ -2500,7 +2505,7 @@ class Query {
 			} elseif ( is_array( $primary_val ) ) {
 				/** @var array<string, mixed> $primary_arr */
 				$primary_arr = $primary_val;
-				$item_id = $this->shape_item_id( $primary_arr );
+				$item_id     = $this->shape_item_id( $primary_arr );
 			} elseif ( is_scalar( $primary_val ) ) {
 				$item_id = $this->shape_item_id( $primary_val );
 			} else {
@@ -2565,7 +2570,7 @@ class Query {
 			$table           = $this->get_table_name();
 			$names           = array_keys( $save );
 			$save_format_raw = $this->get_columns_field_by( 'name', $names, 'pattern', '%s' );
-			$save_format     = is_array( $save_format_raw ) ? array_values( array_filter( $save_format_raw, 'is_string' ) ) : (is_string( $save_format_raw ) ? $save_format_raw : null);
+			$save_format     = is_array( $save_format_raw ) ? array_values( array_filter( $save_format_raw, 'is_string' ) ) : ( is_string( $save_format_raw ) ? $save_format_raw : null );
 			$retval          = $db->insert( $table, $save, $save_format );
 		}
 
@@ -2696,9 +2701,9 @@ class Query {
 				$diff_keys[] = $k;
 			}
 		}
-		$data    = array_intersect_key( $data, array_flip( $diff_keys ) );
-		$meta    = array_diff_key( $data, $columns );
-		$save    = array_intersect_key( $data, $columns );
+		$data = array_intersect_key( $data, array_flip( $diff_keys ) );
+		$meta = array_diff_key( $data, $columns );
+		$save = array_intersect_key( $data, $columns );
 
 		// Maybe save meta keys.
 		if ( ! empty( $meta ) ) {
@@ -2729,9 +2734,9 @@ class Query {
 			$where            = array( $primary => $item_id );
 			$names            = array_keys( $save );
 			$save_format_raw  = $this->get_columns_field_by( 'name', $names, 'pattern', '%s' );
-			$save_format      = is_array( $save_format_raw ) ? array_values( array_filter( $save_format_raw, 'is_string' ) ) : (is_string( $save_format_raw ) ? $save_format_raw : null);
+			$save_format      = is_array( $save_format_raw ) ? array_values( array_filter( $save_format_raw, 'is_string' ) ) : ( is_string( $save_format_raw ) ? $save_format_raw : null );
 			$where_format_raw = $this->get_columns_field_by( 'name', $primary, 'pattern', '%s' );
-			$where_format     = is_array( $where_format_raw ) ? array_values( array_filter( $where_format_raw, 'is_string' ) ) : (is_string( $where_format_raw ) ? $where_format_raw : null);
+			$where_format     = is_array( $where_format_raw ) ? array_values( array_filter( $where_format_raw, 'is_string' ) ) : ( is_string( $where_format_raw ) ? $where_format_raw : null );
 			$retval           = $db->update( $table, $save, $where, $save_format, $where_format );
 		}
 

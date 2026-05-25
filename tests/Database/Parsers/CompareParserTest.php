@@ -265,6 +265,79 @@ class CompareParserTest extends TestCase {
 	}
 
 	/**
+	 * Test that LIKE comparison treats a percent sign as a literal character.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_like_comparison_escapes_literal_percent_sign() {
+		self::$query->add_item(
+			array(
+				'name'     => 'Literal 50% Match',
+				'status'   => 'active',
+				'priority' => 60,
+			)
+		);
+		self::$query->add_item(
+			array(
+				'name'     => 'Literal 50x Match',
+				'status'   => 'active',
+				'priority' => 70,
+			)
+		);
+
+		$results = self::$query->query(
+			array(
+				'compare_query' => array(
+					'key'     => 'name',
+					'value'   => '50%',
+					'compare' => 'LIKE',
+				),
+			)
+		);
+
+		$this->assertCount( 1, $results );
+		$this->assertSame( 'Literal 50% Match', $results[0]->name );
+	}
+
+	/**
+	 * Test that NOT LIKE comparison treats an underscore as a literal character.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_not_like_comparison_escapes_literal_underscore() {
+		self::$query->add_item(
+			array(
+				'name'     => 'Literal code_1 Match',
+				'status'   => 'active',
+				'priority' => 60,
+			)
+		);
+		self::$query->add_item(
+			array(
+				'name'     => 'Literal codeA1 Match',
+				'status'   => 'active',
+				'priority' => 70,
+			)
+		);
+
+		$results = self::$query->query(
+			array(
+				'compare_query' => array(
+					'key'     => 'name',
+					'value'   => 'code_1',
+					'compare' => 'NOT LIKE',
+				),
+				'orderby'       => 'priority',
+				'order'         => 'ASC',
+			)
+		);
+
+		$names = wp_list_pluck( $results, 'name' );
+		$this->assertContains( 'Literal codeA1 Match', $names );
+		$this->assertNotContains( 'Literal code_1 Match', $names );
+	}
+
+	/**
 	 * Test that omitting compare defaults to equals.
 	 *
 	 * @since 3.0.0

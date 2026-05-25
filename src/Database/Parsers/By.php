@@ -144,8 +144,8 @@ class By extends Base {
 
 				// Implode.
 			} else {
-				$in_values = $this->caller( 'get_in_sql', $column, $values, true, $pattern );
-				$in_values = is_string( $in_values ) ? $in_values : '';
+				$in_values                = $this->caller( 'get_in_sql', $column, $values, true, $pattern );
+				$in_values                = is_string( $in_values ) ? $in_values : '';
 				$where[ "{$column}__in" ] = "{$aliased} IN {$in_values}";
 			}
 		}

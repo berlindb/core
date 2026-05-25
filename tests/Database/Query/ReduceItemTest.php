@@ -92,7 +92,14 @@ class ReduceItemTest extends TestCase {
 	 * @since 3.0.0
 	 */
 	public function test_array_input_returns_array() {
-		$result = self::$method->invoke( self::$query, 'select', array( 'id' => 1, 'name' => 'Widget' ) );
+		$result = self::$method->invoke(
+			self::$query,
+			'select',
+			array(
+				'id'   => 1,
+				'name' => 'Widget',
+			)
+		);
 		$this->assertIsArray( $result );
 	}
 
@@ -102,7 +109,10 @@ class ReduceItemTest extends TestCase {
 	 * @since 3.0.0
 	 */
 	public function test_object_input_returns_array() {
-		$input  = (object) array( 'id' => 1, 'name' => 'Widget' );
+		$input  = (object) array(
+			'id'   => 1,
+			'name' => 'Widget',
+		);
 		$result = self::$method->invoke( self::$query, 'select', $input );
 		$this->assertIsArray( $result );
 	}
@@ -120,7 +130,11 @@ class ReduceItemTest extends TestCase {
 	 * @since 3.0.0
 	 */
 	public function test_schema_columns_retained_for_logged_in_user() {
-		$input  = array( 'id' => 1, 'name' => 'Widget', 'status' => 'active' );
+		$input  = array(
+			'id'     => 1,
+			'name'   => 'Widget',
+			'status' => 'active',
+		);
 		$result = self::$method->invoke( self::$query, 'select', $input );
 
 		$this->assertArrayHasKey( 'id', $result );
@@ -134,7 +148,11 @@ class ReduceItemTest extends TestCase {
 	 * @since 3.0.0
 	 */
 	public function test_column_values_preserved() {
-		$input  = array( 'id' => 42, 'name' => 'My Widget', 'priority' => 7 );
+		$input  = array(
+			'id'       => 42,
+			'name'     => 'My Widget',
+			'priority' => 7,
+		);
 		$result = self::$method->invoke( self::$query, 'update', $input );
 
 		$this->assertSame( 42, $result['id'] );
@@ -156,7 +174,11 @@ class ReduceItemTest extends TestCase {
 	public function test_all_columns_stripped_for_anonymous_user() {
 		wp_set_current_user( 0 );
 
-		$input  = array( 'id' => 1, 'name' => 'Widget', 'status' => 'active' );
+		$input  = array(
+			'id'     => 1,
+			'name'   => 'Widget',
+			'status' => 'active',
+		);
 		$result = self::$method->invoke( self::$query, 'select', $input );
 
 		$this->assertEmpty( $result );
@@ -170,7 +192,10 @@ class ReduceItemTest extends TestCase {
 	public function test_object_with_anonymous_user_returns_empty_array() {
 		wp_set_current_user( 0 );
 
-		$input  = (object) array( 'id' => 1, 'name' => 'Widget' );
+		$input  = (object) array(
+			'id'   => 1,
+			'name' => 'Widget',
+		);
 		$result = self::$method->invoke( self::$query, 'delete', $input );
 
 		$this->assertIsArray( $result );
@@ -190,7 +215,11 @@ class ReduceItemTest extends TestCase {
 	 * @since 3.0.0
 	 */
 	public function test_unknown_column_stripped() {
-		$input  = array( 'id' => 1, 'name' => 'Widget', 'not_in_schema' => 'surprise' );
+		$input  = array(
+			'id'            => 1,
+			'name'          => 'Widget',
+			'not_in_schema' => 'surprise',
+		);
 		$result = self::$method->invoke( self::$query, 'select', $input );
 
 		$this->assertArrayHasKey( 'id', $result );
@@ -204,7 +233,10 @@ class ReduceItemTest extends TestCase {
 	 * @since 3.0.0
 	 */
 	public function test_all_unknown_columns_returns_empty_array() {
-		$input  = array( 'ghost' => 'boo', 'phantom' => 'value' );
+		$input  = array(
+			'ghost'   => 'boo',
+			'phantom' => 'value',
+		);
 		$result = self::$method->invoke( self::$query, 'insert', $input );
 
 		$this->assertEmpty( $result );
@@ -222,7 +254,10 @@ class ReduceItemTest extends TestCase {
 	 * @dataProvider provide_crud_methods
 	 */
 	public function test_schema_columns_retained_for_all_methods( string $method ) {
-		$input  = array( 'id' => 1, 'name' => 'Widget' );
+		$input  = array(
+			'id'   => 1,
+			'name' => 'Widget',
+		);
 		$result = self::$method->invoke( self::$query, $method, $input );
 
 		$this->assertArrayHasKey( 'id', $result, "Method '$method' should retain 'id'" );
@@ -255,7 +290,10 @@ class ReduceItemTest extends TestCase {
 	public function test_all_columns_stripped_for_all_methods_when_anonymous( string $method ) {
 		wp_set_current_user( 0 );
 
-		$input  = array( 'id' => 1, 'name' => 'Widget' );
+		$input  = array(
+			'id'   => 1,
+			'name' => 'Widget',
+		);
 		$result = self::$method->invoke( self::$query, $method, $input );
 
 		$this->assertEmpty( $result, "Method '$method' should strip all columns for anonymous user" );
