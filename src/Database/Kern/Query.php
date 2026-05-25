@@ -763,29 +763,24 @@ class Query {
 	 * @return Column[]|list<mixed> Array of Column objects, or field values if $field is set.
 	 */
 	public function get_columns( $args = array(), $operator = 'and', $field = false ) {
-		static $columns = null;
 
-		// Setup columns.
-		if ( null === $columns ) {
+		// Default columns.
+		$columns = array();
 
-			// Default columns.
-			$columns = array();
+		// Legacy columns.
+		if ( ! empty( $this->columns ) ) {
+			$columns = $this->columns;
+		}
 
-			// Legacy columns.
-			if ( ! empty( $this->columns ) ) {
-				$columns = $this->columns;
-			}
+		// Columns from Schema.
+		if ( is_callable( array( $this->schema_object, 'get_columns' ) ) ) {
 
-			// Columns from Schema.
-			if ( is_callable( array( $this->schema_object, 'get_columns' ) ) ) {
+			// Get the columns from the schema object method.
+			$schema_columns = $this->schema_object->get_columns();
 
-				// Get the columns from the schema object method.
-				$schema_columns = $this->schema_object->get_columns();
-
-				// Use column objects from the schema if not empty.
-				if ( ! empty( $schema_columns ) ) {
-					$columns = $schema_columns;
-				}
+			// Use column objects from the schema if not empty.
+			if ( ! empty( $schema_columns ) ) {
+				$columns = $schema_columns;
 			}
 		}
 
@@ -2196,6 +2191,25 @@ class Query {
 			return $item;
 		}
 
+		/*
+		 * Decode JSON columns before wrapping — JSON stored as a string must be
+		 * returned as a PHP array, mirroring validate_json() on the write side.
+		 */
+		if ( is_array( $item ) ) {
+
+			// Get all JSON column names.
+			$json_columns = $this->get_columns( array( 'type' => 'json' ) );
+
+			// Loop through JSON columns and decode them if needed.
+			foreach ( $json_columns as $column ) {
+
+				// Only decode if the value is a string (i.e. not already decoded) and is valid JSON.
+				if ( isset( $item[ $column->name ] ) ) {
+					$item[ $column->name ] = $column->cast( $item[ $column->name ] );
+				}
+			}
+		}
+
 		// stdClass does not hydrate constructor arguments into properties.
 		if ( 'stdClass' === $item_shape ) {
 			return (object) $item;
@@ -2907,7 +2921,7 @@ class Query {
 		}
 
 		// Loop through columns and remove any the current user cannot access.
-		foreach ( $work as $key => $value ) {
+		foreach ( array_keys( $work ) as $key ) {
 
 			// Get the caps for this column.
 			$caps = $this->get_column_field( array( 'name' => $key ), 'caps' );

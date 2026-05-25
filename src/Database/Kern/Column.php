@@ -620,6 +620,20 @@ class Column {
 	/** Public Helpers ********************************************************/
 
 	/**
+	 * Return if a column type is JSON.
+	 *
+	 * @since 3.0.0
+	 * @return bool True if json type only.
+	 */
+	public function is_json() {
+		return $this->is_type(
+			array(
+				'json',
+			)
+		);
+	}
+
+	/**
 	 * Return if a column type is a bool.
 	 *
 	 * @since 3.0.0
@@ -972,6 +986,11 @@ class Column {
 			return $callback;
 		}
 
+		// JSON.
+		if ( $this->is_json() ) {
+			return array( $this, 'cast_json' );
+		}
+
 		// Bool.
 		if ( $this->is_bool() ) {
 			return array( $this, 'cast_bool' );
@@ -1019,6 +1038,10 @@ class Column {
 		// UUID special column.
 		if ( true === $this->uuid ) {
 			$callback = array( $this, 'validate_uuid' );
+
+			// JSON explicit fallback.
+		} elseif ( $this->is_json() ) {
+			$callback = array( $this, 'validate_json' );
 
 			// Datetime explicit fallback.
 		} elseif ( $this->is_type( 'datetime' ) ) {
@@ -1090,6 +1113,74 @@ class Column {
 		return ( null !== $result )
 			? $result
 			: (bool) $value;
+	}
+
+	/**
+	 * Cast a JSON string to a PHP array after it is read from the database.
+	 *
+	 * Idempotent: if the value is already an array or object it is returned
+	 * as-is, so double-casting (e.g. from both the Column and a Row subclass)
+	 * is safe.
+	 *
+	 * @since 3.0.0
+	 * @param mixed $value Value to cast.
+	 * @return array<mixed>|mixed Decoded PHP array, or the original value on failure.
+	 */
+	public function cast_json( $value = '' ) {
+
+		// Already decoded — pass through unchanged.
+		if ( is_array( $value ) || is_object( $value ) ) {
+			return $value;
+		}
+
+		// Null — let the caller decide what null means.
+		if ( null === $value ) {
+			return null;
+		}
+
+		// Decode non-empty strings.
+		if ( is_string( $value ) && '' !== $value ) {
+			$decoded = json_decode( $value, true );
+
+			if ( JSON_ERROR_NONE === json_last_error() ) {
+				return $decoded;
+			}
+		}
+
+		// Fallback to an empty array for anything else.
+		return array();
+	}
+
+	/**
+	 * Validate a value before it is written to a JSON column.
+	 *
+	 * Arrays and objects are encoded with wp_json_encode(). Strings are
+	 * accepted as-is when they contain valid JSON; an empty object `{}` is
+	 * substituted for invalid or empty strings. Non-scalar, non-array values
+	 * fall back to `{}` as well.
+	 *
+	 * @since 3.0.0
+	 * @param mixed $value Value to validate.
+	 * @return string JSON-encoded string ready for storage.
+	 */
+	public function validate_json( $value = '' ) {
+
+		// Array or object: encode to a JSON string.
+		if ( is_array( $value ) || is_object( $value ) ) {
+			$encoded = wp_json_encode( $value );
+			return ( false !== $encoded ) ? $encoded : '{}';
+		}
+
+		// Valid non-empty JSON string: pass through unchanged.
+		if ( is_string( $value ) && '' !== $value ) {
+			json_decode( $value );
+			if ( JSON_ERROR_NONE === json_last_error() ) {
+				return $value;
+			}
+		}
+
+		// Everything else (empty string, non-scalar, invalid JSON) → empty object.
+		return '{}';
 	}
 
 	/**
@@ -1395,6 +1486,11 @@ class Column {
 		$lower = strtolower( $this->type );
 		$parts = array();
 
+		// JSON takes no length and no character-set clause.
+		if ( $this->is_json() ) {
+			return $lower;
+		}
+
 		// Type with optional length.
 		$parts[] = ! empty( $this->length ) && is_numeric( $this->length )
 			? "{$lower}({$this->length})"
@@ -1456,6 +1552,11 @@ class Column {
 		// Explicit default: trust it when not auto-incrementing.
 		if ( ! empty( $this->default ) && ! $this->is_extra( 'AUTO_INCREMENT' ) ) {
 			return "default '{$this->default}'";
+		}
+
+		// JSON columns cannot carry a string-literal default in MySQL DDL.
+		if ( $this->is_json() ) {
+			return '';
 		}
 
 		// Numeric — use 0 unless the column is auto-incrementing.
