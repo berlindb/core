@@ -287,7 +287,8 @@ class Table {
 
 		// Update DB version based on the current site.
 		if ( ! $this->is_global() ) {
-			$this->db_version = get_blog_option( $site_id, $this->db_version_key, false );
+			$db_version = get_blog_option( $site_id, $this->db_version_key, false );
+			$this->db_version = is_scalar( $db_version ) ? (string) $db_version : '';
 		}
 
 		// Update interface for switched site.
@@ -933,11 +934,16 @@ class Table {
 		}
 
 		// Query statement.
-		$sql      = "SHOW COLUMNS FROM {$this->table_name} LIKE %s";
-		$name     = $this->sanitize_column_name( $name );
+		$sql  = "SHOW COLUMNS FROM {$this->table_name} LIKE %s";
+		$name = $this->sanitize_column_name( $name );
+
+		if ( false === $name ) {
+			return false;
+		}
+
 		$like     = $db->esc_like( $name );
 		$prepared = $db->prepare( $sql, $like );
-		$result   = $db->query( $prepared );
+		$result   = ! empty( $prepared ) ? $db->query( $prepared ) : false;
 
 		// Does the column exist?
 		return $this->is_success( $result );
@@ -970,11 +976,16 @@ class Table {
 		}
 
 		// Query statement.
-		$sql      = "SHOW INDEXES FROM {$this->table_name} WHERE {$column} LIKE %s";
-		$name     = $this->sanitize_column_name( $name );
+		$sql  = "SHOW INDEXES FROM {$this->table_name} WHERE {$column} LIKE %s";
+		$name = $this->sanitize_column_name( $name );
+
+		if ( false === $name ) {
+			return false;
+		}
+
 		$like     = $db->esc_like( $name );
 		$prepared = $db->prepare( $sql, $like );
-		$result   = $db->query( $prepared );
+		$result   = ! empty( $prepared ) ? $db->query( $prepared ) : false;
 
 		// Does the index exist?
 		return $this->is_success( $result );
@@ -1377,9 +1388,16 @@ class Table {
 	 * @since 1.0.0
 	 */
 	private function get_db_version(): void {
-		$this->db_version = $this->is_global()
+
+		// Get the DB version.
+		$db_version = $this->is_global()
 			? get_network_option( get_main_network_id(), $this->db_version_key, '' )
 			: get_option( $this->db_version_key, '' );
+
+		// Set the DB version.
+		$this->db_version = is_scalar( $db_version )
+			? (string) $db_version
+			: '';
 	}
 
 	/**
@@ -1501,7 +1519,7 @@ class Table {
 	 *
 	 * @param string $callback
 	 *
-	 * @return array<int, mixed>|string|false Resolved callable, or false if not callable.
+	 * @return callable|false Resolved callable, or false if not callable.
 	 */
 	private function get_callable( $callback = '' ) {
 

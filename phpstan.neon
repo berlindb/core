@@ -5,20 +5,6 @@ parameters:
     bootstrapFiles:
         - vendor/szepeviktor/phpstan-wordpress/bootstrap.php
     treatPhpDocTypesAsCertain: false
-    ignoreErrors:
-        - '#expects literal-string, .*given\.#'
-        - '#expects int, .*given\.#'
-        - '#expects int\|null, .*given\.#'
-        - '#expects array<int>\|string, .*given\.#'
-        - '#expects array, .*given\.#'
-        - '#expects string, .*given\.#'
-        - '#expects array<string, mixed>, .*given\.#'
-        - '#expects array<string, mixed>\|int\|object, .*given\.#'
-        - '#expects int\|list<object>\|object, .*given\.#'
-        - '#expects int\|list<int\|string>, .*given\.#'
-        - '#expects callable.*, .*given\.#'
-        - '#Cannot call method (get_sql|get_value_sql)\(\) on BerlinDB\\Database\\Operators\\Base\|false\.#'
-        - '#Call to an undefined method object::get_orderby_sql\(\)\.#'
-        - '#Argument of an invalid type array<string, mixed>\|object supplied for foreach#'
-        - '#Parameter \#1 \$hook_name of function (do_action|do_action_ref_array|apply_filters|apply_filters_ref_array) expects non-empty-string, string given\.#'
+    stubFiles:
+        - phpstan/stubs/wpdb.stub.php
 

@@ -314,9 +314,9 @@ class Column {
 	 * See: https://www.php.net/manual/en/function.printf.php
 	 *
 	 * @since 1.0.0
-	 * @var   string Default empty string.
+	 * @var   '%s'|'%d'|'%f' Default empty string.
 	 */
-	public $pattern = '';
+	public $pattern = '%s';
 
 	/**
 	 * Is this column searchable?
@@ -922,7 +922,7 @@ class Column {
 	 * @since 1.0.0
 	 * @since 3.0.0 Falls back to using is_ methods if invalid param
 	 * @param string $pattern Default '%s'. Allowed values: %s, %d, %f
-	 * @return string Default '%s'.
+	 * @return '%s'|'%d'|'%f' Default '%s'.
 	 */
 	private function sanitize_pattern( $pattern = '%s' ) {
 
@@ -1114,7 +1114,7 @@ class Column {
 		}
 
 		// Return the callback (already sanitized as callable).
-		if ( ! empty( $this->validate ) ) {
+		if ( ! empty( $this->validate ) && is_callable( $this->validate ) ) {
 			return call_user_func( $this->validate, $value );
 		}
 
@@ -1270,7 +1270,7 @@ class Column {
 			: 1;
 
 		// Only numbers and period.
-		$value = preg_replace( '/[^0-9\.]/', '', (string) $value );
+		$value = preg_replace( '/[^0-9\.]/', '', (string) $value ) ?? '';
 
 		// Attempt to find the decimal position.
 		if ( false === $decimals ) {

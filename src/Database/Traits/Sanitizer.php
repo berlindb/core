@@ -70,7 +70,7 @@ trait Sanitizer {
 		$single = preg_replace( '/_+/', '_', $under );
 
 		// Remove leading/trailing underscores.
-		$clean = trim( $single, '_' );
+		$clean = trim( $single ?? '', '_' );
 
 		// Bail if table name was garbaged or return the cleaned table name.
 		return empty( $clean )

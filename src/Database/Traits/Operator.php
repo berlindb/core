@@ -125,8 +125,8 @@ trait Operator {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param mixed  $value   The value(s) to compare against.
-	 * @param string $pattern Optional. A wpdb::prepare() placeholder. Default '%s'.
+	 * @param mixed          $value   The value(s) to compare against.
+	 * @param '%s'|'%d'|'%f' $pattern Optional. A wpdb::prepare() placeholder. Default '%s'.
 	 *
 	 * @return string Prepared SQL value fragment, or empty string on failure.
 	 */

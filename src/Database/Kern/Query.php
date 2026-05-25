@@ -24,7 +24,7 @@ defined( 'ABSPATH' ) || exit;
  *
  * @since 1.0.0
  *
- * @property list<object> $parsers
+ * @property array<string, \BerlinDB\Database\Parsers\Base> $parsers
  *
  * @param array|string $query {
  *     Optional. Array or query string of item query parameters.
@@ -219,7 +219,7 @@ class Query {
 	 * Never mutated after that — see $current['parsers'] for per-query instances.
 	 *
 	 * @since 3.0.0
-	 * @var   \BerlinDB\Database\Parsers\Base[]
+	 * @var   array<string, \BerlinDB\Database\Parsers\Base>
 	 */
 	protected $parsers = array();
 
@@ -317,13 +317,16 @@ class Query {
 	 * @return list<object>|int Array of items, or number of items when 'count' is passed as a query var.
 	 */
 	public function query( $query = array() ) {
-		return $this->run(
+		$result = $this->run(
 			function () use ( $query ) {
 				$this->parse_query( $query );
 
 				return $this->get_items();
 			}
 		);
+
+		/** @var list<object>|int $result */
+		return $result;
 	}
 
 	/** Private Setters *******************************************************/
@@ -555,7 +558,7 @@ class Query {
 	 * @since 1.0.0
 	 * @since 3.0.0 Uses filter_found_items_query().
 	 *
-	 * @param list<int|string>|int $item_ids Optional array of item IDs, or count from a COUNT query.
+	 * @param mixed $item_ids Optional array of item IDs, or count from a COUNT query.
 	 */
 	private function set_found_items( $item_ids = array() ): void {
 
@@ -696,7 +699,8 @@ class Query {
 	 * @return string Default "id", Primary column name if not empty
 	 */
 	public function get_primary_column_name() {
-		return $this->get_column_field( array( 'primary' => true ), 'name', 'id' );
+		$name = $this->get_column_field( array( 'primary' => true ), 'name', 'id' );
+		return is_string( $name ) ? $name : 'id';
 	}
 
 	/**
@@ -734,9 +738,11 @@ class Query {
 		$filter = $this->get_columns( $args );
 
 		// Return column or false.
-		return ! empty( $filter )
+		$column = ! empty( $filter )
 			? reset( $filter )
 			: false;
+
+		return $column instanceof Column ? $column : false;
 	}
 
 	/**
@@ -918,7 +924,7 @@ class Query {
 	 * @param string               $operator Comparison operator: 'and' or 'or'. Default 'and'.
 	 * @param mixed                $field    Optional. Return this property from each match instead of the full object.
 	 *
-	 * @return list<object> Filtered array of parser objects (or field values).
+	 * @return list<\BerlinDB\Database\Parsers\Base> Filtered array of parser objects (or field values).
 	 */
 	public function get_parsers( $args = array(), $operator = 'and', $field = false ) {
 
@@ -929,7 +935,8 @@ class Query {
 			: $this->parsers;
 
 		// Filter parsers.
-		$filter = wp_filter_object_list( $source, $args, $operator, $field );
+		$field_val = is_string( $field ) ? $field : (is_bool( $field ) ? $field : false);
+		$filter = wp_filter_object_list( $source, $args, $operator, $field_val );
 
 		// Return parsers or empty array.
 		return ! empty( $filter )
@@ -993,7 +1000,8 @@ class Query {
 	 * @return string
 	 */
 	public function get_request() {
-		return $this->get_current( 'request', '' );
+		$request = $this->get_current( 'request', '' );
+		return is_string( $request ) ? $request : '';
 	}
 
 	/**
@@ -1005,7 +1013,8 @@ class Query {
 	 * @return int
 	 */
 	public function get_found_items() {
-		return $this->get_current( 'found_items', 0 );
+		$found_items = $this->get_current( 'found_items', 0 );
+		return is_int( $found_items ) ? $found_items : 0;
 	}
 
 	/**
@@ -1017,7 +1026,8 @@ class Query {
 	 * @return int
 	 */
 	public function get_max_num_pages() {
-		return $this->get_current( 'max_num_pages', 0 );
+		$max_num_pages = $this->get_current( 'max_num_pages', 0 );
+		return is_int( $max_num_pages ) ? $max_num_pages : 0;
 	}
 
 	/**
@@ -1137,10 +1147,11 @@ class Query {
 
 		// Get query parts.
 		$table   = $this->get_table_name();
-		$pattern = $this->get_column_field( array( 'name' => $column_name ), 'pattern', '%s' );
+		$pattern_val = $this->get_column_field( array( 'name' => $column_name ), 'pattern', '%s' );
+		$pattern_str = is_string( $pattern_val ) ? $pattern_val : '%s';
 
 		// Query database.
-		$query  = "SELECT * FROM {$table} WHERE {$column_name} = {$pattern} LIMIT 1";
+		$query  = "SELECT * FROM {$table} WHERE {$column_name} = {$pattern_str} LIMIT 1";
 		$select = $db->prepare( $query, $column_value );
 		$result = $db->get_row( $select );
 
@@ -1172,12 +1183,14 @@ class Query {
 		 *
 		 * @param \BerlinDB\Database\Kern\Query $query Current instance passed by reference.
 		 */
-		do_action_ref_array(
-			$action_name,
-			array(
-				&$this,
-			)
-		);
+		if ( '' !== $action_name ) {
+			do_action_ref_array(
+				$action_name,
+				array(
+					&$this,
+				)
+			);
+		}
 
 		// Check the cache.
 		$cache_key   = $this->get_cache_key();
@@ -1203,17 +1216,26 @@ class Query {
 
 			// Value exists in cache.
 		} else {
-			$result = $cache_value['item_ids'];
-			$this->set_current( 'found_items', (int) $cache_value['found_items'] );
+			if ( is_array( $cache_value ) ) {
+				$result = $cache_value['item_ids'] ?? array();
+				$found_items_val = $cache_value['found_items'] ?? 0;
+				$this->set_current( 'found_items', is_scalar( $found_items_val ) ? (int) $found_items_val : 0 );
+			} else {
+				$result = array();
+				$this->set_current( 'found_items', 0 );
+			}
 		}
 
 		// Pagination.
 		$found_items = $this->get_current( 'found_items' );
-		if ( ! empty( $found_items ) ) {
-			$number = (int) $this->get_query_var( 'number' );
+		if ( ! empty( $found_items ) && is_numeric( $found_items ) ) {
+			$number = $this->get_query_var( 'number' );
 
-			if ( ! empty( $number ) ) {
-				$this->set_current( 'max_num_pages', (int) ceil( $found_items / $number ) );
+			if ( is_int( $number ) || is_string( $number ) ) {
+				$number_int = (int) $number;
+				if ( ! empty( $number_int ) ) {
+					$this->set_current( 'max_num_pages', (int) ceil( (int)$found_items / $number_int ) );
+				}
 			}
 		}
 
@@ -1221,22 +1243,27 @@ class Query {
 		if ( $this->get_query_var( 'count' ) ) {
 
 			// Set items.
-			$this->items = $result;
+			$this->items = is_array( $result ) ? $result : (is_int( $result ) ? $result : (is_scalar( $result ) ? (int) $result : 0));
 
 			// Not grouping, so cast to int.
 			if ( ! $this->get_query_var( 'groupby' ) ) {
-				$this->items = (int) $result;
+				$this->items = is_int( $result ) ? $result : (is_scalar( $result ) ? (int) $result : 0);
 			}
 
 			// Return.
-			return $this->items;
+			return is_array( $this->items ) ? $this->items : (is_int( $this->items ) ? $this->items : 0);
 		}
 
 		// Set items from result.
-		$this->set_items( $result );
+		if ( is_array( $result ) ) {
+			/** @var list<int|string> $result */
+			$this->set_items( $result );
+		} else {
+			$this->set_items( array() );
+		}
 
 		// Return array of items.
-		return $this->items;
+		return is_array( $this->items ) ? $this->items : (is_int( $this->items ) ? $this->items : array());
 	}
 
 	/**
@@ -1265,7 +1292,8 @@ class Query {
 		}
 
 		// Get the request SQL string.
-		$request = $this->get_current( 'request' );
+		$request_val = $this->get_current( 'request' );
+		$request = is_string( $request_val ) ? $request_val : null;
 
 		// Return count.
 		if ( $this->get_query_var( 'count' ) ) {
@@ -1318,7 +1346,8 @@ class Query {
 
 		// Fallback to column pattern.
 		if ( empty( $pattern ) || ! is_string( $pattern ) ) {
-			$pattern = $this->get_column_field( array( 'name' => $column_name ), 'pattern', '%s' );
+			$pattern_val = $this->get_column_field( array( 'name' => $column_name ), 'pattern', '%s' );
+			$pattern = is_string( $pattern_val ) ? $pattern_val : '%s';
 		}
 
 		// Fill an array of patterns to match the number of values.
@@ -1360,8 +1389,10 @@ class Query {
 		$this->set_current( 'query_var_originals', wp_parse_args( $query ) );
 
 		// Setup the $query_vars parsed var.
+		$originals = $this->get_current( 'query_var_originals' );
+		$originals_val = is_array( $originals ) ? $originals : (is_string( $originals ) ? $originals : array());
 		$this->query_vars = wp_parse_args(
-			$this->get_current( 'query_var_originals' ),
+			$originals_val,
 			$this->query_var_defaults
 		);
 
@@ -1385,12 +1416,14 @@ class Query {
 		 *
 		 * @param \BerlinDB\Database\Kern\Query $query Current instance passed by reference.
 		 */
-		do_action_ref_array(
-			$action_name,
-			array(
-				&$this,
-			)
-		);
+		if ( '' !== $action_name ) {
+			do_action_ref_array(
+				$action_name,
+				array(
+					&$this,
+				)
+			);
+		}
 	}
 
 	/**
@@ -1485,7 +1518,7 @@ class Query {
 	 * @since 3.0.0
 	 *
 	 * @param array<string, mixed> $query_vars Query vars.
-	 * @return array{join: array<string, string>, where: array<string, string>}
+	 * @return array{join: array<string, mixed>, where: array<string, string>}
 	 */
 	private function parse_join_where_parsers( $query_vars = array() ) {
 
@@ -1736,7 +1769,7 @@ class Query {
 		if ( ! empty( $count ) ) {
 
 			// Use count instead.
-			$retval = $this->parse_count( $count, $groupby );
+			$retval = $this->parse_count( (bool) $count, is_array( $groupby ) ? implode( ', ', $groupby ) : $groupby );
 
 			// Not counting, so use primary column.
 		} else {
@@ -1909,7 +1942,7 @@ class Query {
 
 		// Fallback to default orderby & order.
 		if ( empty( $orderby ) ) {
-			$parsed = $this->parse_single_orderby( $orderby, $alias );
+			$parsed = $this->parse_single_orderby( (string) $orderby, $alias );
 			$order  = $this->parse_order( $order );
 			$retval = "{$parsed} {$order}";
 
@@ -2004,7 +2037,8 @@ class Query {
 
 		// Maybe fallback to query_clauses.
 		if ( empty( $clauses ) ) {
-			$clauses = $this->get_current( 'query_clauses', array() );
+			$clauses_val = $this->get_current( 'query_clauses', array() );
+			$clauses = is_array( $clauses_val ) ? $clauses_val : (is_string( $clauses_val ) ? $clauses_val : array());
 		}
 
 		// Default return value.
@@ -2153,17 +2187,17 @@ class Query {
 
 		// Get the item from an ID.
 		if ( is_numeric( $item ) ) {
-			$item = $this->get_item( $item );
+			$item = $this->get_item( (int) $item );
 		}
 
 		// Return the item if it's already shaped.
 		$item_shape = $this->get_current( 'item_shape' );
-		if ( $item instanceof $item_shape ) {
+		if ( is_string( $item_shape ) && ! empty( $item_shape ) && $item instanceof $item_shape ) {
 			return $item;
 		}
 
 		// Shape the item as needed.
-		$item = ! empty( $item_shape )
+		$item = ( is_string( $item_shape ) && ! empty( $item_shape ) )
 			? new $item_shape( $item )
 			: (object) $item;
 
@@ -2215,7 +2249,14 @@ class Query {
 
 		// Maybe return specific fields.
 		if ( ! empty( $fields ) ) {
-			$retval = $this->get_item_fields( $retval, $fields );
+			if ( is_array( $fields ) ) {
+				$fields_list = array_values( array_filter( $fields, 'is_string' ) );
+			} elseif ( is_string( $fields ) ) {
+				$fields_list = array( $fields );
+			} else {
+				$fields_list = array();
+			}
+			$retval = $this->get_item_fields( $retval, $fields_list );
 		}
 
 		// Return shaped items.
@@ -2251,7 +2292,8 @@ class Query {
 		}
 
 		// Return the validated item ID.
-		return $this->validate_item_field( $retval, $primary );
+		$validated = $this->validate_item_field( $retval, $primary );
+		return ( is_int( $validated ) || is_string( $validated ) ) ? $validated : (is_scalar( $validated ) ? (string) $validated : 0);
 	}
 
 	/**
@@ -2318,7 +2360,11 @@ class Query {
 			// Get fields from items.
 		} else {
 			$retval = array();
-			$fields = array_flip( $fields );
+			$fields_to_flip = array_values( array_filter( $fields, function( $v ) {
+				return is_int( $v ) || is_string( $v );
+			} ) );
+			/** @var array<int|string> $fields_to_flip */
+			$fields = array_flip( $fields_to_flip );
 
 			// Loop through items and pluck out the fields.
 			foreach ( $items as $item ) {
@@ -2340,7 +2386,7 @@ class Query {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param int|array<string, mixed>|object $item_id The ID of the item.
+	 * @param int|string|array<string, mixed>|object $item_id The ID of the item.
 	 * @return object|false False if empty/error, Object if successful.
 	 */
 	public function get_item( $item_id = 0 ) {
@@ -2407,11 +2453,17 @@ class Query {
 			}
 
 			// Update item cache(s) — read path, do not bump last_changed.
-			$this->update_item_cache( $retval, false );
+			if ( is_object( $retval ) ) {
+				$this->update_item_cache( $retval, false );
+			}
 		}
 
 		// Reduce the item.
-		$retval = $this->reduce_item( 'select', $retval );
+		if ( is_array( $retval ) || is_object( $retval ) ) {
+			/** @var array<string, mixed>|object $reduce_target */
+			$reduce_target = $retval;
+			$retval        = $this->reduce_item( 'select', $reduce_target );
+		}
 
 		// Return result.
 		return $this->shape_item( $retval );
@@ -2442,7 +2494,18 @@ class Query {
 		if ( ! empty( $data[ $primary ] ) ) {
 
 			// Shape the primary item ID.
-			$item_id = $this->shape_item_id( $data[ $primary ] );
+			$primary_val = $data[ $primary ];
+			if ( is_object( $primary_val ) ) {
+				$item_id = $this->shape_item_id( $primary_val );
+			} elseif ( is_array( $primary_val ) ) {
+				/** @var array<string, mixed> $primary_arr */
+				$primary_arr = $primary_val;
+				$item_id = $this->shape_item_id( $primary_arr );
+			} elseif ( is_scalar( $primary_val ) ) {
+				$item_id = $this->shape_item_id( $primary_val );
+			} else {
+				$item_id = 0;
+			}
 
 			// Get item by ID (from database, not cache).
 			$item = $this->get_item_raw( $primary, $item_id );
@@ -2501,7 +2564,8 @@ class Query {
 		if ( ! empty( $save ) ) {
 			$table       = $this->get_table_name();
 			$names       = array_keys( $save );
-			$save_format = $this->get_columns_field_by( 'name', $names, 'pattern', '%s' );
+			$save_format_raw = $this->get_columns_field_by( 'name', $names, 'pattern', '%s' );
+			$save_format = is_array( $save_format_raw ) ? array_values( array_filter( $save_format_raw, 'is_string' ) ) : (is_string( $save_format_raw ) ? $save_format_raw : null);
 			$retval      = $db->insert( $table, $save, $save_format );
 		}
 
@@ -2622,7 +2686,17 @@ class Query {
 
 		// Slice data that has columns, and cut out non-keys for meta.
 		$columns = array_flip( $this->get_column_names() );
-		$data    = array_diff_assoc( $data, $item );
+		/** @var array<string, string> $data_cast */
+		$data_cast = array_map( 'strval', array_filter( $data, 'is_scalar' ) );
+		/** @var array<string, string> $item_cast */
+		$item_cast = array_map( 'strval', array_filter( $item, 'is_scalar' ) );
+		$diff_keys = array_keys( array_diff_assoc( $data_cast, $item_cast ) );
+		foreach ( $data as $k => $v ) {
+			if ( ! is_scalar( $v ) ) {
+				$diff_keys[] = $k;
+			}
+		}
+		$data    = array_intersect_key( $data, array_flip( $diff_keys ) );
 		$meta    = array_diff_key( $data, $columns );
 		$save    = array_intersect_key( $data, $columns );
 
@@ -2651,12 +2725,14 @@ class Query {
 
 		// Try to update.
 		if ( ! empty( $save ) ) {
-			$table        = $this->get_table_name();
-			$where        = array( $primary => $item_id );
-			$names        = array_keys( $save );
-			$save_format  = $this->get_columns_field_by( 'name', $names, 'pattern', '%s' );
-			$where_format = $this->get_columns_field_by( 'name', $primary, 'pattern', '%s' );
-			$retval       = $db->update( $table, $save, $where, $save_format, $where_format );
+			$table            = $this->get_table_name();
+			$where            = array( $primary => $item_id );
+			$names            = array_keys( $save );
+			$save_format_raw  = $this->get_columns_field_by( 'name', $names, 'pattern', '%s' );
+			$save_format      = is_array( $save_format_raw ) ? array_values( array_filter( $save_format_raw, 'is_string' ) ) : (is_string( $save_format_raw ) ? $save_format_raw : null);
+			$where_format_raw = $this->get_columns_field_by( 'name', $primary, 'pattern', '%s' );
+			$where_format     = is_array( $where_format_raw ) ? array_values( array_filter( $where_format_raw, 'is_string' ) ) : (is_string( $where_format_raw ) ? $where_format_raw : null);
+			$retval           = $db->update( $table, $save, $where, $save_format, $where_format );
 		}
 
 		// Bail on failure.
@@ -2711,19 +2787,27 @@ class Query {
 			return false;
 		}
 
-		// Attempt to reduce this item.
-		$item = $this->reduce_item( 'delete', $item );
-
-		// Bail if item was reduced to nothing.
-		if ( empty( $item ) ) {
+		/*
+		 * Reduce to the columns the current user can delete; bail if none
+		 * allowed. Keep the original object for cache cleanup — reduce_item
+		 * returns an array, but clean_item_cache needs the object to look up
+		 * cache keys by property.
+		 */
+		$reduced = $this->reduce_item( 'delete', $item );
+		if ( empty( $reduced ) ) {
 			return false;
 		}
 
 		// Try to delete.
-		$table        = $this->get_table_name();
-		$where        = array( $primary => $item_id );
-		$where_format = $this->get_columns_field_by( 'name', $primary, 'pattern', '%s' );
-		$retval       = $db->delete( $table, $where, $where_format );
+		$table            = $this->get_table_name();
+		$where            = array( $primary => $item_id );
+		$where_format_raw = $this->get_columns_field_by( 'name', $primary, 'pattern', '%s' );
+		$where_format     = is_array( $where_format_raw )
+			? array_values( array_filter( $where_format_raw, 'is_string' ) )
+			: ( is_string( $where_format_raw )
+				? $where_format_raw
+				: null );
+		$retval           = $db->delete( $table, $where, $where_format );
 
 		// Bail on failure.
 		if ( ! $this->is_success( $retval ) ) {
@@ -2742,14 +2826,16 @@ class Query {
 		 *
 		 * @since 1.0.0
 		 *
-		 * @param int   $item_id The ID of the item that was deleted.
-		 * @param bool  $result  Whether the item was successfully deleted.
+		 * @param int  $item_id The ID of the item that was deleted.
+		 * @param bool $result  Whether the item was successfully deleted.
 		 */
-		do_action(
-			$action_name,
-			(int) $item_id,
-			(bool) $retval
-		);
+		if ( '' !== $action_name ) {
+			do_action(
+				$action_name,
+				(int) $item_id,
+				(bool) $retval
+			);
+		}
 
 		// Return.
 		return (bool) $retval;
@@ -2783,48 +2869,52 @@ class Query {
 	 * Reduce an item down to the keys and values the current user has the
 	 * appropriate capabilities to select|insert|update|delete.
 	 *
-	 * Note that internally, this method works with both arrays and objects of
-	 * any type, and also resets the key values. It looks weird, but is
-	 * currently by design to protect the integrity of the return value.
+	 * Always returns an array. Columns not present in the schema are also
+	 * removed — no caps entry resolves to an empty capability string, which
+	 * fails the current_user_can check.
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param string                     $method select|insert|update|delete
+	 * @param string                      $method select|insert|update|delete
 	 * @param object|array<string, mixed> $item   Object or array of keys/values to reduce.
 	 *
-	 * @return object|array<string, mixed> Item with capability-restricted keys removed.
+	 * @return array<string, mixed> Item with capability-restricted keys removed.
 	 */
 	private function reduce_item( $method = 'update', $item = array() ) {
 
 		// Bail if item is empty.
 		if ( empty( $item ) ) {
-			return $item;
+			return array();
 		}
 
-		// Loop through item attributes.
-		foreach ( $item as $key => $value ) {
+		// Normalise to an array for uniform processing.
+		if ( is_object( $item ) ) {
+			$work = (array) $item;
+		} elseif ( is_array( $item ) ) {
+			$work = $item;
+		} else {
+			return array();
+		}
 
-			// Get capabilities for this column.
+		// Loop through columns and remove any the current user cannot access.
+		foreach ( $work as $key => $value ) {
+
+			// Get the caps for this column.
 			$caps = $this->get_column_field( array( 'name' => $key ), 'caps' );
 
-			// Unset if not explicitly allowed.
-			if ( empty( $caps[ $method ] ) || ! current_user_can( $caps[ $method ] ) ) {
-				if ( is_array( $item ) ) {
-					unset( $item[ $key ] );
-				} elseif ( is_object( $item ) ) {
-					$item->{$key} = null;
-				}
+			// Get the capability for this method, if it exists.
+			$method_cap = ( is_array( $caps ) && isset( $caps[ $method ] ) && is_string( $caps[ $method ] ) )
+				? $caps[ $method ]
+				: '';
 
-				// Set if explicitly allowed.
-			} elseif ( is_array( $item ) ) {
-				$item[ $key ] = $value;
-			} elseif ( is_object( $item ) ) {
-				$item->{$key} = $value;
+			// Remove any columns the current user cannot access.
+			if ( empty( $method_cap ) || ! current_user_can( $method_cap ) ) {
+				unset( $work[ $key ] );
 			}
 		}
 
 		// Return the reduced item.
-		return $item;
+		return $work;
 	}
 
 	/**
@@ -2847,14 +2937,18 @@ class Query {
 		$r = wp_parse_args( $args );
 
 		// Get the column names and their defaults.
-		$names    = $this->get_columns( $r, 'and', 'name'    );
-		$defaults = $this->get_columns( $r, 'and', 'default' );
+		$names_raw = $this->get_columns( $r, 'and', 'name' );
+		$names     = is_array( $names_raw ) ? array_values( array_filter( $names_raw, 'is_string' ) ) : array();
+		$defaults  = $this->get_columns( $r, 'and', 'default' );
+		$defaults  = is_array( $defaults ) ? $defaults : array();
 
 		// Combine them.
 		$retval = array_combine( $names, $defaults );
 
 		// Return.
-		return $retval;
+		return ! empty( $retval )
+			? $retval
+			: array();
 	}
 
 	/**
@@ -2872,7 +2966,8 @@ class Query {
 	private function transition_item( $item_id = 0, $new_data = array(), $old_data = array() ): void {
 
 		// Look for transition columns.
-		$columns = $this->get_columns( array( 'transition' => true ), 'and', 'name' );
+		$columns_raw = $this->get_columns( array( 'transition' => true ), 'and', 'name' );
+		$columns     = is_array( $columns_raw ) ? array_values( array_filter( $columns_raw, 'is_string' ) ) : array();
 
 		// Bail if no columns to transition.
 		if ( empty( $columns ) ) {
@@ -2903,8 +2998,12 @@ class Query {
 		$new  = array_intersect_key( $new_data, $keys );
 		$old  = array_intersect_key( $old_data, $keys );
 
+		// Filter to scalar values to allow safe array_diff
+		$new_scalars = array_filter( $new, 'is_scalar' );
+		$old_scalars = array_filter( $old, 'is_scalar' );
+
 		// Get the difference.
-		$diff = array_diff( $new, $old );
+		$diff = array_diff( $new_scalars, $old_scalars );
 
 		// Bail if nothing is changing.
 		if ( empty( $diff ) ) {
@@ -2929,7 +3028,9 @@ class Query {
 			 * @param mixed $new_value The value being transitioned TO.
 			 * @param int   $item_id   The ID of the item that is transitioning.
 			 */
-			do_action( $key_action, $old_value, $new_value, (int) $item_id );
+			if ( '' !== $key_action ) {
+				do_action( $key_action, $old_value, $new_value, (int) $item_id );
+			}
 		}
 	}
 
@@ -2951,8 +3052,8 @@ class Query {
 		// Shape the item ID.
 		$item_id = $this->shape_item_id( $item_id );
 
-		// Bail if no meta to add.
-		if ( empty( $item_id ) || empty( $meta_key ) ) {
+		// Bail if no meta to add, or if the ID is not an integer (metadata requires integer IDs).
+		if ( ! is_int( $item_id ) || empty( $item_id ) || empty( $meta_key ) ) {
 			return false;
 		}
 
@@ -2983,8 +3084,8 @@ class Query {
 		// Shape the item ID.
 		$item_id = $this->shape_item_id( $item_id );
 
-		// Bail if no meta was returned.
-		if ( empty( $item_id ) || empty( $meta_key ) ) {
+		// Bail if no meta was returned, or if the ID is not an integer (metadata requires integer IDs).
+		if ( ! is_int( $item_id ) || empty( $item_id ) || empty( $meta_key ) ) {
 			return false;
 		}
 
@@ -3016,8 +3117,8 @@ class Query {
 		// Shape the item ID.
 		$item_id = $this->shape_item_id( $item_id );
 
-		// Bail if no meta was returned.
-		if ( empty( $item_id ) || empty( $meta_key ) ) {
+		// Bail if no meta was returned, or if the ID is not an integer (metadata requires integer IDs).
+		if ( ! is_int( $item_id ) || empty( $item_id ) || empty( $meta_key ) ) {
 			return false;
 		}
 
@@ -3049,8 +3150,8 @@ class Query {
 		// Shape the item ID.
 		$item_id = $this->shape_item_id( $item_id );
 
-		// Bail if no meta was returned.
-		if ( empty( $item_id ) || empty( $meta_key ) ) {
+		// Bail if no meta was returned, or if the ID is not an integer (metadata requires integer IDs).
+		if ( ! is_int( $item_id ) || empty( $item_id ) || empty( $meta_key ) ) {
 			return false;
 		}
 
@@ -3161,9 +3262,10 @@ class Query {
 		$primary = $this->get_primary_column_name();
 
 		// Guess the item ID column for the meta table.
-		$item_name       = $this->get_item_name();
-		$item_id_column  = $this->apply_prefix( $item_name . '_' . $primary );
-		$item_id_pattern = $this->get_column_field( array( 'name' => $primary ), 'pattern', '%s' );
+		$item_name           = $this->get_item_name();
+		$item_id_column      = $this->apply_prefix( $item_name . '_' . $primary );
+		$item_id_pattern_val = $this->get_column_field( array( 'name' => $primary ), 'pattern', '%s' );
+		$item_id_pattern     = is_string( $item_id_pattern_val ) ? $item_id_pattern_val : '%s';
 
 		// Get meta IDs.
 		$query    = "SELECT meta_id FROM {$table} WHERE {$item_id_column} = {$item_id_pattern}";
@@ -3319,7 +3421,8 @@ class Query {
 		$cache_groups = array();
 
 		// Get the cache groups.
-		$groups = $this->get_columns( array( 'cache_key' => true ), 'and', 'name' );
+		$groups_raw = $this->get_columns( array( 'cache_key' => true ), 'and', 'name' );
+		$groups = is_array( $groups_raw ) ? array_values( array_filter( $groups_raw, 'is_string' ) ) : array();
 
 		if ( ! empty( $groups ) ) {
 
@@ -3403,7 +3506,9 @@ class Query {
 				$results = $db->get_results( $query );
 
 				// Update item cache(s) — read path, do not bump last_changed.
-				$this->update_item_cache( $results, false );
+				if ( ! empty( $results ) ) {
+					$this->update_item_cache( $results, false );
+				}
 			}
 		}
 
@@ -3420,7 +3525,10 @@ class Query {
 			// Proceed if meta table exists.
 			if ( $this->get_meta_table_name() ) {
 				$meta_type = $this->get_meta_type();
-				update_meta_cache( $meta_type, $item_ids );
+				$int_ids   = array_values( array_filter( $item_ids, 'is_int' ) );
+				if ( ! empty( $int_ids ) ) {
+					update_meta_cache( $meta_type, $int_ids );
+				}
 			}
 		}
 
@@ -3440,8 +3548,8 @@ class Query {
 	 * @since 1.0.0
 	 * @since 3.0.0 Uses shape_item_id() if $items is scalar
 	 *
-	 * @param int|object|list<object> $items             Primary ID if int. Row if object. Array of objects if array.
-	 * @param bool                   $bump_last_changed Whether to bump the last-changed cache value.
+	 * @param int|string|object|list<object> $items             Primary ID or key if scalar. Row if object. Array of objects if array.
+	 * @param bool                          $bump_last_changed  Whether to bump the last-changed cache value.
 	 */
 	private function update_item_cache( $items = array(), $bump_last_changed = true ): void {
 
@@ -3588,7 +3696,7 @@ class Query {
 		}
 
 		// Return the last changed value for the cache group.
-		return $last_changed;
+		return is_string( $last_changed ) ? $last_changed : '';
 	}
 
 	/**
@@ -3752,6 +3860,10 @@ class Query {
 		// Generate filter name based on the singular item name.
 		$filter_name = $this->apply_prefix( 'filter_' . $this->get_item_name() . '_item' );
 
+		if ( '' === $filter_name ) {
+			return $item;
+		}
+
 		/**
 		 * Filters an item before it is inserted or updated.
 		 *
@@ -3784,6 +3896,10 @@ class Query {
 		// Generate filter name with a prefix.
 		$filter_name = $this->apply_prefix( 'query_var_parsers' );
 
+		if ( '' === $filter_name ) {
+			return $parsers;
+		}
+
 		/**
 		 * Filter the default query parser class list.
 		 *
@@ -3813,6 +3929,10 @@ class Query {
 		// Generate filter name based on the plural item name.
 		$filter_name = $this->apply_prefix( 'the_' . $this->get_item_name_plural() );
 
+		if ( '' === $filter_name ) {
+			return $items;
+		}
+
 		/**
 		 * Filters the object query results after they have been shaped.
 		 *
@@ -3841,6 +3961,10 @@ class Query {
 
 		// Generate filter name based on the plural item name.
 		$filter_name = $this->apply_prefix( 'found_' . $this->get_item_name_plural() . '_query' );
+
+		if ( '' === $filter_name ) {
+			return $sql;
+		}
 
 		/**
 		 * Filters the query used to retrieve the found item count.
@@ -3873,6 +3997,10 @@ class Query {
 
 		// Generate filter name based on the plural item name.
 		$filter_name = $this->apply_prefix( $this->get_item_name_plural() . '_query_clauses' );
+
+		if ( '' === $filter_name ) {
+			return $clauses;
+		}
 
 		/**
 		 * Filters the item query clauses.

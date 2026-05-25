@@ -72,7 +72,9 @@ class By extends Base {
 		$ins        = (array) $this->caller( 'get_columns', array(), 'and', 'name' );
 
 		foreach ( $ins as $in ) {
-			$first_keys[] = $in;
+			if ( is_string( $in ) ) {
+				$first_keys[] = $in;
+			}
 		}
 
 		return $first_keys;
@@ -126,9 +128,13 @@ class By extends Base {
 				continue;
 			}
 
+			$values = (array) $values;
+
 			// Get pattern and aliased name.
 			$pattern = $this->caller( 'get_column_field', array( 'name' => $column ), 'pattern', '%s' );
+			$pattern = is_string( $pattern ) ? $pattern : '%s';
 			$aliased = $this->caller( 'get_quoted_column_name_aliased', $column );
+			$aliased = is_string( $aliased ) ? $aliased : '';
 
 			// Convert single item arrays to literal column comparisons.
 			if ( 1 === count( $values ) ) {
@@ -138,7 +144,8 @@ class By extends Base {
 
 				// Implode.
 			} else {
-				$in_values                = $this->caller( 'get_in_sql', $column, $values, true, $pattern );
+				$in_values = $this->caller( 'get_in_sql', $column, $values, true, $pattern );
+				$in_values = is_string( $in_values ) ? $in_values : '';
 				$where[ "{$column}__in" ] = "{$aliased} IN {$in_values}";
 			}
 		}

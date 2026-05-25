@@ -247,7 +247,7 @@ class Date extends Base {
 				$_year = $date_query['year'];
 			}
 
-			$max_days_of_year = (int) gmdate( 'z', gmmktime( 0, 0, 0, 12, 31, $_year ) ) + 1;
+			$max_days_of_year = (int) gmdate( 'z', (int) gmmktime( 0, 0, 0, 12, 31, (int) $_year ) ) + 1;
 
 			// Otherwise we use the max of 366 (leap-year).
 		} else {
@@ -284,7 +284,7 @@ class Date extends Base {
 			 * If we have a specific year, use it to calculate number of weeks.
 			 * Note: the number of weeks in a year is the date in which Dec 28 appears.
 			 */
-			$week_count = gmdate( 'W', gmmktime( 0, 0, 0, 12, 28, $_year ) );
+			$week_count = gmdate( 'W', (int) gmmktime( 0, 0, 0, 12, 28, (int) $_year ) );
 
 			// Otherwise set the week-count to a maximum of 53.
 		} else {
@@ -358,7 +358,7 @@ class Date extends Base {
 				: '2012';
 
 			// Check the date.
-			if ( ! checkdate( $date_query['month'], $date_query['day'], $year ) ) {
+			if ( ! checkdate( (int) $date_query['month'], (int) $date_query['day'], (int) $year ) ) {
 				$valid = false;
 			}
 		}
@@ -444,7 +444,16 @@ class Date extends Base {
 
 		// Range queries.
 		if ( ! empty( $clause['after'] ) ) {
-			$after = $this->build_mysql_datetime( $clause['after'], ! $inclusive, $now );
+			$after_raw = $clause['after'];
+			if ( is_array( $after_raw ) ) {
+				/** @var array<string, int> $after_val */
+				$after_val = $after_raw;
+			} elseif ( is_int( $after_raw ) || is_string( $after_raw ) ) {
+				$after_val = $after_raw;
+			} else {
+				$after_val = '';
+			}
+			$after = $this->build_mysql_datetime( $after_val, ! $inclusive, $now );
 
 			// Only add to where if valid datetime.
 			if ( false !== $after ) {
@@ -453,7 +462,16 @@ class Date extends Base {
 		}
 
 		if ( ! empty( $clause['before'] ) ) {
-			$before = $this->build_mysql_datetime( $clause['before'], $inclusive, $now );
+			$before_raw = $clause['before'];
+			if ( is_array( $before_raw ) ) {
+				/** @var array<string, int> $before_val */
+				$before_val = $before_raw;
+			} elseif ( is_int( $before_raw ) || is_string( $before_raw ) ) {
+				$before_val = $before_raw;
+			} else {
+				$before_val = '';
+			}
+			$before = $this->build_mysql_datetime( $before_val, $inclusive, $now );
 
 			// Only add to where if valid datetime.
 			if ( false !== $before ) {
@@ -462,41 +480,43 @@ class Date extends Base {
 		}
 
 		// Specific value queries.
-		if ( isset( $clause['year'] ) && false !== ( $value = $this->build_numeric_value( $compare, $clause['year'] ) ) ) {
+		if ( isset( $clause['year'] ) && false !== ( $value = $this->build_numeric_value( $compare, $this->narrow_value( $clause['year'] ) ) ) ) {
 			$where[] = "YEAR( {$column} ) {$compare} {$value}";
 		}
 
-		if ( isset( $clause['month'] ) && false !== ( $value = $this->build_numeric_value( $compare, $clause['month'] ) ) ) {
+		if ( isset( $clause['month'] ) && false !== ( $value = $this->build_numeric_value( $compare, $this->narrow_value( $clause['month'] ) ) ) ) {
 			$where[] = "MONTH( {$column} ) {$compare} {$value}";
-		} elseif ( isset( $clause['monthnum'] ) && false !== ( $value = $this->build_numeric_value( $compare, $clause['monthnum'] ) ) ) {
+		} elseif ( isset( $clause['monthnum'] ) && false !== ( $value = $this->build_numeric_value( $compare, $this->narrow_value( $clause['monthnum'] ) ) ) ) {
 			$where[] = "MONTH( {$column} ) {$compare} {$value}";
 		}
 
-		if ( isset( $clause['week'] ) && false !== ( $value = $this->build_numeric_value( $compare, $clause['week'] ) ) ) {
+		if ( isset( $clause['week'] ) && false !== ( $value = $this->build_numeric_value( $compare, $this->narrow_value( $clause['week'] ) ) ) ) {
 			$where[] = $this->build_mysql_week( $column, $start_of_week ) . " {$compare} {$value}";
-		} elseif ( isset( $clause['w'] ) && false !== ( $value = $this->build_numeric_value( $compare, $clause['w'] ) ) ) {
+		} elseif ( isset( $clause['w'] ) && false !== ( $value = $this->build_numeric_value( $compare, $this->narrow_value( $clause['w'] ) ) ) ) {
 			$where[] = $this->build_mysql_week( $column, $start_of_week ) . " {$compare} {$value}";
 		}
 
-		if ( isset( $clause['dayofyear'] ) && false !== ( $value = $this->build_numeric_value( $compare, $clause['dayofyear'] ) ) ) {
+		if ( isset( $clause['dayofyear'] ) && false !== ( $value = $this->build_numeric_value( $compare, $this->narrow_value( $clause['dayofyear'] ) ) ) ) {
 			$where[] = "DAYOFYEAR( {$column} ) {$compare} {$value}";
 		}
 
-		if ( isset( $clause['day'] ) && false !== ( $value = $this->build_numeric_value( $compare, $clause['day'] ) ) ) {
+		if ( isset( $clause['day'] ) && false !== ( $value = $this->build_numeric_value( $compare, $this->narrow_value( $clause['day'] ) ) ) ) {
 			$where[] = "DAYOFMONTH( {$column} ) {$compare} {$value}";
 		}
 
-		if ( isset( $clause['dayofweek'] ) && false !== ( $value = $this->build_numeric_value( $compare, $clause['dayofweek'] ) ) ) {
+		if ( isset( $clause['dayofweek'] ) && false !== ( $value = $this->build_numeric_value( $compare, $this->narrow_value( $clause['dayofweek'] ) ) ) ) {
 			$where[] = "DAYOFWEEK( {$column} ) {$compare} {$value}";
 		}
 
-		if ( isset( $clause['dayofweek_iso'] ) && false !== ( $value = $this->build_numeric_value( $compare, $clause['dayofweek_iso'] ) ) ) {
+		if ( isset( $clause['dayofweek_iso'] ) && false !== ( $value = $this->build_numeric_value( $compare, $this->narrow_value( $clause['dayofweek_iso'] ) ) ) ) {
 			$where[] = "WEEKDAY( {$column} ) + 1 {$compare} {$value}";
 		}
 
 		// Straight value compare.
 		if ( isset( $clause['value'] ) ) {
-			$value   = $this->build_value( $compare, $clause['value'] );
+			$narrowed = $this->narrow_value( $clause['value'] );
+			$value_to_build = is_array( $narrowed ) ? $narrowed : (is_null( $narrowed ) ? null : (string) $narrowed);
+			$value   = $this->build_value( $compare, $value_to_build );
 			$where[] = "{$column} {$compare} {$value}";
 		}
 
@@ -557,5 +577,33 @@ class Date extends Base {
 
 		// Return the qualified column name, validating date_query support.
 		return $this->get_column_sql( $column_name, array( 'date_query' => true ), $alias );
+	}
+
+	/**
+	 * Narrow mixed query values to type-safe scalars or arrays.
+	 *
+	 * @since 3.0.0
+	 * @param mixed $val
+	 * @return array<int, mixed>|int|string|null
+	 */
+	private function narrow_value( $val ) {
+
+		// Arrays are passed through as arrays of values.
+		if ( is_array( $val ) ) {
+			return array_values( $val );
+		}
+
+		// Integers and strings are passed through as-is.
+		if ( is_int( $val ) || is_string( $val ) ) {
+			return $val;
+		}
+
+		// Floats are cast to strings.
+		if ( is_float( $val ) ) {
+			return (string) $val;
+		}
+
+		// Other types are not valid for date query values, so return null.
+		return null;
 	}
 }

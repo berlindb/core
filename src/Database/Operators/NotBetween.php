@@ -62,7 +62,7 @@ class NotBetween extends Base {
 	 * @since 3.0.0
 	 *
 	 * @param array<int, mixed>|string $value   Two-element array or comma/space-delimited string. Only the first two elements are used.
-	 * @param string       $pattern Optional. A wpdb::prepare() placeholder. Default '%s'.
+	 * @param '%s'|'%d'|'%f'           $pattern Optional. A wpdb::prepare() placeholder. Default '%s'.
 	 *
 	 * @return string Prepared SQL fragment: `low AND high`.
 	 */
@@ -78,11 +78,13 @@ class NotBetween extends Base {
 
 		// Maybe split a comma- or space-delimited string into an array.
 		if ( is_scalar( $value ) ) {
-			$value = preg_split( '/[,\s]+/', trim( $value ) );
+			$value = preg_split( '/[,\s]+/', trim( $value ) ) ?: array();
 		}
 
 		// Use only the first two elements.
-		$value = array_slice( $value, 0, 2 );
+		$value = is_array( $value )
+			? array_slice( $value, 0, 2 )
+			: array();
 
 		// Bail if fewer than two values — NOT BETWEEN requires both a low and high bound.
 		if ( count( $value ) < 2 ) {
@@ -90,7 +92,7 @@ class NotBetween extends Base {
 		}
 
 		// Setup the NOT BETWEEN fragment with two placeholders.
-		$not_between = "{$pattern} AND {$pattern}";
+		$not_between = $pattern . ' AND ' . $pattern;
 
 		// Return prepared SQL fragment.
 		return (string) $db->prepare( $not_between, $value );

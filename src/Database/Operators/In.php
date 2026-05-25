@@ -62,7 +62,7 @@ class In extends Base {
 	 * @since 3.0.0
 	 *
 	 * @param array<int, mixed>|string $value   Array of values or a comma/space-delimited string.
-	 * @param string       $pattern Optional. A wpdb::prepare() placeholder. Default '%s'.
+	 * @param '%s'|'%d'|'%f'           $pattern Optional. A wpdb::prepare() placeholder. Default '%s'.
 	 *
 	 * @return string Prepared SQL fragment: `(v1, v2, ...)`.
 	 */
@@ -87,7 +87,7 @@ class In extends Base {
 		}
 
 		// Build a parenthesised placeholder list for each value.
-		$in = '(' . substr( str_repeat( ",{$pattern}", count( $value ) ), 1 ) . ')';
+		$in = '(' . implode( ', ', array_fill( 0, count( $value ), $pattern ) ) . ')';
 
 		// Return prepared SQL fragment.
 		return (string) $db->prepare( $in, $value );

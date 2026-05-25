@@ -22,6 +22,11 @@ defined( 'ABSPATH' ) || exit;
  */
 trait Parser {
 
+	/**
+	 * Use these traits.
+	 *
+	 * @since 3.0.0
+	 */
 	use \BerlinDB\Database\Traits\Base;
 
 	/**
@@ -76,7 +81,7 @@ trait Parser {
 	 * Can be changed via the query arguments.
 	 *
 	 * @since 3.0.0
-	 * @var string
+	 * @var   string
 	 */
 	public $compare = '=';
 
@@ -86,7 +91,7 @@ trait Parser {
 	 * Can be changed via query arguments.
 	 *
 	 * @since 3.0.0
-	 * @var int
+	 * @var   int
 	 */
 	public $now = 0;
 
@@ -96,7 +101,7 @@ trait Parser {
 	 * Can be changed via query arguments.
 	 *
 	 * @since 3.0.0
-	 * @var int
+	 * @var   int
 	 */
 	public $start_of_week = 0;
 
@@ -112,7 +117,7 @@ trait Parser {
 	 * Array of operators.
 	 *
 	 * @since 3.0.0
-	 * @var array<string, mixed>
+	 * @var   array<string, mixed>
 	 */
 	public $operators = array();
 
@@ -128,7 +133,7 @@ trait Parser {
 	 * Supported relation types.
 	 *
 	 * @since 3.0.0
-	 * @var list<string>
+	 * @var   list<string>
 	 */
 	public $relation_keys = array(
 		'OR',
@@ -139,7 +144,7 @@ trait Parser {
 	 * Whether the query contains any OR relations.
 	 *
 	 * @since 3.0.0
-	 * @var bool
+	 * @var   bool
 	 */
 	protected $has_or_relation = false;
 
@@ -463,10 +468,16 @@ trait Parser {
 	 * @return \BerlinDB\Database\Operators\Base|false The first matching operator, or false.
 	 */
 	protected function get_operator_by( $args = array() ) {
-		$filter = $this->get_operators( $args, false );
 
-		return ! empty( $filter )
+		// Get operators matching the filter arguments.
+		$filter = $this->get_operators( $args, false );
+		$first  = ! empty( $filter )
 			? reset( $filter )
+			: false;
+
+		// Return the first match if it's an operator, otherwise false.
+		return ( $first instanceof \BerlinDB\Database\Operators\Base )
+			? $first
 			: false;
 	}
 
@@ -587,7 +598,7 @@ trait Parser {
 		$col = $this->caller( 'get_column_by', array_merge( array( 'name' => $name ), $filter ) );
 
 		// Bail if the column doesn't exist or doesn't match the filter.
-		if ( empty( $col ) ) {
+		if ( ! $col instanceof \BerlinDB\Database\Kern\Column ) {
 			return '';
 		}
 
@@ -662,12 +673,19 @@ trait Parser {
 	 *
 	 * @param array<string, mixed> $query A date query or a date subquery.
 	 *
-	 * @return int The comparison operator.
+	 * @return int The start of the week.
 	 */
 	protected function get_start_of_week( $query = array() ) {
-		return (int) isset( $query['start_of_week'] ) && ( 6 >= (int) $query['start_of_week'] ) && ( 0 <= (int) $query['start_of_week'] )
+
+		// Look for start_of_week in the query.
+		$start = isset( $query['start_of_week'] )
 			? $query['start_of_week']
-			: $this->start_of_week;
+			: null;
+
+		// Return the start of week.
+		return ( null !== $start && is_numeric( $start ) && 6 >= (int) $start && 0 <= (int) $start )
+			? (int) $start
+			: (int) $this->start_of_week;
 	}
 
 	/**
@@ -894,7 +912,7 @@ trait Parser {
 		$sql[ 'where' ] = array_filter( $sql[ 'where' ] );
 
 		// Default relation.
-		if ( empty( $relation ) ) {
+		if ( empty( $relation ) || ! is_string( $relation ) ) {
 			$relation = 'AND';
 		}
 
@@ -923,9 +941,9 @@ trait Parser {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string, mixed> $clause       Query clause (passed by reference).
-	 * @param array<string, mixed> $parent_query Parent query array.
-	 * @param string               $clause_key   Optional. The array key used to name the clause.
+	 * @param array<string, mixed>     $clause       Query clause (passed by reference).
+	 * @param array<int|string, mixed> $parent_query Parent query array.
+	 * @param int|string               $clause_key   Optional. The array key used to name the clause.
 	 * @return array{join: list<string>, where: list<string>}
 	 */
 	public function get_sql_for_clause( &$clause = array(), $parent_query = array(), $clause_key = '' ) {
@@ -969,6 +987,11 @@ trait Parser {
 		// Fallback to Equal for any unrecognized compare string.
 		if ( false === $operator ) {
 			$operator = $this->get_operator( '=' );
+		}
+
+		// Bail if no valid operator could be resolved.
+		if ( false === $operator ) {
+			return $retval;
 		}
 
 		/** Build the WHERE clause ********************************************/
@@ -1138,7 +1161,7 @@ trait Parser {
 	 *
 	 * @param string                        $compare The compare operator to use.
 	 * @param array<int, mixed>|string|null $value   The value.
-	 * @param string                        $pattern The pattern.
+	 * @param '%s'|'%d'|'%f'                $pattern The pattern.
 	 *
 	 * @return string|false|int The value to be used in SQL or false on error.
 	 */
@@ -1152,6 +1175,12 @@ trait Parser {
 			$operator = $this->get_operator( '=' );
 		}
 
+		// Bail if no valid operator could be resolved.
+		if ( false === $operator ) {
+			return '';
+		}
+
+		// Return the operator's value SQL.
 		return $operator->get_value_sql( $value, $pattern );
 	}
 
@@ -1237,7 +1266,7 @@ trait Parser {
 
 			// Maybe format or use as-is.
 			$datetime = ! is_int( $datetime )
-				? strtotime( $datetime, $now )
+				? strtotime( $datetime, (int) $now )
 				: (int) $datetime;
 
 			// strtotime() may return false for unparseable input.
@@ -1259,7 +1288,7 @@ trait Parser {
 
 		// Year.
 		if ( ! isset( $datetime['year'] ) ) {
-			$datetime['year'] = gmdate( 'Y', $now );
+			$datetime['year'] = (int) gmdate( 'Y', (int) $now );
 		}
 
 		// Month.
@@ -1272,7 +1301,7 @@ trait Parser {
 		// Day.
 		if ( ! isset( $datetime['day'] ) ) {
 			$datetime['day'] = ! empty( $default_to_max )
-				? (int) gmdate( 't', gmmktime( 0, 0, 0, $datetime['month'], 1, $datetime['year'] ) )
+				? (int) gmdate( 't', (int) gmmktime( 0, 0, 0, (int) $datetime['month'], 1, (int) $datetime['year'] ) )
 				: 1;
 		}
 
@@ -1510,6 +1539,11 @@ trait Parser {
 			$pattern = $this->caller( 'get_column_field', array( array( 'name' => $column_name ), 'pattern', '%s' ) );
 		}
 
+		// Maybe fallback to default pattern.
+		$pattern = is_string( $pattern )
+			? $pattern
+			: '%s';
+
 		// Fill an array of patterns to match the number of values.
 		$count    = count( $values );
 		$patterns = array_fill( 0, $count, $pattern );
@@ -1568,13 +1602,13 @@ trait Parser {
 		// Loop through sibling queries.
 		foreach ( $parent_query as $sibling ) {
 
-			// Skip if the sibling has no alias.
-			if ( empty( $sibling['alias'] ) ) {
+			// Skip if the sibling is not an array or has no alias.
+			if ( ! is_array( $sibling ) || empty( $sibling['alias'] ) ) {
 				continue;
 			}
 
 			// Skip if not a first-order clause.
-			if ( ! is_array( $sibling ) || ! $this->is_first_order_clause( $sibling ) ) {
+			if ( ! $this->is_first_order_clause( $sibling ) ) {
 				continue;
 			}
 
@@ -1633,10 +1667,13 @@ trait Parser {
 			return null;
 		}
 
-		// Call it.
-		return call_user_func(
-			array( $this->caller, $method ),
-			...$args
-		);
+		// Build and verify the callback before calling.
+		$callback = array( $this->caller, $method );
+		if ( ! is_callable( $callback ) ) {
+			return null;
+		}
+
+		// Call the method on the caller and return its value.
+		return call_user_func( $callback, ...$args );
 	}
 }

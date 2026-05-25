@@ -71,7 +71,9 @@ class NotIn extends Base {
 		$not_ins    = (array) $this->caller( 'get_columns', array( 'not_in' => true ), 'and', 'name' );
 
 		foreach ( $not_ins as $not_in ) {
-			$first_keys[] = "{$not_in}__not_in";
+			if ( is_string( $not_in ) ) {
+				$first_keys[] = "{$not_in}__not_in";
+			}
 		}
 
 		return $first_keys;
@@ -125,10 +127,21 @@ class NotIn extends Base {
 				continue;
 			}
 
-			// Get pattern and aliased name.
+			// Make sure $values is an array.
+			$values = (array) $values;
+
+			// Get the pattern.
 			$name    = str_replace( '__not_in', '', $column );
 			$pattern = $this->caller( 'get_column_field', array( 'name' => $name ), 'pattern', '%s' );
+			$pattern = is_string( $pattern )
+				? $pattern
+				: '%s';
+
+			// Get the aliased column name for SQL.
 			$aliased = $this->caller( 'get_quoted_column_name_aliased', $name );
+			$aliased = is_string( $aliased )
+				? $aliased
+				: '';
 
 			// Convert single item arrays to literal column comparisons.
 			if ( 1 === count( $values ) ) {
@@ -139,6 +152,7 @@ class NotIn extends Base {
 				// Implode.
 			} else {
 				$in_values        = $this->caller( 'get_in_sql', $name, $values, true, $pattern );
+				$in_values        = is_string( $in_values ) ? $in_values : '';
 				$where[ $column ] = "{$aliased} NOT IN {$in_values}";
 			}
 		}

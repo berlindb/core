@@ -242,15 +242,15 @@ class Schema {
 	public function get_items( $type = 'columns' ) {
 		$type = $this->validate_item_type( $type );
 
-		// Limit to known item collections.
-		if ( empty( $type ) ) {
-			return array();
+		if ( 'columns' === $type ) {
+			return $this->columns;
 		}
 
-		// Return the requested item collection.
-		return is_array( $this->{$type} )
-			? $this->{$type}
-			: array();
+		if ( 'indexes' === $type ) {
+			return $this->indexes;
+		}
+
+		return array();
 	}
 
 	/**
@@ -329,30 +329,42 @@ class Schema {
 		$type = $this->validate_item_type( $type );
 		$name = $this->sanitize_index_name( $name );
 
+		// Bail if type or name is not valid.
 		if ( empty( $type ) || empty( $name ) || ! is_array( $this->{$type} ) ) {
 			return false;
 		}
 
 		$removed = false;
 
+		// Loop through items and remove any matching the target name.
 		foreach ( $this->{$type} as $key => $item ) {
 
+			// Only objects of the correct type can be removed.
+			if ( ! ( $item instanceof Column ) && ! ( $item instanceof Index ) ) {
+				continue;
+			}
+
+			// PRIMARY indexes are removable by the "primary" name.
 			$is_primary = ( 'indexes' === $type ) && $this->is_primary_index( $item );
 
+			// Match by name, or by primary type for indexes.
 			$item_name = isset( $item->name )
 				? $this->sanitize_index_name( $item->name )
 				: false;
 
-			if ( ( $is_primary && 'primary' === $name ) || ( ! empty( $item_name ) && $name === $item_name ) ) {
+			// Remove the item if it's a primary index targeted by the "primary" name, or if its name matches the target name.
+			if ( ( $is_primary && 'primary' === $name ) || ( ! empty( $item_name ) && ( $name === $item_name ) ) ) {
 				unset( $this->{$type}[ $key ] );
 				$removed = true;
 			}
 		}
 
+		// Reindex the array if we removed any items, to prevent gaps in the keys.
 		if ( true === $removed ) {
 			$this->{$type} = array_values( $this->{$type} );
 		}
 
+		// Return whether we removed anything.
 		return $removed;
 	}
 

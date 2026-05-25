@@ -327,7 +327,7 @@ class Meta extends Base {
 
 		// Meta.
 		$meta_table_sanitized  = $this->sanitize_table_name( $meta_table );
-		$meta_column_sanitized = $this->sanitize_column_name( "{$type}_id" );
+		$meta_column_sanitized = $this->sanitize_column_name( is_scalar( $type ) ? (string) $type . '_id' : '' );
 
 		// Primary.
 		$primary_table_sanitized  = $this->sanitize_table_name( $primary_table );
@@ -378,7 +378,7 @@ class Meta extends Base {
 
 		// Meta.
 		$meta_table_sanitized  = $this->sanitize_table_name( $meta_table );
-		$meta_column_sanitized = $this->sanitize_column_name( "{$type}_id" );
+		$meta_column_sanitized = $this->sanitize_column_name( is_scalar( $type ) ? (string) $type . '_id' : '' );
 
 		// Primary.
 		$primary_table_sanitized  = $this->sanitize_table_name( $primary_table );
@@ -625,7 +625,7 @@ class Meta extends Base {
 						break;
 
 					case 'IN':
-						$meta_compare_string = "{$qt_alias}.{$qt_column} IN (" . substr( str_repeat( ',%s', count( $clause['key'] ) ), 1 ) . ')';
+						$meta_compare_string = "{$qt_alias}.{$qt_column} IN (" . substr( str_repeat( ',%s', count( (array) $clause['key'] ) ), 1 ) . ')';
 						$where               = $db->prepare( $meta_compare_string, $clause['key'] ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 						break;
 
@@ -652,7 +652,7 @@ class Meta extends Base {
 						$where               = $db->prepare( $meta_compare_string, $meta_compare_value ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 						break;
 					case 'NOT IN':
-						$array_subclause     = '(' . substr( str_repeat( ',%s', count( $clause['key'] ) ), 1 ) . ') ';
+						$array_subclause     = '(' . substr( str_repeat( ',%s', count( (array) $clause['key'] ) ), 1 ) . ') ';
 						$meta_compare_string = $meta_compare_string_start . "AND {$qt_subquery_alias}.{$qt_column} IN " . $array_subclause . $meta_compare_string_end;
 						$where               = $db->prepare( $meta_compare_string, $clause['key'] ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 						break;
@@ -678,7 +678,8 @@ class Meta extends Base {
 
 		// meta_value.
 		if ( array_key_exists( 'value', $clause ) ) {
-			$where = $this->build_value( $meta_compare, $clause['value'], '%s' );
+			$meta_val = is_array( $clause['value'] ) ? array_values( $clause['value'] ) : (is_scalar( $clause['value'] ) ? (string) $clause['value'] : '');
+			$where = $this->build_value( $meta_compare, $meta_val, '%s' );
 
 			// Not empty, so maybe cast...
 			if ( ! empty( $where ) ) {
@@ -745,17 +746,21 @@ class Meta extends Base {
 			$clause = ! empty( $this->clauses ) ? reset( $this->clauses ) : null;
 		}
 
-		// Bail if no clause or no alias on it.
-		if ( empty( $clause ) || empty( $clause['alias'] ) ) {
+		// Bail if not array or no alias on it.
+		if ( ! is_array( $clause ) || empty( $clause['alias'] ) ) {
 			return '';
 		}
 
 		// Pre-quote identifiers.
-		$qt_alias  = $this->quote_identifier( $clause['alias'] );
+		$alias_val = $clause['alias'] ?? '';
+		$alias_str = is_scalar( $alias_val ) ? (string) $alias_val : '';
+		$qt_alias  = $this->quote_identifier( $alias_str );
 		$qt_column = $this->quote_identifier( 'meta_value' );
+		$cast_val  = $clause['cast'] ?? 'CHAR';
+		$cast_str  = is_scalar( $cast_val ) ? (string) $cast_val : 'CHAR';
 		$cast      = ( 'meta_value_num' === $orderby )
 			? 'SIGNED'
-			: ( $clause['cast'] ?? 'CHAR' );
+			: $cast_str;
 
 		/*
 		 * Return the ORDER BY fragment, with casting if needed. Meta always

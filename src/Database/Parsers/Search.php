@@ -69,7 +69,9 @@ class Search extends Base {
 		$columns    = (array) $this->caller( 'get_columns', array( 'searchable' => true ), 'and', 'name' );
 
 		foreach ( $columns as $column ) {
-			$first_keys[] = "{$column}_search";
+			if ( is_string( $column ) ) {
+				$first_keys[] = "{$column}_search";
+			}
 		}
 
 		return $first_keys;
@@ -111,10 +113,12 @@ class Search extends Base {
 
 		// Intersect against known searchable columns.
 		if ( ! empty( $clause['search_columns'] ) ) {
-			$search_columns = array_values( array_intersect(
-				(array) $clause['search_columns'],
-				$this->first_keys
-			) );
+			$search_columns = array_values(
+				array_intersect(
+					array_filter( (array) $clause['search_columns'], 'is_string' ),
+					$this->first_keys
+				)
+			);
 		}
 
 		// Filter search columns.
@@ -124,7 +128,10 @@ class Search extends Base {
 		$sql_columns = array();
 		foreach ( $search_columns as $key ) {
 			$name          = str_replace( '_search', '', $key );
-			$sql_columns[] = $this->caller( 'get_quoted_column_name_aliased', $name ) ?? $name;
+			$aliased       = $this->caller( 'get_quoted_column_name_aliased', $name );
+			$sql_columns[] = is_string( $aliased )
+				? $aliased
+				: (string) $name;
 		}
 
 		// Add search query clause.
@@ -205,8 +212,13 @@ class Search extends Base {
 		}
 
 		// Generate filter name based on the plural item name, with prefix if set.
-		$filter_name = $this->apply_prefix( $this->caller( 'get_item_name_plural' ) . '_search_columns' );
+		$plural_name = $this->caller( 'get_item_name_plural' );
+		$plural_name = is_string( $plural_name )
+			? $plural_name
+			: '';
 
+		// Bail if filter name is empty.
+		$filter_name = $this->apply_prefix( $plural_name . '_search_columns' );
 		if ( '' === $filter_name ) {
 			return $search_columns;
 		}
@@ -228,6 +240,9 @@ class Search extends Base {
 			)
 		);
 
-		return array_values( array_filter( $retval, 'is_string' ) );
+		// Return only string values.
+		return array_values(
+			array_filter( $retval, 'is_string' )
+		);
 	}
 }
