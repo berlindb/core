@@ -59,7 +59,7 @@ class NotLike extends Base {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param mixed  $value   The string to search for. Trimmed, esc_like()-escaped, and wrapped in % wildcards.
+	 * @param mixed          $value   The string to search for. Trimmed, esc_like()-escaped, and wrapped in % wildcards.
 	 * @param '%s'|'%d'|'%f' $pattern Optional. A wpdb::prepare() placeholder. Default '%s'.
 	 *
 	 * @return string Prepared SQL fragment: `'%value%'`.

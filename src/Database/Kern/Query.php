@@ -936,7 +936,7 @@ class Query {
 
 		// Filter parsers.
 		$field_val = is_string( $field ) ? $field : (is_bool( $field ) ? $field : false);
-		$filter = wp_filter_object_list( $source, $args, $operator, $field_val );
+		$filter    = wp_filter_object_list( $source, $args, $operator, $field_val );
 
 		// Return parsers or empty array.
 		return ! empty( $filter )
@@ -1146,7 +1146,7 @@ class Query {
 		}
 
 		// Get query parts.
-		$table   = $this->get_table_name();
+		$table       = $this->get_table_name();
 		$pattern_val = $this->get_column_field( array( 'name' => $column_name ), 'pattern', '%s' );
 		$pattern_str = is_string( $pattern_val ) ? $pattern_val : '%s';
 
@@ -1217,7 +1217,7 @@ class Query {
 			// Value exists in cache.
 		} else {
 			if ( is_array( $cache_value ) ) {
-				$result = $cache_value['item_ids'] ?? array();
+				$result          = $cache_value['item_ids'] ?? array();
 				$found_items_val = $cache_value['found_items'] ?? 0;
 				$this->set_current( 'found_items', is_scalar( $found_items_val ) ? (int) $found_items_val : 0 );
 			} else {
@@ -1293,7 +1293,7 @@ class Query {
 
 		// Get the request SQL string.
 		$request_val = $this->get_current( 'request' );
-		$request = is_string( $request_val ) ? $request_val : null;
+		$request     = is_string( $request_val ) ? $request_val : null;
 
 		// Return count.
 		if ( $this->get_query_var( 'count' ) ) {
@@ -1347,7 +1347,7 @@ class Query {
 		// Fallback to column pattern.
 		if ( empty( $pattern ) || ! is_string( $pattern ) ) {
 			$pattern_val = $this->get_column_field( array( 'name' => $column_name ), 'pattern', '%s' );
-			$pattern = is_string( $pattern_val ) ? $pattern_val : '%s';
+			$pattern     = is_string( $pattern_val ) ? $pattern_val : '%s';
 		}
 
 		// Fill an array of patterns to match the number of values.
@@ -1389,7 +1389,7 @@ class Query {
 		$this->set_current( 'query_var_originals', wp_parse_args( $query ) );
 
 		// Setup the $query_vars parsed var.
-		$originals = $this->get_current( 'query_var_originals' );
+		$originals     = $this->get_current( 'query_var_originals' );
 		$originals_val = is_array( $originals ) ? $originals : (is_string( $originals ) ? $originals : array());
 		$this->query_vars = wp_parse_args(
 			$originals_val,
@@ -2038,7 +2038,7 @@ class Query {
 		// Maybe fallback to query_clauses.
 		if ( empty( $clauses ) ) {
 			$clauses_val = $this->get_current( 'query_clauses', array() );
-			$clauses = is_array( $clauses_val ) ? $clauses_val : (is_string( $clauses_val ) ? $clauses_val : array());
+			$clauses     = is_array( $clauses_val ) ? $clauses_val : (is_string( $clauses_val ) ? $clauses_val : array());
 		}
 
 		// Default return value.
@@ -2562,11 +2562,11 @@ class Query {
 
 		// Try to save.
 		if ( ! empty( $save ) ) {
-			$table       = $this->get_table_name();
-			$names       = array_keys( $save );
+			$table           = $this->get_table_name();
+			$names           = array_keys( $save );
 			$save_format_raw = $this->get_columns_field_by( 'name', $names, 'pattern', '%s' );
-			$save_format = is_array( $save_format_raw ) ? array_values( array_filter( $save_format_raw, 'is_string' ) ) : (is_string( $save_format_raw ) ? $save_format_raw : null);
-			$retval      = $db->insert( $table, $save, $save_format );
+			$save_format     = is_array( $save_format_raw ) ? array_values( array_filter( $save_format_raw, 'is_string' ) ) : (is_string( $save_format_raw ) ? $save_format_raw : null);
+			$retval          = $db->insert( $table, $save, $save_format );
 		}
 
 		// Bail on failure.
@@ -3422,7 +3422,7 @@ class Query {
 
 		// Get the cache groups.
 		$groups_raw = $this->get_columns( array( 'cache_key' => true ), 'and', 'name' );
-		$groups = is_array( $groups_raw ) ? array_values( array_filter( $groups_raw, 'is_string' ) ) : array();
+		$groups     = is_array( $groups_raw ) ? array_values( array_filter( $groups_raw, 'is_string' ) ) : array();
 
 		if ( ! empty( $groups ) ) {
 
