@@ -29,6 +29,11 @@ class QueryGettersTest extends TestCase {
 	/** @var TestQuery */
 	private static $query;
 
+	/**
+	 * Install the fixture table and query object before getter tests run.
+	 *
+	 * @since 3.0.0
+	 */
 	public static function setUpBeforeClass(): void {
 		parent::setUpBeforeClass();
 
@@ -39,11 +44,21 @@ class QueryGettersTest extends TestCase {
 		self::$query = new TestQuery();
 	}
 
+	/**
+	 * Uninstall the fixture table after getter tests complete.
+	 *
+	 * @since 3.0.0
+	 */
 	public static function tearDownAfterClass(): void {
 		self::$table->uninstall();
 		parent::tearDownAfterClass();
 	}
 
+	/**
+	 * Reset getter fixture data before each test.
+	 *
+	 * @since 3.0.0
+	 */
 	public function setUp(): void {
 		parent::setUp();
 		wp_set_current_user( 1 );

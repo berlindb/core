@@ -25,10 +25,20 @@ class LifecycleTestDouble {
 	/** @var string[] Ordered call log — entries are 'start' or 'finish'. */
 	public $log = array();
 
+	/**
+	 * Record that lifecycle startup has run.
+	 *
+	 * @since 3.0.0
+	 */
 	protected function start() {
 		$this->log[] = 'start';
 	}
 
+	/**
+	 * Record that lifecycle cleanup has run.
+	 *
+	 * @since 3.0.0
+	 */
 	protected function finish() {
 		$this->log[] = 'finish';
 	}
@@ -56,6 +66,11 @@ class LifecycleTest extends \PHPUnit\Framework\TestCase {
 	/** @var LifecycleTestDouble */
 	protected $subject;
 
+	/**
+	 * Create a fresh lifecycle test double before each test.
+	 *
+	 * @since 3.0.0
+	 */
 	protected function setUp(): void {
 		parent::setUp();
 		$this->subject = new LifecycleTestDouble();

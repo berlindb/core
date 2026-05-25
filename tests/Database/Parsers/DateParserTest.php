@@ -41,6 +41,11 @@ class DateParserTest extends TestCase {
 	/** @var int[] */
 	private $ids = array();
 
+	/**
+	 * Install the fixture table and query object before parser tests run.
+	 *
+	 * @since 3.0.0
+	 */
 	public static function setUpBeforeClass(): void {
 		parent::setUpBeforeClass();
 
@@ -51,11 +56,21 @@ class DateParserTest extends TestCase {
 		self::$query = new TestQuery();
 	}
 
+	/**
+	 * Uninstall the fixture table after parser tests complete.
+	 *
+	 * @since 3.0.0
+	 */
 	public static function tearDownAfterClass(): void {
 		self::$table->uninstall();
 		parent::tearDownAfterClass();
 	}
 
+	/**
+	 * Reset date parser fixture data before each test.
+	 *
+	 * @since 3.0.0
+	 */
 	public function setUp(): void {
 		parent::setUp();
 

@@ -35,6 +35,11 @@ class ReduceItemTest extends TestCase {
 	/** @var \ReflectionMethod */
 	private static $method;
 
+	/**
+	 * Install fixtures and expose Query::reduce_item() before tests run.
+	 *
+	 * @since 3.0.0
+	 */
 	public static function setUpBeforeClass(): void {
 		parent::setUpBeforeClass();
 		self::$table = new TestTable();
@@ -46,11 +51,21 @@ class ReduceItemTest extends TestCase {
 		self::$method->setAccessible( true );
 	}
 
+	/**
+	 * Uninstall the fixture table after reduce_item() tests complete.
+	 *
+	 * @since 3.0.0
+	 */
 	public static function tearDownAfterClass(): void {
 		self::$table->uninstall();
 		parent::tearDownAfterClass();
 	}
 
+	/**
+	 * Reset the current user before each reduce_item() test.
+	 *
+	 * @since 3.0.0
+	 */
 	public function setUp(): void {
 		parent::setUp();
 		wp_set_current_user( 1 );
@@ -215,6 +230,10 @@ class ReduceItemTest extends TestCase {
 	}
 
 	/**
+	 * Provide the CRUD method names supported by reduce_item().
+	 *
+	 * @since 3.0.0
+	 *
 	 * @return array<string, array{string}>
 	 */
 	public function provide_crud_methods(): array {

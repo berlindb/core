@@ -30,6 +30,11 @@ class QueryCacheTest extends TestCase {
 	/** @var TestQuery */
 	private static $query;
 
+	/**
+	 * Install the fixture table and query object before cache tests run.
+	 *
+	 * @since 2.1.0
+	 */
 	public static function setUpBeforeClass(): void {
 		parent::setUpBeforeClass();
 		self::$table = new TestTable();
@@ -39,11 +44,21 @@ class QueryCacheTest extends TestCase {
 		self::$query = new TestQuery();
 	}
 
+	/**
+	 * Uninstall the fixture table after cache tests complete.
+	 *
+	 * @since 2.1.0
+	 */
 	public static function tearDownAfterClass(): void {
 		self::$table->uninstall();
 		parent::tearDownAfterClass();
 	}
 
+	/**
+	 * Reset cache fixture data before each test.
+	 *
+	 * @since 2.1.0
+	 */
 	public function setUp(): void {
 		parent::setUp();
 
@@ -67,6 +82,8 @@ class QueryCacheTest extends TestCase {
 	 * Two separate Query instances with identical arguments must produce the
 	 * same cache key. Before the sentinel fix, each instance embedded a
 	 * per-instance random_bytes(18) value in the key, making them always differ.
+	 *
+	 * @since 2.1.0
 	 */
 	public function test_cache_key_is_stable_across_query_instances() {
 		$args = array(
@@ -92,6 +109,8 @@ class QueryCacheTest extends TestCase {
 	 * A repeated identical query should hit the cache and fire no additional
 	 * SQL. If the sentinel fix is absent the second call always misses the
 	 * cache because it generates a different key.
+	 *
+	 * @since 2.1.0
 	 */
 	public function test_repeated_identical_query_does_not_fire_additional_sql() {
 		global $wpdb;

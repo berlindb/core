@@ -59,6 +59,11 @@ class MetaParserTest extends TestCase {
 	/** @var int[] */
 	private $ids = array();
 
+	/**
+	 * Install the fixture table and meta-aware query object before parser tests run.
+	 *
+	 * @since 3.0.0
+	 */
 	public static function setUpBeforeClass(): void {
 		parent::setUpBeforeClass();
 
@@ -69,11 +74,21 @@ class MetaParserTest extends TestCase {
 		self::$query = new TestMetaQuery();
 	}
 
+	/**
+	 * Uninstall the fixture table after parser tests complete.
+	 *
+	 * @since 3.0.0
+	 */
 	public static function tearDownAfterClass(): void {
 		self::$table->uninstall();
 		parent::tearDownAfterClass();
 	}
 
+	/**
+	 * Reset parser fixture data and metadata before each test.
+	 *
+	 * @since 3.0.0
+	 */
 	public function setUp(): void {
 		parent::setUp();
 

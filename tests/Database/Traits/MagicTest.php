@@ -65,6 +65,11 @@ class MagicTest extends \PHPUnit\Framework\TestCase {
 	/** @var MagicTestSubject */
 	protected $subject;
 
+	/**
+	 * Create a fresh Magic trait test subject before each test.
+	 *
+	 * @since 3.0.0
+	 */
 	protected function setUp(): void {
 		parent::setUp();
 		$this->subject = new MagicTestSubject();

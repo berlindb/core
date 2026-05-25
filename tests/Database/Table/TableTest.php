@@ -35,6 +35,11 @@ class TableTest extends TestCase {
 	/** @var int Number of _drop_temporary_tables filter instances removed by bypass. */
 	private $bypassed_drop_count = 0;
 
+	/**
+	 * Install the fixture table before table tests run.
+	 *
+	 * @since 2.1.0
+	 */
 	public static function setUpBeforeClass(): void {
 		parent::setUpBeforeClass();
 
@@ -45,11 +50,21 @@ class TableTest extends TestCase {
 		}
 	}
 
+	/**
+	 * Uninstall the fixture table after table tests complete.
+	 *
+	 * @since 2.1.0
+	 */
 	public static function tearDownAfterClass(): void {
 		self::$table->uninstall();
 		parent::tearDownAfterClass();
 	}
 
+	/**
+	 * Reset table fixture state before each test.
+	 *
+	 * @since 2.1.0
+	 */
 	public function setUp(): void {
 		parent::setUp();
 
@@ -79,6 +94,8 @@ class TableTest extends TestCase {
 	 * Remove ALL active instances of the WP test-framework query filters that
 	 * convert CREATE/DROP TABLE to their TEMPORARY variants, and record the
 	 * count so restore_table_filters() can put them back exactly.
+	 *
+	 * @since 2.1.0
 	 */
 	private function bypass_table_filters(): void {
 		$this->bypassed_create_count = 0;
@@ -96,6 +113,8 @@ class TableTest extends TestCase {
 
 	/**
 	 * Restore the exact number of filter instances that bypass_table_filters() removed.
+	 *
+	 * @since 2.1.0
 	 */
 	private function restore_table_filters(): void {
 		for ( $i = 0; $i < $this->bypassed_create_count; $i++ ) {

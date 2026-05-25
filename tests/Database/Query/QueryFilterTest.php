@@ -42,6 +42,11 @@ class QueryFilterTest extends TestCase {
 	/** @var int[] IDs of the five fixture rows, refreshed in setUp(). */
 	private $ids = array();
 
+	/**
+	 * Install the fixture table and query object before filter tests run.
+	 *
+	 * @since 2.1.0
+	 */
 	public static function setUpBeforeClass(): void {
 		parent::setUpBeforeClass();
 
@@ -52,11 +57,21 @@ class QueryFilterTest extends TestCase {
 		self::$query = new TestQuery();
 	}
 
+	/**
+	 * Uninstall the fixture table after filter tests complete.
+	 *
+	 * @since 2.1.0
+	 */
 	public static function tearDownAfterClass(): void {
 		self::$table->uninstall();
 		parent::tearDownAfterClass();
 	}
 
+	/**
+	 * Reset filter fixture data before each test.
+	 *
+	 * @since 2.1.0
+	 */
 	public function setUp(): void {
 		parent::setUp();
 

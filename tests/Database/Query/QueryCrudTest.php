@@ -33,6 +33,11 @@ class QueryCrudTest extends TestCase {
 	/** @var TestQuery */
 	private static $query;
 
+	/**
+	 * Install the fixture table and query object before CRUD tests run.
+	 *
+	 * @since 2.1.0
+	 */
 	public static function setUpBeforeClass(): void {
 		parent::setUpBeforeClass();
 		self::$table = new TestTable();
@@ -42,11 +47,21 @@ class QueryCrudTest extends TestCase {
 		self::$query = new TestQuery();
 	}
 
+	/**
+	 * Uninstall the fixture table after CRUD tests complete.
+	 *
+	 * @since 2.1.0
+	 */
 	public static function tearDownAfterClass(): void {
 		self::$table->uninstall();
 		parent::tearDownAfterClass();
 	}
 
+	/**
+	 * Reset CRUD fixture data before each test.
+	 *
+	 * @since 2.1.0
+	 */
 	public function setUp(): void {
 		parent::setUp();
 

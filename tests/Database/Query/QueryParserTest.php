@@ -381,6 +381,13 @@ class QueryParserTest extends TestCase {
 	public function test_parse_join_where_parsers_normalizes_alias_underscores() {
 		// Create a test query that returns an alias with consecutive underscores.
 		$query = new class() extends QueryParserSpyQuery {
+			/**
+			 * Return an alias with consecutive underscores for normalization tests.
+			 *
+			 * @since 2.1.0
+			 *
+			 * @return string
+			 */
 			public function get_table_alias() {
 				return 'resolved__tw___alias';
 			}

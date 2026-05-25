@@ -27,6 +27,11 @@ class SchemaTest extends TestCase {
 	/** @var TestSchema */
 	private static $schema;
 
+	/**
+	 * Create the fixture schema before schema tests run.
+	 *
+	 * @since 2.1.0
+	 */
 	public static function setUpBeforeClass(): void {
 		parent::setUpBeforeClass();
 		self::$schema = new TestSchema();
