@@ -493,6 +493,95 @@ class QueryFilterTest extends TestCase {
 		$this->assertCount( 5, $ids );
 	}
 
+	/**
+	 * Test that querying specific fields returns stdClass objects with only those fields.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_fields_array_returns_stdclass_objects_with_requested_fields() {
+		$items = self::$query->query(
+			array(
+				'number'  => 0,
+				'fields'  => array( 'id', 'name' ),
+				'orderby' => 'id',
+				'order'   => 'ASC',
+			)
+		);
+
+		$item = array_values( $items )[0];
+
+		$this->assertInstanceOf( \stdClass::class, $item );
+		$this->assertSame( $this->ids[0], (int) $item->id );
+		$this->assertSame( 'Alpha Widget', $item->name );
+		$this->assertFalse( property_exists( $item, 'status' ) );
+		$this->assertFalse( property_exists( $item, 'priority' ) );
+	}
+
+	/**
+	 * Test that field selection can omit the primary field from returned objects.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_fields_array_can_omit_primary_field_from_objects() {
+		$items = self::$query->query(
+			array(
+				'number'  => 0,
+				'fields'  => array( 'name', 'status' ),
+				'orderby' => 'id',
+				'order'   => 'ASC',
+			)
+		);
+
+		$item = array_values( $items )[0];
+
+		$this->assertInstanceOf( \stdClass::class, $item );
+		$this->assertSame( 'Alpha Widget', $item->name );
+		$this->assertSame( 'active', $item->status );
+		$this->assertFalse( property_exists( $item, 'id' ) );
+		$this->assertFalse( property_exists( $item, 'priority' ) );
+	}
+
+	/**
+	 * Test that cached query IDs can be reshaped for different field selections.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_cached_query_ids_are_reshaped_for_each_fields_request() {
+		$args = array(
+			'number'  => 1,
+			'orderby' => 'id',
+			'order'   => 'ASC',
+		);
+
+		$name_items   = self::$query->query(
+			array_merge(
+				$args,
+				array(
+					'fields' => array( 'id', 'name' ),
+				)
+			)
+		);
+		$status_items = self::$query->query(
+			array_merge(
+				$args,
+				array(
+					'fields' => array( 'id', 'status' ),
+				)
+			)
+		);
+
+		$name_item   = array_values( $name_items )[0];
+		$status_item = array_values( $status_items )[0];
+
+		$this->assertSame( $this->ids[0], (int) $name_item->id );
+		$this->assertSame( 'Alpha Widget', $name_item->name );
+		$this->assertFalse( property_exists( $name_item, 'status' ) );
+
+		$this->assertSame( $this->ids[0], (int) $status_item->id );
+		$this->assertSame( 'active', $status_item->status );
+		$this->assertFalse( property_exists( $status_item, 'name' ) );
+	}
+
 	// Found rows / pagination.
 
 	/**

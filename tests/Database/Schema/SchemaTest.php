@@ -102,7 +102,7 @@ class SchemaTest extends TestCase {
 	/**
 	 * Test that exactly one primary index exists in the schema.
 	 *
-	 * @since 2.1.0
+	 * @since 3.0.0
 	 */
 	public function test_exactly_one_primary_index_exists() {
 		$primary = array_filter(
@@ -117,7 +117,7 @@ class SchemaTest extends TestCase {
 	/**
 	 * Test that the primary index targets the "id" column.
 	 *
-	 * @since 2.1.0
+	 * @since 3.0.0
 	 */
 	public function test_primary_index_targets_id() {
 		$primary = array_filter(
@@ -284,7 +284,7 @@ class SchemaTest extends TestCase {
 	/**
 	 * Test that add_item with the legacy three-argument signature appends a Column object.
 	 *
-	 * @since 2.1.0
+	 * @since 3.0.0
 	 */
 	public function test_add_item_with_legacy_signature_appends_a_column_object() {
 		$schema       = new TestSchema();
@@ -305,7 +305,7 @@ class SchemaTest extends TestCase {
 	/**
 	 * Test that add_item with the current two-argument signature appends a Column object.
 	 *
-	 * @since 2.1.0
+	 * @since 3.0.0
 	 */
 	public function test_add_item_with_current_signature_appends_a_column_object() {
 		$schema       = new TestSchema();

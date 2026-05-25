@@ -5,7 +5,7 @@
  * @package     BerlinDB\Tests
  * @copyright   2026 - JJJ and all BerlinDB contributors
  * @license     https://opensource.org/licenses/MIT MIT
- * @since       2.1.0
+ * @since       3.0.0
  */
 
 namespace BerlinDB\Tests;
@@ -20,7 +20,7 @@ use Yoast\WPTestUtils\WPIntegration\TestCase;
 /**
  * Spy parser used to capture the parser handoff from parse_join_where_parsers().
  *
- * @since 2.1.0
+ * @since 3.0.0
  */
 class QueryParserSpy extends ParserBase {
 
@@ -60,7 +60,7 @@ class QueryParserSpy extends ParserBase {
 	/**
 	 * Reset static state between tests.
 	 *
-	 * @since 2.1.0
+	 * @since 3.0.0
 	 */
 	public static function reset() {
 		self::$primary_table     = null;
@@ -74,7 +74,7 @@ class QueryParserSpy extends ParserBase {
 	/**
 	 * Use a custom first-order key so the query payload survives sanitization.
 	 *
-	 * @since 2.1.0
+	 * @since 3.0.0
 	 *
 	 * @param array $first_keys Optional. Ignored.
 	 * @return array
@@ -114,7 +114,7 @@ class QueryParserSpy extends ParserBase {
 	/**
 	 * Satisfy the abstract parser contract.
 	 *
-	 * @since 2.1.0
+	 * @since 3.0.0
 	 *
 	 * @param array  $clause       Optional. Unused.
 	 * @param array  $parent_query Optional. Unused.
@@ -132,7 +132,7 @@ class QueryParserSpy extends ParserBase {
 /**
  * Query fixture that overrides the accessor methods parse_join_where_parsers() now uses.
  *
- * @since 2.1.0
+ * @since 3.0.0
  */
 class QueryParserSpyQuery extends TestQuery {
 
@@ -142,7 +142,7 @@ class QueryParserSpyQuery extends TestQuery {
 	/**
 	 * Return a resolved table name that differs from the raw property value.
 	 *
-	 * @since 2.1.0
+	 * @since 3.0.0
 	 *
 	 * @return string
 	 */
@@ -153,7 +153,7 @@ class QueryParserSpyQuery extends TestQuery {
 	/**
 	 * Return a resolved table alias that differs from the raw property value.
 	 *
-	 * @since 2.1.0
+	 * @since 3.0.0
 	 *
 	 * @return string
 	 */
@@ -165,14 +165,14 @@ class QueryParserSpyQuery extends TestQuery {
 /**
  * Query fixture for alias sanitization behavior.
  *
- * @since 2.1.0
+ * @since 3.0.0
  */
 class QueryParserAliasSpyQuery extends QueryParserSpyQuery {
 
 	/**
 	 * Return an alias containing non-word characters for sanitization tests.
 	 *
-	 * @since 2.1.0
+	 * @since 3.0.0
 	 *
 	 * @return string
 	 */
@@ -299,14 +299,14 @@ class QueryParserRegistrySpy extends ParserBase {
 /**
  * Tests for Query::parse_join_where_parsers().
  *
- * @since 2.1.0
+ * @since 3.0.0
  */
 class QueryParserTest extends TestCase {
 
 	/**
 	 * Ensure parse_join_where_parsers() no longer threads table metadata through positional args.
 	 *
-	 * @since 2.1.0
+	 * @since 3.0.0
 	 */
 	public function test_parse_join_where_parsers_uses_caller_methods_for_parser_inputs() {
 		$query = new QueryParserSpyQuery();
@@ -349,7 +349,7 @@ class QueryParserTest extends TestCase {
 	/**
 	 * Ensure alias sanitization follows MySQL spec and normalizes underscores.
 	 *
-	 * @since 2.1.0
+	 * @since 3.0.0
 	 */
 	public function test_parse_join_where_parsers_sanitizes_alias_conservatively() {
 		$query = new QueryParserAliasSpyQuery();
@@ -376,7 +376,7 @@ class QueryParserTest extends TestCase {
 	/**
 	 * Ensure alias sanitization normalizes multiple consecutive underscores.
 	 *
-	 * @since 2.1.0
+	 * @since 3.0.0
 	 */
 	public function test_parse_join_where_parsers_normalizes_alias_underscores() {
 		// Create a test query that returns an alias with consecutive underscores.
@@ -384,7 +384,7 @@ class QueryParserTest extends TestCase {
 			/**
 			 * Return an alias with consecutive underscores for normalization tests.
 			 *
-			 * @since 2.1.0
+			 * @since 3.0.0
 			 *
 			 * @return string
 			 */
