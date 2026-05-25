@@ -582,6 +582,75 @@ class QueryFilterTest extends TestCase {
 		$this->assertFalse( property_exists( $status_item, 'name' ) );
 	}
 
+	/**
+	 * Test that unknown fields are ignored when selecting specific fields.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_fields_array_ignores_unknown_fields() {
+		$items = self::$query->query(
+			array(
+				'number'  => 1,
+				'fields'  => array( 'id', 'bogus_field' ),
+				'orderby' => 'id',
+				'order'   => 'ASC',
+			)
+		);
+
+		$item = array_values( $items )[0];
+
+		$this->assertInstanceOf( \stdClass::class, $item );
+		$this->assertSame( $this->ids[0], (int) $item->id );
+		$this->assertFalse( property_exists( $item, 'bogus_field' ) );
+		$this->assertFalse( property_exists( $item, 'name' ) );
+	}
+
+	/**
+	 * Test that empty fields behaves like a normal full-row query.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_empty_fields_array_returns_full_row_objects() {
+		$items = self::$query->query(
+			array(
+				'number'  => 1,
+				'fields'  => array(),
+				'orderby' => 'id',
+				'order'   => 'ASC',
+			)
+		);
+
+		$item = $items[0];
+
+		$this->assertInstanceOf( TestRow::class, $item );
+		$this->assertSame( $this->ids[0], (int) $item->id );
+		$this->assertSame( 'Alpha Widget', $item->name );
+		$this->assertSame( 'active', $item->status );
+	}
+
+	/**
+	 * Test that a scalar field name returns objects with only that field.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_scalar_field_returns_objects_with_only_that_field() {
+		$items = self::$query->query(
+			array(
+				'number'  => 1,
+				'fields'  => 'name',
+				'orderby' => 'id',
+				'order'   => 'ASC',
+			)
+		);
+
+		$item = array_values( $items )[0];
+
+		$this->assertInstanceOf( \stdClass::class, $item );
+		$this->assertSame( 'Alpha Widget', $item->name );
+		$this->assertFalse( property_exists( $item, 'id' ) );
+		$this->assertFalse( property_exists( $item, 'status' ) );
+	}
+
 	// Found rows / pagination.
 
 	/**
