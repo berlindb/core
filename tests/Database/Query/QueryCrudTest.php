@@ -143,6 +143,27 @@ class QueryCrudTest extends TestCase {
 		$this->assertStringStartsWith( 'urn:uuid:', $item->uuid );
 	}
 
+	/**
+	 * Test that add_item ignores unknown keys while saving valid columns.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_add_item_ignores_unknown_keys() {
+		$id = self::$query->add_item(
+			array(
+				'name'                    => 'Widget With Extra Data',
+				'status'                  => 'active',
+				'definitely_not_a_column' => 'ignored',
+			)
+		);
+
+		$item = self::$query->get_item( $id );
+
+		$this->assertSame( 'Widget With Extra Data', $item->name );
+		$this->assertSame( 'active', $item->status );
+		$this->assertFalse( property_exists( $item, 'definitely_not_a_column' ) );
+	}
+
 	// get_item().
 
 	/**
@@ -273,6 +294,35 @@ class QueryCrudTest extends TestCase {
 	}
 
 	/**
+	 * Test that update_item ignores unknown keys while saving valid columns.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_update_item_ignores_unknown_keys() {
+		$id = self::$query->add_item(
+			array(
+				'name'   => 'Widget A',
+				'status' => 'active',
+			)
+		);
+
+		self::$query->update_item(
+			$id,
+			array(
+				'name'                    => 'Updated Widget',
+				'definitely_not_a_column' => 'ignored',
+			)
+		);
+
+		wp_cache_flush();
+		$item = self::$query->get_item( $id );
+
+		$this->assertSame( 'Updated Widget', $item->name );
+		$this->assertSame( 'active', $item->status );
+		$this->assertFalse( property_exists( $item, 'definitely_not_a_column' ) );
+	}
+
+	/**
 	 * Test that update_item returns false when the specified ID does not exist.
 	 *
 	 * @since 2.1.0
@@ -290,6 +340,23 @@ class QueryCrudTest extends TestCase {
 	public function test_update_item_returns_false_for_empty_data() {
 		$id     = self::$query->add_item( array( 'name' => 'Widget A' ) );
 		$result = self::$query->update_item( $id, array() );
+		$this->assertFalse( $result );
+	}
+
+	/**
+	 * Test that update_item returns false when only unknown keys are provided.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_update_item_returns_false_for_only_unknown_keys() {
+		$id     = self::$query->add_item( array( 'name' => 'Widget A' ) );
+		$result = self::$query->update_item(
+			$id,
+			array(
+				'definitely_not_a_column' => 'ignored',
+			)
+		);
+
 		$this->assertFalse( $result );
 	}
 
@@ -377,5 +444,34 @@ class QueryCrudTest extends TestCase {
 		wp_cache_flush();
 		$copy = self::$query->get_item( $new_id );
 		$this->assertSame( 'inactive', $copy->status );
+	}
+
+	/**
+	 * Test that copy_item ignores unknown override keys while saving valid columns.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_copy_item_ignores_unknown_override_keys() {
+		$id = self::$query->add_item(
+			array(
+				'name'   => 'Original Widget',
+				'status' => 'active',
+			)
+		);
+
+		$new_id = self::$query->copy_item(
+			$id,
+			array(
+				'status'                  => 'inactive',
+				'definitely_not_a_column' => 'ignored',
+			)
+		);
+
+		wp_cache_flush();
+		$copy = self::$query->get_item( $new_id );
+
+		$this->assertSame( 'Original Widget', $copy->name );
+		$this->assertSame( 'inactive', $copy->status );
+		$this->assertFalse( property_exists( $copy, 'definitely_not_a_column' ) );
 	}
 }
