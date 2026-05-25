@@ -4,8 +4,7 @@
  *
  * reduce_item() strips columns the current user cannot access for a given
  * CRUD method. All columns in TestSchema default to the 'exist' pseudo-cap,
- * which evaluates to true for any logged-in user (ID > 0) and false for the
- * anonymous user (ID 0).
+ * which WordPress grants broadly, including to the anonymous user (ID 0).
  *
  * @package     BerlinDB\Tests
  * @copyright   2026 - JJJ and all BerlinDB contributors
@@ -165,13 +164,13 @@ class ReduceItemTest extends TestCase {
 	// ========================================================================
 
 	/**
-	 * All schema columns are stripped for the anonymous user.
+	 * Schema columns are retained for the anonymous user.
 	 *
-	 * current_user_can( 'exist' ) returns false for user ID 0.
+	 * current_user_can( 'exist' ) returns true even for user ID 0.
 	 *
 	 * @since 3.0.0
 	 */
-	public function test_all_columns_stripped_for_anonymous_user() {
+	public function test_schema_columns_retained_for_anonymous_user() {
 		wp_set_current_user( 0 );
 
 		$input  = array(
@@ -181,15 +180,17 @@ class ReduceItemTest extends TestCase {
 		);
 		$result = self::$method->invoke( self::$query, 'select', $input );
 
-		$this->assertEmpty( $result );
+		$this->assertArrayHasKey( 'id', $result );
+		$this->assertArrayHasKey( 'name', $result );
+		$this->assertArrayHasKey( 'status', $result );
 	}
 
 	/**
-	 * Object input with anonymous user returns an empty array.
+	 * Object input with anonymous user returns retained schema columns.
 	 *
 	 * @since 3.0.0
 	 */
-	public function test_object_with_anonymous_user_returns_empty_array() {
+	public function test_object_with_anonymous_user_returns_schema_columns() {
 		wp_set_current_user( 0 );
 
 		$input  = (object) array(
@@ -199,7 +200,8 @@ class ReduceItemTest extends TestCase {
 		$result = self::$method->invoke( self::$query, 'delete', $input );
 
 		$this->assertIsArray( $result );
-		$this->assertEmpty( $result );
+		$this->assertArrayHasKey( 'id', $result );
+		$this->assertArrayHasKey( 'name', $result );
 	}
 
 	// ========================================================================
@@ -281,13 +283,13 @@ class ReduceItemTest extends TestCase {
 	}
 
 	/**
-	 * All columns are stripped for all four methods when not logged in.
+	 * Schema columns are retained for all four methods when not logged in.
 	 *
 	 * @since 3.0.0
 	 *
 	 * @dataProvider provide_crud_methods
 	 */
-	public function test_all_columns_stripped_for_all_methods_when_anonymous( string $method ) {
+	public function test_schema_columns_retained_for_all_methods_when_anonymous( string $method ) {
 		wp_set_current_user( 0 );
 
 		$input  = array(
@@ -296,7 +298,8 @@ class ReduceItemTest extends TestCase {
 		);
 		$result = self::$method->invoke( self::$query, $method, $input );
 
-		$this->assertEmpty( $result, "Method '$method' should strip all columns for anonymous user" );
+		$this->assertArrayHasKey( 'id', $result, "Method '$method' should retain 'id'" );
+		$this->assertArrayHasKey( 'name', $result, "Method '$method' should retain 'name'" );
 	}
 
 	// ========================================================================

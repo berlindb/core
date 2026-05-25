@@ -210,6 +210,85 @@ class MetaParserTest extends TestCase {
 	}
 
 	/**
+	 * Test that compare_key LIKE matches meta keys by substring.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_meta_query_compare_key_like() {
+		$results = self::$query->query(
+			array(
+				'meta_query' => array(
+					array(
+						'key'         => 'color',
+						'compare_key' => 'LIKE',
+						'compare'     => 'EXISTS',
+					),
+				),
+			)
+		);
+
+		$this->assertCount( 2, $results );
+
+		$names = wp_list_pluck( $results, 'name' );
+		$this->assertContains( 'Alpha Widget', $names );
+		$this->assertContains( 'Beta Widget', $names );
+	}
+
+	/**
+	 * Test that compare_key NOT LIKE excludes rows that have matching meta keys.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_meta_query_compare_key_not_like() {
+		$results = self::$query->query(
+			array(
+				'meta_query' => array(
+					array(
+						'key'         => 'color',
+						'compare_key' => 'NOT LIKE',
+					),
+				),
+			)
+		);
+
+		$this->assertCount( 1, $results );
+		$this->assertSame( 'Gamma Gadget', $results[0]->name );
+	}
+
+	/**
+	 * Test that compare_key IN accepts an array of meta keys.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_meta_query_compare_key_in_array() {
+		$results = self::$query->query(
+			array(
+				'meta_query' => array(
+					array(
+						'key'         => array(
+							'berlindb_test_color',
+							'berlindb_test_score',
+						),
+						'compare_key' => 'IN',
+					),
+				),
+			)
+		);
+
+		$names = array_unique( wp_list_pluck( $results, 'name' ) );
+		sort( $names );
+
+		$this->assertSame(
+			array(
+				'Alpha Widget',
+				'Beta Widget',
+				'Gamma Gadget',
+			),
+			$names
+		);
+	}
+
+	/**
 	 * Test that meta_query with a numeric comparison works correctly.
 	 *
 	 * @since 3.0.0
@@ -235,6 +314,28 @@ class MetaParserTest extends TestCase {
 		$names = wp_list_pluck( $results, 'name' );
 		$this->assertContains( 'Beta Widget', $names );
 		$this->assertContains( 'Gamma Gadget', $names );
+	}
+
+	/**
+	 * Test that an invalid compare falls back to equality.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_meta_query_invalid_compare_falls_back_to_equals() {
+		$results = self::$query->query(
+			array(
+				'meta_query' => array(
+					array(
+						'key'     => 'berlindb_test_score',
+						'value'   => '20',
+						'compare' => 'BOGUS',
+					),
+				),
+			)
+		);
+
+		$this->assertCount( 1, $results );
+		$this->assertSame( 'Beta Widget', $results[0]->name );
 	}
 
 	/**
@@ -297,6 +398,35 @@ class MetaParserTest extends TestCase {
 		$names = wp_list_pluck( $results, 'name' );
 		$this->assertContains( 'Alpha Widget', $names );
 		$this->assertContains( 'Beta Widget', $names );
+	}
+
+	/**
+	 * Test that an OR relation can combine an equality clause with NOT EXISTS.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_meta_query_or_relation_with_not_exists() {
+		$results = self::$query->query(
+			array(
+				'meta_query' => array(
+					'relation' => 'OR',
+					array(
+						'key'   => 'berlindb_test_color',
+						'value' => 'red',
+					),
+					array(
+						'key'     => 'berlindb_test_color',
+						'compare' => 'NOT EXISTS',
+					),
+				),
+			)
+		);
+
+		$this->assertCount( 2, $results );
+
+		$names = wp_list_pluck( $results, 'name' );
+		$this->assertContains( 'Alpha Widget', $names );
+		$this->assertContains( 'Gamma Gadget', $names );
 	}
 
 	/**

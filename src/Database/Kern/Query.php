@@ -2196,6 +2196,11 @@ class Query {
 			return $item;
 		}
 
+		// stdClass does not hydrate constructor arguments into properties.
+		if ( 'stdClass' === $item_shape ) {
+			return (object) $item;
+		}
+
 		// Shape the item as needed.
 		$item = ( is_string( $item_shape ) && ! empty( $item_shape ) )
 			? new $item_shape( $item )
