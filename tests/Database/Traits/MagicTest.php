@@ -56,6 +56,29 @@ class MagicTestSubject {
 }
 
 /**
+ * Sibling subject used to document PHP protected-property access rules.
+ *
+ * @since 3.0.0
+ */
+class MagicSiblingReader extends MagicTestSubject {
+
+	/**
+	 * Read a protected property from another same-family object.
+	 *
+	 * PHP allows this direct access, so __get() is not invoked and the raw
+	 * property value is returned.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param MagicTestSubject $subject Subject to read from.
+	 * @return string
+	 */
+	public function read_prop_with_getter( MagicTestSubject $subject ) {
+		return $subject->prop_with_getter;
+	}
+}
+
+/**
  * Tests for the Magic trait.
  *
  * @since 3.0.0
@@ -87,6 +110,21 @@ class MagicTest extends \PHPUnit\Framework\TestCase {
 	 */
 	public function test_get_prefers_getter_over_property() {
 		$this->assertSame( 'getter_value', $this->subject->prop_with_getter );
+	}
+
+	/**
+	 * Same-family protected property access bypasses __get().
+	 *
+	 * This preserves PHP's native protected-property behaviour: a subclass can
+	 * read a protected property declared on an ancestor from another object in
+	 * that inheritance family, so the raw property value is returned.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_same_family_protected_access_bypasses_getter() {
+		$reader = new MagicSiblingReader();
+
+		$this->assertSame( 'raw_value', $reader->read_prop_with_getter( $this->subject ) );
 	}
 
 	/**

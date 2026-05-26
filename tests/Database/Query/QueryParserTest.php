@@ -182,6 +182,29 @@ class QueryParserAliasSpyQuery extends QueryParserSpyQuery {
 }
 
 /**
+ * Query fixture that documents same-family protected property access.
+ *
+ * @since 3.0.0
+ */
+class QueryParserSiblingReaderQuery extends TestQuery {
+
+	/**
+	 * Read the protected table_name property from another Query-family object.
+	 *
+	 * PHP permits this direct access because the property is protected on a
+	 * shared ancestor, so __get() and get_table_name() are bypassed.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param BerlinQuery $query Query object to read from.
+	 * @return string
+	 */
+	public function read_raw_table_name( BerlinQuery $query ) {
+		return $query->table_name;
+	}
+}
+
+/**
  * Plain caller stub used to verify Meta parser state is resolved from caller methods.
  *
  * @since 3.0.0
@@ -344,6 +367,23 @@ class QueryParserTest extends TestCase {
 			),
 			$result
 		);
+	}
+
+	/**
+	 * Document that same-family protected access reads raw Query properties.
+	 *
+	 * External property access invokes __get(), which prefers get_table_name().
+	 * Access from another Query subclass is allowed by PHP's protected-property
+	 * rules and returns the configured property value directly.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_same_family_protected_access_reads_raw_table_name() {
+		$query  = new QueryParserSpyQuery();
+		$reader = new QueryParserSiblingReaderQuery();
+
+		$this->assertSame( 'resolved_test_widgets', $query->table_name );
+		$this->assertSame( 'berlindb_database_test_widgets', $reader->read_raw_table_name( $query ) );
 	}
 
 	/**
