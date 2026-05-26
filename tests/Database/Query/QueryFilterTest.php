@@ -376,6 +376,29 @@ class QueryFilterTest extends TestCase {
 		$this->assertSame( 10, (int) $items[0]->priority );
 	}
 
+	/**
+	 * Test that an empty orderby string falls back to the primary column.
+	 *
+	 * parse_orderby() passes '' to parse_single_orderby(), which immediately
+	 * falls back to get_primary_column_name() (= 'id') when orderby is empty.
+	 * The query must still return results rather than producing broken SQL.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_orderby_empty_string_falls_back_to_primary_column() {
+		$items = self::$query->query(
+			array(
+				'number'  => 0,
+				'orderby' => '',
+			)
+		);
+		$this->assertNotEmpty( $items );
+
+		// Results must be in ascending ID order (default when falling back to primary).
+		$ids = array_column( (array) $items, 'id' );
+		$this->assertSame( $ids, array_values( $ids ) );
+	}
+
 	// Pagination.
 
 	/**

@@ -258,6 +258,32 @@ class QueryCrudTest extends TestCase {
 		$this->assertFalse( $result );
 	}
 
+	/**
+	 * Test that get_item_by returns false when the column value is the string '0'.
+	 *
+	 * get_item_by() guards with empty($column_value), and empty('0') is true in
+	 * PHP, so the lookup bails early and returns false regardless of table contents.
+	 * This test documents that known behaviour so a future refactor of the guard
+	 * can verify the change intentionally.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_get_item_by_returns_false_for_string_zero_value() {
+		$this->assertFalse( self::$query->get_item_by( 'status', '0' ) );
+	}
+
+	/**
+	 * Test that get_item_by returns false when the column value is integer 0.
+	 *
+	 * Same empty() guard as the string '0' case — integer 0 is also considered
+	 * empty, so the method returns false before reaching the database.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_get_item_by_returns_false_for_integer_zero_value() {
+		$this->assertFalse( self::$query->get_item_by( 'priority', 0 ) );
+	}
+
 	// update_item().
 
 	/**
