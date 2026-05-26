@@ -129,4 +129,33 @@ class QueryCacheTest extends TestCase {
 
 		$this->assertSame( $queries_before, $queries_after );
 	}
+
+	/**
+	 * After deleting an item, re-querying with the same args on the same
+	 * instance must reflect the deletion — not return the stale cached result.
+	 *
+	 * This is the regression case from berlindb/core#160: the old
+	 * update_last_changed_cache() guard (`if (empty($this->last_changed))`)
+	 * prevented the cache key from advancing after a mutation, so the second
+	 * query would hit the now-invalid cache entry and return the deleted item.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_cache_is_invalidated_after_delete() {
+		$args = array(
+			'number' => 10,
+			'status' => 'active',
+		);
+
+		// Prime the cache — one item exists.
+		$before = self::$query->query( $args );
+		$this->assertCount( 1, $before );
+
+		// Delete the only item.
+		self::$query->delete_item( $before[0]->id );
+
+		// Re-query: must return empty, not the stale cached item.
+		$after = self::$query->query( $args );
+		$this->assertCount( 0, $after );
+	}
 }

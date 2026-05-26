@@ -142,14 +142,6 @@ class Query {
 	 */
 	protected $cache_group = '';
 
-	/**
-	 * The last updated time.
-	 *
-	 * @since 1.0.0
-	 * @var   string
-	 */
-	protected $last_changed = '';
-
 	/** Schema *************************************************************/
 
 	/**
@@ -330,17 +322,6 @@ class Query {
 	}
 
 	/** Private Setters *******************************************************/
-
-	/**
-	 * Set up the time when items were last changed.
-	 *
-	 * Avoids inconsistencies between method calls.
-	 *
-	 * @since 1.0.0
-	 */
-	private function set_last_changed(): void {
-		$this->last_changed = microtime();
-	}
 
 	/**
 	 * Set up the table alias if not already set in the class.
@@ -3679,15 +3660,11 @@ class Query {
 	 * @return string The last time a cache group was changed.
 	 */
 	private function update_last_changed_cache( $group = '' ) {
+		$last_changed = microtime();
 
-		// Set last_changed to current microtime.
-		$this->set_last_changed();
+		$this->cache_set( 'last_changed', $last_changed, $group );
 
-		// Set the last changed time for this cache group.
-		$this->cache_set( 'last_changed', $this->last_changed, $group );
-
-		// Return the last changed time.
-		return $this->last_changed;
+		return $last_changed;
 	}
 
 	/**
