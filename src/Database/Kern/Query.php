@@ -1636,8 +1636,8 @@ class Query {
 		 */
 		if ( is_string( $value ) ) {
 
-			// Bail if string is over 100 chars long.
-			if ( strlen( $value ) > 100 ) {
+			// Bail if string is over 200s chars long.
+			if ( strlen( $value ) > 200 ) {
 				return array( $value );
 			}
 
