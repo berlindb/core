@@ -1470,13 +1470,64 @@ class Table {
 	 */
 	private function set_schema(): void {
 
-		// Bail if no table schema.
-		if ( empty( $this->schema ) || ! class_exists( $this->schema ) ) {
+		// Bail if no table schema is configured.
+		if ( empty( $this->schema ) ) {
+			$this->log_empty_value(
+				'schema',
+				array( $this, __FUNCTION__ ),
+				array(
+					'code'    => 'table_schema_empty',
+					'message' => 'Table schema class is empty.',
+				)
+			);
 			return;
 		}
 
-		// Invoke a new table schema class.
-		$this->schema_object = new $this->schema();
+		// Bail if the table schema class does not exist.
+		if ( ! class_exists( $this->schema ) ) {
+			$this->log_class_not_found(
+				$this->schema,
+				array( $this, __FUNCTION__ ),
+				array(
+					'code'    => 'table_schema_missing',
+					'message' => 'Table schema class does not exist.',
+					'schema'  => $this->schema,
+				)
+			);
+			return;
+		}
+
+		// Try to invoke a new table schema class.
+		try {
+			$this->schema_object = new $this->schema();
+		} catch ( \Throwable $exception ) {
+			$this->log_class_instantiation_failed(
+				$this->schema,
+				$exception,
+				array( $this, __FUNCTION__ ),
+				array(
+					'code'    => 'table_schema_instantiation_failed',
+					'message' => 'Table schema class could not be instantiated.',
+					'schema'  => $this->schema,
+				)
+			);
+
+			return;
+		}
+
+		// Log unusable schema objects.
+		if ( ! is_callable( array( $this->schema_object, 'get_create_table_string' ) ) ) {
+			$this->log_method_not_found(
+				$this->schema_object,
+				'get_create_table_string',
+				array( $this, __FUNCTION__ ),
+				array(
+					'code'    => 'table_schema_missing_get_create_table_string',
+					'message' => 'Table schema class does not expose get_create_table_string().',
+					'schema'  => $this->schema,
+				)
+			);
+		}
 	}
 
 	/**
