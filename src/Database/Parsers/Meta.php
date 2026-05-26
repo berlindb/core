@@ -676,17 +676,9 @@ class Meta extends Base {
 			}
 		}
 
-		// meta_value.
+		// meta_value — build_value() normalises the mixed input.
 		if ( array_key_exists( 'value', $clause ) ) {
-			if ( is_array( $clause['value'] ) ) {
-				$meta_val = array_values( $clause['value'] );
-			} elseif ( is_scalar( $clause['value'] ) ) {
-				$meta_val = (string) $clause['value'];
-			} else {
-				$meta_val = '';
-			}
-
-			$where = $this->build_value( $meta_compare, $meta_val, '%s' );
+			$where = $this->build_value( $meta_compare, $clause['value'], '%s' );
 
 			// Not empty, so maybe cast...
 			if ( ! empty( $where ) ) {

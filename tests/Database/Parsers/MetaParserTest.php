@@ -550,4 +550,33 @@ class MetaParserTest extends TestCase {
 		$this->assertSame( 'Beta Widget', $results[1]->name );
 		$this->assertSame( 'Gamma Gadget', $results[2]->name );
 	}
+
+	/**
+	 * Test that meta_query with an array value and IN compare returns matching rows.
+	 *
+	 * Exercises the clause['value'] path in Meta::build_clause_sql() now that
+	 * build_value() handles array normalisation directly. Scores 10 and 30
+	 * belong to Alpha Widget and Gamma Gadget respectively.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_meta_query_value_in_array() {
+		$results = self::$query->query(
+			array(
+				'meta_query' => array(
+					array(
+						'key'     => 'berlindb_test_score',
+						'value'   => array( '10', '30' ),
+						'compare' => 'IN',
+					),
+				),
+			)
+		);
+
+		$this->assertCount( 2, $results );
+
+		$names = wp_list_pluck( $results, 'name' );
+		$this->assertContains( 'Alpha Widget', $names );
+		$this->assertContains( 'Gamma Gadget', $names );
+	}
 }

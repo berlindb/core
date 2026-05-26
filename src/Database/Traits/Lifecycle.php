@@ -138,6 +138,19 @@ trait Lifecycle {
 	}
 
 	/**
+	 * Get an integer value from the current run's ephemeral state.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param string $key State key.
+	 * @return int Integer value, or 0 if not set or not an integer.
+	 */
+	protected function get_current_int( $key ): int {
+		$value = $this->current[ $key ] ?? 0;
+		return is_int( $value ) ? $value : 0;
+	}
+
+	/**
 	 * Set a value in the current run's ephemeral state.
 	 *
 	 * @since 3.0.0

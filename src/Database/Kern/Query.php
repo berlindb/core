@@ -604,7 +604,7 @@ class Query {
 					'limits'  => '',
 					'orderby' => '',
 				),
-				$this->get_current( 'request_clauses', array() )
+				$this->get_current_array( 'request_clauses' )
 			);
 
 			// Parse the new clauses.
@@ -933,7 +933,7 @@ class Query {
 	public function get_parsers( $args = array(), $operator = 'and', $field = false ) {
 
 		// Determine source.
-		$current_parsers = $this->get_current( 'parsers' );
+		$current_parsers = $this->get_current_array( 'parsers' );
 		$source          = ! empty( $current_parsers )
 			? $current_parsers
 			: $this->parsers;
@@ -1004,8 +1004,7 @@ class Query {
 	 * @return string
 	 */
 	public function get_request() {
-		$request = $this->get_current( 'request', '' );
-		return is_string( $request ) ? $request : '';
+		return $this->get_current_string( 'request' ) ?? '';
 	}
 
 	/**
@@ -1017,8 +1016,7 @@ class Query {
 	 * @return int
 	 */
 	public function get_found_items() {
-		$found_items = $this->get_current( 'found_items', 0 );
-		return is_int( $found_items ) ? $found_items : 0;
+		return $this->get_current_int( 'found_items' );
 	}
 
 	/**
@@ -1030,8 +1028,7 @@ class Query {
 	 * @return int
 	 */
 	public function get_max_num_pages() {
-		$max_num_pages = $this->get_current( 'max_num_pages', 0 );
-		return is_int( $max_num_pages ) ? $max_num_pages : 0;
+		return $this->get_current_int( 'max_num_pages' );
 	}
 
 	/**
@@ -1213,7 +1210,7 @@ class Query {
 			// Format the cached value.
 			$cache_value = array(
 				'item_ids'    => $result,
-				'found_items' => $this->get_current( 'found_items' ),
+				'found_items' => $this->get_current_int( 'found_items' ),
 			);
 
 			// Add value to the cache.
@@ -1232,14 +1229,14 @@ class Query {
 		}
 
 		// Pagination.
-		$found_items = $this->get_current( 'found_items' );
-		if ( ! empty( $found_items ) && is_numeric( $found_items ) ) {
+		$found_items = $this->get_current_int( 'found_items' );
+		if ( ! empty( $found_items ) ) {
 			$number = $this->get_query_var( 'number' );
 
 			if ( is_int( $number ) || is_string( $number ) ) {
 				$number_int = (int) $number;
 				if ( ! empty( $number_int ) ) {
-					$this->set_current( 'max_num_pages', (int) ceil( (int) $found_items / $number_int ) );
+					$this->set_current( 'max_num_pages', (int) ceil( $found_items / $number_int ) );
 				}
 			}
 		}
@@ -2050,7 +2047,7 @@ class Query {
 
 		// Maybe fallback to request_clauses.
 		if ( empty( $clauses ) ) {
-			$clauses = $this->get_current( 'request_clauses', array() );
+			$clauses = $this->get_current_array( 'request_clauses' );
 		}
 
 		// Bail if empty clauses.
@@ -2207,8 +2204,8 @@ class Query {
 		}
 
 		// Return the item if it's already shaped.
-		$item_shape = $this->get_current( 'item_shape' );
-		if ( is_string( $item_shape ) && ! empty( $item_shape ) && $item instanceof $item_shape ) {
+		$item_shape = $this->get_current_string( 'item_shape' );
+		if ( ! empty( $item_shape ) && $item instanceof $item_shape ) {
 			return $item;
 		}
 
