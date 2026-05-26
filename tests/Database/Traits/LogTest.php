@@ -47,7 +47,7 @@ class LogTestSubject {
 	 *
 	 * @param array<string, mixed> $entry Log entry.
 	 */
-	protected function write_log( array $entry = array() ): void {
+	protected function write_log( array $entry ): void {
 		$this->written[] = $entry;
 	}
 }
@@ -162,5 +162,52 @@ class LogTest extends \PHPUnit\Framework\TestCase {
 
 		$this->assertSame( array(), $this->subject->get_logs() );
 		$this->assertSame( array(), $this->subject->written );
+	}
+
+	/**
+	 * get_logs() returns an empty array when no entries have been recorded.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_get_logs_returns_empty_array_when_no_entries() {
+		$this->assertSame( array(), $this->subject->get_logs() );
+		$this->assertSame( array(), $this->subject->get_logs( 'debug' ) );
+	}
+
+	/**
+	 * Entries are returned in insertion order.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_get_logs_preserves_insertion_order() {
+		$this->subject->add_log( 'debug', 'First.' );
+		$this->subject->add_log( 'debug', 'Second.' );
+		$this->subject->add_log( 'debug', 'Third.' );
+
+		$messages = array_column( $this->subject->get_logs(), 'message' );
+
+		$this->assertSame( array( 'First.', 'Second.', 'Third.' ), $messages );
+	}
+
+	/**
+	 * clear_logs() by level re-indexes the remaining entries.
+	 *
+	 * After removing a middle entry the keys must be sequential [0, 1], not [0, 2].
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_clear_logs_reindexes_remaining_entries() {
+		$this->subject->add_log( 'debug', 'Keep.' );
+		$this->subject->add_log( 'warning', 'Remove.' );
+		$this->subject->add_log( 'debug', 'Also keep.' );
+
+		$this->subject->clear_logs( 'warning' );
+
+		$logs = $this->subject->get_logs();
+
+		$this->assertCount( 2, $logs );
+		$this->assertSame( array( 0, 1 ), array_keys( $logs ) );
+		$this->assertSame( 'Keep.', $logs[0]['message'] );
+		$this->assertSame( 'Also keep.', $logs[1]['message'] );
 	}
 }

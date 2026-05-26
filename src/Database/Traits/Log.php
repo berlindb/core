@@ -140,5 +140,5 @@ trait Log {
 	 *
 	 * @param array{level: string, message: string, context: array<string, mixed>, time: float, source: string} $entry Log entry.
 	 */
-	protected function write_log( array $entry = array() ): void {}
+	protected function write_log( array $entry ): void {}
 }
