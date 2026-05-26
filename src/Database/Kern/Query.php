@@ -2623,6 +2623,12 @@ class Query {
 		// Cast object to array.
 		$save = (array) $item;
 
+		/*
+		 * Strip the UUID so add_item() generates a fresh one via validate_uuid().
+		 * A UUID explicitly provided in $data will be restored by the merge below.
+		 */
+		unset( $save['uuid'] );
+
 		// Maybe merge data with original item.
 		if ( ! empty( $data ) && is_array( $data ) ) {
 			$save = array_merge( $save, $data );

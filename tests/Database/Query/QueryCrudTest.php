@@ -500,4 +500,27 @@ class QueryCrudTest extends TestCase {
 		$this->assertSame( 'inactive', $copy->status );
 		$this->assertFalse( property_exists( $copy, 'definitely_not_a_column' ) );
 	}
+
+	/**
+	 * Test that copy_item generates a distinct UUID for the copied row.
+	 *
+	 * The original item's UUID must not be duplicated — each row needs its own
+	 * globally unique identifier. Before the fix, copy_item() carried the UUID
+	 * through to add_item(), which preserved it unchanged via validate_uuid().
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_copy_item_generates_distinct_uuid() {
+		$id = self::$query->add_item( array( 'name' => 'Original Widget' ) );
+
+		$new_id = self::$query->copy_item( $id );
+
+		wp_cache_flush();
+		$original = self::$query->get_item( $id );
+		$copy     = self::$query->get_item( $new_id );
+
+		$this->assertNotEmpty( $original->uuid );
+		$this->assertNotEmpty( $copy->uuid );
+		$this->assertNotSame( $original->uuid, $copy->uuid );
+	}
 }
