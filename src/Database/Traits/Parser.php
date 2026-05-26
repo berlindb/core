@@ -1695,4 +1695,5 @@ trait Parser {
 		// Call the method on the caller and return its value.
 		return call_user_func( $callback, ...$args );
 	}
+
 }

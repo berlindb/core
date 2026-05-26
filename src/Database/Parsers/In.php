@@ -138,16 +138,10 @@ class In extends Base {
 
 			// Get the pattern.
 			$name    = str_replace( '__in', '', $column );
-			$pattern = $this->caller( 'get_column_field', array( 'name' => $name ), 'pattern', '%s' );
-			$pattern = is_string( $pattern )
-				? $pattern
-				: '%s';
+			$pattern = (string) $this->caller( 'get_column_field', array( 'name' => $name ), 'pattern', '%s' );
 
 			// Get the aliased column name for SQL.
-			$aliased = $this->caller( 'get_quoted_column_name_aliased', $name );
-			$aliased = is_string( $aliased )
-				? $aliased
-				: '';
+			$aliased = (string) $this->caller( 'get_quoted_column_name_aliased', $name );
 
 			// Convert single item arrays to literal column comparisons.
 			if ( 1 === count( $values ) ) {
@@ -157,8 +151,7 @@ class In extends Base {
 
 				// Implode.
 			} else {
-				$in_values        = $this->caller( 'get_in_sql', $name, $values, true, $pattern );
-				$in_values        = is_string( $in_values ) ? $in_values : '';
+				$in_values        = (string) $this->caller( 'get_in_sql', $name, $values, true, $pattern );
 				$where[ $column ] = "{$aliased} IN {$in_values}";
 			}
 		}
@@ -214,9 +207,8 @@ class In extends Base {
 		}
 
 		// Maybe alias the column name.
-		$aliased = $this->caller( 'get_quoted_column_name_aliased', $column_name, $alias );
-		$aliased = is_string( $aliased ) ? $aliased : '';
-		$item_in = is_string( $item_in ) ? $item_in : '';
+		$aliased = (string) $this->caller( 'get_quoted_column_name_aliased', $column_name, $alias );
+		$item_in = (string) $item_in;
 
 		// Return the FIELD() expression.
 		return "FIELD( {$aliased}, {$item_in} )";

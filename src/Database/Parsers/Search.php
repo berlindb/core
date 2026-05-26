@@ -128,10 +128,8 @@ class Search extends Base {
 		$sql_columns = array();
 		foreach ( $search_columns as $key ) {
 			$name          = str_replace( '_search', '', $key );
-			$aliased       = $this->caller( 'get_quoted_column_name_aliased', $name );
-			$sql_columns[] = is_string( $aliased )
-				? $aliased
-				: (string) $name;
+			$aliased       = (string) $this->caller( 'get_quoted_column_name_aliased', $name );
+			$sql_columns[] = ! empty( $aliased ) ? $aliased : (string) $name;
 		}
 
 		// Add search query clause.
@@ -212,10 +210,7 @@ class Search extends Base {
 		}
 
 		// Generate filter name based on the plural item name, with prefix if set.
-		$plural_name = $this->caller( 'get_item_name_plural' );
-		$plural_name = is_string( $plural_name )
-			? $plural_name
-			: '';
+		$plural_name = (string) $this->caller( 'get_item_name_plural' );
 
 		// Bail if filter name is empty.
 		$filter_name = $this->apply_prefix( $plural_name . '_search_columns' );

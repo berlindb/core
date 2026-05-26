@@ -327,7 +327,7 @@ class Meta extends Base {
 
 		// Meta.
 		$meta_table_sanitized  = $this->sanitize_table_name( $meta_table );
-		$meta_column_sanitized = $this->sanitize_column_name( is_scalar( $type ) ? (string) $type . '_id' : '' );
+		$meta_column_sanitized = $this->sanitize_column_name( $type . '_id' );
 
 		// Primary.
 		$primary_table_sanitized  = $this->sanitize_table_name( $primary_table );
@@ -378,7 +378,7 @@ class Meta extends Base {
 
 		// Meta.
 		$meta_table_sanitized  = $this->sanitize_table_name( $meta_table );
-		$meta_column_sanitized = $this->sanitize_column_name( is_scalar( $type ) ? (string) $type . '_id' : '' );
+		$meta_column_sanitized = $this->sanitize_column_name( $type . '_id' );
 
 		// Primary.
 		$primary_table_sanitized  = $this->sanitize_table_name( $primary_table );

@@ -1221,7 +1221,7 @@ class Query {
 			if ( is_array( $cache_value ) ) {
 				$result          = $cache_value['item_ids'] ?? array();
 				$found_items_val = $cache_value['found_items'] ?? 0;
-				$this->set_current( 'found_items', is_scalar( $found_items_val ) ? (int) $found_items_val : 0 );
+				$this->set_current( 'found_items', (int) $found_items_val );
 			} else {
 				$result = array();
 				$this->set_current( 'found_items', 0 );
@@ -2215,7 +2215,7 @@ class Query {
 		}
 
 		// Shape the item as needed.
-		$item = ( is_string( $item_shape ) && ! empty( $item_shape ) )
+		$item = ! empty( $item_shape )
 			? new $item_shape( $item )
 			: (object) $item;
 
