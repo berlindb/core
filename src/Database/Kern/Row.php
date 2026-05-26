@@ -32,7 +32,7 @@ defined( 'ABSPATH' ) || exit;
 class Row {
 
 	/**
-	 * Use the following traits:
+	 * Use these traits.
 	 *
 	 * @since 3.0.0
 	 */

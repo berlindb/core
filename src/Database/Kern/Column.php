@@ -59,7 +59,7 @@ defined( 'ABSPATH' ) || exit;
 class Column {
 
 	/**
-	 * Use the following traits:
+	 * Use these traits.
 	 *
 	 * @since 3.0.0
 	 */

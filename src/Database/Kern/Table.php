@@ -36,7 +36,7 @@ defined( 'ABSPATH' ) || exit;
 class Table {
 
 	/**
-	 * Use the following traits:
+	 * Use these traits.
 	 *
 	 * @since 3.0.0
 	 */

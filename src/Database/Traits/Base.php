@@ -19,7 +19,7 @@ defined( 'ABSPATH' ) || exit;
 /**
  * The Base Trait provides shared utilities to all BerlinDB classes.
  *
- * Composes Environment, Error, Magic, and Sanitizer. Provides the global
+ * Composes Environment, Log, Error, Magic, and Sanitizer. Provides the global
  * $prefix property, to_array(), set_vars(), apply_prefix(), and first_letters().
  * Magic __get() and __isset() behaviour is delegated to the Magic trait.
  *
@@ -27,8 +27,14 @@ defined( 'ABSPATH' ) || exit;
  */
 trait Base {
 
+	/**
+	 * Use these traits.
+	 *
+	 * @since 3.0.0
+	 */
 	use Environment;
 	use Error;
+	use Log;
 	use Magic;
 	use Sanitizer;
 
