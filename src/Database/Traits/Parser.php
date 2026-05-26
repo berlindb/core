@@ -8,6 +8,7 @@
  * @license     https://opensource.org/licenses/MIT MIT
  * @since       3.0.0
  */
+
 declare( strict_types = 1 );
 
 namespace BerlinDB\Database\Traits;
@@ -153,8 +154,8 @@ trait Parser {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string, mixed>               $query_vars
-	 * @param \BerlinDB\Database\Kern\Query|null $caller
+	 * @param array<string, mixed>               $query_vars Array of query variables.
+	 * @param \BerlinDB\Database\Kern\Query|null $caller The parent Query instance.
 	 */
 	public function __construct( array $query_vars = array(), mixed $caller = null ) {
 		$this->init( $query_vars, $caller );
@@ -171,7 +172,7 @@ trait Parser {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string, mixed> $query_vars {
+	 * @param array<string, mixed>               $query_vars {
 	 *     Array of query clauses.
 	 *
 	 *     @type array ...$0 {
@@ -208,11 +209,11 @@ trait Parser {
 		$this->start_of_week = $this->get_start_of_week( $query_vars );
 
 		// Support for passing some key in the top level of the array.
-		if ( ! isset( $query_vars[ 0 ] ) ) {
+		if ( ! isset( $query_vars[0] ) ) {
 
 			// Apply a default alias to first-order clauses when not provided.
-			if ( is_array( $query_vars ) && empty( $query_vars['alias'] ) ) {
-				$query_vars['alias'] = $this->get_table_alias( $query_vars );
+			if ( is_array( $query_vars ) && empty( $query_vars[ 'alias' ] ) ) {
+				$query_vars[ 'alias' ] = $this->get_table_alias( $query_vars );
 			}
 
 			$query_vars = array( $query_vars );
@@ -243,7 +244,7 @@ trait Parser {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param \BerlinDB\Database\Kern\Query|null $caller
+	 * @param \BerlinDB\Database\Kern\Query|null $caller The parent Query instance.
 	 */
 	protected function set_caller( mixed $caller = null ): void {
 		$this->caller = $caller;
@@ -280,8 +281,8 @@ trait Parser {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string|int, mixed> $queries
-	 * @param array<string|int, mixed> $parent_query
+	 * @param array<string|int, mixed> $queries Array of query clause arrays.
+	 * @param array<string|int, mixed> $parent_query Parent query clause array.
 	 *
 	 * @return array<string|int, mixed> Sanitized queries.
 	 */
@@ -375,7 +376,7 @@ trait Parser {
 
 		// Sanitize the 'relation' key provided in the query.
 		if ( 'OR' === $relation ) {
-			$retval['relation']    = 'OR';
+			$retval[ 'relation' ]  = 'OR';
 			$this->has_or_relation = true;
 
 			/*
@@ -384,11 +385,11 @@ trait Parser {
 			* simplifies the logic around combining key-only queries.
 			*/
 		} elseif ( 1 === count( $retval ) ) {
-			$retval['relation'] = 'OR';
+			$retval[ 'relation' ] = 'OR';
 
 			// Default to AND.
 		} else {
-			$retval['relation'] = 'AND';
+			$retval[ 'relation' ] = 'AND';
 		}
 
 		// Return sanitized queries.
@@ -527,8 +528,8 @@ trait Parser {
 	 */
 	protected function get_table_alias( $query = array() ) {
 
-		if ( ! empty( $query['alias'] ) ) {
-			$alias = $this->sanitize_table_alias( $query['alias'] );
+		if ( ! empty( $query[ 'alias' ] ) ) {
+			$alias = $this->sanitize_table_alias( $query[ 'alias' ] );
 
 			return ! empty( $alias )
 				? esc_sql( $alias )
@@ -562,10 +563,10 @@ trait Parser {
 	protected function get_column( $query = array() ) {
 
 		// If a column is passed, sanitize and return it.
-		if ( ! empty( $query['column'] ) ) {
+		if ( ! empty( $query[ 'column' ] ) ) {
 
 			// Sanitize the column name.
-			$sanitized = $this->sanitize_column_name( $query['column'] );
+			$sanitized = $this->sanitize_column_name( $query[ 'column' ] );
 
 			// Return.
 			return $sanitized
@@ -625,8 +626,8 @@ trait Parser {
 	protected function get_compare( $query = array() ) {
 		$comparison_keys = $this->get_operators();
 
-		return ! empty( $query['compare'] ) && in_array( $query['compare'], $comparison_keys, true )
-			? strtoupper( $query['compare'] )
+		return ! empty( $query[ 'compare' ] ) && in_array( $query[ 'compare' ], $comparison_keys, true )
+			? strtoupper( $query[ 'compare' ] )
 			: $this->compare;
 	}
 
@@ -642,8 +643,8 @@ trait Parser {
 	 * @return string The relation operator.
 	 */
 	protected function get_relation( $query = array() ) {
-		return ! empty( $query['relation'] ) && in_array( $query['relation'], $this->relation_keys, true )
-			? strtoupper( $query['relation'] )
+		return ! empty( $query[ 'relation' ] ) && in_array( $query[ 'relation' ], $this->relation_keys, true )
+			? strtoupper( $query[ 'relation' ] )
 			: $this->relation;
 	}
 
@@ -659,8 +660,8 @@ trait Parser {
 	 * @return int The current UNIX timestamp.
 	 */
 	protected function get_now( $query = array() ) {
-		return ! empty( $query['now'] ) && is_numeric( $query['now'] )
-			? (int) $query['now']
+		return ! empty( $query[ 'now' ] ) && is_numeric( $query[ 'now' ] )
+			? (int) $query[ 'now' ]
 			: time();
 	}
 
@@ -678,8 +679,8 @@ trait Parser {
 	protected function get_start_of_week( $query = array() ) {
 
 		// Look for start_of_week in the query.
-		$start = isset( $query['start_of_week'] )
-			? $query['start_of_week']
+		$start = isset( $query[ 'start_of_week' ] )
+			? $query[ 'start_of_week' ]
 			: null;
 
 		// Return the start of week.
@@ -735,7 +736,7 @@ trait Parser {
 	 *     @type string $where SQL fragment to append to the main WHERE clause.
 	 * }
 	 */
-	public function get_sql( $type = '', $primary_table = '', $primary_column = '' ) {
+	public function get_sql( $type = '', $primary_table = '', $primary_column = '' ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed
 		return $this->get_join_where_clauses();
 	}
 
@@ -753,7 +754,7 @@ trait Parser {
 	 * @param bool   $alias   Whether to prefix with the table alias.
 	 * @return string SQL fragment, or empty string if this parser does not handle $orderby.
 	 */
-	public function get_orderby_sql( $orderby = '', $alias = true ) {
+	public function get_orderby_sql( $orderby = '', $alias = true ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed
 		return '';
 	}
 
@@ -786,8 +787,8 @@ trait Parser {
 		 * JOINs should be LEFT. Otherwise items with no values will be excluded
 		 * from results.
 		 */
-		if ( false !== strpos( $retval['join'], 'LEFT JOIN' ) ) {
-			$retval['join'] = str_replace( 'INNER JOIN', 'LEFT JOIN', $retval['join'] );
+		if ( false !== strpos( $retval[ 'join' ], 'LEFT JOIN' ) ) {
+			$retval[ 'join' ] = str_replace( 'INNER JOIN', 'LEFT JOIN', $retval[ 'join' ] );
 		}
 
 		// Return join/where array.
@@ -851,7 +852,8 @@ trait Parser {
 		);
 
 		// Default strings.
-		$indent = $relation = '';
+		$indent   = '';
+		$relation = '';
 
 		// Set indentation using depth.
 		for ( $i = 0; $i < $depth; $i++ ) {
@@ -946,7 +948,7 @@ trait Parser {
 	 * @param int|string               $clause_key   Optional. The array key used to name the clause.
 	 * @return array{join: list<string>, where: list<string>}
 	 */
-	public function get_sql_for_clause( &$clause = array(), $parent_query = array(), $clause_key = '' ) {
+	public function get_sql_for_clause( &$clause = array(), $parent_query = array(), $clause_key = '' ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed
 
 		// Default return value.
 		$retval = array(
@@ -955,12 +957,12 @@ trait Parser {
 		);
 
 		// Maybe format compare clause.
-		if ( isset( $clause['compare'] ) ) {
-			$clause['compare'] = strtoupper( $clause['compare'] );
+		if ( isset( $clause[ 'compare' ] ) ) {
+			$clause[ 'compare' ] = strtoupper( $clause[ 'compare' ] );
 
 			// Or set compare clause based on value.
 		} else {
-			$clause['compare'] = isset( $clause['value'] ) && is_array( $clause['value'] )
+			$clause[ 'compare' ] = isset( $clause[ 'value' ] ) && is_array( $clause[ 'value' ] )
 				? 'IN'
 				: '=';
 		}
@@ -969,19 +971,19 @@ trait Parser {
 		$all_compares = $this->get_operators();
 
 		// Fallback to equals.
-		if ( ! in_array( $clause['compare'], $all_compares, true ) ) {
-			$clause['compare'] = '=';
+		if ( ! in_array( $clause[ 'compare' ], $all_compares, true ) ) {
+			$clause[ 'compare' ] = '=';
 		}
 
 		// Uppercase or equals.
-		if ( isset( $clause['compare_key'] ) && ( 'LIKE' === strtoupper( $clause['compare_key'] ) ) ) {
-			$clause['compare_key'] = strtoupper( $clause['compare_key'] );
+		if ( isset( $clause[ 'compare_key' ] ) && ( 'LIKE' === strtoupper( $clause[ 'compare_key' ] ) ) ) {
+			$clause[ 'compare_key' ] = strtoupper( $clause[ 'compare_key' ] );
 		} else {
-			$clause['compare_key'] = '=';
+			$clause[ 'compare_key' ] = '=';
 		}
 
 		// Get comparison from clause.
-		$compare  = $clause['compare'];
+		$compare  = $clause[ 'compare' ];
 		$operator = $this->get_operator( $compare );
 
 		// Fallback to Equal for any unrecognized compare string.
@@ -994,11 +996,11 @@ trait Parser {
 			return $retval;
 		}
 
-		/** Build the WHERE clause ********************************************/
+		/** Build the WHERE clause */
 
 		// Column object and value.
 		if ( array_key_exists( 'key', $clause ) && array_key_exists( 'value', $clause ) ) {
-			$name = $this->sanitize_column_name( $clause['key'] );
+			$name = $this->sanitize_column_name( $clause[ 'key' ] );
 
 			// Bail if the key doesn't sanitize to a valid column name.
 			if ( empty( $name ) ) {
@@ -1014,17 +1016,17 @@ trait Parser {
 
 			// Get the qualified column name for SQL.
 			$alias = $this->caller( 'get_table_alias' ) ?? '';
-			$expr  = $operator->get_sql( $col, $alias, $clause['value'] );
+			$expr  = $operator->get_sql( $col, $alias, $clause[ 'value' ] );
 
 			// Maybe add the WHERE expression.
 			if ( ! empty( $expr ) ) {
-				$retval['where'][] = $expr;
+				$retval[ 'where' ][] = $expr;
 			}
 		}
 
 		// Multiple WHERE clauses should be joined in parentheses.
-		if ( 1 < count( $retval['where'] ) ) {
-			$retval['where'] = array( '( ' . implode( ' AND ', $retval['where'] ) . ' )' );
+		if ( 1 < count( $retval[ 'where' ] ) ) {
+			$retval[ 'where' ] = array( '( ' . implode( ' AND ', $retval[ 'where' ] ) . ' )' );
 		}
 
 		// Return join/where array.
@@ -1168,8 +1170,8 @@ trait Parser {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string $compare The compare operator to use.
-	 * @param mixed  $value   The value. Any type accepted; unsupported types become null.
+	 * @param string         $compare The compare operator to use.
+	 * @param mixed          $value   The value. Any type accepted; unsupported types become null.
 	 * @param '%s'|'%d'|'%f' $pattern The pattern.
 	 *
 	 * @return string|false|int The value to be used in SQL or false on error.
@@ -1214,7 +1216,7 @@ trait Parser {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string,int>|int|string $datetime       An array of parameters or a strtotime() string
+	 * @param array<string,int>|int|string $datetime       An array of parameters or a strtotime() string.
 	 * @param bool                         $default_to_max Whether to round up incomplete dates. Supported by values
 	 *                                                     of $datetime that are arrays, or string values that are a
 	 *                                                     subset of MySQL date format ('Y', 'Y-m', 'Y-m-d', 'Y-m-d H:i').
@@ -1306,41 +1308,41 @@ trait Parser {
 		}
 
 		// Year.
-		if ( ! isset( $datetime['year'] ) ) {
-			$datetime['year'] = (int) gmdate( 'Y', (int) $now );
+		if ( ! isset( $datetime[ 'year' ] ) ) {
+			$datetime[ 'year' ] = (int) gmdate( 'Y', (int) $now );
 		}
 
 		// Month.
-		if ( ! isset( $datetime['month'] ) ) {
-			$datetime['month'] = ! empty( $default_to_max )
+		if ( ! isset( $datetime[ 'month' ] ) ) {
+			$datetime[ 'month' ] = ! empty( $default_to_max )
 				? 12
 				: 1;
 		}
 
 		// Day.
-		if ( ! isset( $datetime['day'] ) ) {
-			$datetime['day'] = ! empty( $default_to_max )
-				? (int) gmdate( 't', (int) gmmktime( 0, 0, 0, (int) $datetime['month'], 1, (int) $datetime['year'] ) )
+		if ( ! isset( $datetime[ 'day' ] ) ) {
+			$datetime[ 'day' ] = ! empty( $default_to_max )
+				? (int) gmdate( 't', (int) gmmktime( 0, 0, 0, (int) $datetime[ 'month' ], 1, (int) $datetime[ 'year' ] ) )
 				: 1;
 		}
 
 		// Hour.
-		if ( ! isset( $datetime['hour'] ) ) {
-			$datetime['hour'] = ! empty( $default_to_max )
+		if ( ! isset( $datetime[ 'hour' ] ) ) {
+			$datetime[ 'hour' ] = ! empty( $default_to_max )
 				? 23
 				: 0;
 		}
 
 		// Minute.
-		if ( ! isset( $datetime['minute'] ) ) {
-			$datetime['minute'] = ! empty( $default_to_max )
+		if ( ! isset( $datetime[ 'minute' ] ) ) {
+			$datetime[ 'minute' ] = ! empty( $default_to_max )
 				? 59
 				: 0;
 		}
 
 		// Second.
-		if ( ! isset( $datetime['second'] ) ) {
-			$datetime['second'] = ! empty( $default_to_max )
+		if ( ! isset( $datetime[ 'second' ] ) ) {
+			$datetime[ 'second' ] = ! empty( $default_to_max )
 				? 59
 				: 0;
 		}
@@ -1348,12 +1350,12 @@ trait Parser {
 		// Combine and return.
 		return sprintf(
 			'%04d-%02d-%02d %02d:%02d:%02d',
-			$datetime['year'],
-			$datetime['month'],
-			$datetime['day'],
-			$datetime['hour'],
-			$datetime['minute'],
-			$datetime['second']
+			$datetime[ 'year' ],
+			$datetime[ 'month' ],
+			$datetime[ 'day' ],
+			$datetime[ 'hour' ],
+			$datetime[ 'minute' ],
+			$datetime[ 'second' ]
 		);
 	}
 
@@ -1409,8 +1411,8 @@ trait Parser {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string   $column  The column to query against. Needs to be pre-validated!
-	 * @param string   $compare The comparison operator. Needs to be pre-validated!
+	 * @param string   $column  The column to query against. Needs to be pre-validated!.
+	 * @param string   $compare The comparison operator. Needs to be pre-validated!.
 	 * @param int|null $hour    Optional. An hour value (0-23).
 	 * @param int|null $minute  Optional. A minute value (0-59).
 	 * @param int|null $second  Optional. A second value (0-59).
@@ -1442,18 +1444,27 @@ trait Parser {
 			$retval = array();
 
 			// Hour.
-			if ( isset( $hour ) && false !== ( $value = $this->build_numeric_value( $compare, $hour ) ) ) {
-				$retval[] = "HOUR( {$column} ) {$compare} {$value}";
+			if ( isset( $hour ) ) {
+				$value = $this->build_numeric_value( $compare, $hour );
+				if ( false !== $value ) {
+					$retval[] = "HOUR( {$column} ) {$compare} {$value}";
+				}
 			}
 
 			// Minute.
-			if ( isset( $minute ) && false !== ( $value = $this->build_numeric_value( $compare, $minute ) ) ) {
-				$retval[] = "MINUTE( {$column} ) {$compare} {$value}";
+			if ( isset( $minute ) ) {
+				$value = $this->build_numeric_value( $compare, $minute );
+				if ( false !== $value ) {
+					$retval[] = "MINUTE( {$column} ) {$compare} {$value}";
+				}
 			}
 
 			// Second.
-			if ( isset( $second ) && false !== ( $value = $this->build_numeric_value( $compare, $second ) ) ) {
-				$retval[] = "SECOND( {$column} ) {$compare} {$value}";
+			if ( isset( $second ) ) {
+				$value = $this->build_numeric_value( $compare, $second );
+				if ( false !== $value ) {
+					$retval[] = "SECOND( {$column} ) {$compare} {$value}";
+				}
 			}
 
 			// Return SQL.
@@ -1463,16 +1474,25 @@ trait Parser {
 		// Cases where just one unit is set.
 
 		// Hour.
-		if ( isset( $hour ) && ! isset( $minute ) && ! isset( $second ) && false !== ( $value = $this->build_numeric_value( $compare, $hour ) ) ) {
-			return "HOUR( {$column} ) {$compare} {$value}";
+		if ( isset( $hour ) && ! isset( $minute ) && ! isset( $second ) ) {
+			$value = $this->build_numeric_value( $compare, $hour );
+			if ( false !== $value ) {
+				return "HOUR( {$column} ) {$compare} {$value}";
+			}
 
 			// Minute.
-		} elseif ( ! isset( $hour ) && isset( $minute ) && ! isset( $second ) && false !== ( $value = $this->build_numeric_value( $compare, $minute ) ) ) {
-			return "MINUTE( {$column} ) {$compare} {$value}";
+		} elseif ( ! isset( $hour ) && isset( $minute ) && ! isset( $second ) ) {
+			$value = $this->build_numeric_value( $compare, $minute );
+			if ( false !== $value ) {
+				return "MINUTE( {$column} ) {$compare} {$value}";
+			}
 
 			// Second.
-		} elseif ( ! isset( $hour ) && ! isset( $minute ) && isset( $second ) && false !== ( $value = $this->build_numeric_value( $compare, $second ) ) ) {
-			return "SECOND( {$column} ) {$compare} {$value}";
+		} elseif ( ! isset( $hour ) && ! isset( $minute ) && isset( $second ) ) {
+			$value = $this->build_numeric_value( $compare, $second );
+			if ( false !== $value ) {
+				return "SECOND( {$column} ) {$compare} {$value}";
+			}
 		}
 
 		/**
@@ -1485,7 +1505,8 @@ trait Parser {
 		}
 
 		// Defaults.
-		$format = $time = '';
+		$format = '';
+		$time   = '';
 
 		// Hour.
 		if ( null !== $hour ) {
@@ -1622,7 +1643,7 @@ trait Parser {
 		foreach ( $parent_query as $sibling ) {
 
 			// Skip if the sibling is not an array or has no alias.
-			if ( ! is_array( $sibling ) || empty( $sibling['alias'] ) ) {
+			if ( ! is_array( $sibling ) || empty( $sibling[ 'alias' ] ) ) {
 				continue;
 			}
 
@@ -1638,24 +1659,24 @@ trait Parser {
 			 * Clauses connected by OR can share JOINs as long as they have
 			 * "positive" operators.
 			 */
-			if ( 'OR' === $parent_query['relation'] ) {
+			if ( 'OR' === $parent_query[ 'relation' ] ) {
 				$compatible_compares = $this->get_operators( array( 'positive' => true ) );
 
 				/**
 				 * Clauses JOIN'ed by AND with "negative" operators share a JOIN
 				 * only if they also share a key.
 				 */
-			} elseif ( isset( $sibling['key'] ) && isset( $clause['key'] ) && ( $sibling['key'] === $clause['key'] ) ) {
+			} elseif ( isset( $sibling[ 'key' ] ) && isset( $clause[ 'key' ] ) && ( $sibling[ 'key' ] === $clause[ 'key' ] ) ) {
 				$compatible_compares = $this->get_operators( array( 'positive' => false ) );
 			}
 
 			// Format comparisons.
-			$clause_compare  = strtoupper( $clause['compare'] );
-			$sibling_compare = strtoupper( $sibling['compare'] );
+			$clause_compare  = strtoupper( $clause[ 'compare' ] );
+			$sibling_compare = strtoupper( $sibling[ 'compare' ] );
 
 			// Use alias if sibling & clause comparisons are OK.
 			if ( in_array( $clause_compare, $compatible_compares, true ) && in_array( $sibling_compare, $compatible_compares, true ) ) {
-				$sanitized_alias = $this->sanitize_table_alias( $sibling['alias'] );
+				$sanitized_alias = $this->sanitize_table_alias( $sibling[ 'alias' ] );
 
 				if ( ! empty( $sanitized_alias ) ) {
 					$retval = $sanitized_alias;
@@ -1673,8 +1694,8 @@ trait Parser {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string       $method Method name.
-	 * @param mixed        ...$args Optional. Arguments to pass to the method.
+	 * @param string $method Method name.
+	 * @param mixed  ...$args Optional. Arguments to pass to the method.
 	 *
 	 * @return mixed|null The return value of the called method, or null if no
 	 *                    caller or method does not exist.
@@ -1695,5 +1716,4 @@ trait Parser {
 		// Call the method on the caller and return its value.
 		return call_user_func( $callback, ...$args );
 	}
-
 }

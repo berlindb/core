@@ -8,6 +8,7 @@
  * @license     https://opensource.org/licenses/MIT MIT
  * @since       3.0.0
  */
+
 declare( strict_types = 1 );
 
 namespace BerlinDB\Database\Traits;
@@ -50,7 +51,7 @@ trait Boot {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param array<string, mixed> $args
+	 * @param array<string, mixed> $args Array of arguments.
 	 */
 	public function __construct( $args = array() ) {
 		$this->boot( $args );
@@ -61,7 +62,7 @@ trait Boot {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string, mixed>|object $args
+	 * @param array<string, mixed>|object $args Array of arguments.
 	 */
 	protected function boot( $args = array() ): void {
 
@@ -124,7 +125,7 @@ trait Boot {
 		}
 
 		// Parse arguments.
-		$r = wp_parse_args( $args, $this->args['class'] );
+		$r = wp_parse_args( $args, $this->args[ 'class' ] );
 
 		// Force some arguments for special column types.
 		$r = $this->special_args( $r );
@@ -140,7 +141,7 @@ trait Boot {
 	 * Parse special arguments.
 	 *
 	 * @since 3.0.0
-	 * @param array<string, mixed> $args
+	 * @param array<string, mixed> $args Array of arguments.
 	 * @return array<string, mixed>
 	 */
 	protected function special_args( $args = array() ) {
@@ -151,7 +152,7 @@ trait Boot {
 	 * Validate arguments.
 	 *
 	 * @since 3.0.0
-	 * @param array<string, mixed> $args
+	 * @param array<string, mixed> $args Array of arguments.
 	 * @return array<string, mixed>
 	 */
 	protected function validate_args( $args = array() ) {
@@ -171,7 +172,7 @@ trait Boot {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string, mixed> $args
+	 * @param array<string, mixed> $args Array of arguments.
 	 * @return void
 	 */
 	protected function stash_args( $args = array() ) {

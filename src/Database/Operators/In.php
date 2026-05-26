@@ -8,6 +8,7 @@
  * @license     https://opensource.org/licenses/MIT MIT
  * @since       3.0.0
  */
+
 declare( strict_types = 1 );
 
 namespace BerlinDB\Database\Operators;
@@ -27,30 +28,40 @@ defined( 'ABSPATH' ) || exit;
 class In extends Base {
 
 	/**
+	 * Human-readable name of this operator.
+	 *
 	 * @since 3.0.0
 	 * @var string
 	 */
 	protected $name = 'In';
 
 	/**
+	 * SQL operator string used in comparisons (e.g. '=', 'IN', 'BETWEEN').
+	 *
 	 * @since 3.0.0
 	 * @var string
 	 */
 	protected $compare = 'IN';
 
 	/**
+	 * Whether this is a positive (non-negating) operator.
+	 *
 	 * @since 3.0.0
 	 * @var bool
 	 */
 	protected $positive = true;
 
 	/**
+	 * Whether this operator accepts multiple values (IN, BETWEEN).
+	 *
 	 * @since 3.0.0
 	 * @var bool
 	 */
 	protected $multi = true;
 
 	/**
+	 * Whether this operator is intended for numeric comparisons (>, <, BETWEEN).
+	 *
 	 * @since 3.0.0
 	 * @var bool
 	 */

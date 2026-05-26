@@ -8,6 +8,7 @@
  * @license     https://opensource.org/licenses/MIT MIT
  * @since       3.0.0
  */
+
 declare( strict_types = 1 );
 
 namespace BerlinDB\Database\Kern;
@@ -104,7 +105,7 @@ class Index {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string, mixed> $args
+	 * @param array<string, mixed> $args Array of arguments.
 	 *
 	 * @return array<string, mixed>
 	 */
@@ -226,7 +227,7 @@ class Index {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param list<string> $columns
+	 * @param list<string> $columns Array of column names.
 	 * @return list<string>
 	 */
 	private function sanitize_columns( $columns = array() ) {

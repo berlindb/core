@@ -8,6 +8,7 @@
  * @license     https://opensource.org/licenses/MIT MIT
  * @since       3.0.0
  */
+
 declare( strict_types = 1 );
 
 namespace BerlinDB\Database\Operators;

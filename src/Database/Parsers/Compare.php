@@ -8,6 +8,7 @@
  * @license     https://opensource.org/licenses/MIT MIT
  * @since       3.0.0
  */
+
 declare( strict_types = 1 );
 
 namespace BerlinDB\Database\Parsers;
@@ -27,30 +28,40 @@ defined( 'ABSPATH' ) || exit;
 class Compare extends Base {
 
 	/**
+	 * Internal identifier for this parser.
+	 *
 	 * @since 3.0.0
 	 * @var string
 	 */
 	protected $name = 'compare';
 
 	/**
+	 * Top-level query var key this parser consumes, or null when operating per-column.
+	 *
 	 * @since 3.0.0
 	 * @var string|null
 	 */
 	protected $query_var = 'compare_query';
 
 	/**
+	 * Column filter passed to get_column_names() to select relevant columns.
+	 *
 	 * @since 3.0.0
 	 * @var array<string, bool>
 	 */
 	protected $column_filter = array( 'primary' => true );
 
 	/**
+	 * Suffix appended to each matching column name to form the per-column query var key.
+	 *
 	 * @since 3.0.0
 	 * @var string
 	 */
 	protected $column_suffix = '_compare';
 
 	/**
+	 * Default value for the query var. Null defers to Query::$query_var_default_value.
+	 *
 	 * @since 3.0.0
 	 * @var mixed
 	 */

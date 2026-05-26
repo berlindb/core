@@ -8,6 +8,7 @@
  * @license     https://opensource.org/licenses/MIT MIT
  * @since       3.0.0
  */
+
 declare( strict_types = 1 );
 
 namespace BerlinDB\Database\Traits;
@@ -103,12 +104,12 @@ trait Lifecycle {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string $key     State key.
-	 * @param mixed  $default Default value when the key is not set.
+	 * @param string $key      State key.
+	 * @param mixed  $fallback Fallback value when the key is not set.
 	 * @return mixed
 	 */
-	protected function get_current( $key, $default = null ) {
-		return $this->current[ $key ] ?? $default;
+	protected function get_current( $key, $fallback = null ) {
+		return $this->current[ $key ] ?? $fallback;
 	}
 
 	/**

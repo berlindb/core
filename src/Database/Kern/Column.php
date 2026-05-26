@@ -196,7 +196,7 @@ class Column {
 	public $default = '';
 
 	/**
-	 * auto_increment, etc...
+	 * Column extra attributes (e.g. auto_increment).
 	 *
 	 * See: https://dev.mysql.com/doc/refman/8.0/en/data-type-defaults.html
 	 *
@@ -569,48 +569,48 @@ class Column {
 	protected function special_args( $args = array() ) {
 
 		// Handle specific "extra" aliases.
-		if ( ! empty( $args['extra'] ) ) {
+		if ( ! empty( $args[ 'extra' ] ) ) {
 
 			/**
 			 * The special "extra" values below are built into MySQL as
 			 * shorthand for commonly used combinations of Column arguments.
 			 */
-			switch ( strtoupper( $args['extra'] ) ) {
+			switch ( strtoupper( $args[ 'extra' ] ) ) {
 
 				// Bigint.
 				case 'SERIAL':
-					$args['type']     = 'bigint';
-					$args['length']   = '20';
-					$args['unsigned'] = true;
+					$args[ 'type' ]     = 'bigint';
+					$args[ 'length' ]   = '20';
+					$args[ 'unsigned' ] = true;
 					// No break; keep going.
 
 					// Any int.
 				case 'SERIAL DEFAULT VALUE':
 					// Skip if not an int type.
-					if ( in_array( strtolower( $args['type'] ), array( 'tinyint', 'smallint', 'mediumint', 'int', 'bigint' ), true ) ) {
-						$args['allow_null'] = false;
-						$args['default']    = false;
-						$args['primary']    = true;
-						$args['pattern']    = '%d';
-						$args['extra']      = 'AUTO_INCREMENT';
+					if ( in_array( strtolower( $args[ 'type' ] ), array( 'tinyint', 'smallint', 'mediumint', 'int', 'bigint' ), true ) ) {
+						$args[ 'allow_null' ] = false;
+						$args[ 'default' ]    = false;
+						$args[ 'primary' ]    = true;
+						$args[ 'pattern' ]    = '%d';
+						$args[ 'extra' ]      = 'AUTO_INCREMENT';
 					}
 			}
 		}
 
 		// Primary columns are expected (by Query) to always be cache keys.
-		if ( ! empty( $args['primary'] ) ) {
-			$args['cache_key'] = true;
+		if ( ! empty( $args[ 'primary' ] ) ) {
+			$args[ 'cache_key' ] = true;
 
 			// All UUID columns require these specific criteria.
-		} elseif ( ! empty( $args['uuid'] ) ) {
-			$args['name']       = 'uuid';
-			$args['type']       = 'varchar';
-			$args['length']     = '100';
-			$args['pattern']    = '%s';
-			$args['in']         = false;
-			$args['not_in']     = false;
-			$args['searchable'] = false;
-			$args['sortable']   = false;
+		} elseif ( ! empty( $args[ 'uuid' ] ) ) {
+			$args[ 'name' ]       = 'uuid';
+			$args[ 'type' ]       = 'varchar';
+			$args[ 'length' ]     = '100';
+			$args[ 'pattern' ]    = '%s';
+			$args[ 'in' ]         = false;
+			$args[ 'not_in' ]     = false;
+			$args[ 'searchable' ] = false;
+			$args[ 'sortable' ]   = false;
 		}
 
 		// Return arguments.
@@ -888,7 +888,7 @@ class Column {
 	 * Sanitize the extra string.
 	 *
 	 * @since 3.0.0
-	 * @param string $value
+	 * @param string $value The value.
 	 * @return string
 	 */
 	private function sanitize_extra( $value = '' ) {
@@ -923,11 +923,11 @@ class Column {
 	 *
 	 * @since 1.0.0
 	 * @since 3.0.0 Uses validate()
-	 * @param mixed $default
+	 * @param mixed $fallback Fallback value when the field is not set.
 	 * @return mixed
 	 */
-	private function sanitize_default( $default = '' ) {
-		return $this->validate( $default );
+	private function sanitize_default( $fallback = '' ) {
+		return $this->validate( $fallback );
 	}
 
 	/**
@@ -935,16 +935,16 @@ class Column {
 	 *
 	 * @since 1.0.0
 	 * @since 3.0.0 Falls back to using is_ methods if invalid param
-	 * @param string $pattern Default '%s'. Allowed values: %s, %d, %f
+	 * @param string $pattern Default '%s'. Allowed values: %s, %d, %f.
 	 * @return '%s'|'%d'|'%f' Default '%s'.
 	 */
 	private function sanitize_pattern( $pattern = '%s' ) {
 
 		// Allowed patterns.
 		$allowed_patterns = array(
-			'%s', // String
-			'%d', // Integer (decimal)
-			'%f', // Float
+			'%s', // String.
+			'%d', // Integer (decimal).
+			'%f', // Float.
 		);
 
 		// Return pattern if allowed.
@@ -1190,11 +1190,11 @@ class Column {
 	 * unexpected values from being saved in the database.
 	 *
 	 * @since 3.0.0
-	 * @param mixed $value   Default empty string. Value to validate.
-	 * @param mixed $default Default empty string. Fallback if invalid.
+	 * @param mixed $value    Default empty string. Value to validate.
+	 * @param mixed $fallback Default empty string. Fallback if invalid.
 	 * @return mixed
 	 */
-	public function validate( $value = '', $default = '' ) {
+	public function validate( $value = '', $fallback = '' ) {
 
 		// Check if a literal null value is allowed.
 		$value = $this->validate_null( $value );
@@ -1209,8 +1209,8 @@ class Column {
 			return call_user_func( $this->validate, $value );
 		}
 
-		// Return the default.
-		return $default;
+		// Return the fallback.
+		return $fallback;
 	}
 
 	/**
@@ -1414,7 +1414,7 @@ class Column {
 	 * From http://php.net/manual/en/function.uniqid.php#94959
 	 *
 	 * @since 1.0.0
-	 * @param string $value The UUID value (empty on insert, string on update)
+	 * @param string $value The UUID value (empty on insert, string on update).
 	 * @return string Generated UUID.
 	 */
 	public function validate_uuid( $value = '' ) {
@@ -1436,29 +1436,29 @@ class Column {
 			"{$prefix}%04x%04x-%04x-%04x-%04x-%04x%04x%04x",
 
 			// 32 bits for "time_low".
-			mt_rand( 0, 0xffff ),
-			mt_rand( 0, 0xffff ),
+			wp_rand( 0, 0xffff ),
+			wp_rand( 0, 0xffff ),
 
 			// 16 bits for "time_mid".
-			mt_rand( 0, 0xffff ),
+			wp_rand( 0, 0xffff ),
 
 			/*
 			 * 16 bits for "time_hi_and_version",
 			 * four most significant bits holds version number 4
 			 */
-			mt_rand( 0, 0x0fff ) | 0x4000,
+			wp_rand( 0, 0x0fff ) | 0x4000,
 
 			/*
 			 * 16 bits, 8 bits for "clk_seq_hi_res",
 			 * 8 bits for "clk_seq_low",
 			 * two most significant bits holds zero and one for variant DCE1.1
 			 */
-			mt_rand( 0, 0x3fff ) | 0x8000,
+			wp_rand( 0, 0x3fff ) | 0x8000,
 
 			// 48 bits for "node".
-			mt_rand( 0, 0xffff ),
-			mt_rand( 0, 0xffff ),
-			mt_rand( 0, 0xffff )
+			wp_rand( 0, 0xffff ),
+			wp_rand( 0, 0xffff ),
+			wp_rand( 0, 0xffff )
 		);
 		// phpcs:enable PEAR.Functions.FunctionCallSignature.EmptyLine
 
@@ -1532,7 +1532,6 @@ class Column {
 	 * @return string
 	 */
 	private function get_default_sql() {
-
 		/*
 		 * Literal false: suppress the default clause entirely.
 		 *

@@ -395,8 +395,8 @@ class Schema {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string                              $type   Item collection type. Accepts 'columns'
-	 *                                                    or 'indexes' (and their singular aliases).
+	 * @param string                                      $type   Item collection type. Accepts 'columns'
+	 *                                                            or 'indexes' (and their singular aliases).
 	 * @param list<array<string, mixed>>|Column[]|Index[] $values Array of argument arrays or item objects.
 	 *
 	 * @return Column[]|Index[] The newly built collection.
@@ -473,15 +473,15 @@ class Schema {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string                            $class Fully-qualified class name to instantiate.
-	 * @param array<string, mixed>|Column|Index $data  Argument array or existing item object.
+	 * @param string                            $class_name Fully-qualified class name to instantiate.
+	 * @param array<string, mixed>|Column|Index $data       Argument array or existing item object.
 	 *
 	 * @return Column|Index|false The item object, or false on failure.
 	 */
-	private function create_item( $class = '', $data = array() ) {
+	private function create_item( $class_name = '', $data = array() ) {
 
 		// Bail if class cannot be instantiated.
-		if ( empty( $class ) || ! class_exists( $class ) ) {
+		if ( empty( $class_name ) || ! class_exists( $class_name ) ) {
 			return false;
 		}
 
@@ -492,15 +492,15 @@ class Schema {
 
 		// Array data is passed to the item constructor.
 		if ( is_array( $data ) ) {
-			$retval = new $class( $data );
+			$retval = new $class_name( $data );
 
-			/** @var Column|Index $retval */
+			/** @var Column|Index $retval */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
 			return $retval;
 		}
 
 		// Already-instantiated object.
-		if ( $data instanceof $class ) {
-			/** @var Column|Index $data */
+		if ( $data instanceof $class_name ) {
+			/** @var Column|Index $data */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
 			return $data;
 		}
 
@@ -589,7 +589,7 @@ class Schema {
 	public function get_columns() {
 		$items = $this->get_items( 'columns' );
 
-		/** @var Column[] $items */
+		/** @var Column[] $items */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
 		return $items;
 	}
 
@@ -635,7 +635,7 @@ class Schema {
 	public function set_columns( $columns = array() ) {
 		$items = $this->set_items( 'columns', $columns );
 
-		/** @var Column[] $items */
+		/** @var Column[] $items */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
 		return $items;
 	}
 
@@ -681,7 +681,7 @@ class Schema {
 	public function get_indexes() {
 		$items = $this->get_items( 'indexes' );
 
-		/** @var Index[] $items */
+		/** @var Index[] $items */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
 		return $items;
 	}
 
@@ -729,7 +729,7 @@ class Schema {
 	public function set_indexes( $indexes = array() ) {
 		$items = $this->set_items( 'indexes', $indexes );
 
-		/** @var Index[] $items */
+		/** @var Index[] $items */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
 		return $items;
 	}
 

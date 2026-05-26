@@ -281,7 +281,7 @@ class Table {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param int $site_id The site being switched to
+	 * @param int $site_id The site being switched to.
 	 */
 	public function switch_blog( $site_id = 0 ): void {
 
@@ -346,7 +346,7 @@ class Table {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param string $version Database version to check if upgrade is needed
+	 * @param string $version Database version to check if upgrade is needed.
 	 *
 	 * @return bool True if table needs upgrading. False if not.
 	 */
@@ -1018,9 +1018,7 @@ class Table {
 		$result = end( $query );
 
 		// Return message text.
-		return ! empty( $result->Msg_text )
-			? $result->Msg_text
-			: false;
+		return ! empty( $result->Msg_text ) ? $result->Msg_text : false; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
 	}
 
 	/**
@@ -1048,9 +1046,7 @@ class Table {
 		$result = end( $query );
 
 		// Return message text.
-		return ! empty( $result->Msg_text )
-			? $result->Msg_text
-			: false;
+		return ! empty( $result->Msg_text ) ? $result->Msg_text : false; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
 	}
 
 	/**
@@ -1078,9 +1074,7 @@ class Table {
 		$result = end( $query );
 
 		// Return checksum.
-		return ! empty( $result->Checksum )
-			? $result->Checksum
-			: false;
+		return ! empty( $result->Checksum ) ? $result->Checksum : false; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
 	}
 
 	/**
@@ -1108,9 +1102,7 @@ class Table {
 		$result = end( $query );
 
 		// Return message text.
-		return ! empty( $result->Msg_text )
-			? $result->Msg_text
-			: false;
+		return ! empty( $result->Msg_text ) ? $result->Msg_text : false; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
 	}
 
 	/**
@@ -1139,9 +1131,7 @@ class Table {
 		$result = end( $query );
 
 		// Return message text.
-		return ! empty( $result->Msg_text )
-			? $result->Msg_text
-			: false;
+		return ! empty( $result->Msg_text ) ? $result->Msg_text : false; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
 	}
 
 	/** Upgrades **************************************************************/
@@ -1337,8 +1327,9 @@ class Table {
 		// Get the prefixed table name.
 		$prefixed_table_name = "{$this->table_prefix}{$this->prefixed_name}";
 
-		// Set the database interface.
-		$db->{$this->prefixed_name} = $this->table_name = $prefixed_table_name;
+		// Set the table name and register it in the database interface.
+		$this->table_name           = $prefixed_table_name;
+		$db->{$this->prefixed_name} = $prefixed_table_name;
 
 		// Create the array if it does not exist.
 		if ( ! isset( $db->{$tables} ) ) {
@@ -1517,7 +1508,7 @@ class Table {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param string $callback
+	 * @param string $callback Callback function name or callable.
 	 *
 	 * @return callable|false Resolved callable, or false if not callable.
 	 */

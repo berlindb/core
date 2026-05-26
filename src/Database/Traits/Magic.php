@@ -8,6 +8,7 @@
  * @license     https://opensource.org/licenses/MIT MIT
  * @since       3.0.0
  */
+
 declare( strict_types = 1 );
 
 namespace BerlinDB\Database\Traits;
@@ -41,7 +42,7 @@ trait Magic {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param string $key
+	 * @param string $key Query variable key.
 	 * @return mixed
 	 */
 	public function __get( $key = '' ) {
@@ -71,7 +72,7 @@ trait Magic {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param string $key
+	 * @param string $key Query variable key.
 	 * @return bool
 	 */
 	public function __isset( $key = '' ) {

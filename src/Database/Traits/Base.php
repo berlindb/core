@@ -8,6 +8,7 @@
  * @license     https://opensource.org/licenses/MIT MIT
  * @since       1.0.0
  */
+
 declare( strict_types = 1 );
 
 namespace BerlinDB\Database\Traits;
@@ -70,19 +71,19 @@ trait Base {
 	 * @since 1.0.0
 	 * @since 3.0.0 Prevents double prefixing.
 	 *
-	 * @param string $string The string to prefix.
-	 * @param string $sep    Separator placed between prefix and string. Default '_'.
+	 * @param string $value The string to prefix.
+	 * @param string $sep   Separator placed between prefix and string. Default '_'.
 	 * @return string The prefixed string, or the original string if $prefix is empty.
 	 */
-	protected function apply_prefix( $string = '', $sep = '_' ) {
+	protected function apply_prefix( $value = '', $sep = '_' ) {
 
 		// Bail if not a string.
-		if ( ! is_string( $string ) ) {
+		if ( ! is_string( $value ) ) {
 			return '';
 		}
 
 		// Trim spaces off the ends.
-		$retval = trim( $string );
+		$retval = trim( $value );
 
 		// Bail if no prefix.
 		if ( empty( $this->prefix ) ) {
@@ -93,7 +94,7 @@ trait Base {
 		$new_prefix = $this->prefix . $sep;
 
 		// Bail if already prefixed.
-		if ( 0 === strpos( $string, $new_prefix ) ) {
+		if ( 0 === strpos( $value, $new_prefix ) ) {
 			return $retval;
 		}
 
@@ -113,14 +114,14 @@ trait Base {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param string $string Default empty string.
-	 * @param string $sep    Default "_".
+	 * @param string $value The string to abbreviate.
+	 * @param string $sep   Default "_".
 	 * @return string
 	 */
-	protected function first_letters( $string = '', $sep = '_' ) {
+	protected function first_letters( $value = '', $sep = '_' ) {
 
 		// Bail if empty or not a string.
-		if ( empty( $string ) || ! is_string( $string ) ) {
+		if ( empty( $value ) || ! is_string( $value ) ) {
 			return '';
 		}
 
@@ -128,7 +129,7 @@ trait Base {
 		$retval = '';
 
 		// Trim spaces off the ends.
-		$unspace = trim( $string );
+		$unspace = trim( $value );
 
 		// Only non-accented table names (avoid truncation).
 		$accents = remove_accents( $unspace );
@@ -157,7 +158,7 @@ trait Base {
 	 * Set class variables from arguments.
 	 *
 	 * @since 1.0.0
-	 * @param array<string, mixed> $args
+	 * @param array<string, mixed> $args Array of arguments.
 	 */
 	protected function set_vars( $args = array() ): void {
 

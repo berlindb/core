@@ -216,7 +216,7 @@ class Query {
 	 * Map of instantiated parser descriptor objects, keyed by parser name.
 	 *
 	 * Populated once during set_query_var_defaults() from $query_var_parsers.
-	 * Never mutated after that — see $current['parsers'] for per-query instances.
+	 * Never mutated after that — see $current[ 'parsers' ] for per-query instances.
 	 *
 	 * @since 3.0.0
 	 * @var   array<string, \BerlinDB\Database\Parsers\Base>
@@ -261,7 +261,7 @@ class Query {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string, mixed> $args
+	 * @param array<string, mixed> $args Array of arguments.
 	 * @return array<string, mixed> Always empty — Boot should not call set_vars() for queries.
 	 */
 	protected function parse_args( $args = array() ) {
@@ -325,7 +325,7 @@ class Query {
 			}
 		);
 
-		/** @var list<object>|int $result */
+		/** @var list<object>|int $result */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
 		return $result;
 	}
 
@@ -367,8 +367,8 @@ class Query {
 	 * @since 3.0.0
 	 */
 	private function set_prefixes(): void {
-		$this->table_name  = $this->apply_prefix( $this->table_name       );
-		$this->table_alias = $this->apply_prefix( $this->table_alias      );
+		$this->table_name  = $this->apply_prefix( $this->table_name );
+		$this->table_alias = $this->apply_prefix( $this->table_alias );
 		$this->cache_group = $this->apply_prefix( $this->cache_group, '-' );
 	}
 
@@ -459,7 +459,7 @@ class Query {
 			'update_meta_cache' => true,
 		);
 
-		/** Query Parsers *****************************************************/
+		/* Query Parsers ******************************************************/
 
 		// Setup parsers array.
 		$this->parsers = array();
@@ -473,7 +473,7 @@ class Query {
 			}
 
 			// Instantiate to read descriptor properties.
-			/** @var \BerlinDB\Database\Parsers\Base $parser */
+			/** @var \BerlinDB\Database\Parsers\Base $parser */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
 			$parser = new $class();
 
 			// Setup the parser.
@@ -535,7 +535,7 @@ class Query {
 	 *
 	 * @since 1.0.0
 	 * @since 3.0.0 Moved 'count' logic back into get_items().
-	 * @param list<int|string> $item_ids
+	 * @param list<int|string> $item_ids List of item IDs.
 	 */
 	private function set_items( $item_ids = array() ): void {
 
@@ -553,7 +553,7 @@ class Query {
 	/**
 	 * Populates found_items for the current query.
 	 *
-	 * if the limit clause was used.
+	 * If the limit clause was used.
 	 *
 	 * @since 1.0.0
 	 * @since 3.0.0 Uses filter_found_items_query().
@@ -636,8 +636,8 @@ class Query {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param string $key
-	 * @param string $value
+	 * @param string $key Query variable key.
+	 * @param string $value The value.
 	 */
 	public function set_query_var( $key = '', $value = '' ): void {
 		$this->query_var_defaults[ $key ] = $value;
@@ -649,7 +649,7 @@ class Query {
 	 * starting value.
 	 *
 	 * @since 1.1.0
-	 * @param string $key
+	 * @param string $key Query variable key.
 	 * @return bool
 	 */
 	public function is_query_var_default( $key = '' ) {
@@ -660,7 +660,7 @@ class Query {
 	 * Is a column valid?
 	 *
 	 * @since 3.0.0
-	 * @param string $column_name
+	 * @param string $column_name Column name.
 	 * @return bool
 	 */
 	private function is_valid_column( $column_name = '' ) {
@@ -708,21 +708,21 @@ class Query {
 	 * @since 1.0.0
 	 *
 	 * @template TDefault
-	 * @param array<string, mixed> $args    Arguments to get a column by.
-	 * @param string               $field   Field to get from a column.
-	 * @param TDefault             $default Default to use if no field is set.
-	 * @return mixed Value of the requested field, or $default if not found.
-	 * @phpstan-return ($default is false ? mixed : TDefault)
+	 * @param array<string, mixed> $args     Arguments to get a column by.
+	 * @param string               $field    Field to get from a column.
+	 * @param TDefault             $fallback Fallback to use if no field is set.
+	 * @return mixed Value of the requested field, or $fallback if not found.
+	 * @phpstan-return ($fallback is false ? mixed : TDefault)
 	 */
-	public function get_column_field( $args = array(), $field = '', $default = false ) {
+	public function get_column_field( $args = array(), $field = '', $fallback = false ) {
 
 		// Get the column.
 		$column = $this->get_column_by( $args );
 
-		// Return field, or default.
+		// Return field, or fallback.
 		return isset( $column->{$field} )
 			? $column->{$field}
-			: $default;
+			: $fallback;
 	}
 
 	/**
@@ -787,8 +787,8 @@ class Query {
 
 		// Column::$type is stored uppercase; match that convention so callers can
 		// pass either case (e.g. 'json' or 'JSON') and get consistent results.
-		if ( isset( $args['type'] ) && is_string( $args['type'] ) ) {
-			$args['type'] = strtoupper( $args['type'] );
+		if ( isset( $args[ 'type' ] ) && is_string( $args[ 'type' ] ) ) {
+			$args[ 'type' ] = strtoupper( $args[ 'type' ] );
 		}
 
 		// Filter columns.
@@ -810,14 +810,14 @@ class Query {
 	 *
 	 * @since 3.0.0
 	 * @template TDefault
-	 * @param string              $key     Name of property to compare $values to.
-	 * @param array<mixed>|string $values  Values to get a column by. Scalar values are wrapped in an array.
-	 * @param string              $field   Field to get from a column.
-	 * @param TDefault            $default Default to use if no field is set.
+	 * @param string              $key      Name of property to compare $values to.
+	 * @param array<mixed>|string $values   Values to get a column by. Scalar values are wrapped in an array.
+	 * @param string              $field    Field to get from a column.
+	 * @param TDefault            $fallback Fallback to use if no field is set.
 	 * @return list<mixed>
-	 * @phpstan-return ($default is false ? list<mixed> : list<TDefault>)
+	 * @phpstan-return ($fallback is false ? list<mixed> : list<TDefault>)
 	 */
-	public function get_columns_field_by( $key = '', $values = array(), $field = '', $default = false ) {
+	public function get_columns_field_by( $key = '', $values = array(), $field = '', $fallback = false ) {
 
 		// Bail if no values.
 		if ( empty( $values ) ) {
@@ -840,7 +840,7 @@ class Query {
 		// Get the column fields.
 		foreach ( $values as $value ) {
 			$args     = array( $key => $value );
-			$retval[] = $this->get_column_field( $args, $field, $default );
+			$retval[] = $this->get_column_field( $args, $field, $fallback );
 		}
 
 		// Return fields of columns.
@@ -851,8 +851,8 @@ class Query {
 	 * Get a column name, possibly with the $table_alias append.
 	 *
 	 * @since 3.0.0
-	 * @param string $column_name
-	 * @param bool   $alias
+	 * @param string $column_name Column name.
+	 * @param bool   $alias Whether to include the table alias prefix.
 	 * @return string
 	 */
 	public function get_column_name_aliased( $column_name = '', $alias = true ) {
@@ -877,8 +877,8 @@ class Query {
 	 * Get the backtick-quoted alias.column_name string.
 	 *
 	 * @since 3.0.0
-	 * @param string $column_name
-	 * @param bool   $alias
+	 * @param string $column_name Column name.
+	 * @param bool   $alias Whether to include the table alias prefix.
 	 * @return string
 	 */
 	public function get_quoted_column_name_aliased( $column_name = '', $alias = true ) {
@@ -886,7 +886,7 @@ class Query {
 		// Delegate to the Column object when one exists in the schema.
 		$column_object = $this->get_column_by( array( 'name' => $column_name ) );
 
-		// Column object exists
+		// Column object exists.
 		if ( ! empty( $column_object ) ) {
 
 			// Maybe get the table alias for the column name.
@@ -1122,8 +1122,8 @@ class Query {
 	 * @since 1.0.0
 	 * @since 3.0.0 Uses is_valid_column()
 	 *
-	 * @param string $column_name  Name of database column
-	 * @param mixed  $column_value Value to query for
+	 * @param string $column_name  Name of database column.
+	 * @param mixed  $column_value Value to query for.
 	 * @return object|false False if empty/error, Object if successful
 	 */
 	private function get_item_raw( $column_name = '', $column_value = '' ) {
@@ -1217,15 +1217,13 @@ class Query {
 			$this->cache_add( $cache_key, $cache_value, $this->cache_group );
 
 			// Value exists in cache.
+		} elseif ( is_array( $cache_value ) ) {
+			$result          = $cache_value[ 'item_ids' ] ?? array();
+			$found_items_val = $cache_value[ 'found_items' ] ?? 0;
+			$this->set_current( 'found_items', (int) $found_items_val );
 		} else {
-			if ( is_array( $cache_value ) ) {
-				$result          = $cache_value['item_ids'] ?? array();
-				$found_items_val = $cache_value['found_items'] ?? 0;
-				$this->set_current( 'found_items', (int) $found_items_val );
-			} else {
-				$result = array();
-				$this->set_current( 'found_items', 0 );
-			}
+			$result = array();
+			$this->set_current( 'found_items', 0 );
 		}
 
 		// Pagination.
@@ -1249,7 +1247,7 @@ class Query {
 
 		// Set items from result.
 		if ( is_array( $result ) ) {
-			/** @var list<int|string> $result */
+			/** @var list<int|string> $result */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
 			$this->set_items( $result );
 		} else {
 			$this->set_items( array() );
@@ -1372,7 +1370,7 @@ class Query {
 	 * @since 1.0.0
 	 * @since 3.0.0 Forces some $query_vars if counting
 	 *
-	 * @param array<string, mixed>|string $query
+	 * @param array<string, mixed>|string $query Query arguments array or string.
 	 */
 	private function parse_query( $query = array() ): void {
 
@@ -1387,12 +1385,12 @@ class Query {
 
 		// If counting, override some other $query_vars.
 		if ( $this->get_query_var( 'count' ) ) {
-			$this->query_vars['number']            = false;
-			$this->query_vars['fields']            = '';
-			$this->query_vars['orderby']           = '';
-			$this->query_vars['no_found_rows']     = true;
-			$this->query_vars['update_item_cache'] = false;
-			$this->query_vars['update_meta_cache'] = false;
+			$this->query_vars[ 'number' ]            = false;
+			$this->query_vars[ 'fields' ]            = '';
+			$this->query_vars[ 'orderby' ]           = '';
+			$this->query_vars[ 'no_found_rows' ]     = true;
+			$this->query_vars[ 'update_item_cache' ] = false;
+			$this->query_vars[ 'update_meta_cache' ] = false;
 		}
 
 		// Generate action name based on the plural item name.
@@ -1443,15 +1441,15 @@ class Query {
 
 		// Parse all clauses.
 		$clauses = array(
-			'explain' => $this->parse_explain( $r['explain'] ),
+			'explain' => $this->parse_explain( $r[ 'explain' ] ),
 			'select'  => $this->parse_select(),
-			'fields'  => $this->parse_fields( $r['fields'], $r['count'], $r['groupby'] ),
+			'fields'  => $this->parse_fields( $r[ 'fields' ], $r[ 'count' ], $r[ 'groupby' ] ),
 			'from'    => $this->parse_from(),
-			'join'    => $this->parse_join_clause( $join_where['join'] ),
-			'where'   => $this->parse_where_clause( $join_where['where'] ),
-			'groupby' => $this->parse_groupby( $r['groupby'], 'GROUP BY' ),
-			'orderby' => $this->parse_orderby( $r['orderby'], $r['order'], 'ORDER BY' ),
-			'limits'  => $this->parse_limits( $r['number'], $r['offset'] ),
+			'join'    => $this->parse_join_clause( $join_where[ 'join' ] ),
+			'where'   => $this->parse_where_clause( $join_where[ 'where' ] ),
+			'groupby' => $this->parse_groupby( $r[ 'groupby' ], 'GROUP BY' ),
+			'orderby' => $this->parse_orderby( $r[ 'orderby' ], $r[ 'order' ], 'ORDER BY' ),
+			'limits'  => $this->parse_limits( $r[ 'number' ], $r[ 'offset' ] ),
 		);
 
 		// Return clauses.
@@ -1486,13 +1484,13 @@ class Query {
 		);
 
 		// Set join subclauses — strip string keys so parse_join_clause() receives a plain list.
-		if ( ! empty( $parsers['join'] ) ) {
-			$retval['join'] = array_values( $parsers['join'] );
+		if ( ! empty( $parsers[ 'join' ] ) ) {
+			$retval[ 'join' ] = array_values( $parsers[ 'join' ] );
 		}
 
 		// Set where subclauses — strip string keys so parse_where_clause() receives a plain list.
-		if ( ! empty( $parsers['where'] ) ) {
-			$retval['where'] = array_values( $parsers['where'] );
+		if ( ! empty( $parsers[ 'where' ] ) ) {
+			$retval[ 'where' ] = array_values( $parsers[ 'where' ] );
 		}
 
 		// Return join and where clauses.
@@ -1520,7 +1518,9 @@ class Query {
 		}
 
 		// Default values.
-		$join = $where = $parsers = array();
+		$join    = array();
+		$where   = array();
+		$parsers = array();
 
 		// Loop through parsers.
 		foreach ( $this->parsers as $key => $descriptor ) {
@@ -1547,7 +1547,7 @@ class Query {
 				 *   at its sentinel so the sentinel check below stays false.
 				 * Search: uses a scalar 'search' key at the top level of
 				 *   $query_vars; it needs the full array so its clause handler
-				 *   can read $clause['search'] and $clause['search_columns'].
+				 *   can read $clause[ 'search' ] and $clause[ 'search_columns' ].
 				 *   The is_array() guard keeps it on the full $query_vars.
 				 */
 				if (
@@ -1580,13 +1580,13 @@ class Query {
 			}
 
 			// Set join.
-			if ( ! empty( $subclauses['join'] ) ) {
-				$join[ $key ] = $subclauses['join'];
+			if ( ! empty( $subclauses[ 'join' ] ) ) {
+				$join[ $key ] = $subclauses[ 'join' ];
 			}
 
 			// Set where (removing " AND " from subclauses).
-			if ( ! empty( $subclauses['where'] ) ) {
-				$where[ $key ] = (string) preg_replace( '/^\s*AND\s*/', '', $subclauses['where'] );
+			if ( ! empty( $subclauses[ 'where' ] ) ) {
+				$where[ $key ] = (string) preg_replace( '/^\s*AND\s*/', '', $subclauses[ 'where' ] );
 			}
 		}
 
@@ -1605,8 +1605,8 @@ class Query {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string, mixed> $query_vars
-	 * @param string               $key
+	 * @param array<string, mixed> $query_vars Array of query variables.
+	 * @param string               $key Query variable key.
 	 *
 	 * @return bool|int|string|array<mixed> False if not set or default.
 	 *                                      Value if object or array.
@@ -1738,10 +1738,10 @@ class Query {
 	 * @since 3.0.0 Moved COUNT() SQL to parse_count() and uses parse_groupby()
 	 *              when counting to satisfy MySQL 8 and higher.
 	 *
-	 * @param string|string[] $fields
-	 * @param bool     $count
-	 * @param string|string[] $groupby
-	 * @param bool     $alias
+	 * @param string|string[] $fields Field or fields to return.
+	 * @param bool            $count Whether to return a count instead of results.
+	 * @param string|string[] $groupby Column name to group results by.
+	 * @param bool            $alias Whether to include the table alias prefix.
 	 * @return string
 	 */
 	private function parse_fields( $fields = '', $count = false, $groupby = '', $alias = true ) {
@@ -1786,10 +1786,10 @@ class Query {
 	 * prevent errors.
 	 *
 	 * @since 3.0.0
-	 * @param bool   $count
-	 * @param string $groupby
-	 * @param string $name
-	 * @param bool   $alias
+	 * @param bool   $count Whether to return a count instead of results.
+	 * @param string $groupby Column name to group results by.
+	 * @param string $name Column name.
+	 * @param bool   $alias Whether to include the table alias prefix.
 	 * @return string
 	 */
 	private function parse_count( $count = false, $groupby = '', $name = 'count', $alias = true ) {
@@ -1850,9 +1850,9 @@ class Query {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param string $groupby
-	 * @param string $before
-	 * @param bool   $alias
+	 * @param string $groupby Column name to group results by.
+	 * @param string $before SQL fragment to prepend.
+	 * @param bool   $alias Whether to include the table alias prefix.
 	 * @return string
 	 */
 	private function parse_groupby( $groupby = '', $before = '', $alias = true ) {
@@ -1903,10 +1903,10 @@ class Query {
 	 * @since 1.0.0 As get_order_by
 	 * @since 3.0.0 Renamed to parse_orderby and accepts $orderby, $order, $before, and $alias
 	 *
-	 * @param string $orderby
-	 * @param string $order
-	 * @param string $before
-	 * @param bool   $alias
+	 * @param string $orderby Column name to order results by.
+	 * @param string $order Sort direction (ASC or DESC).
+	 * @param string $before SQL fragment to prepend.
+	 * @param bool   $alias Whether to include the table alias prefix.
 	 * @return string
 	 */
 	private function parse_orderby( $orderby = '', $order = '', $before = '', $alias = true ) {
@@ -1983,7 +1983,7 @@ class Query {
 	 * Parse all of the where clauses.
 	 *
 	 * @since 3.0.0
-	 * @param list<string> $where
+	 * @param list<string> $where WHERE SQL clause fragments.
 	 * @return string A single SQL statement.
 	 */
 	private function parse_where_clause( $where = array() ) {
@@ -2001,7 +2001,7 @@ class Query {
 	 * Parse all of the join clauses.
 	 *
 	 * @since 3.0.0
-	 * @param list<string> $join
+	 * @param list<string> $join JOIN SQL clause fragments.
 	 * @return string A single SQL statement.
 	 */
 	private function parse_join_clause( $join = array() ) {
@@ -2019,7 +2019,7 @@ class Query {
 	 * Parse all of the SQL query clauses.
 	 *
 	 * @since 3.0.0
-	 * @param array<string, mixed> $clauses
+	 * @param array<string, mixed> $clauses SQL clause fragments.
 	 * @return array<string, mixed>
 	 */
 	private function parse_query_clauses( $clauses = array() ) {
@@ -2040,7 +2040,7 @@ class Query {
 	 * Parse all SQL $request_clauses into a single SQL query string.
 	 *
 	 * @since 3.0.0
-	 * @param array<string, mixed> $clauses
+	 * @param array<string, mixed> $clauses SQL clause fragments.
 	 * @return string A single SQL statement.
 	 */
 	private function parse_request_clauses( $clauses = array() ) {
@@ -2068,8 +2068,8 @@ class Query {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param int $number
-	 * @param int $offset
+	 * @param int $number Maximum number of items to return.
+	 * @param int $offset Number of items to skip.
 	 * @return string
 	 */
 	private function parse_limits( $number = 0, $offset = 0 ) {
@@ -2168,7 +2168,7 @@ class Query {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param mixed $item ID of item, or row from database
+	 * @param mixed $item ID of item, or row from database.
 	 * @return object Shaped item object.
 	 */
 	private function shape_item( $item = 0 ) {
@@ -2289,7 +2289,7 @@ class Query {
 	 * @since 1.0.0
 	 * @since 3.0.0 Uses validate_item_field()
 	 *
-	 * @param  array<string, mixed>|object|scalar $item
+	 * @param  array<string, mixed>|object|scalar $item The item object or array.
 	 * @return int|string
 	 */
 	private function shape_item_id( $item = 0 ) {
@@ -2344,8 +2344,8 @@ class Query {
 	 * @since 1.0.0
 	 * @since 3.0.0 Bails early if empty $fields.
 	 *
-	 * @param list<object>  $items  Array of items to get fields from.
-	 * @param list<string>  $fields Fields to get from items.
+	 * @param list<object> $items  Array of items to get fields from.
+	 * @param list<string> $fields Fields to get from items.
 	 * @return list<object>|array<string|int, object>
 	 */
 	private function get_item_fields( $items = array(), $fields = array() ) {
@@ -2386,7 +2386,7 @@ class Query {
 					}
 				)
 			);
-			/** @var array<int|string> $fields_to_flip */
+			/** @var array<int|string> $fields_to_flip */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
 			$fields = array_flip( $fields_to_flip );
 
 			// Loop through items and pluck out the fields.
@@ -2437,8 +2437,8 @@ class Query {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param string     $column_name  Name of database column
-	 * @param int|string $column_value Value to query for
+	 * @param string     $column_name  Name of database column.
+	 * @param int|string $column_value Value to query for.
 	 * @return object|false False if empty/error, Object if successful
 	 */
 	public function get_item_by( $column_name = '', $column_value = '' ) {
@@ -2483,7 +2483,7 @@ class Query {
 
 		// Reduce the item.
 		if ( is_array( $retval ) || is_object( $retval ) ) {
-			/** @var array<string, mixed>|object $reduce_target */
+			/** @var array<string, mixed>|object $reduce_target */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
 			$reduce_target = $retval;
 			$retval        = $this->reduce_item( 'select', $reduce_target );
 		}
@@ -2497,7 +2497,7 @@ class Query {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param array<string, mixed> $data
+	 * @param array<string, mixed> $data Item data.
 	 * @return int|false Item ID if successful, false if not
 	 */
 	public function add_item( $data = array() ) {
@@ -2521,7 +2521,7 @@ class Query {
 			if ( is_object( $primary_val ) ) {
 				$item_id = $this->shape_item_id( $primary_val );
 			} elseif ( is_array( $primary_val ) ) {
-				/** @var array<string, mixed> $primary_arr */
+				/** @var array<string, mixed> $primary_arr */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
 				$primary_arr = $primary_val;
 				$item_id     = $this->shape_item_id( $primary_arr );
 			} elseif ( is_scalar( $primary_val ) ) {
@@ -2619,8 +2619,8 @@ class Query {
 	 *
 	 * @since 1.1.0
 	 *
-	 * @param int|string           $item_id
-	 * @param array<string, mixed> $data
+	 * @param int|string           $item_id Item ID.
+	 * @param array<string, mixed> $data Item data.
 	 * @return int|false Item ID if successful, false if not
 	 */
 	public function copy_item( $item_id = 0, $data = array() ) {
@@ -2659,8 +2659,8 @@ class Query {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param int|string           $item_id
-	 * @param array<string, mixed> $data
+	 * @param int|string           $item_id Item ID.
+	 * @param array<string, mixed> $data Item data.
 	 * @return bool
 	 */
 	public function update_item( $item_id = 0, $data = array() ) {
@@ -2708,9 +2708,9 @@ class Query {
 
 		// Slice data that has columns, and cut out non-keys for meta.
 		$columns = array_flip( $this->get_column_names() );
-		/** @var array<string, string> $data_cast */
+		/** @var array<string, string> $data_cast */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
 		$data_cast = array_map( 'strval', array_filter( $data, 'is_scalar' ) );
-		/** @var array<string, string> $item_cast */
+		/** @var array<string, string> $item_cast */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
 		$item_cast = array_map( 'strval', array_filter( $item, 'is_scalar' ) );
 		$diff_keys = array_keys( array_diff_assoc( $data_cast, $item_cast ) );
 		foreach ( $data as $k => $v ) {
@@ -2775,7 +2775,7 @@ class Query {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param int|string $item_id
+	 * @param int|string $item_id Item ID.
 	 * @return bool
 	 */
 	public function delete_item( $item_id = 0 ) {
@@ -2861,7 +2861,7 @@ class Query {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param array<string, mixed> $item
+	 * @param array<string, mixed> $item The item object or array.
 	 * @return array<string, mixed> Validated item array.
 	 */
 	private function validate_item( $item = array() ) {
@@ -2890,7 +2890,7 @@ class Query {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param string                      $method select|insert|update|delete
+	 * @param string                      $method select|insert|update|delete.
 	 * @param object|array<string, mixed> $item   Object or array of keys/values to reduce.
 	 *
 	 * @return array<string, mixed> Item with capability-restricted keys removed.
@@ -2974,9 +2974,9 @@ class Query {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param int|string           $item_id
-	 * @param array<string, mixed> $new_data
-	 * @param array<string, mixed> $old_data
+	 * @param int|string           $item_id Item ID.
+	 * @param array<string, mixed> $new_data New item data.
+	 * @param array<string, mixed> $old_data Old item data.
 	 */
 	private function transition_item( $item_id = 0, $new_data = array(), $old_data = array() ): void {
 
@@ -3013,7 +3013,7 @@ class Query {
 		$new  = array_intersect_key( $new_data, $keys );
 		$old  = array_intersect_key( $old_data, $keys );
 
-		// Filter to scalar values to allow safe array_diff
+		// Filter to scalar values to allow safe array_diff.
 		$new_scalars = array_filter( $new, 'is_scalar' );
 		$old_scalars = array_filter( $old, 'is_scalar' );
 
@@ -3056,10 +3056,10 @@ class Query {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param int|string $item_id
-	 * @param string     $meta_key
-	 * @param string     $meta_value
-	 * @param bool       $unique
+	 * @param int|string $item_id Item ID.
+	 * @param string     $meta_key Meta key.
+	 * @param string     $meta_value Meta value.
+	 * @param bool       $unique Whether the meta key should be unique per item.
 	 * @return int|false The meta ID on success, false on failure.
 	 */
 	protected function add_item_meta( $item_id = 0, $meta_key = '', $meta_value = '', $unique = false ) {
@@ -3089,9 +3089,9 @@ class Query {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param int|string $item_id
-	 * @param string     $meta_key
-	 * @param bool       $single
+	 * @param int|string $item_id Item ID.
+	 * @param string     $meta_key Meta key.
+	 * @param bool       $single Whether to return a single value.
 	 * @return mixed Single metadata value, or array of values
 	 */
 	protected function get_item_meta( $item_id = 0, $meta_key = '', $single = false ) {
@@ -3121,10 +3121,10 @@ class Query {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param int|string $item_id
-	 * @param string     $meta_key
-	 * @param string     $meta_value
-	 * @param string     $prev_value
+	 * @param int|string $item_id Item ID.
+	 * @param string     $meta_key Meta key.
+	 * @param string     $meta_value Meta value.
+	 * @param string     $prev_value Previous meta value to target when updating.
 	 * @return bool True on successful update, false on failure.
 	 */
 	protected function update_item_meta( $item_id = 0, $meta_key = '', $meta_value = '', $prev_value = '' ) {
@@ -3154,10 +3154,10 @@ class Query {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param int|string $item_id
-	 * @param string     $meta_key
-	 * @param string     $meta_value
-	 * @param bool       $delete_all
+	 * @param int|string $item_id Item ID.
+	 * @param string     $meta_key Meta key.
+	 * @param string     $meta_value Meta value.
+	 * @param bool       $delete_all Whether to delete all entries regardless of value.
 	 * @return bool True on successful delete, false on failure.
 	 */
 	protected function delete_item_meta( $item_id = 0, $meta_key = '', $meta_value = '', $delete_all = false ) {
@@ -3187,7 +3187,7 @@ class Query {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param string $object_subtype The sub-type of meta keys
+	 * @param string $object_subtype The sub-type of meta keys.
 	 *
 	 * @return array<string, mixed>
 	 */
@@ -3205,8 +3205,8 @@ class Query {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param int|string           $item_id
-	 * @param array<string, mixed> $meta
+	 * @param int|string           $item_id Item ID.
+	 * @param array<string, mixed> $meta Array of meta key/value pairs.
 	 */
 	private function save_extra_item_meta( $item_id = 0, $meta = array() ): void {
 
@@ -3245,7 +3245,7 @@ class Query {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param int|string $item_id
+	 * @param int|string $item_id Item ID.
 	 */
 	private function delete_all_item_meta( $item_id = 0 ): void {
 
@@ -3358,7 +3358,7 @@ class Query {
 	 * @since 1.0.0
 	 * @since 2.1.0 Correctly removes unique query_var_default_value values
 	 *
-	 * @param string $group
+	 * @param string $group Cache group name.
 	 * @return string
 	 */
 	private function get_cache_key( $group = '' ) {
@@ -3389,7 +3389,7 @@ class Query {
 		}
 
 		// Setup key & last_changed.
-		$key              = md5( serialize( $slice ) );
+		$key              = md5( serialize( $slice ) ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.serialize_serialize
 		$last_changed     = $this->get_last_changed_cache( $group );
 		$item_name_plural = $this->get_item_name_plural();
 
@@ -3402,7 +3402,7 @@ class Query {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param string $group
+	 * @param string $group Cache group name.
 	 * @return string
 	 */
 	private function get_cache_group( $group = '' ) {
@@ -3472,8 +3472,8 @@ class Query {
 	 * @since 1.0.0
 	 * @since 3.0.0 Uses get_meta_table_name() to
 	 *
-	 * @param list<int|string> $item_ids
-	 * @param bool             $force
+	 * @param list<int|string> $item_ids List of item IDs.
+	 * @param bool             $force Whether to bypass caching.
 	 *
 	 * @return bool False if empty
 	 */
@@ -3563,7 +3563,7 @@ class Query {
 	 * @since 3.0.0 Uses shape_item_id() if $items is scalar
 	 *
 	 * @param int|string|object|list<object> $items             Primary ID or key if scalar. Row if object. Array of objects if array.
-	 * @param bool                          $bump_last_changed  Whether to bump the last-changed cache value.
+	 * @param bool                           $bump_last_changed  Whether to bump the last-changed cache value.
 	 */
 	private function update_item_cache( $items = array(), $bump_last_changed = true ): void {
 
@@ -3629,7 +3629,7 @@ class Query {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param mixed $items Single object item, or Array of object items
+	 * @param mixed $items Single object item, or Array of object items.
 	 *
 	 * @return bool
 	 */
@@ -3695,7 +3695,7 @@ class Query {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param string $group Cache group. Defaults to $this->cache_group
+	 * @param string $group Cache group. Defaults to $this->cache_group.
 	 *
 	 * @return string The last time a cache group was changed.
 	 */
@@ -3754,7 +3754,7 @@ class Query {
 	 *
 	 * @param string $key    Cache key.
 	 * @param mixed  $value  Cache value.
-	 * @param string $group  Cache group. Defaults to $this->cache_group
+	 * @param string $group  Cache group. Defaults to $this->cache_group.
 	 * @param int    $expire Expiration.
 	 */
 	private function cache_add( $key = '', $value = '', $group = '', $expire = 0 ): void {
@@ -3782,8 +3782,8 @@ class Query {
 	 * @since 1.0.0
 	 *
 	 * @param int|string $key   Cache key.
-	 * @param string     $group Cache group. Defaults to $this->cache_group
-	 * @param bool       $force
+	 * @param string     $group Cache group. Defaults to $this->cache_group.
+	 * @param bool       $force Whether to bypass caching.
 	 * @return mixed
 	 */
 	private function cache_get( $key = '', $group = '', $force = false ) {
@@ -3807,7 +3807,7 @@ class Query {
 	 *
 	 * @param string $key    Cache key.
 	 * @param mixed  $value  Cache value.
-	 * @param string $group  Cache group. Defaults to $this->cache_group
+	 * @param string $group  Cache group. Defaults to $this->cache_group.
 	 * @param int    $expire Expiration.
 	 */
 	private function cache_set( $key = '', $value = '', $group = '', $expire = 0 ): void {
@@ -3837,7 +3837,7 @@ class Query {
 	 * @global bool $_wp_suspend_cache_invalidation
 	 *
 	 * @param string $key   Cache key.
-	 * @param string $group Cache group. Defaults to $this->cache_group
+	 * @param string $group Cache group. Defaults to $this->cache_group.
 	 */
 	private function cache_delete( $key = '', $group = '' ): void {
 		global $_wp_suspend_cache_invalidation;
@@ -3968,7 +3968,7 @@ class Query {
 	 * Filter the found items query.
 	 *
 	 * @since 3.0.0
-	 * @param string $sql
+	 * @param string $sql SQL query string.
 	 * @return string
 	 */
 	public function filter_found_items_query( $sql = '' ) {
@@ -4046,16 +4046,16 @@ class Query {
 	 *                                         represents a column and a comparison.
 	 * @param int                  $limit      Optional. LIMIT value. Default 25.
 	 * @param int|null             $offset     Optional. OFFSET value. Default null.
-	 * @param string $output     Optional. Any of ARRAY_A | ARRAY_N | OBJECT | OBJECT_K constants.
-	 *                           Default OBJECT.
-	 *                           With one of the first three, return an array of
-	 *                           rows indexed from 0 by SQL result row number.
-	 *                           Each row is an associative array (column => value, ...),
-	 *                           a numerically indexed array (0 => value, ...),
-	 *                           or an object. ( ->column = value ), respectively.
-	 *                           With OBJECT_K, return an associative array of
-	 *                           row objects keyed by the value of each row's
-	 *                           first column's value.
+	 * @param string               $output     Optional. Any of ARRAY_A | ARRAY_N | OBJECT | OBJECT_K constants.
+	 *                                         Default OBJECT.
+	 *                                         With one of the first three, return an array of
+	 *                                         rows indexed from 0 by SQL result row number.
+	 *                                         Each row is an associative array (column => value, ...),
+	 *                                         a numerically indexed array (0 => value, ...),
+	 *                                         or an object. ( ->column = value ), respectively.
+	 *                                         With OBJECT_K, return an associative array of
+	 *                                         row objects keyed by the value of each row's
+	 *                                         first column's value.
 	 *
 	 * @return list<object>|int Database query results.
 	 */

@@ -8,6 +8,7 @@
  * @license     https://opensource.org/licenses/MIT MIT
  * @since       3.0.0
  */
+
 declare( strict_types = 1 );
 
 namespace BerlinDB\Database\Parsers;
@@ -123,36 +124,48 @@ defined( 'ABSPATH' ) || exit;
 class Date extends Base {
 
 	/**
+	 * Internal identifier for this parser.
+	 *
 	 * @since 3.0.0
 	 * @var string
 	 */
 	protected $name = 'date';
 
 	/**
+	 * Top-level query var key this parser consumes, or null when operating per-column.
+	 *
 	 * @since 3.0.0
 	 * @var string|null
 	 */
 	protected $query_var = 'date_query';
 
 	/**
+	 * Column filter passed to get_column_names() to select relevant columns.
+	 *
 	 * @since 3.0.0
 	 * @var array<string, bool>
 	 */
 	protected $column_filter = array( 'date_query' => true );
 
 	/**
+	 * Suffix appended to each matching column name to form the per-column query var key.
+	 *
 	 * @since 3.0.0
 	 * @var string
 	 */
 	protected $column_suffix = '_query';
 
 	/**
+	 * Default value for the query var. Null defers to Query::$query_var_default_value.
+	 *
 	 * @since 3.0.0
 	 * @var mixed
 	 */
 	protected $default = null;
 
 	/**
+	 * Whether this parser contributes ORDER BY SQL via get_orderby_sql().
+	 *
 	 * @since 3.0.0
 	 * @var bool
 	 */
@@ -215,14 +228,14 @@ class Date extends Base {
 		 * validation routine continue to be sure that all invalid
 		 * values generate errors too.
 		 */
-		if ( array_key_exists( 'before', $date_query ) && is_array( $date_query['before'] ) ) {
-			if ( false === $this->validate_values( $date_query['before'] ) ) {
+		if ( array_key_exists( 'before', $date_query ) && is_array( $date_query[ 'before' ] ) ) {
+			if ( false === $this->validate_values( $date_query[ 'before' ] ) ) {
 				$valid = false;
 			}
 		}
 
-		if ( array_key_exists( 'after', $date_query ) && is_array( $date_query['after'] ) ) {
-			if ( false === $this->validate_values( $date_query['after'] ) ) {
+		if ( array_key_exists( 'after', $date_query ) && is_array( $date_query[ 'after' ] ) ) {
+			if ( false === $this->validate_values( $date_query[ 'after' ] ) ) {
 				$valid = false;
 			}
 		}
@@ -241,10 +254,10 @@ class Date extends Base {
 			 * If a year exists in the date query, we can use it to get the days.
 			 * If multiple years are provided (as in a BETWEEN), use the first one.
 			 */
-			if ( is_array( $date_query['year'] ) ) {
-				$_year = reset( $date_query['year'] );
+			if ( is_array( $date_query[ 'year' ] ) ) {
+				$_year = reset( $date_query[ 'year' ] );
 			} else {
-				$_year = $date_query['year'];
+				$_year = $date_query[ 'year' ];
 			}
 
 			$max_days_of_year = (int) gmdate( 'z', (int) gmmktime( 0, 0, 0, 12, 31, (int) $_year ) ) + 1;
@@ -255,25 +268,25 @@ class Date extends Base {
 		}
 
 		// Days of year.
-		$min_max_checks['dayofyear'] = array(
+		$min_max_checks[ 'dayofyear' ] = array(
 			'min' => 1,
 			'max' => $max_days_of_year,
 		);
 
 		// Days per week.
-		$min_max_checks['dayofweek'] = array(
+		$min_max_checks[ 'dayofweek' ] = array(
 			'min' => 1,
 			'max' => 7,
 		);
 
 		// Days per week.
-		$min_max_checks['dayofweek_iso'] = array(
+		$min_max_checks[ 'dayofweek_iso' ] = array(
 			'min' => 1,
 			'max' => 7,
 		);
 
 		// Months per year.
-		$min_max_checks['month'] = array(
+		$min_max_checks[ 'month' ] = array(
 			'min' => 1,
 			'max' => 12,
 		);
@@ -292,31 +305,31 @@ class Date extends Base {
 		}
 
 		// Weeks per year.
-		$min_max_checks['week'] = array(
+		$min_max_checks[ 'week' ] = array(
 			'min' => 1,
 			'max' => $week_count,
 		);
 
 		// Days per month.
-		$min_max_checks['day'] = array(
+		$min_max_checks[ 'day' ] = array(
 			'min' => 1,
 			'max' => 31,
 		);
 
 		// Hours per day.
-		$min_max_checks['hour'] = array(
+		$min_max_checks[ 'hour' ] = array(
 			'min' => 0,
 			'max' => 23,
 		);
 
 		// Minutes per hour.
-		$min_max_checks['minute'] = array(
+		$min_max_checks[ 'minute' ] = array(
 			'min' => 0,
 			'max' => 59,
 		);
 
 		// Seconds per minute.
-		$min_max_checks['second'] = array(
+		$min_max_checks[ 'second' ] = array(
 			'min' => 0,
 			'max' => 59,
 		);
@@ -331,7 +344,7 @@ class Date extends Base {
 
 			// Check for invalid values.
 			foreach ( (array) $date_query[ $key ] as $_value ) {
-				$is_between = ( $_value >= $check['min'] ) && ( $_value <= $check['max'] );
+				$is_between = ( $_value >= $check[ 'min' ] ) && ( $_value <= $check[ 'max' ] );
 
 				if ( ! is_numeric( $_value ) || ( false === $is_between ) ) {
 					$valid = false;
@@ -345,20 +358,20 @@ class Date extends Base {
 		}
 
 		// Check what kinds of dates are being queried for.
-		$day_exists   = array_key_exists( 'day', $date_query ) && is_numeric( $date_query['day']   );
-		$month_exists = array_key_exists( 'month', $date_query ) && is_numeric( $date_query['month'] );
-		$year_exists  = array_key_exists( 'year', $date_query ) && is_numeric( $date_query['year']  );
+		$day_exists   = array_key_exists( 'day', $date_query ) && is_numeric( $date_query[ 'day' ] );
+		$month_exists = array_key_exists( 'month', $date_query ) && is_numeric( $date_query[ 'month' ] );
+		$year_exists  = array_key_exists( 'year', $date_query ) && is_numeric( $date_query[ 'year' ] );
 
 		// Checking at least day & month.
 		if ( ! empty( $day_exists ) && ! empty( $month_exists ) ) {
 
 			// Check for year query, or fallback to 2012 (for flexibility).
 			$year = ! empty( $year_exists )
-				? $date_query['year']
+				? $date_query[ 'year' ]
 				: '2012';
 
 			// Check the date.
-			if ( ! checkdate( (int) $date_query['month'], (int) $date_query['day'], (int) $year ) ) {
+			if ( ! checkdate( (int) $date_query[ 'month' ], (int) $date_query[ 'day' ], (int) $year ) ) {
 				$valid = false;
 			}
 		}
@@ -405,7 +418,7 @@ class Date extends Base {
 		$column_name   = $this->get_column( $clause );
 		$compare       = $this->get_compare( $clause );
 		$start_of_week = $this->get_start_of_week( $clause );
-		$inclusive     = ! empty( $clause['inclusive'] );
+		$inclusive     = ! empty( $clause[ 'inclusive' ] );
 
 		/*
 		 * Bail if no date column is resolved — this clause doesn't belong to a
@@ -443,10 +456,10 @@ class Date extends Base {
 		$pattern = '%s';
 
 		// Range queries.
-		if ( ! empty( $clause['after'] ) ) {
-			$after_raw = $clause['after'];
+		if ( ! empty( $clause[ 'after' ] ) ) {
+			$after_raw = $clause[ 'after' ];
 			if ( is_array( $after_raw ) ) {
-				/** @var array<string, int> $after_val */
+				/** @var array<string, int> $after_val */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
 				$after_val = $after_raw;
 			} elseif ( is_int( $after_raw ) || is_string( $after_raw ) ) {
 				$after_val = $after_raw;
@@ -461,10 +474,10 @@ class Date extends Base {
 			}
 		}
 
-		if ( ! empty( $clause['before'] ) ) {
-			$before_raw = $clause['before'];
+		if ( ! empty( $clause[ 'before' ] ) ) {
+			$before_raw = $clause[ 'before' ];
 			if ( is_array( $before_raw ) ) {
-				/** @var array<string, int> $before_val */
+				/** @var array<string, int> $before_val */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
 				$before_val = $before_raw;
 			} elseif ( is_int( $before_raw ) || is_string( $before_raw ) ) {
 				$before_val = $before_raw;
@@ -480,46 +493,73 @@ class Date extends Base {
 		}
 
 		// Specific value queries.
-		if ( isset( $clause['year'] ) && false !== ( $value = $this->build_numeric_value( $compare, $clause['year'] ) ) ) {
-			$where[] = "YEAR( {$column} ) {$compare} {$value}";
+		if ( isset( $clause[ 'year' ] ) ) {
+			$value = $this->build_numeric_value( $compare, $clause[ 'year' ] );
+			if ( false !== $value ) {
+				$where[] = "YEAR( {$column} ) {$compare} {$value}";
+			}
 		}
 
-		if ( isset( $clause['month'] ) && false !== ( $value = $this->build_numeric_value( $compare, $clause['month'] ) ) ) {
+		// month / monthnum are aliases — try month first, fall back to monthnum.
+		$value = false;
+		if ( isset( $clause[ 'month' ] ) ) {
+			$value = $this->build_numeric_value( $compare, $clause[ 'month' ] );
+		}
+		if ( false === $value && isset( $clause[ 'monthnum' ] ) ) {
+			$value = $this->build_numeric_value( $compare, $clause[ 'monthnum' ] );
+		}
+		if ( false !== $value ) {
 			$where[] = "MONTH( {$column} ) {$compare} {$value}";
-		} elseif ( isset( $clause['monthnum'] ) && false !== ( $value = $this->build_numeric_value( $compare, $clause['monthnum'] ) ) ) {
-			$where[] = "MONTH( {$column} ) {$compare} {$value}";
 		}
 
-		if ( isset( $clause['week'] ) && false !== ( $value = $this->build_numeric_value( $compare, $clause['week'] ) ) ) {
+		// week / w are aliases — try week first, fall back to w.
+		$value = false;
+		if ( isset( $clause[ 'week' ] ) ) {
+			$value = $this->build_numeric_value( $compare, $clause[ 'week' ] );
+		}
+		if ( false === $value && isset( $clause[ 'w' ] ) ) {
+			$value = $this->build_numeric_value( $compare, $clause[ 'w' ] );
+		}
+		if ( false !== $value ) {
 			$where[] = $this->build_mysql_week( $column, $start_of_week ) . " {$compare} {$value}";
-		} elseif ( isset( $clause['w'] ) && false !== ( $value = $this->build_numeric_value( $compare, $clause['w'] ) ) ) {
-			$where[] = $this->build_mysql_week( $column, $start_of_week ) . " {$compare} {$value}";
 		}
 
-		if ( isset( $clause['dayofyear'] ) && false !== ( $value = $this->build_numeric_value( $compare, $clause['dayofyear'] ) ) ) {
-			$where[] = "DAYOFYEAR( {$column} ) {$compare} {$value}";
+		if ( isset( $clause[ 'dayofyear' ] ) ) {
+			$value = $this->build_numeric_value( $compare, $clause[ 'dayofyear' ] );
+			if ( false !== $value ) {
+				$where[] = "DAYOFYEAR( {$column} ) {$compare} {$value}";
+			}
 		}
 
-		if ( isset( $clause['day'] ) && false !== ( $value = $this->build_numeric_value( $compare, $clause['day'] ) ) ) {
-			$where[] = "DAYOFMONTH( {$column} ) {$compare} {$value}";
+		if ( isset( $clause[ 'day' ] ) ) {
+			$value = $this->build_numeric_value( $compare, $clause[ 'day' ] );
+			if ( false !== $value ) {
+				$where[] = "DAYOFMONTH( {$column} ) {$compare} {$value}";
+			}
 		}
 
-		if ( isset( $clause['dayofweek'] ) && false !== ( $value = $this->build_numeric_value( $compare, $clause['dayofweek'] ) ) ) {
-			$where[] = "DAYOFWEEK( {$column} ) {$compare} {$value}";
+		if ( isset( $clause[ 'dayofweek' ] ) ) {
+			$value = $this->build_numeric_value( $compare, $clause[ 'dayofweek' ] );
+			if ( false !== $value ) {
+				$where[] = "DAYOFWEEK( {$column} ) {$compare} {$value}";
+			}
 		}
 
-		if ( isset( $clause['dayofweek_iso'] ) && false !== ( $value = $this->build_numeric_value( $compare, $clause['dayofweek_iso'] ) ) ) {
-			$where[] = "WEEKDAY( {$column} ) + 1 {$compare} {$value}";
+		if ( isset( $clause[ 'dayofweek_iso' ] ) ) {
+			$value = $this->build_numeric_value( $compare, $clause[ 'dayofweek_iso' ] );
+			if ( false !== $value ) {
+				$where[] = "WEEKDAY( {$column} ) + 1 {$compare} {$value}";
+			}
 		}
 
 		// Straight value compare — build_value() normalises the mixed input.
-		if ( isset( $clause['value'] ) ) {
-			$value   = $this->build_value( $compare, $clause['value'] );
+		if ( isset( $clause[ 'value' ] ) ) {
+			$value   = $this->build_value( $compare, $clause[ 'value' ] );
 			$where[] = "{$column} {$compare} {$value}";
 		}
 
 		// Hour/Minute/Second.
-		if ( isset( $clause['hour'] ) || isset( $clause['minute'] ) || isset( $clause['second'] ) ) {
+		if ( isset( $clause[ 'hour' ] ) || isset( $clause[ 'minute' ] ) || isset( $clause[ 'second' ] ) ) {
 
 			// Avoid notices.
 			foreach ( array( 'hour', 'minute', 'second' ) as $unit ) {
@@ -529,7 +569,7 @@ class Date extends Base {
 			}
 
 			// Time query.
-			$time_query = $this->build_time_query( $column, $compare, $clause['hour'], $clause['minute'], $clause['second'] );
+			$time_query = $this->build_time_query( $column, $compare, $clause[ 'hour' ], $clause[ 'minute' ], $clause[ 'second' ] );
 
 			// Maybe add to where_parts.
 			if ( ! empty( $time_query ) ) {

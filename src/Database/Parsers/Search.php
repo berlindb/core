@@ -8,6 +8,7 @@
  * @license     https://opensource.org/licenses/MIT MIT
  * @since       3.0.0
  */
+
 declare( strict_types = 1 );
 
 namespace BerlinDB\Database\Parsers;
@@ -24,32 +25,42 @@ defined( 'ABSPATH' ) || exit;
 class Search extends Base {
 
 	/**
+	 * Internal identifier for this parser.
+	 *
 	 * @since 3.0.0
 	 * @var string
 	 */
 	protected $name = 'search';
 
 	/**
+	 * Top-level query var key this parser consumes, or null when operating per-column.
+	 *
 	 * @since 3.0.0
 	 * @var string|null
 	 */
 	protected $query_var = 'search';
 
 	/**
+	 * Column filter passed to get_column_names() to select relevant columns.
+	 *
 	 * @since 3.0.0
 	 * @var array<string, bool>
 	 */
 	protected $column_filter = array( 'searchable' => true );
 
 	/**
+	 * Suffix appended to each matching column name to form the per-column query var key.
+	 *
 	 * @since 3.0.0
 	 * @var string
 	 */
 	protected $column_suffix = '_search';
 
 	/**
+	 * Default value for the query var. Null defers to Query::$query_var_default_value.
+	 *
 	 * @since 3.0.0
-	 * @var string
+	 * @var mixed
 	 */
 	protected $default = '';
 
@@ -98,7 +109,7 @@ class Search extends Base {
 	public function get_sql_for_clause( &$clause = array(), $parent_query = array(), $clause_key = '' ) {
 
 		// Bail if no search.
-		if ( empty( $this->first_keys ) || empty( $clause['search'] ) ) {
+		if ( empty( $this->first_keys ) || empty( $clause[ 'search' ] ) ) {
 			return array(
 				'join'  => array(),
 				'where' => array(),
@@ -112,10 +123,10 @@ class Search extends Base {
 		$search_columns = $this->first_keys;
 
 		// Intersect against known searchable columns.
-		if ( ! empty( $clause['search_columns'] ) ) {
+		if ( ! empty( $clause[ 'search_columns' ] ) ) {
 			$search_columns = array_values(
 				array_intersect(
-					array_filter( (array) $clause['search_columns'], 'is_string' ),
+					array_filter( (array) $clause[ 'search_columns' ], 'is_string' ),
 					$this->first_keys
 				)
 			);
@@ -133,7 +144,7 @@ class Search extends Base {
 		}
 
 		// Add search query clause.
-		$where['search'] = $this->get_search_sql( $clause['search'], $sql_columns );
+		$where[ 'search' ] = $this->get_search_sql( $clause[ 'search' ], $sql_columns );
 
 		// Return join/where.
 		return array(
@@ -149,14 +160,14 @@ class Search extends Base {
 	 * @since 1.0.0
 	 * @since 3.0.0 Bail early if parameters are empty.
 	 *
-	 * @param string       $string       Search string.
+	 * @param string       $search       Search term.
 	 * @param list<string> $column_names Columns to search.
 	 * @return string Search SQL.
 	 */
-	private function get_search_sql( $string = '', $column_names = array() ) {
+	private function get_search_sql( $search = '', $column_names = array() ) {
 
-		// Bail if malformed string.
-		if ( empty( $string ) || ! is_scalar( $string ) ) {
+		// Bail if malformed search term.
+		if ( empty( $search ) || ! is_scalar( $search ) ) {
 			return '';
 		}
 
@@ -174,9 +185,9 @@ class Search extends Base {
 		}
 
 		// Array or String.
-		$like = ( false !== strpos( $string, '*' ) )
-			? '%' . implode( '%', array_map( array( $db, 'esc_like' ), explode( '*', $string ) ) ) . '%'
-			: '%' . $db->esc_like( $string ) . '%';
+		$like = ( false !== strpos( $search, '*' ) )
+			? '%' . implode( '%', array_map( array( $db, 'esc_like' ), explode( '*', $search ) ) ) . '%'
+			: '%' . $db->esc_like( $search ) . '%';
 
 		// Default array.
 		$searches = array();
