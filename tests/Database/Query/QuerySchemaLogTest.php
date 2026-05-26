@@ -37,7 +37,7 @@ class QuerySchemaLogTest extends TestCase {
 			protected $table_schema = '';
 		};
 
-		$logs = $query->get_logs( array( 'code' => 'query_schema_empty' ) );
+		$logs = $query->get_logs( array( 'code' => 'query_schema_unavailable' ) );
 
 		$this->assertCount( 1, $logs );
 		$this->assertSame( 'error', $logs[0]['level'] );
@@ -53,7 +53,7 @@ class QuerySchemaLogTest extends TestCase {
 			protected $table_schema = 'BerlinDB\\Tests\\MissingQuerySchema';
 		};
 
-		$logs = $query->get_logs( array( 'code' => 'query_schema_missing' ) );
+		$logs = $query->get_logs( array( 'code' => 'query_schema_unavailable' ) );
 
 		$this->assertCount( 1, $logs );
 		$this->assertSame( 'BerlinDB\\Tests\\MissingQuerySchema', $logs[0]['context']['schema'] );
@@ -64,14 +64,15 @@ class QuerySchemaLogTest extends TestCase {
 	 *
 	 * @since 3.0.0
 	 */
-	public function test_query_logs_schema_class_without_get_columns() {
+	public function test_query_logs_unusable_schema_class() {
 		$query = new class() extends Query {
 			protected $table_schema = QuerySchemaLogInvalidSchema::class;
 		};
 
-		$logs = $query->get_logs( array( 'code' => 'query_schema_missing_get_columns' ) );
+		$logs = $query->get_logs( array( 'code' => 'query_schema_unavailable' ) );
 
 		$this->assertCount( 1, $logs );
 		$this->assertSame( QuerySchemaLogInvalidSchema::class, $logs[0]['context']['schema'] );
+		$this->assertSame( 'get_columns', $logs[0]['context']['method'] );
 	}
 }

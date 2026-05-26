@@ -360,63 +360,32 @@ class Query {
 	 */
 	private function set_schema(): void {
 
-		// Bail if no table schema is configured.
-		if ( empty( $this->table_schema ) ) {
-			$this->log_empty_value(
-				'table_schema',
-				array( $this, __FUNCTION__ ),
-				array(
-					'code'    => 'query_schema_empty',
-					'message' => 'Query schema class is empty.',
-				)
-			);
-			return;
+		// Default log context.
+		$log_error = true;
+		$context   = array(
+			'schema' => $this->table_schema,
+		);
+
+		// Maybe invoke a new table schema class.
+		if ( ! empty( $this->table_schema ) && class_exists( $this->table_schema ) ) {
+			try {
+				$this->schema_object = new $this->table_schema();
+				$log_error           = false;
+			} catch ( \Throwable $exception ) {
+				$context['exception']         = get_class( $exception );
+				$context['exception_message'] = $exception->getMessage();
+			}
 		}
 
-		// Bail if the table schema class does not exist.
-		if ( ! class_exists( $this->table_schema ) ) {
-			$this->log_class_not_found(
-				$this->table_schema,
-				array( $this, __FUNCTION__ ),
-				array(
-					'code'    => 'query_schema_missing',
-					'message' => 'Query schema class does not exist.',
-					'schema'  => $this->table_schema,
-				)
-			);
-			return;
+		// A schema without get_columns() is not usable by Query.
+		if ( ( false === $log_error ) && ! is_callable( array( $this->schema_object, 'get_columns' ) ) ) {
+			$log_error         = true;
+			$context['method'] = 'get_columns';
 		}
 
-		// Try to invoke a new table schema class.
-		try {
-			$this->schema_object = new $this->table_schema();
-		} catch ( \Throwable $exception ) {
-			$this->log_class_instantiation_failed(
-				$this->table_schema,
-				$exception,
-				array( $this, __FUNCTION__ ),
-				array(
-					'code'    => 'query_schema_instantiation_failed',
-					'message' => 'Query schema class could not be instantiated.',
-					'schema'  => $this->table_schema,
-				)
-			);
-
-			return;
-		}
-
-		// Log unusable schema objects.
-		if ( ! is_callable( array( $this->schema_object, 'get_columns' ) ) ) {
-			$this->log_method_not_found(
-				$this->schema_object,
-				'get_columns',
-				array( $this, __FUNCTION__ ),
-				array(
-					'code'    => 'query_schema_missing_get_columns',
-					'message' => 'Query schema class does not expose get_columns().',
-					'schema'  => $this->table_schema,
-				)
-			);
+		// Maybe log schema setup failure.
+		if ( true === $log_error ) {
+			$this->log( 'error', 'query_schema_unavailable', 'Query schema could not be loaded.', $context );
 		}
 	}
 

@@ -43,7 +43,7 @@ class TableSchemaLogTest extends TestCase {
 			}
 		};
 
-		$logs = $table->get_logs( array( 'code' => 'table_schema_empty' ) );
+		$logs = $table->get_logs( array( 'code' => 'table_schema_unavailable' ) );
 
 		$this->assertCount( 1, $logs );
 		$this->assertSame( 'error', $logs[0]['level'] );
@@ -65,7 +65,7 @@ class TableSchemaLogTest extends TestCase {
 			}
 		};
 
-		$logs = $table->get_logs( array( 'code' => 'table_schema_missing' ) );
+		$logs = $table->get_logs( array( 'code' => 'table_schema_unavailable' ) );
 
 		$this->assertCount( 1, $logs );
 		$this->assertSame( 'BerlinDB\\Tests\\MissingTableSchema', $logs[0]['context']['schema'] );
@@ -76,7 +76,7 @@ class TableSchemaLogTest extends TestCase {
 	 *
 	 * @since 3.0.0
 	 */
-	public function test_table_logs_schema_class_without_get_create_table_string() {
+	public function test_table_logs_unusable_schema_class() {
 		$table = new class() extends Table {
 			protected $name    = 'schema_log_invalid';
 			protected $version = '1';
@@ -87,9 +87,10 @@ class TableSchemaLogTest extends TestCase {
 			}
 		};
 
-		$logs = $table->get_logs( array( 'code' => 'table_schema_missing_get_create_table_string' ) );
+		$logs = $table->get_logs( array( 'code' => 'table_schema_unavailable' ) );
 
 		$this->assertCount( 1, $logs );
 		$this->assertSame( TableSchemaLogInvalidSchema::class, $logs[0]['context']['schema'] );
+		$this->assertSame( 'get_create_table_string', $logs[0]['context']['method'] );
 	}
 }
