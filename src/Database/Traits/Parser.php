@@ -1095,10 +1095,14 @@ trait Parser {
 	/**
 	 * Builds and validates a value string based on the comparison operator.
 	 *
+	 * Accepts any type: arrays are filtered to numeric values, scalars are cast
+	 * to int, and non-numeric or null inputs return false. Callers do not need
+	 * to pre-narrow their values before calling this method.
+	 *
 	 * @since 3.0.0
 	 *
-	 * @param string                            $compare The compare operator to use.
-	 * @param array<int, mixed>|int|string|null $value   The value.
+	 * @param string $compare The compare operator to use.
+	 * @param mixed  $value   The value. Any type accepted; non-numeric values are filtered out.
 	 *
 	 * @return string|bool|int The value to be used in SQL or false on error.
 	 */
@@ -1157,11 +1161,16 @@ trait Parser {
 	/**
 	 * Builds and validates a value string based on the comparison operator.
 	 *
+	 * Accepts any type and normalises before passing to the operator: arrays
+	 * pass through (for IN/BETWEEN), floats are cast to string, other scalars
+	 * pass through, and unsupported types (bool, object, null) become null.
+	 * Callers do not need to pre-narrow their values before calling this method.
+	 *
 	 * @since 3.0.0
 	 *
-	 * @param string                        $compare The compare operator to use.
-	 * @param array<int, mixed>|string|null $value   The value.
-	 * @param '%s'|'%d'|'%f'                $pattern The pattern.
+	 * @param string $compare The compare operator to use.
+	 * @param mixed  $value   The value. Any type accepted; unsupported types become null.
+	 * @param '%s'|'%d'|'%f' $pattern The pattern.
 	 *
 	 * @return string|false|int The value to be used in SQL or false on error.
 	 */
@@ -1178,6 +1187,16 @@ trait Parser {
 		// Bail if no valid operator could be resolved.
 		if ( false === $operator ) {
 			return '';
+		}
+
+		// Normalise value: arrays pass through; floats become strings;
+		// other scalars are unchanged; bools, objects, and null become null.
+		if ( is_array( $value ) ) {
+			$value = array_values( $value );
+		} elseif ( is_float( $value ) ) {
+			$value = (string) $value;
+		} elseif ( ! is_int( $value ) && ! is_string( $value ) ) {
+			$value = null;
 		}
 
 		// Return the operator's value SQL.

@@ -557,7 +557,7 @@ class Column {
 	}
 
 	/**
-	 * Handle special special column argument values.
+	 * Handle special column argument values.
 	 *
 	 * See: https://dev.mysql.com/doc/refman/8.0/en/data-type-defaults.html
 	 *

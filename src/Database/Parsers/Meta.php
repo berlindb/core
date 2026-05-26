@@ -678,8 +678,15 @@ class Meta extends Base {
 
 		// meta_value.
 		if ( array_key_exists( 'value', $clause ) ) {
-			$meta_val = is_array( $clause['value'] ) ? array_values( $clause['value'] ) : ( is_scalar( $clause['value'] ) ? (string) $clause['value'] : '' );
-			$where    = $this->build_value( $meta_compare, $meta_val, '%s' );
+			if ( is_array( $clause['value'] ) ) {
+				$meta_val = array_values( $clause['value'] );
+			} elseif ( is_scalar( $clause['value'] ) ) {
+				$meta_val = (string) $clause['value'];
+			} else {
+				$meta_val = '';
+			}
+
+			$where = $this->build_value( $meta_compare, $meta_val, '%s' );
 
 			// Not empty, so maybe cast...
 			if ( ! empty( $where ) ) {

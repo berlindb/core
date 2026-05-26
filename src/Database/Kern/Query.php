@@ -699,8 +699,7 @@ class Query {
 	 * @return string Default "id", Primary column name if not empty
 	 */
 	public function get_primary_column_name() {
-		$name = $this->get_column_field( array( 'primary' => true ), 'name', 'id' );
-		return is_string( $name ) ? $name : 'id';
+		return $this->get_column_field( array( 'primary' => true ), 'name', 'id' );
 	}
 
 	/**
@@ -708,10 +707,12 @@ class Query {
 	 *
 	 * @since 1.0.0
 	 *
+	 * @template TDefault
 	 * @param array<string, mixed> $args    Arguments to get a column by.
 	 * @param string               $field   Field to get from a column.
-	 * @param mixed                $default Default to use if no field is set.
+	 * @param TDefault             $default Default to use if no field is set.
 	 * @return mixed Value of the requested field, or $default if not found.
+	 * @phpstan-return ($default is false ? mixed : TDefault)
 	 */
 	public function get_column_field( $args = array(), $field = '', $default = false ) {
 
@@ -784,6 +785,12 @@ class Query {
 			}
 		}
 
+		// Column::$type is stored uppercase; match that convention so callers can
+		// pass either case (e.g. 'json' or 'JSON') and get consistent results.
+		if ( isset( $args['type'] ) && is_string( $args['type'] ) ) {
+			$args['type'] = strtoupper( $args['type'] );
+		}
+
 		// Filter columns.
 		$filter = wp_filter_object_list( $columns, $args, $operator, $field );
 
@@ -802,11 +809,13 @@ class Query {
 	 * Uses get_column_field() to allow passing of a default value.
 	 *
 	 * @since 3.0.0
+	 * @template TDefault
 	 * @param string              $key     Name of property to compare $values to.
 	 * @param array<mixed>|string $values  Values to get a column by. Scalar values are wrapped in an array.
 	 * @param string              $field   Field to get from a column.
-	 * @param mixed               $default Default to use if no field is set.
+	 * @param TDefault            $default Default to use if no field is set.
 	 * @return list<mixed>
+	 * @phpstan-return ($default is false ? list<mixed> : list<TDefault>)
 	 */
 	public function get_columns_field_by( $key = '', $values = array(), $field = '', $default = false ) {
 
@@ -930,7 +939,7 @@ class Query {
 			: $this->parsers;
 
 		// Filter parsers.
-		$field_val = is_string( $field ) ? $field : ( is_bool( $field ) ? $field : false );
+		$field_val = is_string( $field ) ? $field : false;
 		$filter    = wp_filter_object_list( $source, $args, $operator, $field_val );
 
 		// Return parsers or empty array.
@@ -1142,8 +1151,7 @@ class Query {
 
 		// Get query parts.
 		$table       = $this->get_table_name();
-		$pattern_val = $this->get_column_field( array( 'name' => $column_name ), 'pattern', '%s' );
-		$pattern_str = is_string( $pattern_val ) ? $pattern_val : '%s';
+		$pattern_str = $this->get_column_field( array( 'name' => $column_name ), 'pattern', '%s' );
 
 		// Query database.
 		$query  = "SELECT * FROM {$table} WHERE {$column_name} = {$pattern_str} LIMIT 1";
@@ -1158,6 +1166,8 @@ class Query {
 		// Return row.
 		return $result;
 	}
+
+
 
 	/**
 	 * Retrieves a list of items matching the query vars.
@@ -1234,19 +1244,10 @@ class Query {
 			}
 		}
 
-		// Cast to int if not grouping counts.
+		// Return count results directly — already int (get_var) or array (groupby).
 		if ( $this->get_query_var( 'count' ) ) {
-
-			// Set items.
-			$this->items = is_array( $result ) ? $result : ( is_int( $result ) ? $result : ( is_scalar( $result ) ? (int) $result : 0 ) );
-
-			// Not grouping, so cast to int.
-			if ( ! $this->get_query_var( 'groupby' ) ) {
-				$this->items = is_int( $result ) ? $result : ( is_scalar( $result ) ? (int) $result : 0 );
-			}
-
-			// Return.
-			return is_array( $this->items ) ? $this->items : ( is_int( $this->items ) ? $this->items : 0 );
+			$this->items = $result;
+			return $this->items;
 		}
 
 		// Set items from result.
@@ -1258,7 +1259,7 @@ class Query {
 		}
 
 		// Return array of items.
-		return is_array( $this->items ) ? $this->items : ( is_int( $this->items ) ? $this->items : array() );
+		return is_array( $this->items ) ? $this->items : array();
 	}
 
 	/**
@@ -1267,7 +1268,7 @@ class Query {
 	 * @since 1.0.0
 	 * @since 3.0.0 Uses wp_parse_list() instead of wp_parse_id_list()
 	 *
-	 * @return array<bool|float|int|string>|array<string, mixed>[]|string|null Array of item IDs for a full query, or query results for a count query.
+	 * @return array<bool|float|int|string>|array<string, mixed>[]|int|null Array of item IDs for a full query, or int/rows for a count query.
 	 */
 	private function get_item_ids() {
 
@@ -1287,15 +1288,14 @@ class Query {
 		}
 
 		// Get the request SQL string.
-		$request_val = $this->get_current( 'request' );
-		$request     = is_string( $request_val ) ? $request_val : null;
+		$request = $this->get_current_string( 'request' );
 
 		// Return count.
 		if ( $this->get_query_var( 'count' ) ) {
 
 			// Get vars or results.
 			$retval = ! $this->get_query_var( 'groupby' )
-				? $db->get_var( $request )
+				? (int) $db->get_var( $request )
 				: $db->get_results( $request, ARRAY_A );
 
 			// Return vars or results.
@@ -1341,8 +1341,7 @@ class Query {
 
 		// Fallback to column pattern.
 		if ( empty( $pattern ) || ! is_string( $pattern ) ) {
-			$pattern_val = $this->get_column_field( array( 'name' => $column_name ), 'pattern', '%s' );
-			$pattern     = is_string( $pattern_val ) ? $pattern_val : '%s';
+			$pattern = $this->get_column_field( array( 'name' => $column_name ), 'pattern', '%s' );
 		}
 
 		// Fill an array of patterns to match the number of values.
@@ -1384,10 +1383,8 @@ class Query {
 		$this->set_current( 'query_var_originals', wp_parse_args( $query ) );
 
 		// Setup the $query_vars parsed var.
-		$originals        = $this->get_current( 'query_var_originals' );
-		$originals_val    = is_array( $originals ) ? $originals : ( is_string( $originals ) ? $originals : array() );
 		$this->query_vars = wp_parse_args(
-			$originals_val,
+			$this->get_current_array( 'query_var_originals' ),
 			$this->query_var_defaults
 		);
 
@@ -2032,8 +2029,7 @@ class Query {
 
 		// Maybe fallback to query_clauses.
 		if ( empty( $clauses ) ) {
-			$clauses_val = $this->get_current( 'query_clauses', array() );
-			$clauses     = is_array( $clauses_val ) ? $clauses_val : ( is_string( $clauses_val ) ? $clauses_val : array() );
+			$clauses = $this->get_current_array( 'query_clauses' );
 		}
 
 		// Default return value.
@@ -2185,29 +2181,35 @@ class Query {
 			$item = $this->get_item( (int) $item );
 		}
 
+		/*
+		 * Decode JSON columns before any early-return or wrapping.
+		 *
+		 * The database returns raw rows as stdClass objects (via get_row()), so
+		 * we must handle both array and object forms here. cast_json() is
+		 * idempotent — calling it on an already-decoded array is a no-op.
+		 */
+		$json_columns = $this->get_columns( array( 'type' => 'json' ) );
+
+		if ( ! empty( $json_columns ) ) {
+			if ( is_array( $item ) ) {
+				foreach ( $json_columns as $column ) {
+					if ( isset( $item[ $column->name ] ) ) {
+						$item[ $column->name ] = $column->cast( $item[ $column->name ] );
+					}
+				}
+			} elseif ( is_object( $item ) ) {
+				foreach ( $json_columns as $column ) {
+					if ( isset( $item->{$column->name} ) ) {
+						$item->{$column->name} = $column->cast( $item->{$column->name} );
+					}
+				}
+			}
+		}
+
 		// Return the item if it's already shaped.
 		$item_shape = $this->get_current( 'item_shape' );
 		if ( is_string( $item_shape ) && ! empty( $item_shape ) && $item instanceof $item_shape ) {
 			return $item;
-		}
-
-		/*
-		 * Decode JSON columns before wrapping — JSON stored as a string must be
-		 * returned as a PHP array, mirroring validate_json() on the write side.
-		 */
-		if ( is_array( $item ) ) {
-
-			// Get all JSON column names.
-			$json_columns = $this->get_columns( array( 'type' => 'json' ) );
-
-			// Loop through JSON columns and decode them if needed.
-			foreach ( $json_columns as $column ) {
-
-				// Only decode if the value is a string (i.e. not already decoded) and is valid JSON.
-				if ( isset( $item[ $column->name ] ) ) {
-					$item[ $column->name ] = $column->cast( $item[ $column->name ] );
-				}
-			}
 		}
 
 		// stdClass does not hydrate constructor arguments into properties.
@@ -2586,11 +2588,10 @@ class Query {
 
 		// Try to save.
 		if ( ! empty( $save ) ) {
-			$table           = $this->get_table_name();
-			$names           = array_keys( $save );
-			$save_format_raw = $this->get_columns_field_by( 'name', $names, 'pattern', '%s' );
-			$save_format     = is_array( $save_format_raw ) ? array_values( array_filter( $save_format_raw, 'is_string' ) ) : ( is_string( $save_format_raw ) ? $save_format_raw : null );
-			$retval          = $db->insert( $table, $save, $save_format );
+			$table       = $this->get_table_name();
+			$names       = array_keys( $save );
+			$save_format = $this->get_columns_field_by( 'name', $names, 'pattern', '%s' );
+			$retval      = $db->insert( $table, $save, $save_format );
 		}
 
 		// Bail on failure.
@@ -2749,14 +2750,12 @@ class Query {
 
 		// Try to update.
 		if ( ! empty( $save ) ) {
-			$table            = $this->get_table_name();
-			$where            = array( $primary => $item_id );
-			$names            = array_keys( $save );
-			$save_format_raw  = $this->get_columns_field_by( 'name', $names, 'pattern', '%s' );
-			$save_format      = is_array( $save_format_raw ) ? array_values( array_filter( $save_format_raw, 'is_string' ) ) : ( is_string( $save_format_raw ) ? $save_format_raw : null );
-			$where_format_raw = $this->get_columns_field_by( 'name', $primary, 'pattern', '%s' );
-			$where_format     = is_array( $where_format_raw ) ? array_values( array_filter( $where_format_raw, 'is_string' ) ) : ( is_string( $where_format_raw ) ? $where_format_raw : null );
-			$retval           = $db->update( $table, $save, $where, $save_format, $where_format );
+			$table        = $this->get_table_name();
+			$where        = array( $primary => $item_id );
+			$names        = array_keys( $save );
+			$save_format  = $this->get_columns_field_by( 'name', $names, 'pattern', '%s' );
+			$where_format = $this->get_columns_field_by( 'name', $primary, 'pattern', '%s' );
+			$retval       = $db->update( $table, $save, $where, $save_format, $where_format );
 		}
 
 		// Bail on failure.
@@ -2823,15 +2822,10 @@ class Query {
 		}
 
 		// Try to delete.
-		$table            = $this->get_table_name();
-		$where            = array( $primary => $item_id );
-		$where_format_raw = $this->get_columns_field_by( 'name', $primary, 'pattern', '%s' );
-		$where_format     = is_array( $where_format_raw )
-			? array_values( array_filter( $where_format_raw, 'is_string' ) )
-			: ( is_string( $where_format_raw )
-				? $where_format_raw
-				: null );
-		$retval           = $db->delete( $table, $where, $where_format );
+		$table        = $this->get_table_name();
+		$where        = array( $primary => $item_id );
+		$where_format = $this->get_columns_field_by( 'name', $primary, 'pattern', '%s' );
+		$retval       = $db->delete( $table, $where, $where_format );
 
 		// Bail on failure.
 		if ( ! $this->is_success( $retval ) ) {
@@ -3286,10 +3280,9 @@ class Query {
 		$primary = $this->get_primary_column_name();
 
 		// Guess the item ID column for the meta table.
-		$item_name           = $this->get_item_name();
-		$item_id_column      = $this->apply_prefix( $item_name . '_' . $primary );
-		$item_id_pattern_val = $this->get_column_field( array( 'name' => $primary ), 'pattern', '%s' );
-		$item_id_pattern     = is_string( $item_id_pattern_val ) ? $item_id_pattern_val : '%s';
+		$item_name       = $this->get_item_name();
+		$item_id_column  = $this->apply_prefix( $item_name . '_' . $primary );
+		$item_id_pattern = $this->get_column_field( array( 'name' => $primary ), 'pattern', '%s' );
 
 		// Get meta IDs.
 		$query    = "SELECT meta_id FROM {$table} WHERE {$item_id_column} = {$item_id_pattern}";
@@ -3720,7 +3713,7 @@ class Query {
 		}
 
 		// Return the last changed value for the cache group.
-		return is_string( $last_changed ) ? $last_changed : '';
+		return (string) $last_changed;
 	}
 
 	/**

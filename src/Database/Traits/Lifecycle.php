@@ -112,6 +112,32 @@ trait Lifecycle {
 	}
 
 	/**
+	 * Get a string value from the current run's ephemeral state.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param string $key State key.
+	 * @return string|null String value, or null if not set or not a string.
+	 */
+	protected function get_current_string( $key ): ?string {
+		$value = $this->current[ $key ] ?? null;
+		return is_string( $value ) ? $value : null;
+	}
+
+	/**
+	 * Get an array value from the current run's ephemeral state.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param string $key State key.
+	 * @return array<mixed> Array value, or empty array if not set or not an array.
+	 */
+	protected function get_current_array( $key ): array {
+		$value = $this->current[ $key ] ?? array();
+		return is_array( $value ) ? $value : array();
+	}
+
+	/**
 	 * Set a value in the current run's ephemeral state.
 	 *
 	 * @since 3.0.0
