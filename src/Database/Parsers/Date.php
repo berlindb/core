@@ -399,9 +399,6 @@ class Date extends Base {
 	 */
 	public function get_sql_for_clause( &$clause = array(), $parent_query = array(), $clause_key = '' ) {
 
-		// Get the database interface.
-		$db = $this->get_db();
-
 		// The sub-parts of a $where part.
 		$where = array();
 
@@ -462,7 +459,7 @@ class Date extends Base {
 
 			// Only add to where if valid datetime.
 			if ( false !== $after ) {
-				$where[] = (string) $db->prepare( "{$column} {$gt} {$pattern}", $after );
+				$where[] = (string) $this->db()->prepare( "{$column} {$gt} {$pattern}", $after );
 			}
 		}
 
@@ -480,7 +477,7 @@ class Date extends Base {
 
 			// Only add to where if valid datetime.
 			if ( false !== $before ) {
-				$where[] = (string) $db->prepare( "{$column} {$lt} {$pattern}", $before );
+				$where[] = (string) $this->db()->prepare( "{$column} {$lt} {$pattern}", $before );
 			}
 		}
 

@@ -456,14 +456,11 @@ class Table {
 	 */
 	public function exists() {
 
-		// Get the database interface.
-		$db = $this->get_db();
-
 		// Query statement.
 		$sql      = 'SHOW TABLES LIKE %s';
-		$like     = $db->esc_like( $this->table_name );
-		$prepared = $db->prepare( $sql, $like );
-		$result   = $db->get_var( $prepared );
+		$like     = $this->db()->esc_like( $this->table_name );
+		$prepared = $this->db()->prepare( $sql, $like );
+		$result   = $this->db()->get_var( $prepared );
 
 		// Does the table exist?
 		return $this->is_success( $result );
@@ -481,14 +478,11 @@ class Table {
 	 */
 	public function status() {
 
-		// Get the database interface.
-		$db = $this->get_db();
-
 		// Query statement.
 		$sql      = 'SHOW TABLE STATUS LIKE %s';
-		$like     = $db->esc_like( $this->table_name );
-		$prepared = $db->prepare( $sql, $like );
-		$query    = (array) $db->get_results( $prepared );
+		$like     = $this->db()->esc_like( $this->table_name );
+		$prepared = $this->db()->prepare( $sql, $like );
+		$query    = (array) $this->db()->get_results( $prepared );
 		$result   = end( $query );
 
 		// Does the table exist?
@@ -506,12 +500,9 @@ class Table {
 	 */
 	public function columns() {
 
-		// Get the database interface.
-		$db = $this->get_db();
-
 		// Query statement.
 		$sql    = "SHOW FULL COLUMNS FROM {$this->table_name}";
-		$result = $db->get_results( $sql );
+		$result = $this->db()->get_results( $sql );
 
 		// Return the results.
 		return ( $this->is_success( $result ) && is_array( $result ) )
@@ -528,12 +519,9 @@ class Table {
 	 */
 	public function indexes() {
 
-		// Get the database interface.
-		$db = $this->get_db();
-
 		// Query statement.
 		$sql    = "SHOW INDEXES FROM {$this->table_name}";
-		$result = $db->get_results( $sql );
+		$result = $this->db()->get_results( $sql );
 
 		// Return the results.
 		return ( $this->is_success( $result ) && is_array( $result ) )
@@ -552,9 +540,6 @@ class Table {
 	 */
 	public function add_index( $args = array() ) {
 
-		// Get the database interface.
-		$db = $this->get_db();
-
 		// Create index object from arguments.
 		$index = ( $args instanceof Index )
 			? $args
@@ -570,7 +555,7 @@ class Table {
 
 		// Query statement.
 		$sql    = "ALTER TABLE {$this->table_name} ADD {$index_sql}";
-		$result = $db->query( $sql );
+		$result = $this->db()->query( $sql );
 
 		// Was the index added?
 		return $this->is_success( $result );
@@ -587,9 +572,6 @@ class Table {
 	 */
 	public function drop_index( $name = '' ) {
 
-		// Get the database interface.
-		$db = $this->get_db();
-
 		// Sanitize the index name.
 		$name = $this->sanitize_column_name( $name );
 
@@ -603,7 +585,7 @@ class Table {
 			? "ALTER TABLE {$this->table_name} DROP PRIMARY KEY"
 			: "ALTER TABLE {$this->table_name} DROP INDEX `{$name}`";
 
-		$result = $db->query( $sql );
+		$result = $this->db()->query( $sql );
 
 		// Was the index dropped?
 		return $this->is_success( $result );
@@ -617,9 +599,6 @@ class Table {
 	 * @return bool
 	 */
 	public function create() {
-
-		// Get the database interface.
-		$db = $this->get_db();
 
 		// Bail if no schema to call.
 		if ( ! is_callable( array( $this->schema_object, 'get_create_table_string' ) ) ) {
@@ -649,7 +628,7 @@ class Table {
 
 		// Query statement.
 		$query  = implode( ' ', array_filter( $sql ) );
-		$result = $db->query( $query );
+		$result = $this->db()->query( $query );
 
 		// Was the table created?
 		return $this->is_success( $result );
@@ -664,12 +643,9 @@ class Table {
 	 */
 	public function drop() {
 
-		// Get the database interface.
-		$db = $this->get_db();
-
 		// Query statement.
 		$sql    = "DROP TABLE {$this->table_name}";
-		$result = $db->query( $sql );
+		$result = $this->db()->query( $sql );
 
 		// Did the table get dropped?
 		return $this->is_success( $result );
@@ -684,12 +660,9 @@ class Table {
 	 */
 	public function truncate() {
 
-		// Get the database interface.
-		$db = $this->get_db();
-
 		// Query statement.
 		$sql    = "TRUNCATE TABLE {$this->table_name}";
-		$result = $db->query( $sql );
+		$result = $this->db()->query( $sql );
 
 		// Did the table get truncated?
 		return $this->is_success( $result );
@@ -704,12 +677,9 @@ class Table {
 	 */
 	public function delete_all() {
 
-		// Get the database interface.
-		$db = $this->get_db();
-
 		// Query statement.
 		$sql    = "DELETE FROM {$this->table_name}";
-		$result = $db->query( $sql );
+		$result = $this->db()->query( $sql );
 
 		// Return true as long as no SQL error occurred; 0 rows deleted is still a success.
 		return false !== $result;
@@ -732,9 +702,6 @@ class Table {
 	 */
 	public function duplicate( $new_table_name = '' ) {
 
-		// Get the database interface.
-		$db = $this->get_db();
-
 		// Sanitize the new table name.
 		$table_name = $this->sanitize_table_name( $new_table_name );
 
@@ -746,7 +713,7 @@ class Table {
 		// Query statement.
 		$table  = $this->table_prefix . $this->apply_prefix( $table_name );
 		$sql    = "CREATE TABLE {$table} LIKE {$this->table_name}";
-		$result = $db->query( $sql );
+		$result = $this->db()->query( $sql );
 
 		// Did the table get duplicated?
 		return $this->is_success( $result );
@@ -769,9 +736,6 @@ class Table {
 	 */
 	public function copy( $new_table_name = '' ) {
 
-		// Get the database interface.
-		$db = $this->get_db();
-
 		// Sanitize the new table name.
 		$table_name = $this->sanitize_table_name( $new_table_name );
 
@@ -783,7 +747,7 @@ class Table {
 		// Query statement.
 		$table  = $this->table_prefix . $this->apply_prefix( $table_name );
 		$sql    = "INSERT INTO {$table} SELECT * FROM {$this->table_name}";
-		$result = $db->query( $sql );
+		$result = $this->db()->query( $sql );
 
 		// Did the table get copied?
 		return $this->is_success( $result );
@@ -798,12 +762,9 @@ class Table {
 	 */
 	public function count() {
 
-		// Get the database interface.
-		$db = $this->get_db();
-
 		// Query statement.
 		$sql    = "SELECT COUNT(*) FROM {$this->table_name}";
-		$result = $db->get_var( $sql );
+		$result = $this->db()->get_var( $sql );
 
 		// 0 on error/empty, number of rows on success.
 		return intval( $result );
@@ -827,9 +788,6 @@ class Table {
 	 */
 	public function rename( $new_table_name = '' ) {
 
-		// Get the database interface.
-		$db = $this->get_db();
-
 		// Sanitize the new table name.
 		$table_name = $this->sanitize_table_name( $new_table_name );
 
@@ -841,7 +799,7 @@ class Table {
 		// Query statement.
 		$table  = $this->table_prefix . $this->apply_prefix( $table_name );
 		$sql    = "RENAME TABLE {$this->table_name} TO {$table}";
-		$result = $db->query( $sql );
+		$result = $this->db()->query( $sql );
 
 		// Did the table get renamed?
 		return $this->is_success( $result );
@@ -859,9 +817,6 @@ class Table {
 	 */
 	public function column_exists( $name = '' ) {
 
-		// Get the database interface.
-		$db = $this->get_db();
-
 		// Query statement.
 		$sql  = "SHOW COLUMNS FROM {$this->table_name} LIKE %s";
 		$name = $this->sanitize_column_name( $name );
@@ -870,9 +825,9 @@ class Table {
 			return false;
 		}
 
-		$like     = $db->esc_like( $name );
-		$prepared = $db->prepare( $sql, $like );
-		$result   = ! empty( $prepared ) ? $db->query( $prepared ) : false;
+		$like     = $this->db()->esc_like( $name );
+		$prepared = $this->db()->prepare( $sql, $like );
+		$result   = ! empty( $prepared ) ? $this->db()->query( $prepared ) : false;
 
 		// Does the column exist?
 		return $this->is_success( $result );
@@ -891,9 +846,6 @@ class Table {
 	 */
 	public function index_exists( $name = '', $column = 'Key_name' ) {
 
-		// Get the database interface.
-		$db = $this->get_db();
-
 		// Limit $column to Key or Column name, until we can do better.
 		if ( ! in_array( $column, array( 'Key_name', 'Column_name' ), true ) ) {
 			$column = 'Key_name';
@@ -907,9 +859,9 @@ class Table {
 			return false;
 		}
 
-		$like     = $db->esc_like( $name );
-		$prepared = $db->prepare( $sql, $like );
-		$result   = ! empty( $prepared ) ? $db->query( $prepared ) : false;
+		$like     = $this->db()->esc_like( $name );
+		$prepared = $this->db()->prepare( $sql, $like );
+		$result   = ! empty( $prepared ) ? $this->db()->query( $prepared ) : false;
 
 		// Does the index exist?
 		return $this->is_success( $result );
@@ -928,12 +880,9 @@ class Table {
 	 */
 	public function analyze() {
 
-		// Get the database interface.
-		$db = $this->get_db();
-
 		// Query statement.
 		$sql    = "ANALYZE TABLE {$this->table_name}";
-		$query  = (array) $db->get_results( $sql );
+		$query  = (array) $this->db()->get_results( $sql );
 		$result = end( $query );
 
 		// Return message text.
@@ -951,12 +900,9 @@ class Table {
 	 */
 	public function check() {
 
-		// Get the database interface.
-		$db = $this->get_db();
-
 		// Query statement.
 		$sql    = "CHECK TABLE {$this->table_name}";
-		$query  = (array) $db->get_results( $sql );
+		$query  = (array) $this->db()->get_results( $sql );
 		$result = end( $query );
 
 		// Return message text.
@@ -974,12 +920,9 @@ class Table {
 	 */
 	public function checksum() {
 
-		// Get the database interface.
-		$db = $this->get_db();
-
 		// Query statement.
 		$sql    = "CHECKSUM TABLE {$this->table_name}";
-		$query  = (array) $db->get_results( $sql );
+		$query  = (array) $this->db()->get_results( $sql );
 		$result = end( $query );
 
 		// Return checksum.
@@ -997,12 +940,9 @@ class Table {
 	 */
 	public function optimize() {
 
-		// Get the database interface.
-		$db = $this->get_db();
-
 		// Query statement.
 		$sql    = "OPTIMIZE TABLE {$this->table_name}";
-		$query  = (array) $db->get_results( $sql );
+		$query  = (array) $this->db()->get_results( $sql );
 		$result = end( $query );
 
 		// Return message text.
@@ -1021,12 +961,9 @@ class Table {
 	 */
 	public function repair() {
 
-		// Get the database interface.
-		$db = $this->get_db();
-
 		// Query statement.
 		$sql    = "REPAIR TABLE {$this->table_name}";
-		$query  = (array) $db->get_results( $sql );
+		$query  = (array) $this->db()->get_results( $sql );
 		$result = end( $query );
 
 		// Return message text.
@@ -1196,9 +1133,6 @@ class Table {
 	 */
 	private function set_db_interface(): void {
 
-		// Get the database interface.
-		$db = $this->get_db();
-
 		// Set variables for global tables.
 		if ( $this->is_global() ) {
 			$site_id = 0;
@@ -1211,26 +1145,26 @@ class Table {
 		}
 
 		// Set table prefix and prefix table name.
-		$this->table_prefix = $db->get_blog_prefix( $site_id );
+		$this->table_prefix = $this->db()->get_blog_prefix( $site_id );
 
 		// Get the prefixed table name.
 		$prefixed_table_name = "{$this->table_prefix}{$this->prefixed_name}";
 
 		// Set the table name and register it in the database interface.
 		$this->table_name = $prefixed_table_name;
-		$db->set_table_prefix( $this->prefixed_name, $prefixed_table_name );
+		$this->db()->set_table_prefix( $this->prefixed_name, $prefixed_table_name );
 
 		// Add table to the global table array.
-		$db->register_table( $tables, $this->prefixed_name );
+		$this->db()->register_table( $tables, $this->prefixed_name );
 
 		// Charset.
-		$charset = $db->get_charset();
+		$charset = $this->db()->get_charset();
 		if ( ! empty( $charset ) ) {
 			$this->charset_collation = "DEFAULT CHARACTER SET {$charset}";
 		}
 
 		// Collation.
-		$collation = $db->get_collation();
+		$collation = $this->db()->get_collation();
 		if ( ! empty( $collation ) ) {
 			$this->charset_collation .= " COLLATE {$collation}";
 		}

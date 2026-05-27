@@ -77,7 +77,7 @@ final class TestTable extends Table {
 	 */
 	protected function __202604231() {
 		if ( ! $this->column_exists( 'notes' ) ) {
-			$result = $this->get_db()->query(
+			$result = $this->db()->query(
 				"ALTER TABLE {$this->table_name} ADD COLUMN notes longtext NOT NULL default ''"
 			);
 			return $this->is_success( $result );

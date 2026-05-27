@@ -79,9 +79,6 @@ class NotIn extends Base {
 	 */
 	public function get_value_sql( $value = null, $pattern = '%s' ) {
 
-		// Get the database interface.
-		$db = $this->get_db();
-
 		// Maybe split a comma- or space-delimited string into an array.
 		if ( is_scalar( $value ) ) {
 			$value = preg_split( '/[,\s]+/', trim( $value ) );
@@ -96,6 +93,6 @@ class NotIn extends Base {
 		$in = '(' . implode( ', ', array_fill( 0, count( $value ), $pattern ) ) . ')';
 
 		// Return prepared SQL fragment.
-		return (string) $db->prepare( $in, $value );
+		return (string) $this->db()->prepare( $in, $value );
 	}
 }

@@ -110,9 +110,6 @@ class NotIn extends Base {
 	 */
 	public function get_sql_for_clause( &$clause = array(), $parent_query = array(), $clause_key = '' ) {
 
-		// Get the database interface.
-		$db = $this->get_db();
-
 		// Get __in's in clause.
 		$ins = $this->get_first_order_clauses( $clause );
 
@@ -152,7 +149,7 @@ class NotIn extends Base {
 			if ( 1 === count( $values ) ) {
 				$statement      = "{$aliased} != {$pattern}";
 				$column_value   = reset( $values );
-				$where[ $name ] = (string) $db->prepare( $statement, $column_value );
+				$where[ $name ] = (string) $this->db()->prepare( $statement, $column_value );
 
 				// Implode.
 			} else {

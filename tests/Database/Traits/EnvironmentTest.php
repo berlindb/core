@@ -35,8 +35,8 @@ class EnvironmentTestSubject {
 	/**
 	 * @return Connection
 	 */
-	public function expose_get_db(): Connection {
-		return $this->get_db();
+	public function expose_db(): Connection {
+		return $this->db();
 	}
 }
 
@@ -181,6 +181,6 @@ class EnvironmentTest extends TestCase {
 	 */
 	public function test_get_db_returns_connection() {
 		$subject = new EnvironmentTestSubject();
-		$this->assertInstanceOf( Connection::class, $subject->expose_get_db() );
+		$this->assertInstanceOf( Connection::class, $subject->expose_db() );
 	}
 }

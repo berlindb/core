@@ -77,18 +77,15 @@ class Like extends Base {
 	 */
 	public function get_value_sql( $value = null, $pattern = '%s' ) {
 
-		// Get the database interface.
-		$db = $this->get_db();
-
 		// Bail if not scalar.
 		if ( ! is_scalar( $value ) ) {
 			return '';
 		}
 
 		// Escape, trim, and wrap the value in wildcard characters.
-		$value = '%' . $db->esc_like( trim( (string) $value ) ) . '%';
+		$value = '%' . $this->db()->esc_like( trim( (string) $value ) ) . '%';
 
 		// Return prepared SQL fragment.
-		return (string) $db->prepare( $pattern, $value );
+		return (string) $this->db()->prepare( $pattern, $value );
 	}
 }

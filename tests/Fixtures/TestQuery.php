@@ -17,7 +17,7 @@ use BerlinDB\Database\Kern\Query;
  *
  * $table_name must match the $name set in TestTable (= the value registered
  * on $wpdb after TestTable is constructed). Query resolves the full table name
- * via get_db()->{$this->table_name}.
+ * via db()->{$this->table_name}.
  *
  * @since 2.1.0
  */

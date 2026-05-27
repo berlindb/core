@@ -176,8 +176,7 @@ class Search extends Base {
 			return '';
 		}
 
-		// Get the database interface.
-		$db = $this->get_db();
+		$db = $this->db();
 
 		// Array or String.
 		$like = ( false !== strpos( $search, '*' ) )

@@ -1426,9 +1426,6 @@ trait Parser {
 			return false;
 		}
 
-		// Get the database interface.
-		$db = $this->get_db();
-
 		// Get multi-value comparison operators.
 		$mvk = $this->get_operators( array( 'multi' => true ) );
 
@@ -1526,7 +1523,7 @@ trait Parser {
 		$query = "DATE_FORMAT( {$column}, %s ) {$compare} %f";
 
 		// Prepare the SQL.
-		$prepared = $db->prepare( $query, $format, $time );
+		$prepared = $this->db()->prepare( $query, $format, $time );
 
 		// Return the prepared SQL, or false if prepare() returns falsy.
 		return is_string( $prepared )
@@ -1561,9 +1558,6 @@ trait Parser {
 			$values = (array) $values;
 		}
 
-		// Get the database interface.
-		$db = $this->get_db();
-
 		// Fallback to column pattern.
 		if ( empty( $pattern ) || ! is_string( $pattern ) ) {
 			$pattern = $this->caller( 'get_column_field', array( array( 'name' => $column_name ), 'pattern', '%s' ) );
@@ -1580,7 +1574,7 @@ trait Parser {
 
 		// Prepare.
 		$sql    = implode( ', ', $patterns );
-		$retval = $db->prepare( $sql, ...$values );
+		$retval = $this->db()->prepare( $sql, ...$values );
 
 		// Set return value to empty string if prepare() returns falsy.
 		if ( empty( $retval ) ) {

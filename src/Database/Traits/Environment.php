@@ -35,7 +35,7 @@ trait Environment {
 	 * requires a custom interface.
 	 *
 	 * A future version of BerlinDB will abstract this to a new class, so
-	 * custom calls to the get_db() method in your own code should be avoided.
+	 * custom calls to the db() method in your own code should be avoided.
 	 *
 	 * @since 1.0.0
 	 * @var   string
@@ -96,8 +96,20 @@ trait Environment {
 	 *
 	 * @return Connection Database interface; NullConnection if not yet available.
 	 */
-	protected function get_db(): Connection {
+	protected function db(): Connection {
 		return static::get_db_global( $this->db_global );
+	}
+
+	/**
+	 * Return the global database interface.
+	 *
+	 * @since      1.0.0
+	 * @deprecated 3.0.0 Use db() instead.
+	 *
+	 * @return Connection Database interface; NullConnection if not yet available.
+	 */
+	protected function get_db(): Connection {
+		return $this->db();
 	}
 
 	/**

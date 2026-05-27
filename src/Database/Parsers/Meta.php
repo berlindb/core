@@ -435,9 +435,6 @@ class Meta extends Base {
 			'join'  => array(),
 		);
 
-		// Get the database interface.
-		$db = $this->get_db();
-
 		// Default column.
 		$column = 'meta_key';
 
@@ -516,9 +513,9 @@ class Meta extends Base {
 					: '';
 
 				if ( 'LIKE' === $meta_compare_key ) {
-					$join .= $db->prepare( " ON ( {$qt_primary_table}.{$qt_primary_column} = {$qt_alias}.{$qt_meta_column} AND {$qt_alias}.{$qt_column} LIKE %s )", '%' . $db->esc_like( $clause[ 'key' ] ) . '%' );
+					$join .= $this->db()->prepare( " ON ( {$qt_primary_table}.{$qt_primary_column} = {$qt_alias}.{$qt_meta_column} AND {$qt_alias}.{$qt_column} LIKE %s )", '%' . $this->db()->esc_like( $clause[ 'key' ] ) . '%' );
 				} else {
-					$join .= $db->prepare( " ON ( {$qt_primary_table}.{$qt_primary_column} = {$qt_alias}.{$qt_meta_column} AND {$qt_alias}.{$qt_column} = %s )", $clause[ 'key' ] );
+					$join .= $this->db()->prepare( " ON ( {$qt_primary_table}.{$qt_primary_column} = {$qt_alias}.{$qt_meta_column} AND {$qt_alias}.{$qt_column} = %s )", $clause[ 'key' ] );
 				}
 
 				// All other JOIN clauses.
@@ -622,17 +619,17 @@ class Meta extends Base {
 				switch ( $meta_compare_key ) {
 					case '=':
 					case 'EXISTS':
-						$where = $db->prepare( "{$qt_alias}.{$qt_column} = %s", trim( $clause[ 'key' ] ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+						$where = $this->db()->prepare( "{$qt_alias}.{$qt_column} = %s", trim( $clause[ 'key' ] ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 						break;
 
 					case 'LIKE':
-						$meta_compare_value = '%' . $db->esc_like( trim( $clause[ 'key' ] ) ) . '%';
-						$where              = $db->prepare( "{$qt_alias}.{$qt_column} LIKE %s", $meta_compare_value ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+						$meta_compare_value = '%' . $this->db()->esc_like( trim( $clause[ 'key' ] ) ) . '%';
+						$where              = $this->db()->prepare( "{$qt_alias}.{$qt_column} LIKE %s", $meta_compare_value ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 						break;
 
 					case 'IN':
 						$meta_compare_string = "{$qt_alias}.{$qt_column} IN (" . substr( str_repeat( ',%s', count( (array) $clause[ 'key' ] ) ), 1 ) . ')';
-						$where               = $db->prepare( $meta_compare_string, $clause[ 'key' ] ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+						$where               = $this->db()->prepare( $meta_compare_string, $clause[ 'key' ] ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 						break;
 
 					case 'RLIKE':
@@ -643,24 +640,24 @@ class Meta extends Base {
 						} else {
 							$cast = '';
 						}
-						$where = $db->prepare( "{$qt_alias}.{$qt_column} {$regex_op} {$cast} %s", trim( $clause[ 'key' ] ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+						$where = $this->db()->prepare( "{$qt_alias}.{$qt_column} {$regex_op} {$cast} %s", trim( $clause[ 'key' ] ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 						break;
 
 					case '!=':
 					case 'NOT EXISTS':
 						$meta_compare_string = $meta_compare_string_start . "AND {$qt_subquery_alias}.{$qt_column} = %s " . $meta_compare_string_end;
-						$where               = $db->prepare( $meta_compare_string, $clause[ 'key' ] ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+						$where               = $this->db()->prepare( $meta_compare_string, $clause[ 'key' ] ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 						break;
 
 					case 'NOT LIKE':
 						$meta_compare_string = $meta_compare_string_start . "AND {$qt_subquery_alias}.{$qt_column} LIKE %s " . $meta_compare_string_end;
-						$meta_compare_value  = '%' . $db->esc_like( trim( $clause[ 'key' ] ) ) . '%';
-						$where               = $db->prepare( $meta_compare_string, $meta_compare_value ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+						$meta_compare_value  = '%' . $this->db()->esc_like( trim( $clause[ 'key' ] ) ) . '%';
+						$where               = $this->db()->prepare( $meta_compare_string, $meta_compare_value ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 						break;
 					case 'NOT IN':
 						$array_subclause     = '(' . substr( str_repeat( ',%s', count( (array) $clause[ 'key' ] ) ), 1 ) . ') ';
 						$meta_compare_string = $meta_compare_string_start . "AND {$qt_subquery_alias}.{$qt_column} IN " . $array_subclause . $meta_compare_string_end;
-						$where               = $db->prepare( $meta_compare_string, $clause[ 'key' ] ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+						$where               = $this->db()->prepare( $meta_compare_string, $clause[ 'key' ] ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 						break;
 
 					case 'NOT REGEXP':
@@ -671,7 +668,7 @@ class Meta extends Base {
 						}
 
 						$meta_compare_string = $meta_compare_string_start . "AND {$qt_subquery_alias}.{$qt_column} REGEXP {$cast} %s " . $meta_compare_string_end;
-						$where               = $db->prepare( $meta_compare_string, $clause[ 'key' ] ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+						$where               = $this->db()->prepare( $meta_compare_string, $clause[ 'key' ] ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 						break;
 				}
 

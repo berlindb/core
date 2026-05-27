@@ -133,16 +133,13 @@ trait Operator {
 	 */
 	public function get_value_sql( $value = null, $pattern = '%s' ) {
 
-		// Get the database interface.
-		$db = $this->get_db();
-
 		// Trim string values before preparing.
 		if ( is_string( $value ) ) {
 			$value = trim( $value );
 		}
 
 		// Return prepared SQL fragment, or empty string if prepare() returns falsy.
-		return (string) $db->prepare( $pattern, $value );
+		return (string) $this->db()->prepare( $pattern, $value );
 	}
 
 	/**

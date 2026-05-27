@@ -625,11 +625,11 @@ class Query {
 			$query = $this->filter_found_items_query( $query );
 
 			// Get the database interface.
-			$db = $this->get_db();
+			$db = $this->db();
 
 			// Maybe query for found items.
 			if ( ! empty( $query ) ) {
-				$retval = $db->get_var( $query );
+				$retval = $this->db()->get_var( $query );
 			}
 		}
 
@@ -981,7 +981,7 @@ class Query {
 	public function get_table_name() {
 
 		// Return SQL.
-		return $this->get_db()->get_table_prefix( $this->table_name );
+		return $this->db()->get_table_prefix( $this->table_name );
 	}
 
 	/**
@@ -1134,9 +1134,6 @@ class Query {
 	 */
 	private function get_item_raw( $column_name = '', $column_value = '' ) {
 
-		// Get the database interface.
-		$db = $this->get_db();
-
 		// Bail if empty or non-scalar value.
 		if ( empty( $column_value ) || ! is_scalar( $column_value ) ) {
 			return false;
@@ -1153,8 +1150,8 @@ class Query {
 
 		// Query database.
 		$query  = "SELECT * FROM {$table} WHERE {$column_name} = {$pattern_str} LIMIT 1";
-		$select = $db->prepare( $query, $column_value );
-		$result = $db->get_row( $select );
+		$select = $this->db()->prepare( $query, $column_value );
+		$result = $this->db()->get_row( $select );
 
 		// Bail on failure.
 		if ( ! $this->is_success( $result ) || ! is_object( $result ) ) {
@@ -1275,9 +1272,6 @@ class Query {
 		$this->set_request_clauses();
 		$this->set_request();
 
-		// Get the database interface.
-		$db = $this->get_db();
-
 		// Get the request SQL string.
 		$request = $this->get_current_string( 'request' );
 
@@ -1286,15 +1280,15 @@ class Query {
 
 			// Get vars or results.
 			$retval = ! $this->get_query_var( 'groupby' )
-				? (int) $db->get_var( $request )
-				: (array) $db->get_results( $request, ARRAY_A );
+				? (int) $this->db()->get_var( $request )
+				: (array) $this->db()->get_results( $request, ARRAY_A );
 
 			// Return vars or results.
 			return $retval;
 		}
 
 		// Get IDs.
-		$item_ids = $db->get_col( $request );
+		$item_ids = $this->db()->get_col( $request );
 
 		// Return parsed IDs.
 		return wp_parse_list( $item_ids );
@@ -1322,9 +1316,6 @@ class Query {
 			return '';
 		}
 
-		// Get the database interface.
-		$db = $this->get_db();
-
 		// Fallback to column pattern.
 		if ( empty( $pattern ) || ! is_string( $pattern ) ) {
 			$pattern = $this->get_column_field( array( 'name' => $column_name ), 'pattern', '%s' );
@@ -1337,7 +1328,7 @@ class Query {
 
 		// Prepare.
 		$sql    = implode( ', ', $patterns );
-		$retval = $db->prepare( $sql, ...$values );
+		$retval = $this->db()->prepare( $sql, ...$values );
 
 		// Set return value to empty string if prepare() returns falsy.
 		if ( empty( $retval ) ) {
@@ -2493,9 +2484,6 @@ class Query {
 	 */
 	public function add_item( $data = array() ) {
 
-		// Get the database interface.
-		$db = $this->get_db();
-
 		// Get the primary column name.
 		$primary = $this->get_primary_column_name();
 
@@ -2574,7 +2562,7 @@ class Query {
 			$table       = $this->get_table_name();
 			$names       = array_keys( $save );
 			$save_format = $this->get_columns_field_by( 'name', $names, 'pattern', '%s' );
-			$retval      = $db->insert( $table, $save, $save_format );
+			$retval      = $this->db()->insert( $table, $save, $save_format );
 		}
 
 		// Bail on failure.
@@ -2583,7 +2571,7 @@ class Query {
 		}
 
 		// Get the new item ID.
-		$retval = $db->get_insert_id();
+		$retval = $this->db()->get_insert_id();
 
 		// Maybe save meta keys.
 		if ( ! empty( $meta ) ) {
@@ -2656,9 +2644,6 @@ class Query {
 	 * @return bool
 	 */
 	public function update_item( $item_id = 0, $data = array() ) {
-
-		// Get the database interface.
-		$db = $this->get_db();
 
 		// Bail early if no data to update.
 		if ( empty( $data ) ) {
@@ -2739,7 +2724,7 @@ class Query {
 			$names        = array_keys( $save );
 			$save_format  = $this->get_columns_field_by( 'name', $names, 'pattern', '%s' );
 			$where_format = $this->get_columns_field_by( 'name', $primary, 'pattern', '%s' );
-			$retval       = $db->update( $table, $save, $where, $save_format, $where_format );
+			$retval       = $this->db()->update( $table, $save, $where, $save_format, $where_format );
 		}
 
 		// Bail on failure.
@@ -2766,9 +2751,6 @@ class Query {
 	 * @return bool
 	 */
 	public function delete_item( $item_id = 0 ) {
-
-		// Get the database interface.
-		$db = $this->get_db();
 
 		// Shape the item ID.
 		$item_id = $this->shape_item_id( $item_id );
@@ -2804,7 +2786,7 @@ class Query {
 		$table        = $this->get_table_name();
 		$where        = array( $primary => $item_id );
 		$where_format = $this->get_columns_field_by( 'name', $primary, 'pattern', '%s' );
-		$retval       = $db->delete( $table, $where, $where_format );
+		$retval       = $this->db()->delete( $table, $where, $where_format );
 
 		// Bail on failure.
 		if ( ! $this->is_success( $retval ) ) {
@@ -3231,9 +3213,6 @@ class Query {
 	 */
 	private function delete_all_item_meta( $item_id = 0 ): void {
 
-		// Get the database interface.
-		$db = $this->get_db();
-
 		// Shape the item ID.
 		$item_id = $this->shape_item_id( $item_id );
 
@@ -3260,8 +3239,8 @@ class Query {
 
 		// Get meta IDs.
 		$query    = "SELECT meta_id FROM {$table} WHERE {$item_id_column} = {$item_id_pattern}";
-		$prepared = $db->prepare( $query, $item_id );
-		$meta_ids = $db->get_col( $prepared );
+		$prepared = $this->db()->prepare( $query, $item_id );
+		$meta_ids = $this->db()->get_col( $prepared );
 
 		// Bail if no meta IDs to delete.
 		if ( empty( $meta_ids ) ) {
@@ -3293,11 +3272,8 @@ class Query {
 		// Append "meta" to end of meta type.
 		$table = "{$type}meta";
 
-		// Get the database interface.
-		$db = $this->get_db();
-
 		// If not empty, return table name.
-		$table_name = $db->get_table_prefix( $table );
+		$table_name = $this->db()->get_table_prefix( $table );
 		if ( ! empty( $table_name ) ) {
 			return $table_name;
 		}
@@ -3457,9 +3433,6 @@ class Query {
 	 */
 	private function prime_item_caches( $item_ids = array(), $force = false ) {
 
-		// Get the database interface.
-		$db = $this->get_db();
-
 		// Bail if no items to cache.
 		if ( empty( $item_ids ) ) {
 			return false;
@@ -3490,7 +3463,7 @@ class Query {
 
 				// Query database.
 				$query   = "SELECT * FROM {$table} WHERE {$primary} IN {$ids}";
-				$results = $db->get_results( $query );
+				$results = $this->db()->get_results( $query );
 
 				// Update item cache(s) — read path, do not bump last_changed.
 				if ( ! empty( $results ) && is_array( $results ) ) {

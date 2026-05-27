@@ -21,7 +21,7 @@ defined( 'ABSPATH' ) || exit;
  * The WordPress-native implementation is BerlinDB\Database\Adapters\Wpdb.
  * Custom adapters must satisfy this interface to swap in a different database
  * layer. Callers retrieve an implementation via the Environment trait's
- * get_db() / get_db_global() helpers.
+ * db() / get_db_global() helpers.
  *
  * @since 3.0.0
  */
