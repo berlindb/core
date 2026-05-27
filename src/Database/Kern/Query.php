@@ -466,6 +466,7 @@ class Query {
 			'no_found_rows'     => true,
 
 			// Caching.
+			'cache_results'     => true,
 			'update_item_cache' => true,
 			'update_meta_cache' => true,
 		);
@@ -1193,8 +1194,11 @@ class Query {
 		}
 
 		// Check the cache.
-		$cache_key   = $this->get_cache_key();
-		$cache_value = $this->cache_get( $cache_key, $this->cache_group );
+		$cache_results = (bool) $this->get_query_var( 'cache_results' );
+		$cache_key     = $this->get_cache_key();
+		$cache_value   = ( true === $cache_results )
+			? $this->cache_get( $cache_key, $this->cache_group )
+			: false;
 
 		// No cache value.
 		if ( false === $cache_value ) {
@@ -1211,8 +1215,10 @@ class Query {
 				'found_items' => $this->get_current_int( 'found_items' ),
 			);
 
-			// Add value to the cache.
-			$this->cache_add( $cache_key, $cache_value, $this->cache_group );
+			// Only store when caching is enabled for this query.
+			if ( $cache_results ) {
+				$this->cache_add( $cache_key, $cache_value, $this->cache_group );
+			}
 
 			// Value exists in cache.
 		} elseif ( is_array( $cache_value ) ) {
@@ -3323,8 +3329,8 @@ class Query {
 		// Slice query_vars by query_var_defaults keys, ordered by defaults.
 		foreach ( $this->query_var_defaults as $key => $_default ) {
 
-			// Skip "fields" so single-item shape does not affect the cache key.
-			if ( 'fields' === $key ) {
+			// Skip vars that change behaviour but must not segment the cache key.
+			if ( 'fields' === $key || 'cache_results' === $key ) {
 				continue;
 			}
 
@@ -3674,19 +3680,18 @@ class Query {
 			return array();
 		}
 
-		// Default return value.
+		// Get the cache group & initialize return value.
+		$group  = $this->get_cache_group( $group );
 		$retval = array();
 
 		// Loop through item IDs.
 		foreach ( $item_ids as $id ) {
-
-			// Add to return value if not cached.
 			if ( false === $this->cache_get( $id, $group ) ) {
 				$retval[] = $id;
 			}
 		}
 
-		// Return array of IDs.
+		// Return array of non-cached IDs.
 		return $retval;
 	}
 

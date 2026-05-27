@@ -158,4 +158,90 @@ class QueryCacheTest extends TestCase {
 		$after = self::$query->query( $args );
 		$this->assertCount( 0, $after );
 	}
+
+	// -------------------------------------------------------------------------
+	// cache_results query var (issue #139).
+	// -------------------------------------------------------------------------
+
+	/**
+	 * cache_results=false always hits the database, even on repeated calls.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_cache_results_false_always_queries_database() {
+		global $wpdb;
+
+		$args = array(
+			'number'        => 10,
+			'status'        => 'active',
+			'cache_results' => false,
+		);
+
+		// Prime once.
+		self::$query->query( $args );
+
+		$queries_before = $wpdb->num_queries;
+		self::$query->query( $args );
+		$queries_after = $wpdb->num_queries;
+
+		$this->assertGreaterThan( $queries_before, $queries_after, 'cache_results=false must always hit the database.' );
+	}
+
+	/**
+	 * cache_results=false must not write to the cache, so a subsequent
+	 * cache_results=true query for the same args still fires a DB query.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_cache_results_false_does_not_populate_cache() {
+		global $wpdb;
+
+		$args_no_cache   = array(
+			'number'        => 10,
+			'status'        => 'active',
+			'cache_results' => false,
+		);
+		$args_with_cache = array(
+			'number'        => 10,
+			'status'        => 'active',
+			'cache_results' => true,
+		);
+
+		// Run a no-cache query — must not write anything to the cache.
+		self::$query->query( $args_no_cache );
+
+		// Now run the equivalent cache-enabled query — cache is cold, so DB hit expected.
+		$queries_before = $wpdb->num_queries;
+		self::$query->query( $args_with_cache );
+		$queries_after = $wpdb->num_queries;
+
+		$this->assertGreaterThan( $queries_before, $queries_after, 'cache_results=false must not populate the cache for subsequent queries.' );
+	}
+
+	/**
+	 * cache_results=false and cache_results=true must share the same cache key
+	 * so the warm-path query benefits from any cache primed by the default path.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_cache_results_excluded_from_cache_key() {
+		$args_base = array(
+			'number' => 10,
+			'status' => 'active',
+		);
+
+		$query_cached   = new TestQuery( array_merge( $args_base, array( 'cache_results' => true ) ) );
+		$query_uncached = new TestQuery( array_merge( $args_base, array( 'cache_results' => false ) ) );
+
+		$get_key = new \ReflectionMethod( TestQuery::class, 'get_cache_key' );
+		if ( PHP_VERSION_ID < 80100 ) {
+			$get_key->setAccessible( true );
+		}
+
+		$this->assertSame(
+			$get_key->invoke( $query_cached ),
+			$get_key->invoke( $query_uncached ),
+			'cache_results must not segment the cache key.'
+		);
+	}
 }
