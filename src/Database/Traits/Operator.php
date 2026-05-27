@@ -136,11 +136,6 @@ trait Operator {
 		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database.
-		if ( empty( $db ) ) {
-			return '';
-		}
-
 		// Trim string values before preparing.
 		if ( is_string( $value ) ) {
 			$value = trim( $value );

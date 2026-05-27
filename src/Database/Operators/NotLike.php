@@ -80,11 +80,6 @@ class NotLike extends Base {
 		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database.
-		if ( empty( $db ) ) {
-			return '';
-		}
-
 		// Bail if not scalar.
 		if ( ! is_scalar( $value ) ) {
 			return '';

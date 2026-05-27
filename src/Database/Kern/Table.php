@@ -459,11 +459,6 @@ class Table {
 		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available.
-		if ( empty( $db ) ) {
-			return false;
-		}
-
 		// Query statement.
 		$sql      = 'SHOW TABLES LIKE %s';
 		$like     = $db->esc_like( $this->table_name );
@@ -488,11 +483,6 @@ class Table {
 
 		// Get the database interface.
 		$db = $this->get_db();
-
-		// Bail if no database interface is available.
-		if ( empty( $db ) ) {
-			return false;
-		}
 
 		// Query statement.
 		$sql      = 'SHOW TABLE STATUS LIKE %s';
@@ -519,11 +509,6 @@ class Table {
 		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available.
-		if ( empty( $db ) ) {
-			return false;
-		}
-
 		// Query statement.
 		$sql    = "SHOW FULL COLUMNS FROM {$this->table_name}";
 		$result = $db->get_results( $sql );
@@ -545,11 +530,6 @@ class Table {
 
 		// Get the database interface.
 		$db = $this->get_db();
-
-		// Bail if no database interface is available.
-		if ( empty( $db ) ) {
-			return false;
-		}
 
 		// Query statement.
 		$sql    = "SHOW INDEXES FROM {$this->table_name}";
@@ -574,11 +554,6 @@ class Table {
 
 		// Get the database interface.
 		$db = $this->get_db();
-
-		// Bail if no database interface is available.
-		if ( empty( $db ) ) {
-			return false;
-		}
 
 		// Create index object from arguments.
 		$index = ( $args instanceof Index )
@@ -615,11 +590,6 @@ class Table {
 		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available.
-		if ( empty( $db ) ) {
-			return false;
-		}
-
 		// Sanitize the index name.
 		$name = $this->sanitize_column_name( $name );
 
@@ -650,11 +620,6 @@ class Table {
 
 		// Get the database interface.
 		$db = $this->get_db();
-
-		// Bail if no database interface is available.
-		if ( empty( $db ) ) {
-			return false;
-		}
 
 		// Bail if no schema to call.
 		if ( ! is_callable( array( $this->schema_object, 'get_create_table_string' ) ) ) {
@@ -702,11 +667,6 @@ class Table {
 		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available.
-		if ( empty( $db ) ) {
-			return false;
-		}
-
 		// Query statement.
 		$sql    = "DROP TABLE {$this->table_name}";
 		$result = $db->query( $sql );
@@ -727,11 +687,6 @@ class Table {
 		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available.
-		if ( empty( $db ) ) {
-			return false;
-		}
-
 		// Query statement.
 		$sql    = "TRUNCATE TABLE {$this->table_name}";
 		$result = $db->query( $sql );
@@ -751,11 +706,6 @@ class Table {
 
 		// Get the database interface.
 		$db = $this->get_db();
-
-		// Bail if no database interface is available.
-		if ( empty( $db ) ) {
-			return false;
-		}
 
 		// Query statement.
 		$sql    = "DELETE FROM {$this->table_name}";
@@ -784,11 +734,6 @@ class Table {
 
 		// Get the database interface.
 		$db = $this->get_db();
-
-		// Bail if no database interface is available.
-		if ( empty( $db ) ) {
-			return false;
-		}
 
 		// Sanitize the new table name.
 		$table_name = $this->sanitize_table_name( $new_table_name );
@@ -827,11 +772,6 @@ class Table {
 		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available.
-		if ( empty( $db ) ) {
-			return false;
-		}
-
 		// Sanitize the new table name.
 		$table_name = $this->sanitize_table_name( $new_table_name );
 
@@ -861,11 +801,6 @@ class Table {
 		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available.
-		if ( empty( $db ) ) {
-			return 0;
-		}
-
 		// Query statement.
 		$sql    = "SELECT COUNT(*) FROM {$this->table_name}";
 		$result = $db->get_var( $sql );
@@ -894,11 +829,6 @@ class Table {
 
 		// Get the database interface.
 		$db = $this->get_db();
-
-		// Bail if no database interface is available.
-		if ( empty( $db ) ) {
-			return false;
-		}
 
 		// Sanitize the new table name.
 		$table_name = $this->sanitize_table_name( $new_table_name );
@@ -932,11 +862,6 @@ class Table {
 		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available.
-		if ( empty( $db ) ) {
-			return false;
-		}
-
 		// Query statement.
 		$sql  = "SHOW COLUMNS FROM {$this->table_name} LIKE %s";
 		$name = $this->sanitize_column_name( $name );
@@ -968,11 +893,6 @@ class Table {
 
 		// Get the database interface.
 		$db = $this->get_db();
-
-		// Bail if no database interface is available.
-		if ( empty( $db ) ) {
-			return false;
-		}
 
 		// Limit $column to Key or Column name, until we can do better.
 		if ( ! in_array( $column, array( 'Key_name', 'Column_name' ), true ) ) {
@@ -1011,11 +931,6 @@ class Table {
 		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available.
-		if ( empty( $db ) ) {
-			return false;
-		}
-
 		// Query statement.
 		$sql    = "ANALYZE TABLE {$this->table_name}";
 		$query  = (array) $db->get_results( $sql );
@@ -1038,11 +953,6 @@ class Table {
 
 		// Get the database interface.
 		$db = $this->get_db();
-
-		// Bail if no database interface is available.
-		if ( empty( $db ) ) {
-			return false;
-		}
 
 		// Query statement.
 		$sql    = "CHECK TABLE {$this->table_name}";
@@ -1067,11 +977,6 @@ class Table {
 		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available.
-		if ( empty( $db ) ) {
-			return false;
-		}
-
 		// Query statement.
 		$sql    = "CHECKSUM TABLE {$this->table_name}";
 		$query  = (array) $db->get_results( $sql );
@@ -1094,11 +999,6 @@ class Table {
 
 		// Get the database interface.
 		$db = $this->get_db();
-
-		// Bail if no database interface is available.
-		if ( empty( $db ) ) {
-			return false;
-		}
 
 		// Query statement.
 		$sql    = "OPTIMIZE TABLE {$this->table_name}";
@@ -1123,11 +1023,6 @@ class Table {
 
 		// Get the database interface.
 		$db = $this->get_db();
-
-		// Bail if no database interface is available.
-		if ( empty( $db ) ) {
-			return false;
-		}
 
 		// Query statement.
 		$sql    = "REPAIR TABLE {$this->table_name}";
@@ -1262,11 +1157,6 @@ class Table {
 	 */
 	private function setup(): void {
 
-		// Bail if no database interface is available.
-		if ( ! $this->get_db() ) {
-			return;
-		}
-
 		// Sanitize this database table name.
 		$sanitized_name = $this->sanitize_table_name( $this->name );
 
@@ -1309,11 +1199,6 @@ class Table {
 		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available.
-		if ( empty( $db ) ) {
-			return;
-		}
-
 		// Set variables for global tables.
 		if ( $this->is_global() ) {
 			$site_id = 0;
@@ -1332,25 +1217,22 @@ class Table {
 		$prefixed_table_name = "{$this->table_prefix}{$this->prefixed_name}";
 
 		// Set the table name and register it in the database interface.
-		$this->table_name           = $prefixed_table_name;
-		$db->{$this->prefixed_name} = $prefixed_table_name;
-
-		// Create the array if it does not exist.
-		if ( ! isset( $db->{$tables} ) ) {
-			$db->{$tables} = array();
-		}
+		$this->table_name = $prefixed_table_name;
+		$db->set_table_prefix( $this->prefixed_name, $prefixed_table_name );
 
 		// Add table to the global table array.
-		$db->{$tables}[] = $this->prefixed_name;
+		$db->register_table( $tables, $this->prefixed_name );
 
 		// Charset.
-		if ( ! empty( $db->charset ) ) {
-			$this->charset_collation = "DEFAULT CHARACTER SET {$db->charset}";
+		$charset = $db->get_charset();
+		if ( ! empty( $charset ) ) {
+			$this->charset_collation = "DEFAULT CHARACTER SET {$charset}";
 		}
 
 		// Collation.
-		if ( ! empty( $db->collate ) ) {
-			$this->charset_collation .= " COLLATE {$db->collate}";
+		$collation = $db->get_collation();
+		if ( ! empty( $collation ) ) {
+			$this->charset_collation .= " COLLATE {$collation}";
 		}
 	}
 

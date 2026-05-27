@@ -82,11 +82,6 @@ class NotBetween extends Base {
 		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database.
-		if ( empty( $db ) ) {
-			return '';
-		}
-
 		// Maybe split a comma- or space-delimited string into an array.
 		if ( is_scalar( $value ) ) {
 			$value = preg_split( '/[,\s]+/', trim( $value ) );

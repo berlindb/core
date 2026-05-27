@@ -628,7 +628,7 @@ class Query {
 			$db = $this->get_db();
 
 			// Maybe query for found items.
-			if ( ! empty( $query ) && ! empty( $db ) ) {
+			if ( ! empty( $query ) ) {
 				$retval = $db->get_var( $query );
 			}
 		}
@@ -980,13 +980,8 @@ class Query {
 	 */
 	public function get_table_name() {
 
-		// Get the database interface.
-		$db = $this->get_db();
-
 		// Return SQL.
-		return ! empty( $db )
-			? $db->{$this->table_name}
-			: $this->table_name;
+		return $this->get_db()->get_table_prefix( $this->table_name );
 	}
 
 	/**
@@ -1142,11 +1137,6 @@ class Query {
 		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available.
-		if ( empty( $db ) ) {
-			return false;
-		}
-
 		// Bail if empty or non-scalar value.
 		if ( empty( $column_value ) || ! is_scalar( $column_value ) ) {
 			return false;
@@ -1274,7 +1264,7 @@ class Query {
 	 * @since 1.0.0
 	 * @since 3.0.0 Uses wp_parse_list() instead of wp_parse_id_list()
 	 *
-	 * @return array<bool|float|int|string>|array<string, mixed>[]|int|null Array of item IDs for a full query, or int/rows for a count query.
+	 * @return array<bool|float|int|string>|array<string, mixed>[]|int Array of item IDs for a full query, or int/rows for a count query.
 	 */
 	private function get_item_ids() {
 
@@ -1288,11 +1278,6 @@ class Query {
 		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available.
-		if ( empty( $db ) ) {
-			return array();
-		}
-
 		// Get the request SQL string.
 		$request = $this->get_current_string( 'request' );
 
@@ -1302,7 +1287,7 @@ class Query {
 			// Get vars or results.
 			$retval = ! $this->get_query_var( 'groupby' )
 				? (int) $db->get_var( $request )
-				: $db->get_results( $request, ARRAY_A );
+				: (array) $db->get_results( $request, ARRAY_A );
 
 			// Return vars or results.
 			return $retval;
@@ -1339,11 +1324,6 @@ class Query {
 
 		// Get the database interface.
 		$db = $this->get_db();
-
-		// Bail if no database interface is available.
-		if ( empty( $db ) ) {
-			return '';
-		}
 
 		// Fallback to column pattern.
 		if ( empty( $pattern ) || ! is_string( $pattern ) ) {
@@ -2516,11 +2496,6 @@ class Query {
 		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available.
-		if ( empty( $db ) ) {
-			return false;
-		}
-
 		// Get the primary column name.
 		$primary = $this->get_primary_column_name();
 
@@ -2608,7 +2583,7 @@ class Query {
 		}
 
 		// Get the new item ID.
-		$retval = $db->insert_id;
+		$retval = $db->get_insert_id();
 
 		// Maybe save meta keys.
 		if ( ! empty( $meta ) ) {
@@ -2684,11 +2659,6 @@ class Query {
 
 		// Get the database interface.
 		$db = $this->get_db();
-
-		// Bail if no database interface is available.
-		if ( empty( $db ) ) {
-			return false;
-		}
 
 		// Bail early if no data to update.
 		if ( empty( $data ) ) {
@@ -2799,11 +2769,6 @@ class Query {
 
 		// Get the database interface.
 		$db = $this->get_db();
-
-		// Bail if no database interface is available.
-		if ( empty( $db ) ) {
-			return false;
-		}
 
 		// Shape the item ID.
 		$item_id = $this->shape_item_id( $item_id );
@@ -3269,11 +3234,6 @@ class Query {
 		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available.
-		if ( empty( $db ) ) {
-			return;
-		}
-
 		// Shape the item ID.
 		$item_id = $this->shape_item_id( $item_id );
 
@@ -3333,12 +3293,13 @@ class Query {
 		// Append "meta" to end of meta type.
 		$table = "{$type}meta";
 
-		// Variable'ize the database interface, to use inside empty().
+		// Get the database interface.
 		$db = $this->get_db();
 
 		// If not empty, return table name.
-		if ( ! empty( $db->{$table} ) ) {
-			return $db->{$table};
+		$table_name = $db->get_table_prefix( $table );
+		if ( ! empty( $table_name ) ) {
+			return $table_name;
 		}
 
 		// Return.
@@ -3499,11 +3460,6 @@ class Query {
 		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available.
-		if ( empty( $db ) ) {
-			return false;
-		}
-
 		// Bail if no items to cache.
 		if ( empty( $item_ids ) ) {
 			return false;
@@ -3537,7 +3493,8 @@ class Query {
 				$results = $db->get_results( $query );
 
 				// Update item cache(s) — read path, do not bump last_changed.
-				if ( ! empty( $results ) ) {
+				if ( ! empty( $results ) && is_array( $results ) ) {
+					/** @var list<object> $results */
 					$this->update_item_cache( $results, false );
 				}
 			}

@@ -1429,11 +1429,6 @@ trait Parser {
 		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database.
-		if ( empty( $db ) ) {
-			return false;
-		}
-
 		// Get multi-value comparison operators.
 		$mvk = $this->get_operators( array( 'multi' => true ) );
 
@@ -1568,11 +1563,6 @@ trait Parser {
 
 		// Get the database interface.
 		$db = $this->get_db();
-
-		// Bail if no database interface is available.
-		if ( empty( $db ) ) {
-			return '';
-		}
 
 		// Fallback to column pattern.
 		if ( empty( $pattern ) || ! is_string( $pattern ) ) {

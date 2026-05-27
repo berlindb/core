@@ -116,8 +116,8 @@ class NotIn extends Base {
 		// Get __in's in clause.
 		$ins = $this->get_first_order_clauses( $clause );
 
-		// Bail if no database or first-order clauses.
-		if ( empty( $db ) || empty( $ins ) ) {
+		// Bail if no first-order clauses.
+		if ( empty( $ins ) ) {
 			return array(
 				'join'  => array(),
 				'where' => array(),

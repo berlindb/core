@@ -179,11 +179,6 @@ class Search extends Base {
 		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database interface is available.
-		if ( empty( $db ) ) {
-			return '';
-		}
-
 		// Array or String.
 		$like = ( false !== strpos( $search, '*' ) )
 			? '%' . implode( '%', array_map( array( $db, 'esc_like' ), explode( '*', $search ) ) ) . '%'

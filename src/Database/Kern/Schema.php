@@ -70,20 +70,17 @@ class Schema {
 		// Resolve the database interface through the static wrapper.
 		$db = self::get_db_global();
 
-		// Bail if no database interface.
-		if ( empty( $db ) ) {
-			return new self();
-		}
-
 		// Suppress wpdb errors so a nonexistent table silently returns an empty
 		// Schema rather than printing an HTML error block into the page output.
 		$suppress = $db->suppress_errors( true );
 
-		// Fetch column metadata from the live database.
-		$rows = $db->get_results(
-			$db->prepare( 'SHOW COLUMNS FROM %i', $table ),
-			ARRAY_A
-		);
+		// Prepare the query.
+		$prepared = $db->prepare( 'SHOW COLUMNS FROM %i', $table );
+
+		// Fetch column metadata; null means prepare() failed.
+		$rows = ! is_null( $prepared )
+			? $db->get_results( $prepared, ARRAY_A )
+			: null;
 
 		// Restore the previous wpdb error-suppression state.
 		$db->suppress_errors( $suppress );

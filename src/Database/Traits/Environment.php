@@ -13,6 +13,10 @@ declare( strict_types = 1 );
 
 namespace BerlinDB\Database\Traits;
 
+use BerlinDB\Database\Adapters\NullConnection;
+use BerlinDB\Database\Adapters\Wpdb;
+use BerlinDB\Database\Interfaces\Connection;
+
 // Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
 
@@ -44,6 +48,11 @@ trait Environment {
 	 * Used by static factory methods (e.g. Schema::from_table()) that need
 	 * the database handle before an instance exists.
 	 *
+	 * If the global already holds a Connection implementation (e.g. a custom
+	 * non-WordPress adapter), it is returned directly.  Otherwise a raw \wpdb
+	 * instance is wrapped in the bundled Wpdb adapter automatically so that
+	 * WordPress works with zero setup.
+	 *
 	 * Note: If this returns false, the database global is not yet available.
 	 * In WordPress that means the call is too early (before require_wp_db()
 	 * runs in wp-settings.php). Hook into 'plugins_loaded' or 'admin_init'.
@@ -51,14 +60,23 @@ trait Environment {
 	 * @since 3.0.0
 	 *
 	 * @param string $db_global Optional. Global variable name. Default 'wpdb'.
-	 * @return \wpdb|false Database interface, or false if not set.
+	 * @return Connection Database interface; NullConnection if not yet available.
 	 */
-	protected static function get_db_global( string $db_global = 'wpdb' ): \wpdb|false {
+	protected static function get_db_global( string $db_global = 'wpdb' ): Connection {
 		global ${$db_global};
 
-		return is_null( ${$db_global} )
-			? false
-			: ${$db_global};
+		// Already adapted — return as-is (supports non-WordPress environments).
+		if ( ${$db_global} instanceof Connection ) {
+			return ${$db_global};
+		}
+
+		// WordPress default: wrap the raw \wpdb instance on the fly.
+		if ( ${$db_global} instanceof \wpdb ) {
+			return new Wpdb( ${$db_global} );
+		}
+
+		// Database is not yet available (too early in the boot sequence).
+		return new NullConnection();
 	}
 
 	/**
@@ -66,9 +84,9 @@ trait Environment {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @return \wpdb|false Database interface, or False if not set.
+	 * @return Connection Database interface; NullConnection if not yet available.
 	 */
-	protected function get_db(): \wpdb|false {
+	protected function get_db(): Connection {
 		return static::get_db_global( $this->db_global );
 	}
 

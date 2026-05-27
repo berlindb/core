@@ -438,11 +438,6 @@ class Meta extends Base {
 		// Get the database interface.
 		$db = $this->get_db();
 
-		// Bail if no database.
-		if ( empty( $db ) ) {
-			return $retval;
-		}
-
 		// Default column.
 		$column = 'meta_key';
 
