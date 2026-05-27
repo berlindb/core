@@ -43,6 +43,55 @@ class Schema {
 	use \BerlinDB\Database\Traits\Base;
 	use \BerlinDB\Database\Traits\Boot;
 
+	/** Factories *************************************************************/
+
+	/**
+	 * Build a Schema by introspecting an existing database table.
+	 *
+	 * Queries SHOW COLUMNS FROM the given table and maps each row to a Column
+	 * via Column::from_mysql(). Returns an empty Schema if the table does not
+	 * exist or has no columns.
+	 *
+	 * The returned Schema can be passed directly to a Query or Table via their
+	 * constructor: new Query( array( 'table_schema' => $schema ) ).
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param string $table Fully-qualified table name (with prefix).
+	 * @return self
+	 */
+	public static function from_table( string $table = '' ) {
+
+		// Bail if no table name.
+		if ( empty( $table ) ) {
+			return new self();
+		}
+
+		// Resolve the database interface through the standard wrapper.
+		$db = ( new self() )->get_db();
+
+		// Bail if no database interface.
+		if ( empty( $db ) ) {
+			return new self();
+		}
+
+		// Fetch column metadata from the live database.
+		$rows = $db->get_results(
+			$db->prepare( 'SHOW COLUMNS FROM %i', $table ),
+			ARRAY_A
+		);
+
+		// Bail if the table does not exist or returned no columns.
+		if ( empty( $rows ) || ! is_array( $rows ) ) {
+			return new self();
+		}
+
+		// Map each row to a Column object.
+		$columns = array_map( array( Column::class, 'from_mysql' ), $rows );
+
+		return new self( array( 'columns' => $columns ) );
+	}
+
 	/** Types *****************************************************************/
 
 	/**

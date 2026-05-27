@@ -84,10 +84,14 @@ class Query {
 	protected $table_alias = '';
 
 	/**
-	 * Name of class used to setup the database schema.
+	 * Schema class name or Schema object used to configure columns and indexes.
+	 *
+	 * Accepts either a fully-qualified class name string (the classic subclass
+	 * pattern) or a Schema instance built at runtime — e.g. from a constructor
+	 * argument or a Schema::from_table() call.
 	 *
 	 * @since 1.0.0
-	 * @var   string
+	 * @var   string|Schema
 	 */
 	protected $table_schema = __NAMESPACE__ . '\\Schema';
 
@@ -359,6 +363,12 @@ class Query {
 	 * @since 3.0.0
 	 */
 	private function set_schema(): void {
+
+		// Accept a Schema object passed directly via constructor or property assignment.
+		if ( $this->table_schema instanceof Schema ) {
+			$this->schema_object = $this->table_schema;
+			return;
+		}
 
 		// Default log context.
 		$log_error = true;
