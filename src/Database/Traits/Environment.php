@@ -63,6 +63,7 @@ trait Environment {
 	 * @return Connection Database interface; NullConnection if not yet available.
 	 */
 	protected static function get_db_global( string $db_global = 'wpdb' ): Connection {
+		static $cache = array();
 		global ${$db_global};
 
 		// Already adapted — return as-is (supports non-WordPress environments).
@@ -70,9 +71,18 @@ trait Environment {
 			return ${$db_global};
 		}
 
-		// WordPress default: wrap the raw \wpdb instance on the fly.
 		if ( ${$db_global} instanceof \wpdb ) {
-			return new Wpdb( ${$db_global} );
+			$id = spl_object_id( ${$db_global} );
+
+			// spl_object_id check ensures a replaced $wpdb instance (rare but
+			// possible in tests) isn't served the stale adapter.
+			if ( isset( $cache[ $db_global ] ) && $cache[ $db_global ][0] === $id ) {
+				return $cache[ $db_global ][1];
+			}
+
+			$connection          = new Wpdb( ${$db_global} );
+			$cache[ $db_global ] = array( $id, $connection );
+			return $connection;
 		}
 
 		// Database is not yet available (too early in the boot sequence).
