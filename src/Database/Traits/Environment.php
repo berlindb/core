@@ -39,37 +39,37 @@ trait Environment {
 	protected $db_global = 'wpdb';
 
 	/**
+	 * Return the global database interface without requiring an instance.
+	 *
+	 * Used by static factory methods (e.g. Schema::from_table()) that need
+	 * the database handle before an instance exists.
+	 *
+	 * Note: If this returns false, the database global is not yet available.
+	 * In WordPress that means the call is too early (before require_wp_db()
+	 * runs in wp-settings.php). Hook into 'plugins_loaded' or 'admin_init'.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param string $db_global Optional. Global variable name. Default 'wpdb'.
+	 * @return \wpdb|false Database interface, or false if not set.
+	 */
+	protected static function get_db_global( string $db_global = 'wpdb' ): \wpdb|false {
+		global ${$db_global};
+
+		return is_null( ${$db_global} )
+			? false
+			: ${$db_global};
+	}
+
+	/**
 	 * Return the global database interface.
 	 *
 	 * @since 3.0.0
 	 *
 	 * @return \wpdb|false Database interface, or False if not set.
 	 */
-	protected function get_db() {
-		global ${$this->db_global};
-
-		// Default return value.
-		$retval = false;
-
-		// Look for the global database interface.
-		if ( ! is_null( ${$this->db_global} ) ) {
-			$retval = ${$this->db_global};
-		}
-
-		/*
-		 * Note: If you are here because this method is returning false for you,
-		 * that means a database Table or Query are being invoked too early in
-		 * the lifecycle of the application.
-		 *
-		 * In WordPress, that means before require_wp_db() creates the $wpdb
-		 * global (inside of the wp-settings.php file) and you may want to
-		 * hook your custom code into 'admin_init' or 'plugins_loaded' instead.
-		 *
-		 * The decision to return false here is likely to change in the future.
-		 */
-
-		// Return the database interface.
-		return $retval;
+	protected function get_db(): \wpdb|false {
+		return static::get_db_global( $this->db_global );
 	}
 
 	/**

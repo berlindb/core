@@ -28,6 +28,72 @@ use Yoast\WPTestUtils\WPIntegration\TestCase;
  */
 class ColumnFromMysqlTest extends TestCase {
 
+	/**
+	 * Column built from a bigint unsigned primary key row (mirrors wp_posts.ID).
+	 *
+	 * @since 3.0.0
+	 * @var Column
+	 */
+	private static $id_col;
+
+	/**
+	 * Column built from a varchar row with a string default (mirrors wp_posts.post_status).
+	 *
+	 * @since 3.0.0
+	 * @var Column
+	 */
+	private static $status_col;
+
+	/**
+	 * Column built from a datetime row (mirrors wp_posts.post_date).
+	 *
+	 * @since 3.0.0
+	 * @var Column
+	 */
+	private static $date_col;
+
+	/**
+	 * Build shared fixture columns once before the suite runs.
+	 *
+	 * @since 3.0.0
+	 */
+	public static function setUpBeforeClass(): void {
+		parent::setUpBeforeClass();
+
+		self::$id_col = Column::from_mysql(
+			array(
+				'Field'   => 'ID',
+				'Type'    => 'bigint(20) unsigned',
+				'Null'    => 'NO',
+				'Key'     => 'PRI',
+				'Default' => null,
+				'Extra'   => 'auto_increment',
+			)
+		);
+
+		self::$status_col = Column::from_mysql(
+			array(
+				'Field'   => 'post_status',
+				'Type'    => 'varchar(20)',
+				'Null'    => 'NO',
+				'Key'     => '',
+				'Default' => 'publish',
+				'Extra'   => '',
+			)
+		);
+
+		self::$date_col = Column::from_mysql(
+			array(
+				'Field'   => 'post_date',
+				'Type'    => 'datetime',
+				'Null'    => 'NO',
+				'Key'     => '',
+				'Default' => '0000-00-00 00:00:00',
+				'Extra'   => '',
+			)
+		);
+	}
+
 	// bigint primary key (mirrors wp_posts.ID).
 
 	/**
@@ -36,18 +102,7 @@ class ColumnFromMysqlTest extends TestCase {
 	 * @since 3.0.0
 	 */
 	public function test_bigint_primary_key_returns_column_instance() {
-		$col = Column::from_mysql(
-			array(
-				'Field'   => 'ID',
-				'Type'    => 'bigint(20) unsigned',
-				'Null'    => 'NO',
-				'Key'     => 'PRI',
-				'Default' => null,
-				'Extra'   => 'auto_increment',
-			)
-		);
-
-		$this->assertInstanceOf( Column::class, $col );
+		$this->assertInstanceOf( Column::class, self::$id_col );
 	}
 
 	/**
@@ -56,18 +111,7 @@ class ColumnFromMysqlTest extends TestCase {
 	 * @since 3.0.0
 	 */
 	public function test_bigint_primary_key_maps_name() {
-		$col = Column::from_mysql(
-			array(
-				'Field'   => 'ID',
-				'Type'    => 'bigint(20) unsigned',
-				'Null'    => 'NO',
-				'Key'     => 'PRI',
-				'Default' => null,
-				'Extra'   => 'auto_increment',
-			)
-		);
-
-		$this->assertSame( 'ID', $col->name );
+		$this->assertSame( 'ID', self::$id_col->name );
 	}
 
 	/**
@@ -78,18 +122,7 @@ class ColumnFromMysqlTest extends TestCase {
 	 * @since 3.0.0
 	 */
 	public function test_bigint_primary_key_maps_base_type() {
-		$col = Column::from_mysql(
-			array(
-				'Field'   => 'ID',
-				'Type'    => 'bigint(20) unsigned',
-				'Null'    => 'NO',
-				'Key'     => 'PRI',
-				'Default' => null,
-				'Extra'   => 'auto_increment',
-			)
-		);
-
-		$this->assertSame( 'BIGINT', $col->type );
+		$this->assertSame( 'BIGINT', self::$id_col->type );
 	}
 
 	/**
@@ -98,18 +131,7 @@ class ColumnFromMysqlTest extends TestCase {
 	 * @since 3.0.0
 	 */
 	public function test_bigint_primary_key_maps_length() {
-		$col = Column::from_mysql(
-			array(
-				'Field'   => 'ID',
-				'Type'    => 'bigint(20) unsigned',
-				'Null'    => 'NO',
-				'Key'     => 'PRI',
-				'Default' => null,
-				'Extra'   => 'auto_increment',
-			)
-		);
-
-		$this->assertSame( 20, $col->length );
+		$this->assertSame( 20, self::$id_col->length );
 	}
 
 	/**
@@ -118,18 +140,7 @@ class ColumnFromMysqlTest extends TestCase {
 	 * @since 3.0.0
 	 */
 	public function test_bigint_primary_key_is_unsigned() {
-		$col = Column::from_mysql(
-			array(
-				'Field'   => 'ID',
-				'Type'    => 'bigint(20) unsigned',
-				'Null'    => 'NO',
-				'Key'     => 'PRI',
-				'Default' => null,
-				'Extra'   => 'auto_increment',
-			)
-		);
-
-		$this->assertTrue( $col->unsigned );
+		$this->assertTrue( self::$id_col->unsigned );
 	}
 
 	/**
@@ -138,38 +149,18 @@ class ColumnFromMysqlTest extends TestCase {
 	 * @since 3.0.0
 	 */
 	public function test_bigint_primary_key_sets_primary_flag() {
-		$col = Column::from_mysql(
-			array(
-				'Field'   => 'ID',
-				'Type'    => 'bigint(20) unsigned',
-				'Null'    => 'NO',
-				'Key'     => 'PRI',
-				'Default' => null,
-				'Extra'   => 'auto_increment',
-			)
-		);
-
-		$this->assertTrue( $col->primary );
+		$this->assertTrue( self::$id_col->primary );
 	}
 
 	/**
 	 * bigint unsigned primary key maps auto_increment in extra.
 	 *
+	 * Column::sanitize_extra() normalises extra to uppercase.
+	 *
 	 * @since 3.0.0
 	 */
 	public function test_bigint_primary_key_maps_extra() {
-		$col = Column::from_mysql(
-			array(
-				'Field'   => 'ID',
-				'Type'    => 'bigint(20) unsigned',
-				'Null'    => 'NO',
-				'Key'     => 'PRI',
-				'Default' => null,
-				'Extra'   => 'auto_increment',
-			)
-		);
-
-		$this->assertSame( 'AUTO_INCREMENT', $col->extra );
+		$this->assertSame( 'AUTO_INCREMENT', self::$id_col->extra );
 	}
 
 	/**
@@ -178,18 +169,7 @@ class ColumnFromMysqlTest extends TestCase {
 	 * @since 3.0.0
 	 */
 	public function test_bigint_primary_key_does_not_allow_null() {
-		$col = Column::from_mysql(
-			array(
-				'Field'   => 'ID',
-				'Type'    => 'bigint(20) unsigned',
-				'Null'    => 'NO',
-				'Key'     => 'PRI',
-				'Default' => null,
-				'Extra'   => 'auto_increment',
-			)
-		);
-
-		$this->assertFalse( $col->allow_null );
+		$this->assertFalse( self::$id_col->allow_null );
 	}
 
 	/**
@@ -198,21 +178,10 @@ class ColumnFromMysqlTest extends TestCase {
 	 * @since 3.0.0
 	 */
 	public function test_bigint_primary_key_does_not_set_date_query() {
-		$col = Column::from_mysql(
-			array(
-				'Field'   => 'ID',
-				'Type'    => 'bigint(20) unsigned',
-				'Null'    => 'NO',
-				'Key'     => 'PRI',
-				'Default' => null,
-				'Extra'   => 'auto_increment',
-			)
-		);
-
-		$this->assertFalse( $col->date_query );
+		$this->assertFalse( self::$id_col->date_query );
 	}
 
-	// varchar with a non-null default (mirrors wp_posts.post_status).
+	// varchar with a string default (mirrors wp_posts.post_status).
 
 	/**
 	 * varchar column maps name and type.
@@ -222,19 +191,8 @@ class ColumnFromMysqlTest extends TestCase {
 	 * @since 3.0.0
 	 */
 	public function test_varchar_maps_name_and_type() {
-		$col = Column::from_mysql(
-			array(
-				'Field'   => 'post_status',
-				'Type'    => 'varchar(20)',
-				'Null'    => 'NO',
-				'Key'     => '',
-				'Default' => 'publish',
-				'Extra'   => '',
-			)
-		);
-
-		$this->assertSame( 'post_status', $col->name );
-		$this->assertSame( 'VARCHAR', $col->type );
+		$this->assertSame( 'post_status', self::$status_col->name );
+		$this->assertSame( 'VARCHAR', self::$status_col->type );
 	}
 
 	/**
@@ -243,43 +201,19 @@ class ColumnFromMysqlTest extends TestCase {
 	 * @since 3.0.0
 	 */
 	public function test_varchar_maps_length() {
-		$col = Column::from_mysql(
-			array(
-				'Field'   => 'post_status',
-				'Type'    => 'varchar(20)',
-				'Null'    => 'NO',
-				'Key'     => '',
-				'Default' => 'publish',
-				'Extra'   => '',
-			)
-		);
-
-		$this->assertSame( 20, $col->length );
+		$this->assertSame( 20, self::$status_col->length );
 	}
 
 	/**
-	 * String defaults from MySQL introspection are normalised to empty string.
+	 * varchar column preserves the MySQL default value string.
 	 *
-	 * Column::sanitize_default() delegates to validate(), which requires a
-	 * callable $this->validate property to pass a value through. When
-	 * from_mysql() passes an empty-string sentinel the property is not yet
-	 * set during sanitize_args(), so non-null string defaults collapse to ''.
+	 * sanitize_default() passes the value through validate(), which returns the
+	 * raw value when no validate callback is registered yet at construction time.
 	 *
 	 * @since 3.0.0
 	 */
-	public function test_varchar_string_default_normalises_to_empty() {
-		$col = Column::from_mysql(
-			array(
-				'Field'   => 'post_status',
-				'Type'    => 'varchar(20)',
-				'Null'    => 'NO',
-				'Key'     => '',
-				'Default' => 'publish',
-				'Extra'   => '',
-			)
-		);
-
-		$this->assertSame( '', $col->default );
+	public function test_varchar_preserves_default_value() {
+		$this->assertSame( 'publish', self::$status_col->default );
 	}
 
 	/**
@@ -288,18 +222,7 @@ class ColumnFromMysqlTest extends TestCase {
 	 * @since 3.0.0
 	 */
 	public function test_varchar_is_not_primary() {
-		$col = Column::from_mysql(
-			array(
-				'Field'   => 'post_status',
-				'Type'    => 'varchar(20)',
-				'Null'    => 'NO',
-				'Key'     => '',
-				'Default' => 'publish',
-				'Extra'   => '',
-			)
-		);
-
-		$this->assertFalse( $col->primary );
+		$this->assertFalse( self::$status_col->primary );
 	}
 
 	// datetime without length (mirrors wp_posts.post_date).
@@ -312,18 +235,7 @@ class ColumnFromMysqlTest extends TestCase {
 	 * @since 3.0.0
 	 */
 	public function test_datetime_has_no_length() {
-		$col = Column::from_mysql(
-			array(
-				'Field'   => 'post_date',
-				'Type'    => 'datetime',
-				'Null'    => 'NO',
-				'Key'     => '',
-				'Default' => '0000-00-00 00:00:00',
-				'Extra'   => '',
-			)
-		);
-
-		$this->assertEmpty( $col->length );
+		$this->assertEmpty( self::$date_col->length );
 	}
 
 	/**
@@ -332,18 +244,7 @@ class ColumnFromMysqlTest extends TestCase {
 	 * @since 3.0.0
 	 */
 	public function test_datetime_sets_date_query_flag() {
-		$col = Column::from_mysql(
-			array(
-				'Field'   => 'post_date',
-				'Type'    => 'datetime',
-				'Null'    => 'NO',
-				'Key'     => '',
-				'Default' => '0000-00-00 00:00:00',
-				'Extra'   => '',
-			)
-		);
-
-		$this->assertTrue( $col->date_query );
+		$this->assertTrue( self::$date_col->date_query );
 	}
 
 	// date_query flag for every temporal type.
@@ -502,14 +403,15 @@ class ColumnFromMysqlTest extends TestCase {
 	// Default-key semantics.
 
 	/**
-	 * Missing Default key passes false to Column, which sanitizes it to empty string.
+	 * Missing Default key passes false to Column, which is preserved as false.
 	 *
 	 * Generated/virtual columns have no Default row at all. from_mysql() passes
-	 * false as a sentinel; Column::sanitize_default() normalises that to ''.
+	 * false as a sentinel, and sanitize_default() returns it unchanged because
+	 * false is not null and no validate callback is registered at construction.
 	 *
 	 * @since 3.0.0
 	 */
-	public function test_missing_default_key_yields_empty_string() {
+	public function test_missing_default_key_returns_false() {
 		$col = Column::from_mysql(
 			array(
 				'Field' => 'generated',
@@ -520,7 +422,7 @@ class ColumnFromMysqlTest extends TestCase {
 			)
 		);
 
-		$this->assertSame( '', $col->default );
+		$this->assertFalse( $col->default );
 	}
 
 	/**

@@ -53,16 +53,13 @@ class SchemaFromTableTest extends TestCase {
 	/**
 	 * Nonexistent table name returns a Schema instance.
 	 *
-	 * wpdb emits a DB error for the missing table; suppress it so the test
-	 * output stays clean and the assertion on the return value is the focus.
+	 * from_table() suppresses wpdb errors internally, so no noise is emitted.
 	 *
 	 * @since 3.0.0
 	 */
 	public function test_nonexistent_table_returns_schema_instance() {
 		global $wpdb;
-		$suppress = $wpdb->suppress_errors( true );
-		$schema   = Schema::from_table( $wpdb->prefix . 'does_not_exist_berlin_test' );
-		$wpdb->suppress_errors( $suppress );
+		$schema = Schema::from_table( $wpdb->prefix . 'does_not_exist_berlin_test' );
 
 		$this->assertInstanceOf( Schema::class, $schema );
 	}
@@ -74,9 +71,7 @@ class SchemaFromTableTest extends TestCase {
 	 */
 	public function test_nonexistent_table_yields_no_columns() {
 		global $wpdb;
-		$suppress = $wpdb->suppress_errors( true );
-		$schema   = Schema::from_table( $wpdb->prefix . 'does_not_exist_berlin_test' );
-		$wpdb->suppress_errors( $suppress );
+		$schema = Schema::from_table( $wpdb->prefix . 'does_not_exist_berlin_test' );
 
 		$this->assertEmpty( $schema->columns );
 	}

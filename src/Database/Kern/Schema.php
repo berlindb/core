@@ -67,19 +67,26 @@ class Schema {
 			return new self();
 		}
 
-		// Resolve the database interface through the standard wrapper.
-		$db = ( new self() )->get_db();
+		// Resolve the database interface through the static wrapper.
+		$db = self::get_db_global();
 
 		// Bail if no database interface.
 		if ( empty( $db ) ) {
 			return new self();
 		}
 
+		// Suppress wpdb errors so a nonexistent table silently returns an empty
+		// Schema rather than printing an HTML error block into the page output.
+		$suppress = $db->suppress_errors( true );
+
 		// Fetch column metadata from the live database.
 		$rows = $db->get_results(
 			$db->prepare( 'SHOW COLUMNS FROM %i', $table ),
 			ARRAY_A
 		);
+
+		// Restore the previous wpdb error-suppression state.
+		$db->suppress_errors( $suppress );
 
 		// Bail if the table does not exist or returned no columns.
 		if ( empty( $rows ) || ! is_array( $rows ) ) {

@@ -1001,11 +1001,11 @@ class Column {
 	 *
 	 * @since 1.0.0
 	 * @since 3.0.0 Uses validate()
-	 * @param mixed $fallback Fallback value when the field is not set.
+	 * @param mixed $value Default value for the column.
 	 * @return mixed
 	 */
-	private function sanitize_default( $fallback = '' ) {
-		return $this->validate( $fallback );
+	private function sanitize_default( $value = '' ) {
+		return $this->validate( $value, $value );
 	}
 
 	/**
