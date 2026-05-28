@@ -798,7 +798,7 @@ class Table {
 
 		// Query statement.
 		$table  = $this->table_prefix . $this->apply_prefix( $table_name );
-		$sql    = "RENAME TABLE {$this->table_name} TO {$table}";
+		$sql    = "ALTER TABLE {$this->table_name} RENAME TO {$table}";
 		$result = $this->db()->query( $sql );
 
 		// Did the table get renamed?

@@ -416,6 +416,96 @@ class TableTest extends TestCase {
 		$this->assertTrue( $exists );
 	}
 
+	/**
+	 * Test that copy inserts the source table rows into an existing duplicate.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_copy_inserts_rows_into_duplicate_table() {
+		global $wpdb;
+
+		$copy_base = 'berlindb_database_test_widgets_copy';
+		$copy_name = $wpdb->prefix . $copy_base;
+		$table     = $wpdb->berlindb_database_test_widgets;
+
+		$wpdb->insert(
+			$table,
+			array(
+				'name'   => 'Widget A',
+				'status' => 'active',
+			)
+		);
+		$wpdb->insert(
+			$table,
+			array(
+				'name'   => 'Widget B',
+				'status' => 'inactive',
+			)
+		);
+
+		$this->bypass_table_filters();
+
+		self::$table->duplicate( $copy_base );
+		$result = self::$table->copy( $copy_base );
+		$count  = (int) $wpdb->get_var( 'SELECT COUNT(*) FROM `' . esc_sql( $copy_name ) . '`' );
+
+		$wpdb->query( 'DROP TABLE IF EXISTS `' . esc_sql( $copy_name ) . '`' );
+
+		$this->restore_table_filters();
+
+		$this->assertTrue( $result );
+		$this->assertSame( 2, $count );
+	}
+
+	/**
+	 * Test that rename rejects an invalid destination table name.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_rename_returns_false_for_invalid_table_name() {
+		$this->assertFalse( self::$table->rename( '' ) );
+	}
+
+	/**
+	 * Test that rename moves a duplicate table without touching the source table.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_rename_moves_table_to_new_name() {
+		global $wpdb;
+
+		$from_base = 'berlindb_database_test_widgets_rename_from';
+		$to_base   = 'berlindb_database_test_widgets_rename_to';
+		$from_name = $wpdb->prefix . $from_base;
+		$to_name   = $wpdb->prefix . $to_base;
+
+		$this->bypass_table_filters();
+
+		self::$table->duplicate( $from_base );
+
+		$temp_table = new TestTable(
+			array(
+				'name'           => $from_base,
+				'db_version_key' => 'berlindb_database_test_widgets_rename_from_version',
+			)
+		);
+
+		$result      = $temp_table->rename( $to_base );
+		$from_exists = (bool) $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $from_name ) );
+		$to_exists   = (bool) $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $to_name ) );
+
+		$wpdb->query( 'DROP TABLE IF EXISTS `' . esc_sql( $from_name ) . '`' );
+		$wpdb->query( 'DROP TABLE IF EXISTS `' . esc_sql( $to_name ) . '`' );
+		delete_option( 'berlindb_database_test_widgets_rename_from_version' );
+
+		$this->restore_table_filters();
+
+		$this->assertTrue( $result );
+		$this->assertFalse( $from_exists );
+		$this->assertTrue( $to_exists );
+		$this->assertTrue( self::$table->exists() );
+	}
+
 	// -------------------------------------------------------------------------
 	// Delete all.
 	// -------------------------------------------------------------------------
@@ -622,6 +712,16 @@ class TableTest extends TestCase {
 	 */
 	public function test_optimize_returns_string_or_false() {
 		$result = self::$table->optimize();
+		$this->assertTrue( is_string( $result ) || false === $result );
+	}
+
+	/**
+	 * Test that repair returns a string message or false.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_repair_returns_string_or_false() {
+		$result = self::$table->repair();
 		$this->assertTrue( is_string( $result ) || false === $result );
 	}
 }

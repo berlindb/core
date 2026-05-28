@@ -124,8 +124,11 @@ trait Boot {
 			return array();
 		}
 
-		// Parse arguments.
-		$r = wp_parse_args( $args, $this->args[ 'class' ] );
+		// Parse arguments without restoring Boot's internal argument stash.
+		$defaults = $this->args[ 'class' ];
+		unset( $defaults[ 'args' ] );
+
+		$r = wp_parse_args( $args, $defaults );
 
 		// Force some arguments for special column types.
 		$r = $this->special_args( $r );
