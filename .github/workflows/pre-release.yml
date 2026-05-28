@@ -1,0 +1,108 @@
+name: Pre-Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to check in CHANGELOG.md
+        required: true
+        default: 3.0.0
+
+jobs:
+  static:
+    name: Static
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+          tools: composer:v2
+
+      - name: Cache Composer
+        uses: actions/cache@v5
+        with:
+          path: ~/.composer/cache
+          key: composer-${{ runner.os }}-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Validate Composer
+        run: composer validate --strict --no-check-publish
+
+      - name: Run PHPStan
+        run: vendor/bin/phpstan analyse --memory-limit=1G
+
+      - name: Run PHPCS
+        run: vendor/bin/phpcs
+
+  tests:
+    name: Tests ${{ matrix.php }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        php:
+          - '8.1'
+          - '8.2'
+
+    env:
+      TEST_PHP_VERSION: ${{ matrix.php }}
+      WP_VERSION: '6.7'
+      MARIADB_VERSION: '10.2'
+      SKIP_PHPCS: 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Run PHPUnit
+        run: bin/run-tests.sh -- --group default
+
+  package:
+    name: Package
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+          tools: composer:v2
+
+      - name: Check changelog
+        run: grep -q "## ${{ inputs.version }} " CHANGELOG.md
+
+      - name: Build archive
+        run: composer archive --dir=/tmp --file=berlindb-core --format=zip
+
+      - name: Inspect archive
+        run: |
+          unzip -Z1 /tmp/berlindb-core.zip | tee /tmp/archive-files.txt
+
+          grep -q '^composer.json$' /tmp/archive-files.txt
+          grep -q '^autoloader.php$' /tmp/archive-files.txt
+          grep -q '^README.md$' /tmp/archive-files.txt
+          grep -q '^LICENSE$' /tmp/archive-files.txt
+          grep -q '^CHANGELOG.md$' /tmp/archive-files.txt
+          grep -q '^src/' /tmp/archive-files.txt
+
+          if grep -E '^(\.github/|docs/|tests/|vendor/|bin/|docker/|private/)' /tmp/archive-files.txt; then
+            exit 1
+          fi
+
+          if grep -E '^(composer.lock|CONTRIBUTING.md|SECURITY.md|\.markdownlint\.json)$' /tmp/archive-files.txt; then
+            exit 1
+          fi

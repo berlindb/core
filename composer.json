@@ -3,6 +3,14 @@
   "description": "A collection of PHP classes and functions that aims to provide an ORM-like experience and interface to WordPress database tables.",
   "type": "library",
   "license": "MIT",
+  "homepage": "https://github.com/berlindb/core",
+  "keywords": [
+    "wordpress",
+    "database",
+    "custom-tables",
+    "orm",
+    "wpdb"
+  ],
   "require": {
     "php": ">=8.1"
   },
