@@ -21,6 +21,7 @@ Notable changes to BerlinDB are documented here.
 - Adds PHPStan, PHPCS, and PHPUnit GitHub Actions.
 - Declares PHP 8.1 as the minimum supported PHP version.
 - Improves Composer package metadata and distribution contents.
+- Ships as the 300th commit from the 3.0.0 release branch.
 
 ### Upgrade Notes
 
