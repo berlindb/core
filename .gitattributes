@@ -17,5 +17,6 @@
 /phpunit.xml export-ignore
 /private export-ignore
 /SECURITY.md export-ignore
+/skills export-ignore
 /tests export-ignore
 /vendor export-ignore
