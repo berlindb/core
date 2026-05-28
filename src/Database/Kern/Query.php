@@ -186,8 +186,8 @@ class Query {
 	/**
 	 * Random default value for all query vars.
 	 *
-	 * This private variable temporarily holds onto a random string used as the
-	 * default query var value. This is used internally when performing
+	 * This protected variable temporarily holds onto a random string used as
+	 * the default query var value. This is used internally when performing
 	 * comparisons, and allows for querying by falsy values.
 	 *
 	 * @since 1.1.0
@@ -234,13 +234,15 @@ class Query {
 	/**
 	 * Setup class attributes that rely on other properties.
 	 *
-	 * This method is public to allow subclasses to override it, and allow for
-	 * it to be called directly on a class that has already been used.
+	 * This method is protected to allow subclasses to override setup without
+	 * exposing it as part of the public query API.
 	 *
 	 * @since 3.0.0
 	 */
 	protected function sunrise(): void {
+		$this->set_table_name();
 		$this->set_table_alias();
+		$this->set_cache_group();
 		$this->set_prefixes();
 		$this->set_schema();
 		$this->set_item_shape();
@@ -328,6 +330,36 @@ class Query {
 	/** Private Setters *******************************************************/
 
 	/**
+	 * Set up the table name if not already set in the class.
+	 *
+	 * Falls back to item_name_plural (with hyphens replaced by underscores),
+	 * then to a snake_case derivation of the short class name.
+	 *
+	 * This happens before the table alias and prefixes are applied.
+	 *
+	 * @since 3.0.0
+	 */
+	private function set_table_name(): void {
+
+		// Bail if table name already set.
+		if ( ! empty( $this->table_name ) ) {
+			return;
+		}
+
+		// Derive from item_name_plural if possible, replacing "-" with "_".
+		if ( ! empty( $this->item_name_plural ) ) {
+			$this->table_name = str_replace( '-', '_', $this->item_name_plural );
+			return;
+		}
+
+		// Derive from the short class name as a last resort.
+		$parts            = explode( '\\', static::class );
+		$short            = end( $parts );
+		$short            = (string) preg_replace( '/Query$/i', '', $short );
+		$this->table_name = strtolower( (string) preg_replace( '/([A-Z])/', '_$1', lcfirst( $short ) ) );
+	}
+
+	/**
 	 * Set up the table alias if not already set in the class.
 	 *
 	 * This happens before prefixes are applied.
@@ -338,6 +370,34 @@ class Query {
 		if ( empty( $this->table_alias ) ) {
 			$this->table_alias = $this->first_letters( $this->table_name );
 		}
+	}
+
+	/**
+	 * Set up the cache group if not already set in the class.
+	 *
+	 * Falls back to item_name_plural (with underscores replaced by hyphens),
+	 * then to table_name (already resolved by set_table_name() at this point).
+	 *
+	 * This happens after the table name is resolved and before prefixes are
+	 * applied, so set_prefixes() always sees a non-empty cache group.
+	 *
+	 * @since 3.0.0
+	 */
+	private function set_cache_group(): void {
+
+		// Bail if cache group already set.
+		if ( ! empty( $this->cache_group ) ) {
+			return;
+		}
+
+		// Derive from item_name_plural if possible, replacing "_" with "-".
+		if ( ! empty( $this->item_name_plural ) ) {
+			$this->cache_group = str_replace( '_', '-', $this->item_name_plural );
+			return;
+		}
+
+		// Fall back to the table name.
+		$this->cache_group = str_replace( '_', '-', $this->table_name );
 	}
 
 	/**

@@ -560,8 +560,8 @@ class Column {
 	/**
 	 * Validate arguments after they are parsed.
 	 *
-	 * @since 1.0.0 Private.
-	 * @since 3.0.0 Protected.
+	 * @since 1.0.0 Originally private.
+	 * @since 3.0.0 Changed visibility to protected.
 	 *
 	 * @param array<string, mixed> $args Default empty array.
 	 * @return array<string, mixed>

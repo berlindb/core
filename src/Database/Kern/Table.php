@@ -394,8 +394,8 @@ class Table {
 	/**
 	 * Return the current table version from the database.
 	 *
-	 * This is public method for accessing a private variable so that it cannot
-	 * be externally modified.
+	 * This is a public method for accessing a protected variable so that it
+	 * cannot be externally modified.
 	 *
 	 * @since 1.0.0
 	 *

@@ -142,7 +142,7 @@ class Schema {
 	 */
 	protected $indexes = array();
 
-	/** Public Methods ********************************************************/
+	/** Lifecycle Methods *****************************************************/
 
 	/**
 	 * Early lifecycle hook, called by Traits\Boot before class properties are
@@ -185,6 +185,8 @@ class Schema {
 			$this->setup_items( 'indexes', $this->indexes );
 		}
 	}
+
+	/** Public Item Core ******************************************************/
 
 	/**
 	 * Clear items from the schema.
@@ -279,8 +281,6 @@ class Schema {
 		// Return the item.
 		return $retval;
 	}
-
-	/** Public Item Core ******************************************************/
 
 	/**
 	 * Get a schema item collection by type.
