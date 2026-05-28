@@ -336,9 +336,6 @@ class QueryParserTest extends TestCase {
 		QueryParserSpy::reset();
 
 		$method = new \ReflectionMethod( BerlinQuery::class, 'parse_join_where_parsers' );
-		if ( PHP_VERSION_ID < 80100 ) {
-			$method->setAccessible( true );
-		}
 
 		$result = $method->invoke(
 			$query,
@@ -396,9 +393,6 @@ class QueryParserTest extends TestCase {
 		QueryParserSpy::reset();
 
 		$method = new \ReflectionMethod( BerlinQuery::class, 'parse_join_where_parsers' );
-		if ( PHP_VERSION_ID < 80100 ) {
-			$method->setAccessible( true );
-		}
 
 		$method->invoke(
 			$query,
@@ -436,9 +430,6 @@ class QueryParserTest extends TestCase {
 		QueryParserSpy::reset();
 
 		$method = new \ReflectionMethod( BerlinQuery::class, 'parse_join_where_parsers' );
-		if ( PHP_VERSION_ID < 80100 ) {
-			$method->setAccessible( true );
-		}
 
 		$method->invoke(
 			$query,
@@ -490,16 +481,10 @@ class QueryParserTest extends TestCase {
 			$query = new class() extends TestQuery {};
 
 			$parser_classes = new \ReflectionProperty( BerlinQuery::class, 'query_var_parsers' );
-			if ( PHP_VERSION_ID < 80100 ) {
-				$parser_classes->setAccessible( true );
-			}
 
 			$this->assertSame( array( QueryParserRegistrySpy::class ), $parser_classes->getValue( $query ) );
 
 			$parsers = new \ReflectionProperty( BerlinQuery::class, 'parsers' );
-			if ( PHP_VERSION_ID < 80100 ) {
-				$parsers->setAccessible( true );
-			}
 
 			$this->assertArrayHasKey( 'registry_spy', $parsers->getValue( $query ) );
 		} finally {

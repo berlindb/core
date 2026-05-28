@@ -47,7 +47,6 @@ class ReduceItemTest extends TestCase {
 		}
 		self::$query  = new TestQuery();
 		self::$method = new \ReflectionMethod( TestQuery::class, 'reduce_item' );
-		self::$method->setAccessible( true );
 	}
 
 	/**

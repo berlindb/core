@@ -95,9 +95,6 @@ class QueryCacheTest extends TestCase {
 		$query_b = new TestQuery( $args );
 
 		$get_key = new \ReflectionMethod( TestQuery::class, 'get_cache_key' );
-		if ( PHP_VERSION_ID < 80100 ) {
-			$get_key->setAccessible( true );
-		}
 
 		$key_a = $get_key->invoke( $query_a );
 		$key_b = $get_key->invoke( $query_b );
@@ -234,9 +231,6 @@ class QueryCacheTest extends TestCase {
 		$query_uncached = new TestQuery( array_merge( $args_base, array( 'cache_results' => false ) ) );
 
 		$get_key = new \ReflectionMethod( TestQuery::class, 'get_cache_key' );
-		if ( PHP_VERSION_ID < 80100 ) {
-			$get_key->setAccessible( true );
-		}
 
 		$this->assertSame(
 			$get_key->invoke( $query_cached ),
