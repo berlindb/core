@@ -1,0 +1,40 @@
+services:
+  php:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.test
+      args:
+        PHP_VERSION: "${TEST_PHP_VERSION:-8.2}"
+    volumes:
+      - .:/app
+    working_dir: /app
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      DB_HOST: mysql
+      DB_NAME: berlindb_tests
+      DB_USER: root
+      DB_PASS: "wordpress"
+      WP_VERSION: "${WP_VERSION:-6.7}"
+      SKIP_DB_CREATE: "${SKIP_DB_CREATE:-false}"
+      WP_CORE_DIR: "/app/.cache/wp-core"
+      WP_TESTS_DIR: "/app/.cache/wordpress-tests-lib"
+      HTTP_PROXY: "${HTTP_PROXY:-}"
+      HTTPS_PROXY: "${HTTPS_PROXY:-}"
+      NO_PROXY: "${NO_PROXY:-}"
+      http_proxy: "${http_proxy:-}"
+      https_proxy: "${https_proxy:-}"
+      no_proxy: "${no_proxy:-}"
+    command: bin/run-tests-internal.sh
+
+  mysql:
+    image: mariadb:${MARIADB_VERSION:-10.2}
+    environment:
+      MYSQL_ROOT_PASSWORD: "wordpress"
+      MARIADB_ROOT_PASSWORD: "wordpress"
+    healthcheck:
+      test: ["CMD-SHELL", "healthcheck.sh --connect --innodb_initialized 2>/dev/null || mysqladmin ping -h 127.0.0.1 -pwordpress --silent --ssl=FALSE"]
+      interval: 5s
+      timeout: 5s
+      retries: 12

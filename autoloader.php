@@ -1,30 +1,57 @@
 <?php
 /**
- * Autoloader.
+ * BerlinDB Autoloader.
  *
  * @package     Database
- * @copyright   Copyright (c) 2021
+ * @subpackage  Autoloader
+ * @copyright   2021-2022 - JJJ and all BerlinDB Contributors
  * @license     https://opensource.org/licenses/MIT MIT
  * @since       2.0.0
  */
 
-// Exit if accessed directly.
-defined( 'ABSPATH' ) || exit;
-
-// Register a closure to autoload BerlinDB.
+/**
+ * Register a closure to autoload BerlinDB classes.
+ */
 spl_autoload_register(
 
 	/**
-	 * Closure of the autoloader.
+	 * Closure for the autoloader.
 	 *
-	 * @param string $class_name The fully-qualified class name.
+	 * @since 2.0.0
+	 * @param string $class_name A fully-qualified class name.
 	 * @return void
 	 */
 	static function ( $class_name = '' ) {
 
+		$legacy_kern_classes = array(
+			'BerlinDB\\Database\\Column' => 'BerlinDB\\Database\\Kern\\Column',
+			'BerlinDB\\Database\\Index'  => 'BerlinDB\\Database\\Kern\\Index',
+			'BerlinDB\\Database\\Query'  => 'BerlinDB\\Database\\Kern\\Query',
+			'BerlinDB\\Database\\Row'    => 'BerlinDB\\Database\\Kern\\Row',
+			'BerlinDB\\Database\\Schema' => 'BerlinDB\\Database\\Kern\\Schema',
+			'BerlinDB\\Database\\Table'  => 'BerlinDB\\Database\\Kern\\Table',
+		);
+
+		if ( isset( $legacy_kern_classes[ $class_name ] ) ) {
+			$target = $legacy_kern_classes[ $class_name ];
+			$strip  = str_replace( 'BerlinDB\\', '', $target );
+			$name   = str_replace( '\\', DIRECTORY_SEPARATOR, $strip );
+			$file   = sprintf( '%1$s/src/%2$s.php', __DIR__, $name );
+
+			if ( is_file( $file ) ) {
+				require_once $file;
+
+				if ( class_exists( $target, false ) && ! class_exists( $class_name, false ) ) {
+					class_alias( $target, $class_name );
+				}
+			}
+
+			return;
+		}
+
 		// Project namespace & length.
-		$root_namespace = 'BerlinDB\\';
-		$project_namespace = 'BerlinDB\\Database\\';
+		$root_namespace    = 'BerlinDB\\';
+		$project_namespace = $root_namespace . 'Database\\';
 		$length            = strlen( $project_namespace );
 
 		// Bail if class is not in this namespace.
@@ -33,11 +60,12 @@ spl_autoload_register(
 		}
 
 		// Setup file parts.
-		$format = '%1$s/src/%2$s.php';
-		$path   = __DIR__;
-		$name   = str_replace( '\\', DIRECTORY_SEPARATOR, str_replace( $root_namespace, '', $class_name ) );
+		$strip  = str_replace( $root_namespace, '', $class_name );
+		$name   = str_replace( '\\', DIRECTORY_SEPARATOR, $strip );
 
 		// Parse class and namespace to file.
+		$format = '%1$s/src/%2$s.php';
+		$path   = __DIR__;
 		$file   = sprintf( $format, $path, $name );
 
 		// Bail if file does not exist.
@@ -46,6 +74,6 @@ spl_autoload_register(
 		}
 
 		// Require the file.
-		require $file;
+		require_once $file;
 	}
 );

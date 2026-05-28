@@ -1,33 +1,259 @@
 # BerlinDB
 
-BerlinDB is a collection of PHP classes and functions that aims to provide an <a href="https://en.wikipedia.org/wiki/Object-relational_mapping">ORM</a>-like experience and interface to WordPress database tables.
+[![CI](https://github.com/berlindb/core/actions/workflows/ci.yml/badge.svg)](https://github.com/berlindb/core/actions/workflows/ci.yml)
+[![Packagist Version](https://img.shields.io/packagist/v/berlindb/core.svg)](https://packagist.org/packages/berlindb/core)
+[![PHP Version](https://img.shields.io/packagist/dependency-v/berlindb/core/php.svg)](https://packagist.org/packages/berlindb/core)
+[![License](https://img.shields.io/packagist/l/berlindb/core.svg)](LICENSE)
 
-This repository contains all of the code that is required to be included in your WordPress project.
+BerlinDB provides an ORM-like interface for custom database tables in
+WordPress.
 
-The most common use-case for BerlinDB is a WordPress Plugin that needs to create custom database tables, but more advanced uses are possible, including managing and interfacing with the WordPress Core database tables themselves.
+Use it when custom post types, taxonomies, or post meta are no longer the right
+storage model for your data, but you still want a WordPress-native developer
+experience: `wpdb` compatibility, schema objects, query builders, row objects,
+caching hooks, and table upgrade routines.
 
-Future repositories in this organization will contain examples, extensions, drop-ins, unit tests, and more.
+## Requirements
 
-----
+- PHP 8.1 or newer
+- WordPress
+- Composer
 
-The name of this project comes from WordCamp Europe 2019, where it was <a href="https://jjj.blog/wceu-2019/">originally announced</a> as an unnamed library. Thank you to <a href="https://peterwilson.cc">Peter Wilson</a> for the idea to pay homage to such a wonderful audience.
+## Installation
 
-----
+```bash
+composer require berlindb/core
+```
 
-The code in this repository represents the cumulative effort of dozens of individuals across multiple projects, spanning multiple continents, native languages, and years of conceptual development:
+## Quick Start
 
-* Easy Digital Downloads (<a href="https://github.com/easydigitaldownloads/easy-digital-downloads/tree/release/3.0">3.0 and higher</a>)
-* Sugar Calendar (<a href="https://github.com/sugarcalendar/sugar-event-calendar-lite">2.0 and higher</a>)
-* Restrict Content Pro (<a href="https://github.com/restrictcontentpro">3.1 and higher</a>)
-* WordPress Multisite (<a href="https://make.wordpress.org/core/components/networks-sites/">inspired by</a>)
-* BuddyPress (<a href="https://buddypress.org">inspired by</a>)
+A typical integration defines four small classes:
 
-These projects all require custom database tables to achieve their goals (and to meet the expectations that their users have in them) to perform and scale flawlessly in a highly available WordPress based web application.
+- a `Schema` that describes columns and indexes
+- a `Table` that creates and upgrades the database table
+- a `Row` that shapes returned records
+- a `Query` that reads and writes records
 
-Each of these projects originally implemented their own bespoke approaches to database management, resulting in a massive amount of code duplication, rework, and eventual fragmentation of approaches and ideas.
+### Define A Schema
 
-This project helps avoid those issues by (somewhat magically) limiting how much code you need to write to accomplish the same repetitive database related tasks.
+```php
+<?php
 
-----
+namespace Acme\Plugin\Database;
 
-This organization was created by <a href="https://github.com/JJJ">John James Jacoby</a> while working at <a href="https://sandhillsdev.com">Sandhills Development, LLC</a>.
+use BerlinDB\Database\Kern\Schema;
+
+class WidgetSchema extends Schema {
+
+	public $columns = array(
+		array(
+			'name'      => 'id',
+			'type'      => 'bigint',
+			'length'    => '20',
+			'unsigned'  => true,
+			'extra'     => 'auto_increment',
+			'default'   => false,
+			'cache_key' => true,
+			'sortable'  => true,
+		),
+		array(
+			'name'       => 'name',
+			'type'       => 'varchar',
+			'length'     => '200',
+			'default'    => '',
+			'searchable' => true,
+			'sortable'   => true,
+		),
+		array(
+			'name'      => 'status',
+			'type'      => 'varchar',
+			'length'    => '20',
+			'default'   => 'active',
+			'cache_key' => true,
+			'in'        => true,
+			'not_in'    => true,
+		),
+		array(
+			'name'     => 'date_created',
+			'type'     => 'datetime',
+			'default'  => '',
+			'created'  => true,
+			'sortable' => true,
+		),
+	);
+
+	public $indexes = array(
+		array(
+			'type'    => 'primary',
+			'columns' => array( 'id' ),
+		),
+		array(
+			'name'    => 'status',
+			'type'    => 'key',
+			'columns' => array( 'status' ),
+		),
+	);
+}
+```
+
+### Define A Table
+
+```php
+<?php
+
+namespace Acme\Plugin\Database;
+
+use BerlinDB\Database\Kern\Table;
+
+class WidgetTable extends Table {
+
+	protected $schema = WidgetSchema::class;
+
+	protected $name = 'acme_widgets';
+
+	protected $version = '202605280';
+}
+```
+
+Create or upgrade the table during your plugin's install or upgrade routine:
+
+```php
+( new WidgetTable() )->install();
+```
+
+### Define A Row
+
+```php
+<?php
+
+namespace Acme\Plugin\Database;
+
+use BerlinDB\Database\Kern\Row;
+
+class Widget extends Row {
+
+	public $id = 0;
+
+	public $name = '';
+
+	public $status = 'active';
+
+	public $date_created = '';
+}
+```
+
+### Define A Query
+
+```php
+<?php
+
+namespace Acme\Plugin\Database;
+
+use BerlinDB\Database\Kern\Query;
+
+class WidgetQuery extends Query {
+
+	protected $prefix = 'acme';
+
+	protected $table_name = 'widgets';
+
+	protected $table_alias = 'w';
+
+	protected $table_schema = WidgetSchema::class;
+
+	protected $item_name = 'widget';
+
+	protected $item_name_plural = 'widgets';
+
+	protected $item_shape = Widget::class;
+
+	protected $cache_group = 'acme-widgets';
+}
+```
+
+### Query Data
+
+```php
+$query = new WidgetQuery();
+
+$widget_id = $query->add_item(
+	array(
+		'name'   => 'Example',
+		'status' => 'active',
+	)
+);
+
+$widget = $query->get_item( $widget_id );
+
+$active_widgets = $query->query(
+	array(
+		'status__in' => array( 'active', 'pending' ),
+		'orderby'    => 'date_created',
+		'order'      => 'DESC',
+		'number'     => 20,
+	)
+);
+
+$query->update_item(
+	$widget_id,
+	array(
+		'status' => 'archived',
+	)
+);
+
+$query->delete_item( $widget_id );
+```
+
+## Documentation
+
+The project wiki contains deeper documentation for the current object model,
+including adapters, interfaces, traits, parsers, operators, schemas, tables, and
+queries.
+
+- [Packagist](https://packagist.org/packages/berlindb/core)
+- [BerlinDB Wiki](https://github.com/berlindb/core/wiki)
+- [Changelog](CHANGELOG.md)
+- [Open Issues](https://github.com/berlindb/core/issues)
+
+## Development
+
+Install dependencies:
+
+```bash
+composer install
+```
+
+Run the default test suite:
+
+```bash
+bin/run-tests.sh -- --group default
+```
+
+Run the suite against a specific PHP and WordPress version:
+
+```bash
+bin/run-tests.sh -p 8.1 -w 6.7 -- --group default
+```
+
+Run static analysis and coding standards:
+
+```bash
+vendor/bin/phpstan analyse --memory-limit=1G
+vendor/bin/phpcs
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full local workflow.
+
+## Name
+
+BerlinDB is named for [WordCamp Europe 2019](https://europe.wordcamp.org/2019/)
+in Berlin, Germany, where it was
+[originally exhibited and announced](https://jjj.blog/wceu-2019/) as an unnamed
+utility being used by the Sandhills Development engineering team.
+
+[Peter Wilson](https://peterwilson.cc) recommended naming it "Berlin" to
+commemorate everyone in attendance for its unveiling. Thanks, Peter.
+
+## License
+
+BerlinDB is open-source software licensed under the [MIT license](LICENSE).

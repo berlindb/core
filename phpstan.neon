@@ -1,0 +1,10 @@
+parameters:
+    level: 8
+    paths:
+        - src/
+    bootstrapFiles:
+        - vendor/szepeviktor/phpstan-wordpress/bootstrap.php
+    treatPhpDocTypesAsCertain: false
+    stubFiles:
+        - phpstan/stubs/wpdb.stub.php
+

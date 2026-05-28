@@ -1,0 +1,108 @@
+<?xml version="1.0"?>
+<ruleset name="BerlinDB">
+	<description>BerlinDB coding standards — WordPress Core standard with PSR-4 library exceptions.</description>
+
+	<file>src/</file>
+	<file>tests/</file>
+
+	<arg name="extensions" value="php"/>
+	<arg name="colors"/>
+	<arg value="sp"/>
+
+	<rule ref="WordPress-Core"/>
+
+	<!--
+		BerlinDB uses PSR-4 autoloading with PascalCase class names and filenames.
+		WordPress filename conventions (lowercase-hyphenated, class- prefix) do not apply.
+	-->
+	<rule ref="WordPress.Files.FileName">
+		<exclude-pattern>*</exclude-pattern>
+	</rule>
+
+	<!--
+		BerlinDB uses spaces inside array brackets (e.g. $arr[ 'key' ]) for readability.
+		This is an intentional style choice that differs from the WordPress standard.
+	-->
+	<rule ref="WordPress.Arrays.ArrayKeySpacingRestrictions.SpacesAroundArrayKeys">
+		<exclude-pattern>*</exclude-pattern>
+	</rule>
+
+	<!--
+		PHPDoc uses generic types like list<string> and array<K,V> for PHPStan-level
+		type analysis. PHP runtime type hints can only express 'array', so PHPCS
+		incorrectly flags these as mismatched. The generics are intentional.
+	-->
+	<rule ref="Squiz.Commenting.FunctionComment.IncorrectTypeHint">
+		<exclude-pattern>*</exclude-pattern>
+	</rule>
+
+	<!--
+		This sniff produces too many false positives in BerlinDB:
+		  - PHPStan inline /* @var Type $var */ type assertions
+		  - CAST() and other MySQL keyword labels in explanatory comments
+		  - URL comments like https://...
+		Real commented-out code is reviewed in PRs.
+	-->
+	<rule ref="Squiz.PHP.CommentedOutCode">
+		<exclude-pattern>*</exclude-pattern>
+	</rule>
+
+	<!--
+		These sniffs produce false positives that conflict with BerlinDB conventions
+		or PHPStan generics usage.
+	-->
+	<rule ref="Generic.Commenting.DocComment.ShortNotCapital">
+		<exclude-pattern>*</exclude-pattern>
+	</rule>
+	<rule ref="Generic.Commenting.DocComment.LongNotCapital">
+		<exclude-pattern>*</exclude-pattern>
+	</rule>
+	<rule ref="Squiz.Commenting.FunctionComment">
+		<exclude-pattern>*</exclude-pattern>
+	</rule>
+	<rule ref="Universal.NamingConventions.NoReservedKeywordParameterNames">
+		<exclude-pattern>*</exclude-pattern>
+	</rule>
+	<rule ref="Squiz.PHP.DisallowMultipleAssignments">
+		<exclude-pattern>*</exclude-pattern>
+	</rule>
+	<rule ref="Generic.CodeAnalysis.AssignmentInCondition">
+		<exclude-pattern>*</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase">
+		<exclude-pattern>*</exclude-pattern>
+	</rule>
+	<rule ref="PEAR.Functions.FunctionCallSignature.SpaceBeforeCloseBracket">
+		<exclude-pattern>*</exclude-pattern>
+	</rule>
+
+	<!--
+		BerlinDB intentionally aligns = signs across blank-line and comment boundaries.
+		Keep as warning only; set maxPadding high so extended cross-group alignment is allowed.
+	-->
+	<rule ref="Generic.Formatting.MultipleStatementAlignment">
+		<properties>
+			<property name="maxPadding" value="1000000"/>
+			<property name="error" value="false"/>
+		</properties>
+	</rule>
+
+	<!--
+		Multiple classes per file is acceptable in test helper and spy files.
+	-->
+	<rule ref="Generic.Files.OneObjectStructurePerFile">
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+
+	<!--
+		Direct DB queries, no-caching, and slow query patterns are expected and
+		intentional in integration tests.
+	-->
+	<rule ref="WordPress.DB.DirectDatabaseQuery">
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.DB.SlowDBQuery">
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+
+</ruleset>
