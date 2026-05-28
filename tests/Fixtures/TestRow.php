@@ -10,7 +10,7 @@
 
 namespace BerlinDB\Tests\Fixtures;
 
-use BerlinDB\Database\Row;
+use BerlinDB\Database\Kern\Row;
 
 /**
  * Typed row wrapper for test_widgets table rows.
@@ -18,6 +18,9 @@ use BerlinDB\Database\Row;
  * @since 2.1.0
  */
 class TestRow extends Row {
+
+	/** @var array<string,mixed> */
+	public $args = array();
 
 	/** @var int */
 	public $id = 0;

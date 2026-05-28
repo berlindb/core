@@ -10,21 +10,24 @@
 
 namespace BerlinDB\Tests\Fixtures;
 
-use BerlinDB\Database\Query;
+use BerlinDB\Database\Kern\Query;
 
 /**
  * Query implementation for the test_widgets table.
  *
  * $table_name must match the $name set in TestTable (= the value registered
  * on $wpdb after TestTable is constructed). Query resolves the full table name
- * via get_db()->{$this->table_name}.
+ * via db()->{$this->table_name}.
  *
  * @since 2.1.0
  */
 class TestQuery extends Query {
 
 	/** @var string */
-	protected $table_name = 'berlindb_test_widgets';
+	protected $prefix = 'berlindb_database';
+
+	/** @var string */
+	protected $table_name = 'test_widgets';
 
 	/** @var string */
 	protected $table_alias = 'tw';

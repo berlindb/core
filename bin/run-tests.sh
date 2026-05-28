@@ -14,6 +14,7 @@
 #   bin/run-tests.sh
 #   bin/run-tests.sh -p 8.1
 #   bin/run-tests.sh -p 8.2 -w 6.4
+#   bin/run-tests.sh -w 6.7.2
 #   bin/run-tests.sh -d 11.8
 #   bin/run-tests.sh -- --filter ColumnTest
 #   bin/run-tests.sh -- --testdox

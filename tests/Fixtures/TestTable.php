@@ -10,7 +10,7 @@
 
 namespace BerlinDB\Tests\Fixtures;
 
-use BerlinDB\Database\Table;
+use BerlinDB\Database\Kern\Table;
 
 /**
  * Concrete Table implementation for test_widgets table.
@@ -26,12 +26,20 @@ use BerlinDB\Database\Table;
 final class TestTable extends Table {
 
 	/**
+	 * Schema class used by the table.
+	 *
+	 * @since 3.0.0
+	 * @var string
+	 */
+	protected $schema = TestSchema::class;
+
+	/**
 	 * Table name (without wpdb prefix).
 	 *
 	 * @since 2.1.0
 	 * @var string
 	 */
-	protected $name = 'berlindb_test_widgets';
+	protected $name = 'berlindb_database_test_widgets';
 
 	/**
 	 * Current table version.
@@ -60,24 +68,6 @@ final class TestTable extends Table {
 	);
 
 	/**
-	 * Set the table schema as a raw SQL string.
-	 *
-	 * @since 2.1.0
-	 */
-	protected function set_schema() {
-		$this->schema =
-			'id bigint(20) unsigned NOT NULL auto_increment,' .
-			"name varchar(200) NOT NULL default ''," .
-			"status varchar(20) NOT NULL default 'active'," .
-			'priority bigint(20) unsigned NOT NULL default 0,' .
-			'date_created datetime NOT NULL default CURRENT_TIMESTAMP,' .
-			'date_modified datetime NOT NULL default CURRENT_TIMESTAMP,' .
-			"uuid varchar(100) NOT NULL default ''," .
-			'PRIMARY KEY (id),' .
-			'KEY status (status)';
-	}
-
-	/**
 	 * Upgrade to version 2: add a notes column.
 	 *
 	 * Used by test_upgrade_runs_callback_and_adds_column().
@@ -87,7 +77,7 @@ final class TestTable extends Table {
 	 */
 	protected function __202604231() {
 		if ( ! $this->column_exists( 'notes' ) ) {
-			$result = $this->get_db()->query(
+			$result = $this->db()->query(
 				"ALTER TABLE {$this->table_name} ADD COLUMN notes longtext NOT NULL default ''"
 			);
 			return $this->is_success( $result );

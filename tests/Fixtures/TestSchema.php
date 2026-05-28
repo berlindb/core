@@ -10,7 +10,7 @@
 
 namespace BerlinDB\Tests\Fixtures;
 
-use BerlinDB\Database\Schema;
+use BerlinDB\Database\Kern\Schema;
 
 /**
  * Minimal Schema fixture covering all common column flags.
@@ -31,13 +31,14 @@ class TestSchema extends Schema {
 
 		// Primary key.
 		array(
-			'name'     => 'id',
-			'type'     => 'bigint',
-			'length'   => '20',
-			'unsigned' => true,
-			'extra'    => 'auto_increment',
-			'primary'  => true,
-			'sortable' => true,
+			'name'      => 'id',
+			'type'      => 'bigint',
+			'length'    => '20',
+			'unsigned'  => true,
+			'extra'     => 'auto_increment',
+			'default'   => false,
+			'cache_key' => true,
+			'sortable'  => true,
 		),
 
 		// Searchable, sortable varchar.
@@ -98,6 +99,24 @@ class TestSchema extends Schema {
 		// UUID column — exercises special_args() UUID branch.
 		array(
 			'uuid' => true,
+		),
+	);
+
+	/**
+	 * Index definitions.
+	 *
+	 * @since 3.0.0
+	 * @var array
+	 */
+	public $indexes = array(
+		array(
+			'type'    => 'primary',
+			'columns' => array( 'id' ),
+		),
+		array(
+			'name'    => 'status',
+			'type'    => 'key',
+			'columns' => array( 'status' ),
 		),
 	);
 }

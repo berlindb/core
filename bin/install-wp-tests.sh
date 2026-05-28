@@ -25,10 +25,29 @@ WP_TESTS_DIR=${WP_TESTS_DIR-$TMPDIR/wordpress-tests-lib}
 WP_CORE_DIR=${WP_CORE_DIR-$TMPDIR/wordpress}
 
 download() {
-	if [ $(which curl) ]; then
-		curl -s "$1" > "$2"
-	elif [ $(which wget) ]; then
-		wget -nv -O "$2" "$1"
+	if command -v curl >/dev/null 2>&1; then
+		if ! curl -fsSL "$1" > "$2"; then
+			if ! curl -fsSL --noproxy '*' "$1" > "$2"; then
+				if [[ "$1" == https://* ]]; then
+					curl -fsSL --noproxy '*' "${1/https:\/\//http://}" > "$2"
+				else
+					return 1
+				fi
+			fi
+		fi
+	elif command -v wget >/dev/null 2>&1; then
+		if ! wget -q -O "$2" "$1"; then
+			if ! wget --no-proxy -q -O "$2" "$1"; then
+				if [[ "$1" == https://* ]]; then
+					wget --no-proxy -q -O "$2" "${1/https:\/\//http://}"
+				else
+					return 1
+				fi
+			fi
+		fi
+	else
+		echo "Could not find curl or wget; install one of them to continue"
+		exit 1
 	fi
 }
 
@@ -44,9 +63,9 @@ elif [[ $WP_VERSION =~ [0-9]+\.[0-9]+\.[0-9]+ ]]; then
 elif [[ $WP_VERSION == 'nightly' || $WP_VERSION == 'trunk' ]]; then
 	WP_TESTS_TAG="trunk"
 else
-	# http: //api.wordpress.org/core/version-check/1.7/
-	download http://api.wordpress.org/core/version-check/1.7/ /tmp/wp-latest.json
-	LATEST_VERSION=$(grep -o '"version":"[^"]*"' /tmp/wp-latest.json | sed 's/"version":"//;s/"//')
+	# https://api.wordpress.org/core/version-check/1.7/
+	download https://api.wordpress.org/core/version-check/1.7/ /tmp/wp-latest.json
+	LATEST_VERSION=$(grep -o '"version":"[^"]*"' /tmp/wp-latest.json | sed 's/"version":"//;s/"//' | head -n 1)
 	if [[ -z "$LATEST_VERSION" ]]; then
 		echo "Latest WordPress version could not be found"
 		exit 1
@@ -94,8 +113,8 @@ install_test_suite() {
 		local ioption='-i'
 	fi
 
-	# set up testing suite if it doesn't yet exist
-	if [ ! -d $WP_TESTS_DIR ]; then
+	# set up testing suite if it doesn't yet exist or is incomplete
+	if [ ! -f "$WP_TESTS_DIR/includes/functions.php" ]; then
 		mkdir -p $WP_TESTS_DIR
 
 		# Install test suite files from WordPress develop

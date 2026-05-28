@@ -29,6 +29,10 @@ require_once $library_dir . '/vendor/yoast/wp-test-utils/src/WPIntegration/boots
 // Resolve WP_TESTS_DIR (env var → constant → /tmp/wordpress-tests-lib).
 $_tests_dir = WPIntegration\get_path_to_wp_test_dir();
 
+if ( empty( $_tests_dir ) ) {
+	$_tests_dir = '/tmp/wordpress-tests-lib';
+}
+
 if ( ! defined( 'WP_TESTS_DIR' ) ) {
 	define( 'WP_TESTS_DIR', $_tests_dir );
 }
@@ -42,8 +46,10 @@ if ( ! file_exists( $_tests_dir . '/includes/functions.php' ) ) {
 // Give access to tests_add_filter().
 require_once $_tests_dir . '/includes/functions.php';
 
-// BerlinDB is a library loaded via Composer — no plugin to activate.
-// bootstrap_it() defines ABSPATH, which every src/ file guards against.
+/*
+ * BerlinDB is a library loaded via Composer — no plugin to activate.
+ * bootstrap_it() defines ABSPATH, which every src/ file guards against.
+ */
 WPIntegration\bootstrap_it();
 
 // Load test fixture classes after ABSPATH is defined.

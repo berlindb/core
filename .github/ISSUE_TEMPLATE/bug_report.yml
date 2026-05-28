@@ -1,0 +1,46 @@
+name: Bug Report
+description: Report something that is not working as expected.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps To Reproduce
+      description: Include the smallest example you can.
+      placeholder: |
+        1. Define a table with...
+        2. Run a query with...
+        3. See...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: BerlinDB Version
+      placeholder: 3.0.0
+  - type: input
+    id: php
+    attributes:
+      label: PHP Version
+      placeholder: 8.1
+  - type: input
+    id: wordpress
+    attributes:
+      label: WordPress Version
+      placeholder: 6.7

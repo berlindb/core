@@ -12,11 +12,11 @@ WP_VERSION="${WP_VERSION:-latest}"
 
 # Use a path distinct from /tmp/wordpress so the install script's
 # unzip+mv doesn't collide with the mkdir it creates first.
-export WP_CORE_DIR=/tmp/wp-core
+export WP_CORE_DIR="${WP_CORE_DIR:-/tmp/wp-core}"
 
 composer install --no-interaction --prefer-dist -q
 
-bin/install-wp-tests.sh "$DB_NAME" "$DB_USER" "$DB_PASS" "$DB_HOST" "$WP_VERSION"
+bin/install-wp-tests.sh "$DB_NAME" "$DB_USER" "$DB_PASS" "$DB_HOST" "$WP_VERSION" "${SKIP_DB_CREATE:-false}"
 
 printf "\n"
 echo "🐘 PHP version:       $(php -v | head -n 1 | cut -d' ' -f2)"
@@ -33,4 +33,9 @@ if [[ -n "$PHPUNIT_ARGS" ]]; then
 	vendor/bin/phpunit $PHPUNIT_ARGS
 else
 	vendor/bin/phpunit
+fi
+
+printf "\n"
+if [[ "${SKIP_PHPCS:-false}" != "true" ]]; then
+	vendor/bin/phpcs
 fi
