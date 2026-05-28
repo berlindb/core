@@ -1,9 +1,15 @@
 {
   "name": "berlindb/core",
   "description": "A collection of PHP classes and functions that aims to provide an ORM-like experience and interface to WordPress database tables.",
-  "version": "2.1.0",
   "type": "library",
   "license": "MIT",
+  "require": {
+    "php": ">=8.1"
+  },
+  "support": {
+    "issues": "https://github.com/berlindb/core/issues",
+    "source": "https://github.com/berlindb/core"
+  },
   "autoload": {
     "psr-4": {
       "BerlinDB\\": "src/"
@@ -34,7 +40,7 @@
       "dealerdirect/phpcodesniffer-composer-installer": true
     },
     "platform": {
-      "php": "8.2"
+      "php": "8.1"
     }
   }
 }

@@ -1,0 +1,17 @@
+/.cache export-ignore
+/.gitattributes export-ignore
+/.github export-ignore
+/.gitignore export-ignore
+/.phpunit.result.cache export-ignore
+/bin export-ignore
+/composer.lock export-ignore
+/docker export-ignore
+/docker-compose-phpunit.yml export-ignore
+/phpcs.xml export-ignore
+/phpcs.xml.dist export-ignore
+/phpstan export-ignore
+/phpstan.neon export-ignore
+/phpunit.xml export-ignore
+/private export-ignore
+/tests export-ignore
+/vendor export-ignore
