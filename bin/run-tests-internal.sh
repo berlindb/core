@@ -36,4 +36,6 @@ else
 fi
 
 printf "\n"
-vendor/bin/phpcs
+if [[ "${SKIP_PHPCS:-false}" != "true" ]]; then
+	vendor/bin/phpcs
+fi
