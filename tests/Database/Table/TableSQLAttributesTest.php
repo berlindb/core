@@ -218,17 +218,17 @@ class TableSQLAttributesTest extends TestCase {
 	}
 
 	// -------------------------------------------------------------------------
-	// set_increment().
+	// auto_increment().
 	// -------------------------------------------------------------------------
 
 	/**
-	 * set_increment() must update the table's AUTO_INCREMENT counter and
+	 * auto_increment() must update the table's AUTO_INCREMENT counter and
 	 * return true.
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_set_increment_updates_the_counter(): void {
-		$result = self::$table->set_increment( 500 );
+	public function test_auto_increment_method_updates_the_counter(): void {
+		$result = self::$table->auto_increment( 500 );
 		$status = self::$table->status();
 
 		$this->assertTrue( $result );
@@ -236,20 +236,78 @@ class TableSQLAttributesTest extends TestCase {
 	}
 
 	/**
-	 * set_increment(0) must return false without touching the database.
+	 * auto_increment(0) must return false without touching the database.
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_set_increment_returns_false_for_zero(): void {
-		$this->assertFalse( self::$table->set_increment( 0 ) );
+	public function test_auto_increment_method_returns_false_for_zero(): void {
+		$this->assertFalse( self::$table->auto_increment( 0 ) );
 	}
 
 	/**
-	 * set_increment() with a negative value must return false.
+	 * auto_increment() with a negative value must return false.
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_set_increment_returns_false_for_negative_value(): void {
-		$this->assertFalse( self::$table->set_increment( -1 ) );
+	public function test_auto_increment_method_returns_false_for_negative_value(): void {
+		$this->assertFalse( self::$table->auto_increment( -1 ) );
+	}
+
+	// -------------------------------------------------------------------------
+	// engine().
+	// -------------------------------------------------------------------------
+
+	/**
+	 * engine() must convert the table's storage engine and return true.
+	 *
+	 * Converts to InnoDB (the existing engine on the fixture table), which is
+	 * effectively a no-op but still runs the ALTER TABLE successfully.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_engine_method_converts_storage_engine(): void {
+		$result = self::$table->engine( 'InnoDB' );
+		$status = self::$table->status();
+
+		$this->assertTrue( $result );
+		$this->assertEqualsIgnoringCase( 'InnoDB', $status->Engine ); // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
+	}
+
+	/**
+	 * engine() must return false for an unrecognised engine name.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_engine_method_returns_false_for_invalid_engine(): void {
+		$this->assertFalse( self::$table->engine( 'NOTANENGINE' ) );
+	}
+
+	// -------------------------------------------------------------------------
+	// get_create_sql().
+	// -------------------------------------------------------------------------
+
+	/**
+	 * get_create_sql() must return a non-empty string for an existing table.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_get_create_sql_returns_string_for_existing_table(): void {
+		$sql = self::$table->get_create_sql();
+
+		$this->assertIsString( $sql );
+		$this->assertNotEmpty( $sql );
+	}
+
+	/**
+	 * The returned SQL must contain CREATE TABLE and the fixture table name.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_get_create_sql_contains_create_table_and_table_name(): void {
+		$sql = self::$table->get_create_sql();
+
+		$this->assertIsString( $sql );
+		$this->assertStringContainsStringIgnoringCase( 'CREATE TABLE', $sql );
+		$this->assertStringContainsString( 'berlindb_database_test_widgets', $sql );
 	}
 }

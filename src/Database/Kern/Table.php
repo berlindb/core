@@ -43,6 +43,30 @@ class Table {
 	use \BerlinDB\Database\Traits\Base;
 	use \BerlinDB\Database\Traits\Boot;
 
+	/** Constants *************************************************************/
+
+	/**
+	 * Storage engines recognised by MySQL / MariaDB in WordPress environments.
+	 *
+	 * Used by sanitize_engine() and engine() to validate values before they
+	 * are interpolated into SQL strings.
+	 *
+	 * @since 3.1.0
+	 * @var   array<int, string>
+	 */
+	private const ENGINES = array( 'INNODB', 'MYISAM', 'MEMORY', 'ARCHIVE', 'CSV', 'BLACKHOLE', 'MERGE', 'ARIA' );
+
+	/**
+	 * Row formats recognised by MySQL / MariaDB.
+	 *
+	 * Used by sanitize_row_format() to validate values before they are
+	 * interpolated into SQL strings.
+	 *
+	 * @since 3.1.0
+	 * @var   array<int, string>
+	 */
+	private const ROW_FORMATS = array( 'DEFAULT', 'DYNAMIC', 'FIXED', 'COMPACT', 'COMPRESSED', 'REDUNDANT' );
+
 	/** Attributes ************************************************************/
 
 	/**
@@ -188,7 +212,7 @@ class Table {
 	 *
 	 * Useful for reserving low IDs for fixture or seed data. 0 or 1 defers
 	 * to the engine default (next available value, effectively 1 on a new
-	 * table). Use set_increment() to reseed an existing table at runtime.
+	 * table). Use auto_increment() to reseed an existing table at runtime.
 	 *
 	 * @since 3.1.0
 	 * @var   int
@@ -347,10 +371,9 @@ class Table {
 	 * @return string
 	 */
 	private function sanitize_engine( $v ): string {
-		$allowed = array( 'INNODB', 'MYISAM', 'MEMORY', 'ARCHIVE', 'CSV', 'BLACKHOLE', 'MERGE', 'ARIA' );
-		$upper   = strtoupper( (string) $v );
+		$upper = strtoupper( (string) $v );
 
-		return in_array( $upper, $allowed, true )
+		return in_array( $upper, self::ENGINES, true )
 			? $upper
 			: '';
 	}
@@ -367,10 +390,9 @@ class Table {
 	 * @return string
 	 */
 	private function sanitize_row_format( $v ): string {
-		$allowed = array( 'DEFAULT', 'DYNAMIC', 'FIXED', 'COMPACT', 'COMPRESSED', 'REDUNDANT' );
-		$upper   = strtoupper( (string) $v );
+		$upper = strtoupper( (string) $v );
 
-		return in_array( $upper, $allowed, true )
+		return in_array( $upper, self::ROW_FORMATS, true )
 			? $upper
 			: '';
 	}
@@ -601,17 +623,37 @@ class Table {
 	 */
 	public function status() {
 
-		// Query statement.
+		// Query statement — SHOW TABLE STATUS LIKE exact_name returns at most one row.
 		$sql      = 'SHOW TABLE STATUS LIKE %s';
 		$like     = $this->db()->esc_like( $this->table_name );
 		$prepared = $this->db()->prepare( $sql, $like );
-		$query    = (array) $this->db()->get_results( $prepared );
-		$result   = end( $query );
+		$result   = $this->db()->get_row( $prepared );
 
 		// Does the table exist?
-		return $this->is_success( $result )
+		return is_object( $result )
 			? $result
 			: false;
+	}
+
+	/**
+	 * Return the CREATE TABLE SQL for this table.
+	 *
+	 * Runs SHOW CREATE TABLE and returns the SQL string from the result.
+	 * Useful for debugging schema drift and as input for rollback tooling.
+	 * Returns false if the table does not exist or the query fails.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return string|false
+	 */
+	public function get_create_sql(): string|false {
+
+		// Query statement — SHOW CREATE TABLE always returns exactly one row.
+		$sql    = "SHOW CREATE TABLE {$this->table_name}";
+		$result = $this->db()->get_row( $sql );
+
+		// Return the CREATE TABLE definition, or false on failure.
+		return ( is_object( $result ) && isset( $result->{'Create Table'} ) ) ? $result->{'Create Table'} : false; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
 	}
 
 	/**
@@ -726,7 +768,7 @@ class Table {
 	 * @param int $value The next AUTO_INCREMENT value to assign. Must be >= 1.
 	 * @return bool
 	 */
-	public function set_increment( int $value ): bool {
+	public function auto_increment( int $value ): bool {
 
 		// Bail if the value is not positive.
 		if ( $value < 1 ) {
@@ -738,6 +780,35 @@ class Table {
 		$result = $this->db()->query( $sql );
 
 		// Was the counter updated?
+		return $this->is_success( $result );
+	}
+
+	/**
+	 * Convert the storage engine for this table.
+	 *
+	 * Runs ALTER TABLE … ENGINE=X. Returns false immediately for engine names
+	 * that are not in the recognised set, without issuing a query.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $engine Target storage engine (e.g. 'InnoDB', 'MyISAM').
+	 * @return bool
+	 */
+	public function engine( string $engine ): bool {
+
+		// Sanitize and validate the engine name.
+		$engine = $this->sanitize_engine( $engine );
+
+		// Bail if the engine name is not recognised.
+		if ( empty( $engine ) ) {
+			return false;
+		}
+
+		// Query statement.
+		$sql    = "ALTER TABLE {$this->table_name} ENGINE={$engine}";
+		$result = $this->db()->query( $sql );
+
+		// Was the engine changed?
 		return $this->is_success( $result );
 	}
 
@@ -1087,13 +1158,12 @@ class Table {
 	 */
 	public function checksum() {
 
-		// Query statement.
+		// Query statement — CHECKSUM TABLE returns exactly one row per table.
 		$sql    = "CHECKSUM TABLE {$this->table_name}";
-		$query  = (array) $this->db()->get_results( $sql );
-		$result = end( $query );
+		$result = $this->db()->get_row( $sql );
 
 		// Return checksum.
-		return ! empty( $result->Checksum ) ? $result->Checksum : false; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
+		return ( is_object( $result ) && ! empty( $result->Checksum ) ) ? $result->Checksum : false; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
 	}
 
 	/**
