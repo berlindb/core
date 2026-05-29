@@ -424,8 +424,7 @@ class Table {
 
 		// Update DB version based on the current site.
 		if ( ! $this->is_global() ) {
-			$db_version       = get_blog_option( $site_id, $this->db_version_key, false );
-			$this->db_version = is_scalar( $db_version ) ? (string) $db_version : '';
+			$this->db_version = (string) get_blog_option( $site_id, $this->db_version_key, '' );
 		}
 
 		// Update interface for switched site.
@@ -543,6 +542,21 @@ class Table {
 		$this->get_db_version();
 
 		return (string) $this->db_version;
+	}
+
+	/**
+	 * Return whether this table has been installed.
+	 *
+	 * Checks for a stored database version, which is written by install() and
+	 * cleared by uninstall(). This is always a cache hit — the version option
+	 * is autoloaded and served from WordPress's in-memory options cache.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return bool True if a version is stored, false if not.
+	 */
+	public function is_installed(): bool {
+		return ! empty( $this->get_version() );
 	}
 
 	/**
@@ -1444,9 +1458,7 @@ class Table {
 			: get_option( $this->db_version_key, '' );
 
 		// Set the DB version.
-		$this->db_version = is_scalar( $db_version )
-			? (string) $db_version
-			: '';
+		$this->db_version = (string) $db_version;
 	}
 
 	/**

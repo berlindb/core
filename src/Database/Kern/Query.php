@@ -1195,8 +1195,9 @@ class Query {
 	 */
 	private function get_item_raw( $column_name = '', $column_value = '' ) {
 
-		// Bail if empty or non-scalar value.
-		if ( empty( $column_value ) || ! is_scalar( $column_value ) ) {
+		// Bail if value is non-scalar, boolean false, or empty string.
+		// Intentionally allows 0 and '0' — both are valid column values.
+		if ( ! is_scalar( $column_value ) || false === $column_value || '' === $column_value ) {
 			return false;
 		}
 
@@ -2491,18 +2492,19 @@ class Query {
 	 */
 	public function get_item_by( $column_name = '', $column_value = '' ) {
 
-		// Bail if empty or non-scalar value.
-		if ( empty( $column_value ) || ! is_scalar( $column_value ) ) {
-			return false;
+		// Default return value.
+		$retval = false;
+
+		// Bail if value is non-scalar, boolean false, or empty string.
+		// Intentionally allows 0 and '0' — both are valid column values.
+		if ( ! is_scalar( $column_value ) || false === $column_value || '' === $column_value ) {
+			return $retval;
 		}
 
 		// Bail if column does not exist.
 		if ( ! $this->is_valid_column( $column_name ) ) {
-			return false;
+			return $retval;
 		}
-
-		// Default return value.
-		$retval = false;
 
 		// Get all of the cache groups.
 		$groups = $this->get_cache_groups();
@@ -2735,6 +2737,11 @@ class Query {
 			return false;
 		}
 
+		// Keep the original object so its pre-update cache_key slots — including
+		// the old values — can be invalidated after the write. The array cast
+		// below is destructive, so capture the object first.
+		$original = $item;
+
 		// Cast as an array for easier manipulation.
 		$item = (array) $item;
 
@@ -2798,7 +2805,15 @@ class Query {
 			return false;
 		}
 
-		// Update item cache(s).
+		/*
+		 * Invalidate slots keyed on the row's OLD values, then re-warm slots
+		 * keyed on its NEW values. update_item_cache() only writes new-value
+		 * slots; when a cache_key column changes, its old-value slot lives at a
+		 * different key that update_item_cache() never touches, so without this
+		 * the stale row lingers there and get_item_by( $col, $old_value )
+		 * returns it.
+		 */
+		$this->clean_item_cache( $original );
 		$this->update_item_cache( $item_id );
 
 		// Transition item data.
@@ -3772,8 +3787,8 @@ class Query {
 			return;
 		}
 
-		// Bail if no cache key.
-		if ( empty( $key ) ) {
+		// Bail if no cache key. Allow 0 and '0' — both are valid cache keys.
+		if ( false === $key || '' === $key ) {
 			return;
 		}
 
@@ -3796,9 +3811,10 @@ class Query {
 	 */
 	private function cache_get( $key = '', $group = '', $force = false ) {
 
-		// Bail if no cache key.
-		if ( empty( $key ) ) {
-			return;
+		// Bail if no cache key. Return false (not null) so callers using
+		// strict false === checks correctly detect a cache miss.
+		if ( false === $key || '' === $key ) {
+			return false;
 		}
 
 		// Get the cache group.
@@ -3825,8 +3841,8 @@ class Query {
 			return;
 		}
 
-		// Bail if no cache key.
-		if ( empty( $key ) ) {
+		// Bail if no cache key. Allow 0 and '0' — both are valid cache keys.
+		if ( false === $key || '' === $key ) {
 			return;
 		}
 
@@ -3855,8 +3871,8 @@ class Query {
 			return;
 		}
 
-		// Bail if no cache key.
-		if ( empty( $key ) ) {
+		// Bail if no cache key. Allow 0 and '0' — both are valid cache keys.
+		if ( false === $key || '' === $key ) {
 			return;
 		}
 

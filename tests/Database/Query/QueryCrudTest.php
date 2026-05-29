@@ -259,12 +259,10 @@ class QueryCrudTest extends TestCase {
 	}
 
 	/**
-	 * Test that get_item_by returns false when the column value is the string '0'.
+	 * Test that get_item_by returns false for the string '0' when no row matches.
 	 *
-	 * get_item_by() guards with empty($column_value), and empty('0') is true in
-	 * PHP, so the lookup bails early and returns false regardless of table contents.
-	 * This test documents that known behaviour so a future refactor of the guard
-	 * can verify the change intentionally.
+	 * '0' is a valid lookup value — the guard allows it — but no row has
+	 * status = '0' in an empty fixture table, so the result is false.
 	 *
 	 * @since 3.0.0
 	 */
@@ -273,10 +271,10 @@ class QueryCrudTest extends TestCase {
 	}
 
 	/**
-	 * Test that get_item_by returns false when the column value is integer 0.
+	 * Test that get_item_by returns false for integer 0 when no row matches.
 	 *
-	 * Same empty() guard as the string '0' case — integer 0 is also considered
-	 * empty, so the method returns false before reaching the database.
+	 * 0 is a valid lookup value — the guard allows it — but no row has
+	 * priority = 0 in an empty fixture table, so the result is false.
 	 *
 	 * @since 3.0.0
 	 */
