@@ -62,9 +62,11 @@ or accept Schema instances. Prefer `::class` constants for schema and row shape.
 - PHP arrays are not automatically JSON-encoded before writes.
 - JSON strings are not automatically decoded after reads unless a cast or Row
   constructor handles them.
-- `add_item()` returns the new primary-key value (`int` for auto-increment,
-  `string` for UUID schemas) or `false` on failure.
-- `update_item()` returns the updated item object or `false`.
+- `add_item()` returns the new database insert ID (`int`) or `false` on
+  failure.
+- `update_item()` returns `true` when a table-column update is written, but can
+  also return `false` when nothing in table columns needs saving after diffing
+  and capability reduction.
 - `delete_item()` returns `true` or `false`.
 - `update_item()` and `delete_item()` expect the primary-key value, not a slug
   or other business key.
@@ -72,12 +74,13 @@ or accept Schema instances. Prefer `::class` constants for schema and row shape.
 - Table `$version` values are schema/database versions for that table, not the
   BerlinDB package version. Must be a string — `strict_types=1` and
   `version_compare()` both require it.
-- `no_found_rows` defaults to `true`. Call `query()` with
-  `'no_found_rows' => false` and then `get_found_items()` to get the total count
-  for pagination. Without this, `get_found_items()` always returns `0`.
-- In test contexts, `add_item()` silently drops all columns unless a user is
-  logged in: `wp_set_current_user(1)`. This is because `Query::reduce_item()`
-  runs `current_user_can()` checks before writing column data.
+- `no_found_rows` defaults to `true`. In that mode, `get_found_items()` tracks
+  the number of retrieved rows. Call `query()` with `'no_found_rows' => false`
+  to force the separate total-count query needed for pagination.
+- In this repository's database tests, call `wp_set_current_user( 1 )` before
+  CRUD writes. `Query::reduce_item()` runs `current_user_can()` checks before
+  saving column data, and the default test fixtures otherwise strip columns and
+  make inserts/updates look broken.
 - For multisite global tables (shared across all sites), set `$global = true` on
   the Table subclass. Per-site tables omit this property.
 

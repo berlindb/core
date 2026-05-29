@@ -58,7 +58,7 @@ $this->db()->query( $sql );
   result-list cache for a single query without flushing the whole cache.
 - `Query::get_results()` — `wpdb`-style convenience wrapper.
 - `Schema::from_table()` — build a Schema from a live table via introspection.
-- Structured log on every Query and Table instance via `get_log()`.
+- Structured log on every Query and Table instance via `get_logs()`.
 
 ## Connection Layer
 

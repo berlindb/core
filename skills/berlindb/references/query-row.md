@@ -46,8 +46,7 @@ also accept Schema objects for schema configuration.
 
 `add_item( array $data )`:
 
-- returns the new primary-key value on success (`int` for auto-increment,
-  `string` for UUID schemas)
+- returns the new database insert ID on success (`int`)
 - returns `false` on failure
 
 ```php
@@ -59,14 +58,15 @@ if ( false === $id ) {
 
 `update_item( $item_id, array $data )`:
 
-- first argument is the integer primary key
-- returns the updated item object on success
-- returns `false` on failure
+- first argument is the primary key value
+- returns `true` when a table-column update is written
+- returns `false` on failure, and also when there is nothing in table columns
+  to save after diffing the incoming data
 
 ```php
 $updated = $query->update_item( $widget->id, $data );
 if ( false === $updated ) {
-	// update failed
+	// either the update failed, or no table-column change was written
 }
 ```
 
@@ -103,8 +103,9 @@ Column-specific parser support depends on Schema flags:
 `number` limits result count even when using `__in` or `__not_in`. Do not remove
 or bypass limits unless the caller explicitly needs all matching rows.
 
-`no_found_rows` defaults to `true`, meaning no `COUNT(*)` query is run and
-`get_found_items()` returns `0`. For paginated responses, pass
+`no_found_rows` defaults to `true`, meaning no separate `COUNT(*)` query is run.
+In that mode, `get_found_items()` reflects the number of retrieved rows. For
+paginated responses, pass
 `'no_found_rows' => false` explicitly:
 
 ```php
