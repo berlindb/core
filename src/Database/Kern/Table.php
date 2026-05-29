@@ -161,6 +161,41 @@ class Table {
 	protected $charset_collation = '';
 
 	/**
+	 * Storage engine for this table (e.g. 'InnoDB', 'MyISAM', 'MEMORY').
+	 *
+	 * Leave empty to use the server's default_storage_engine (typically
+	 * InnoDB on modern MySQL / MariaDB).
+	 *
+	 * @since 3.1.0
+	 * @var   string
+	 */
+	protected $engine = '';
+
+	/**
+	 * InnoDB row format (e.g. 'DYNAMIC', 'COMPRESSED', 'COMPACT').
+	 *
+	 * Leave empty to use the engine default. DYNAMIC is the modern default
+	 * for InnoDB (MySQL 5.7+ / MariaDB 10.2+) and handles large TEXT/BLOB
+	 * columns without hitting the 8126-byte row-size limit.
+	 *
+	 * @since 3.1.0
+	 * @var   string
+	 */
+	protected $row_format = '';
+
+	/**
+	 * Starting AUTO_INCREMENT value written into CREATE TABLE.
+	 *
+	 * Useful for reserving low IDs for fixture or seed data. 0 or 1 defers
+	 * to the engine default (next available value, effectively 1 on a new
+	 * table). Use set_increment() to reseed an existing table at runtime.
+	 *
+	 * @since 3.1.0
+	 * @var   int
+	 */
+	protected $auto_increment = 0;
+
+	/**
 	 * Typically empty; probably ignore.
 	 *
 	 * By default, tables do not have comments. This is unused by any other
@@ -254,9 +289,10 @@ class Table {
 			// SQL attributes.
 			'description'       => 'wp_kses_data',
 			'charset_collation' => 'wp_kses_data',
-			'comment'           => function ( $v ) {
-				return $this->sanitize_comment( $v, 2048 );
-			},
+			'engine'            => array( $this, 'sanitize_engine' ),
+			'row_format'        => array( $this, 'sanitize_row_format' ),
+			'auto_increment'    => 'absint',
+			'comment'           => array( $this, 'sanitize_table_comment' ),
 
 			// Multisite.
 			'global'            => 'wp_validate_boolean',
@@ -294,6 +330,61 @@ class Table {
 
 		// Return sanitized arguments.
 		return $r;
+	}
+
+	/** Argument Sanitization *************************************************/
+
+	/**
+	 * Sanitize a storage engine name.
+	 *
+	 * Returns the uppercase engine name when it is in the set of engines
+	 * known to be available in MySQL / MariaDB installations used alongside
+	 * WordPress, or an empty string for unrecognised values.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param mixed $v Raw value.
+	 * @return string
+	 */
+	private function sanitize_engine( $v ): string {
+		$allowed = array( 'INNODB', 'MYISAM', 'MEMORY', 'ARCHIVE', 'CSV', 'BLACKHOLE', 'MERGE', 'ARIA' );
+		$upper   = strtoupper( (string) $v );
+
+		return in_array( $upper, $allowed, true )
+			? $upper
+			: '';
+	}
+
+	/**
+	 * Sanitize a row format name.
+	 *
+	 * Returns the uppercase format name when it is in the set of formats
+	 * recognised by MySQL / MariaDB, or an empty string for unrecognised values.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param mixed $v Raw value.
+	 * @return string
+	 */
+	private function sanitize_row_format( $v ): string {
+		$allowed = array( 'DEFAULT', 'DYNAMIC', 'FIXED', 'COMPACT', 'COMPRESSED', 'REDUNDANT' );
+		$upper   = strtoupper( (string) $v );
+
+		return in_array( $upper, $allowed, true )
+			? $upper
+			: '';
+	}
+
+	/**
+	 * Sanitize the table comment, capped at the MySQL 2048-character limit.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param mixed $v Raw value.
+	 * @return string
+	 */
+	private function sanitize_table_comment( $v ): string {
+		return $this->sanitize_comment( (string) $v, 2048 );
 	}
 
 	/** Multisite *************************************************************/
@@ -624,6 +715,33 @@ class Table {
 	}
 
 	/**
+	 * Set the AUTO_INCREMENT counter for this table.
+	 *
+	 * Use this to seed the counter at a specific value — for example, to
+	 * leave low IDs available for fixture or seed data, or to reseed after
+	 * a TRUNCATE. Has no effect if the table has no AUTO_INCREMENT column.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param int $value The next AUTO_INCREMENT value to assign. Must be >= 1.
+	 * @return bool
+	 */
+	public function set_increment( int $value ): bool {
+
+		// Bail if the value is not positive.
+		if ( $value < 1 ) {
+			return false;
+		}
+
+		// Query statement.
+		$sql    = "ALTER TABLE {$this->table_name} AUTO_INCREMENT={$value}";
+		$result = $this->db()->query( $sql );
+
+		// Was the counter updated?
+		return $this->is_success( $result );
+	}
+
+	/**
 	 * Create this database table.
 	 *
 	 * @since 1.0.0
@@ -650,10 +768,27 @@ class Table {
 			'CREATE TABLE',
 			$this->table_name,
 			"( {$create_table_string} )",
-			$this->charset_collation,
 		);
 
-		// Maybe append comment.
+		// Storage engine.
+		if ( ! empty( $this->engine ) ) {
+			$sql[] = 'ENGINE=' . $this->engine;
+		}
+
+		// Character set & collation (may be empty; array_filter handles it).
+		$sql[] = $this->charset_collation;
+
+		// Row format.
+		if ( ! empty( $this->row_format ) ) {
+			$sql[] = 'ROW_FORMAT=' . $this->row_format;
+		}
+
+		// Starting AUTO_INCREMENT value (skip 0 and 1 — both are engine defaults).
+		if ( $this->auto_increment > 1 ) {
+			$sql[] = 'AUTO_INCREMENT=' . $this->auto_increment;
+		}
+
+		// Comment.
 		if ( ! empty( $this->comment ) ) {
 			$sql[] = "COMMENT='" . addslashes( $this->comment ) . "'";
 		}
