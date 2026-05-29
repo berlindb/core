@@ -13,8 +13,8 @@ Common causes:
 - nullable data passed to a column without `'allow_null' => true`
 - invalid value for a column type or cast
 - array/object passed to a scalar column without serialization/encoding
-- field removed by capability reduction — in test contexts this means no
-  user is logged in; fix with `wp_set_current_user( 1 )` before the call
+- field removed by capability reduction — check schema caps and local test
+  fixtures first; some setups need `wp_set_current_user( 1 )` before writes
 - table/schema mismatch after an upgrade
 
 Debugging steps:
@@ -96,7 +96,7 @@ and Table instance. Check it before reaching for `error_log`:
 
 ```php
 $id = $query->add_item( $data );
-var_dump( $query->get_log() );
+var_dump( $query->get_logs() );
 ```
 
 Each entry contains a level, a code, a message, and a context array. The log
