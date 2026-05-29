@@ -83,6 +83,7 @@ class TableTest extends TestCase {
 		 * uninstall the table handle their own reinstall via bypass_table_filters().
 		 */
 		self::$table->delete_all();
+		delete_option( self::$table->get_db_uninstall_key() );
 		wp_cache_flush();
 	}
 

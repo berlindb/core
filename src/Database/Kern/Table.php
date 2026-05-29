@@ -180,6 +180,17 @@ class Table {
 	protected $upgrades = array();
 
 	/**
+	 * Whether to hook maybe_upgrade() to admin_init for automatic installation.
+	 *
+	 * Set to false in a subclass to disable auto-install and require explicit
+	 * calls to install() or maybe_upgrade() instead.
+	 *
+	 * @since 3.1.0
+	 * @var   bool
+	 */
+	protected $auto_install = true;
+
+	/**
 	 * Instantiated schema object, populated by set_schema() during boot.
 	 *
 	 * @since 3.0.0
@@ -231,24 +242,33 @@ class Table {
 		// Sanitization callbacks.
 		$callbacks = array(
 
-			// Table.
+			// Name & Description.
 			'name'              => array( $this, 'sanitize_table_name' ),
-			'description'       => 'wp_kses_data',
-			'version'           => 'wp_kses_data',
-			'global'            => 'wp_validate_boolean',
-			'db_version_key'    => 'wp_kses_data',
-			'db_version'        => 'wp_kses_data',
-			'table_prefix'      => array( $this, 'sanitize_table_name' ),
-			'table_name'        => array( $this, 'sanitize_table_name' ),
 			'prefixed_name'     => array( $this, 'sanitize_table_name' ),
+			'table_name'        => array( $this, 'sanitize_table_name' ),
+			'table_prefix'      => array( $this, 'sanitize_table_name' ),
+
+			// Schema & Columns.
 			'schema'            => '',
+
+			// SQL attributes.
+			'description'       => 'wp_kses_data',
 			'charset_collation' => 'wp_kses_data',
 			'comment'           => function ( $v ) {
 				return $this->sanitize_comment( $v, 2048 );
 			},
 
-			// Extras.
+			// Multisite.
+			'global'            => 'wp_validate_boolean',
+
+			// Version.
+			'version'           => 'wp_kses_data',
+			'db_version_key'    => 'wp_kses_data',
+			'db_version'        => 'wp_kses_data',
+
+			// Upgrades.
 			'upgrades'          => '',
+			'auto_install'      => 'wp_validate_boolean',
 		);
 
 		// Default return arguments.
@@ -387,6 +407,11 @@ class Table {
 			return false;
 		}
 
+		// Bail if the table was intentionally uninstalled.
+		if ( $this->is_uninstalled() ) {
+			return false;
+		}
+
 		// Kinda weird, but assume it is.
 		return true;
 	}
@@ -412,6 +437,8 @@ class Table {
 	 *
 	 * Create table and set the version if successful.
 	 *
+	 * Clears any uninstall tombstone so that automatic upgrades resume normally.
+	 *
 	 * @since 1.0.0
 	 */
 	public function install(): void {
@@ -422,6 +449,7 @@ class Table {
 		// Set the DB version if create was successful.
 		if ( true === $created ) {
 			$this->set_db_version();
+			$this->delete_uninstalled();
 		}
 	}
 
@@ -431,6 +459,9 @@ class Table {
 	 * Drops table and deletes the version information if successful.
 	 *
 	 * If the table does not exist, the version will still be deleted.
+	 *
+	 * Writes an uninstall tombstone so that maybe_upgrade() does not
+	 * automatically recreate the table on the next admin page load.
 	 *
 	 * @since 1.0.0
 	 */
@@ -442,6 +473,7 @@ class Table {
 		// Delete the DB version if drop was successful or table does not exist.
 		if ( ( true === $dropped ) || ! $this->exists() ) {
 			$this->delete_db_version();
+			$this->set_uninstalled();
 		}
 	}
 
@@ -1284,6 +1316,46 @@ class Table {
 	}
 
 	/**
+	 * Return whether this table was intentionally uninstalled.
+	 *
+	 * Reads the uninstall tombstone from persistent storage. When true,
+	 * maybe_upgrade() will not automatically recreate the table.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return bool
+	 */
+	private function is_uninstalled(): bool {
+		$value = $this->is_global()
+			? get_network_option( get_main_network_id(), $this->db_version_key . '_uninstalled', false )
+			: get_option( $this->db_version_key . '_uninstalled', false );
+
+		return ! empty( $value );
+	}
+
+	/**
+	 * Write the uninstall tombstone to persistent storage.
+	 *
+	 * @since 3.1.0
+	 */
+	private function set_uninstalled(): void {
+		$this->is_global()
+			? update_network_option( get_main_network_id(), $this->db_version_key . '_uninstalled', '1' )
+			: update_option( $this->db_version_key . '_uninstalled', '1' );
+	}
+
+	/**
+	 * Remove the uninstall tombstone from persistent storage.
+	 *
+	 * @since 3.1.0
+	 */
+	private function delete_uninstalled(): void {
+		$this->is_global()
+			? delete_network_option( get_main_network_id(), $this->db_version_key . '_uninstalled' )
+			: delete_option( $this->db_version_key . '_uninstalled' );
+	}
+
+	/**
 	 * Setup the Schema object.
 	 *
 	 * @since 3.0.0
@@ -1332,9 +1404,13 @@ class Table {
 	 */
 	private function add_hooks(): void {
 
-		// Add table to the global database object.
+		// Multisite site-switching always applies.
 		add_action( 'switch_blog', array( $this, 'switch_blog' ) );
-		add_action( 'admin_init', array( $this, 'maybe_upgrade' ) );
+
+		// Only auto-install on admin_init when the subclass opts in (default: true).
+		if ( $this->auto_install ) {
+			add_action( 'admin_init', array( $this, 'maybe_upgrade' ) );
+		}
 	}
 
 	/**

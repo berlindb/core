@@ -104,4 +104,14 @@ final class TestTable extends Table {
 	public function get_schema_version(): string {
 		return $this->version;
 	}
+
+	/**
+	 * Expose the uninstall tombstone option key for test assertions.
+	 *
+	 * @since 3.1.0
+	 * @return string
+	 */
+	public function get_db_uninstall_key(): string {
+		return $this->db_version_key . '_uninstalled';
+	}
 }
