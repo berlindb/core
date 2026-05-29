@@ -191,7 +191,7 @@ class Search extends Base {
 			$searches[] = $db->prepare( "{$column} LIKE %s", $like );
 		}
 
-		// Concatinate.
+		// Concatenate.
 		$values = implode( ' OR ', $searches );
 		$retval = '(' . $values . ')';
 
