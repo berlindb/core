@@ -60,13 +60,16 @@ if ( false === $id ) {
 
 - first argument is the primary key value
 - returns `true` when a table-column update is written
-- returns `false` on failure, and also when there is nothing in table columns
-  to save after diffing the incoming data
+- returns `false` on failure, **and also** when nothing in table columns needs
+  saving after diffing — `false` means "no write occurred", not necessarily an error
 
 ```php
 $updated = $query->update_item( $widget->id, $data );
+// false here means either the update failed OR the incoming data was identical
+// to what is already stored. Call get_item() before updating if you need to
+// distinguish a real failure from a benign no-op.
 if ( false === $updated ) {
-	// either the update failed, or no table-column change was written
+	// no write occurred
 }
 ```
 
@@ -104,9 +107,9 @@ Column-specific parser support depends on Schema flags:
 or bypass limits unless the caller explicitly needs all matching rows.
 
 `no_found_rows` defaults to `true`, meaning no separate `COUNT(*)` query is run.
-In that mode, `get_found_items()` reflects the number of retrieved rows. For
-paginated responses, pass
-`'no_found_rows' => false` explicitly:
+In that mode, `get_found_items()` returns only the count of items on the current
+page — not the total number of matching rows. This is not useful for pagination.
+Pass `'no_found_rows' => false` explicitly to get the true total:
 
 ```php
 $items = $query->query(

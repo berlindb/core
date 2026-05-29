@@ -74,9 +74,10 @@ or accept Schema instances. Prefer `::class` constants for schema and row shape.
 - Table `$version` values are schema/database versions for that table, not the
   BerlinDB package version. Must be a string — `strict_types=1` and
   `version_compare()` both require it.
-- `no_found_rows` defaults to `true`. In that mode, `get_found_items()` tracks
-  the number of retrieved rows. Call `query()` with `'no_found_rows' => false`
-  to force the separate total-count query needed for pagination.
+- `no_found_rows` defaults to `true`. In that mode, `get_found_items()` returns
+  only the current-page item count, not the total matching rows — not useful for
+  pagination. Pass `'no_found_rows' => false` to run the separate `COUNT(*)`
+  query and get the true total from `get_found_items()`.
 - In this repository's database tests, call `wp_set_current_user( 1 )` before
   CRUD writes. `Query::reduce_item()` runs `current_user_can()` checks before
   saving column data, and the default test fixtures otherwise strip columns and
