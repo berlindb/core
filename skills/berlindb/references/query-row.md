@@ -171,10 +171,34 @@ Pass them explicitly in the `$where_cols` array to override.
 
 ## Caching
 
-BerlinDB queries include a two-layer cache: a result-list cache (query vars →
-ID list) and an item-object cache (ID → full row). When debugging stale reads:
+BerlinDB uses three cooperating caches in the WordPress object cache, mirroring
+how `WP_Query` and Doctrine cache. Objects are stored once, by primary ID;
+everything else stores IDs and resolves through that one object cache.
+
+1. **Query cache** — group `{cache_group}`, key
+   `get_{plural}:{md5(query_vars)}:{last_changed}`. Value is the list of matching
+   primary IDs plus the `found_items` count. Stores IDs only, never objects.
+2. **By-id object cache** — group `{cache_group}`, key the primary ID (no salt;
+   the ID is stable and unique). Value is the full row object — the single
+   canonical object store. Written on insert/update, deleted on delete.
+3. **Secondary lookup cache** — group `{cache_group}-by-{column}`, key
+   `{md5(value)}:{last_changed}`. Value is the matching primary ID (a pointer),
+   not the object. Used by `get_item_by()` on `cache_key` columns; the object is
+   then resolved through cache #2.
+
+**Invalidation is by salt, not deletion.** Caches #1 and #3 embed `last_changed`
+in the key as a generation token. Any write bumps `last_changed`, so every key
+built from the old value is abandoned at once — no per-key cleanup. Cache #2 is
+keyed by the stable ID, so it is overwritten on update and deleted on delete.
+
+**`get_item_by()` is for unique-value columns only** (see its docblock). A lookup
+by a non-unique column is conceptually a query returning the first match — use
+`query()` for that, not `get_item_by()`.
+
+When debugging stale reads:
 
 - inspect whether `cache_results` is enabled (default `true`)
 - check cache group/prefix values
-- review item update/delete cache invalidation paths
+- confirm writes are going through Query methods (raw `$wpdb` writes do not bump
+  `last_changed`, so they will not invalidate caches #1 or #3)
 - prefer existing Query cache helpers over direct cache calls

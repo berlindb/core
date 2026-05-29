@@ -35,7 +35,8 @@ Read only the reference needed for the task:
 - `references/schema-table.md`: schemas, columns, indexes, tables, installs,
   upgrades, table versions, and nullability.
 - `references/query-row.md`: query classes, row shapes, CRUD return values,
-  filters, `__in`/`__not_in`, JSON, casts, and cache behavior.
+  filters, `__in`/`__not_in`, JSON, casts, and the three-cache model
+  (query/by-id/secondary) with `last_changed` salt invalidation.
 - `references/debugging.md`: silent save failures, table upgrade issues,
   wrong primary key usage, malformed query vars, and logging.
 - `references/migration-2-to-3.md`: updating older BerlinDB 2.x patterns to

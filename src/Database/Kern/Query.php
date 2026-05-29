@@ -1277,7 +1277,7 @@ class Query {
 			);
 
 			// Only store when caching is enabled for this query.
-			if ( $cache_results ) {
+			if ( true === $cache_results ) {
 				$this->cache_add( $cache_key, $cache_value, $this->cache_group );
 			}
 
@@ -2176,7 +2176,7 @@ class Query {
 
 		// Specific sortable column (only when no parser claimed it).
 		if ( empty( $retval ) ) {
-			$sortables = $this->get_columns( array( 'sortable' => true ), 'and', 'name' );
+			$sortables = $this->get_column_names( array( 'sortable' => true ) );
 			if ( in_array( $orderby, $sortables, true ) ) {
 				$retval = $this->get_quoted_column_name_aliased( $orderby, $alias );
 			}
@@ -2507,25 +2507,30 @@ class Query {
 		}
 
 		// Resolve the cache group for this column (empty if not a cache_key column).
-		$primary = $this->get_primary_column_name();
-		$groups  = $this->get_cache_groups();
-		$group   = isset( $groups[ $column_name ] ) ? $groups[ $column_name ] : '';
+		$primary    = $this->get_primary_column_name();
+		$is_primary = (bool) ( $column_name === $primary );
+		$groups     = $this->get_cache_groups();
+		$group      = isset( $groups[ $column_name ] ) ? $groups[ $column_name ] : '';
 
 		/*
 		 * Cache key. The primary column is stable and unique, so its value (the
 		 * id) is used directly as a by-id object-cache key. Secondary cache_key
-		 * columns salt the key with last_changed, so any write rotates it: old
-		 * lookups are abandoned (no stale slots) and the cached entry always
-		 * reflects the actual query result (no last-writer value collisions).
+		 * columns use a dedicated "{cache_group}-by-{name}" group and a value
+		 * hash salted with last_changed.
 		 */
 		$cache_key = $column_value;
-		if ( ( $column_name !== $primary ) && ! empty( $group ) ) {
-			$cache_key = $this->get_item_by_cache_key( $column_name, $column_value );
+		if ( ( false === $is_primary ) && ! empty( $group ) ) {
+			$cache_key = $this->get_item_cache_key( $column_value );
 		}
 
 		// Check cache.
 		if ( ! empty( $group ) ) {
 			$retval = $this->cache_get( $cache_key, $group );
+		}
+
+		// Secondary cache hits store the primary ID; resolve via by-id cache.
+		if ( ( false === $is_primary ) && false !== $retval ) {
+			return $this->get_item( $retval );
 		}
 
 		// Item not cached.
@@ -2545,10 +2550,9 @@ class Query {
 				// Always warm the canonical primary by-id object cache.
 				$this->update_item_cache( $retval, false );
 
-				// For secondary cache_key columns, store the salted lookup so the
-				// next get_item_by() by this value is a hit until the next write.
-				if ( ( $column_name !== $primary ) && ! empty( $group ) ) {
-					$this->cache_set( $cache_key, $retval, $group );
+				// For secondary cache_key columns, store only the primary ID.
+				if ( ( false === $is_primary ) && ! empty( $group ) && isset( $retval->{$primary} ) ) {
+					$this->cache_set( $cache_key, $retval->{$primary}, $group );
 				}
 			}
 		}
@@ -2999,7 +3003,7 @@ class Query {
 	 * @since 1.0.0
 	 * @since 3.0.0 Uses array_combine()
 	 *
-	 * @param array<string, mixed> $args Default empty array. Parsed & passed into get_columns().
+		 * @param array<string, mixed> $args Default empty array. Parsed & used to filter columns.
 	 * @return array<string, mixed>
 	 */
 	private function default_item( $args = array() ) {
@@ -3008,10 +3012,8 @@ class Query {
 		$r = wp_parse_args( $args );
 
 		// Get the column names and their defaults.
-		$names_raw = $this->get_columns( $r, 'and', 'name' );
-		$names     = is_array( $names_raw ) ? array_values( array_filter( $names_raw, 'is_string' ) ) : array();
-		$defaults  = $this->get_columns( $r, 'and', 'default' );
-		$defaults  = is_array( $defaults ) ? $defaults : array();
+		$names    = $this->get_column_names( $r );
+		$defaults = $this->get_columns( $r, 'and', 'default' );
 
 		// Combine them.
 		$retval = array_combine( $names, $defaults );
@@ -3037,8 +3039,7 @@ class Query {
 	private function transition_item( $item_id = 0, $new_data = array(), $old_data = array() ): void {
 
 		// Look for transition columns.
-		$columns_raw = $this->get_columns( array( 'transition' => true ), 'and', 'name' );
-		$columns     = is_array( $columns_raw ) ? array_values( array_filter( $columns_raw, 'is_string' ) ) : array();
+		$columns = $this->get_column_names( array( 'transition' => true ) );
 
 		// Bail if no columns to transition.
 		if ( empty( $columns ) ) {
@@ -3434,21 +3435,39 @@ class Query {
 			$slice[ $key ] = $this->query_vars[ $key ];
 		}
 
-		// Setup key & last_changed.
-		$key              = md5( serialize( $slice ) ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.serialize_serialize
-		$last_changed     = $this->get_last_changed_cache( $group );
-		$item_name_plural = $this->get_item_name_plural();
+		// Hash the sliced query vars. serialize() is intentional and safe here.
+		$hash = md5( serialize( $slice ) ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.serialize_serialize
 
-		// Return the concatenated cache key.
-		return "get_{$item_name_plural}:{$key}:{$last_changed}";
+		// Return the namespaced, salted cache key.
+		return "get_{$this->get_item_name_plural()}:{$hash}:" . $this->get_last_changed_cache( $group );
 	}
 
 	/**
-	 * Get the cache group, or fallback to the primary one.
+	 * Build a last_changed-salted cache key for a secondary get_item_by() lookup.
+	 *
+	 * The cache group already identifies the lookup column, so the key only
+	 * needs the looked-up value and table-wide generation salt. The cached value
+	 * is the primary ID; the object itself lives in the canonical by-id cache.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param mixed $column_value Value being looked up.
+	 * @return string
+	 */
+	private function get_item_cache_key( $column_value = '' ): string {
+		return md5( (string) $column_value ) . ':' . $this->get_last_changed_cache();
+	}
+
+	/**
+	 * Normalize a cache group name.
+	 *
+	 * Empty values and the primary column name both resolve to the table's
+	 * canonical item cache group. Non-primary values are treated as explicit
+	 * cache-group names, such as secondary "{cache_group}-by-{column}" groups.
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param string $group Cache group name.
+	 * @param string $group Cache group name, or a column name.
 	 * @return string
 	 */
 	private function get_cache_group( $group = '' ) {
@@ -3459,7 +3478,7 @@ class Query {
 		// Default return value.
 		$retval = $this->cache_group;
 
-		// Only allow non-primary groups.
+		// Treat the primary column name as an alias for the Query cache group.
 		if ( ! empty( $group ) && ( $group !== $primary ) ) {
 			$retval = $group;
 		}
@@ -3477,51 +3496,54 @@ class Query {
 	 */
 	private function get_cache_groups() {
 
-		// Return value.
-		$cache_groups = array();
+		// Default return value.
+		$retval = array();
 
 		// Get the cache groups.
-		$groups_raw = $this->get_columns( array( 'cache_key' => true ), 'and', 'name' );
-		$groups     = is_array( $groups_raw ) ? array_values( array_filter( $groups_raw, 'is_string' ) ) : array();
+		$groups = $this->get_column_names( array( 'cache_key' => true ) );
 
-		if ( ! empty( $groups ) ) {
+		// Bail if no cache groups.
+		if ( empty( $groups ) ) {
+			return $retval;
+		}
 
-			// Get the primary column name.
-			$primary = $this->get_primary_column_name();
-
-			// Setup return values.
-			foreach ( $groups as $name ) {
-				if ( $primary !== $name ) {
-					$cache_groups[ $name ] = "{$this->cache_group}-by-{$name}";
-				} else {
-					$cache_groups[ $name ] = $this->cache_group;
-				}
-			}
+		// Setup return values.
+		foreach ( $groups as $name ) {
+			$retval[ $name ] = $this->get_cache_group_for_column( $name );
 		}
 
 		// Return cache groups array.
-		return $cache_groups;
+		return $retval;
 	}
 
 	/**
-	 * Build a last_changed-salted cache key for a get_item_by() lookup.
+	 * Get the cache group used by a cache-key column.
 	 *
-	 * Secondary cache_key lookups embed the table-wide last_changed value so
-	 * that any write rotates the key — abandoning stale lookups without
-	 * per-slot deletion — and md5() the column value so arbitrary or long
-	 * values still produce a safe, bounded cache key.
+	 * The primary column uses the canonical item cache group. Secondary columns
+	 * use their own lookup groups so value-to-ID entries do not share a bucket
+	 * with by-id item objects.
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param string $column_name  Column being looked up.
-	 * @param mixed  $column_value Value being looked up.
+	 * @param string $column_name Column name.
 	 * @return string
 	 */
-	private function get_item_by_cache_key( $column_name = '', $column_value = '' ): string {
-		$last_changed = $this->get_last_changed_cache();
-		$hashed       = md5( (string) $column_value );
+	private function get_cache_group_for_column( $column_name = '' ) {
 
-		return "item_by:{$column_name}:{$hashed}:{$last_changed}";
+		// Bail if no column name.
+		if ( empty( $column_name ) ) {
+			return '';
+		}
+
+		// Get the primary column name.
+		$primary = $this->get_primary_column_name();
+
+		// Resolve column to group, then normalize through the shared helper.
+		$group = ( $primary === $column_name )
+			? $column_name
+			: "{$this->cache_group}-by-{$column_name}";
+
+		return $this->get_cache_group( $group );
 	}
 
 	/**
@@ -3564,7 +3586,7 @@ class Query {
 		if ( ! empty( $force ) || $this->get_query_var( 'update_item_cache' ) ) {
 
 			// Look for non-cached IDs.
-			$ids = $this->get_non_cached_ids( $item_ids, $this->cache_group );
+			$ids = $this->get_non_cached_ids( $item_ids );
 
 			// Proceed if non-cached IDs exist.
 			if ( ! empty( $ids ) ) {
@@ -3623,7 +3645,7 @@ class Query {
 	 * @since 3.0.0 Uses shape_item_id() if $items is scalar
 	 *
 	 * @param int|string|object|list<object> $items             Primary ID or key if scalar. Row if object. Array of objects if array.
-	 * @param bool                           $bump_last_changed  Whether to bump the last-changed cache value.
+	 * @param bool                           $bump_last_changed Whether to bump the last-changed cache value.
 	 */
 	private function update_item_cache( $items = array(), $bump_last_changed = true ): void {
 
@@ -3654,10 +3676,12 @@ class Query {
 		$groups  = $this->get_cache_groups();
 		$primary = $this->get_primary_column_name();
 
-		// Warm the primary by-id object cache only. Secondary cache_key lookups
-		// are salted and lazily populated by get_item_by(); proactively warming
-		// them here would write keys the salted reads never hit, and overwrite
-		// non-unique lookups with the last-written row.
+		/*
+		 * Warm the primary by-id object cache only. Secondary cache_key lookups
+		 * are salted and lazily populated by get_item_by(); proactively warming
+		 * them here would write keys the salted reads never hit, and overwrite
+		 * non-unique lookups with the last-written row.
+		 */
 		foreach ( $items as $item ) {
 
 			// Skip if item is not an object.
@@ -3675,7 +3699,7 @@ class Query {
 		 * Only bump last_changed for mutations; read-path warming must not
 		 * invalidate the list cache that was just stored.
 		 */
-		if ( $bump_last_changed ) {
+		if ( true === $bump_last_changed ) {
 			$this->update_last_changed_cache();
 		}
 	}
@@ -3776,7 +3800,7 @@ class Query {
 	 * Get array of non-cached item IDs.
 	 *
 	 * @since 1.0.0
-	 * @since 3.0.0 $item_ids expected to be shaped
+	 * @since 3.0.0 $item_ids expected to be shaped.
 	 *
 	 * @param list<int|string> $item_ids Array of shaped item IDs.
 	 * @param string           $group    Cache group. Defaults to $this->cache_group.
@@ -3790,8 +3814,7 @@ class Query {
 			return array();
 		}
 
-		// Get the cache group & initialize return value.
-		$group  = $this->get_cache_group( $group );
+		// Default return value.
 		$retval = array();
 
 		// Loop through item IDs.

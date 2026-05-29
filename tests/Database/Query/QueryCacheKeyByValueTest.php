@@ -3,8 +3,8 @@
  * Coherence tests for get_item_by() and the cache_key column caching path.
  *
  * BerlinDB caches single items looked up by a cache_key column. The secondary
- * (non-primary) lookups are keyed with the table-wide last_changed salt and
- * populated lazily from the actual query result, so:
+ * (non-primary) lookups cache the matching primary ID using the table-wide
+ * last_changed salt and are populated lazily from the actual query result, so:
  *
  *   1. Stale-after-transition: any write bumps last_changed, so a lookup by an
  *      old value re-resolves from the database instead of returning a stale row.
@@ -235,8 +235,11 @@ class QueryCacheKeyByValueTest extends TestCase {
 	// -------------------------------------------------------------------------
 
 	/**
-	 * When two rows share a value, the cached single-item lookup must agree with
-	 * a fresh database read (both return the WHERE ... LIMIT 1 winner).
+	 * get_item_by() is documented for unique-value columns only. This test does
+	 * not make non-unique columns a supported feature — it is a regression guard
+	 * that the salted, lazily-populated lookup stays coherent with the database
+	 * (cached result equals a fresh WHERE ... LIMIT 1 read) instead of silently
+	 * returning the last-written row, which is what the pre-#203 cache did.
 	 *
 	 * @since 3.1.0
 	 */
@@ -287,6 +290,34 @@ class QueryCacheKeyByValueTest extends TestCase {
 		$second = $query->get_item_by( 'status', 'active' );
 
 		$this->assertSame( (int) $first->id, (int) $second->id );
+	}
+
+	/**
+	 * Repeated secondary lookups should use the value-to-ID cache plus the
+	 * canonical by-id object cache, without another database read.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_repeated_secondary_lookup_does_not_fire_additional_sql(): void {
+		global $wpdb;
+
+		$query = new TestQuery();
+		$id    = $this->add_widget(
+			array(
+				'name'   => 'Cached',
+				'status' => 'active',
+			)
+		);
+
+		$first = $query->get_item_by( 'status', 'active' );
+		$this->assertSame( $id, (int) $first->id );
+
+		$queries_before = $wpdb->num_queries;
+		$second         = $query->get_item_by( 'status', 'active' );
+		$queries_after  = $wpdb->num_queries;
+
+		$this->assertSame( $id, (int) $second->id );
+		$this->assertSame( $queries_before, $queries_after );
 	}
 
 	// -------------------------------------------------------------------------
