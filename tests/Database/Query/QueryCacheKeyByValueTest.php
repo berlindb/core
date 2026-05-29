@@ -1,21 +1,18 @@
 <?php
 /**
- * Tests exposing cache incoherence in get_item_by() when a secondary
- * cache_key column is used as the cache key.
+ * Coherence tests for get_item_by() and the cache_key column caching path.
  *
- * BerlinDB caches the full item object under the *value* of every
- * cache_key column (group "{cache_group}-by-{name}", key = column value).
- * Two defects fall out of this:
+ * BerlinDB caches single items looked up by a cache_key column. The secondary
+ * (non-primary) lookups are keyed with the table-wide last_changed salt and
+ * populated lazily from the actual query result, so:
  *
- *   1. Stale-after-transition (FIXED): update_item() now invalidates the
- *      pre-update object's cache_key slots before re-warming, so a lookup by an
- *      old value no longer returns the stale row. Covered by the first two tests.
+ *   1. Stale-after-transition: any write bumps last_changed, so a lookup by an
+ *      old value re-resolves from the database instead of returning a stale row.
  *
- *   2. Non-unique collision (OPEN, berlindb/core #203): when several rows share
- *      a value, they all write to one slot, so the cached answer disagrees with
- *      a fresh DB read. Cache invalidation cannot fix this — it requires
- *      restricting cache_key to unique columns. The third test is skipped until
- *      that fix lands.
+ *   2. Non-unique collision: the cached entry is the actual WHERE col = value
+ *      LIMIT 1 result, so it agrees with a fresh database read by construction.
+ *
+ * See berlindb/core #203.
  *
  * @package     BerlinDB\Tests
  * @copyright   2026 - JJJ and all BerlinDB contributors
@@ -30,7 +27,7 @@ use BerlinDB\Tests\Fixtures\TestTable;
 use Yoast\WPTestUtils\WPIntegration\TestCase;
 
 /**
- * Cache-by-value coherence tests for get_item_by().
+ * Cache coherence tests for get_item_by().
  *
  * @since 3.1.0
  */
@@ -76,120 +73,335 @@ class QueryCacheKeyByValueTest extends TestCase {
 	}
 
 	// -------------------------------------------------------------------------
-	// Defect 1: stale slot after a cache_key value transition.
+	// Helpers.
 	// -------------------------------------------------------------------------
 
 	/**
-	 * After a row's status changes from 'active' to 'inactive', a lookup by the
-	 * OLD value must not return the row. With zero active rows in the table,
-	 * get_item_by( 'status', 'active' ) must return false.
+	 * Insert a widget and return its new ID.
 	 *
-	 * Currently fails: the 'active' cache slot is never invalidated on update,
-	 * so the stale row (now inactive) is returned from cache.
+	 * @since 3.1.0
+	 *
+	 * @param array<string, mixed> $data Column data to merge over the defaults.
+	 * @return int
+	 */
+	private function add_widget( array $data ): int {
+		$query = new TestQuery();
+
+		return (int) $query->add_item(
+			array_merge(
+				array(
+					'name'   => 'Widget',
+					'status' => 'active',
+				),
+				$data
+			)
+		);
+	}
+
+	// -------------------------------------------------------------------------
+	// Stale-after-transition.
+	// -------------------------------------------------------------------------
+
+	/**
+	 * After a row's only matching value changes, a lookup by the OLD value must
+	 * not return the row. With zero active rows remaining, the lookup misses.
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_get_item_by_old_value_is_not_stale_after_transition(): void {
+	public function test_lookup_by_old_value_misses_after_transition(): void {
 		$query = new TestQuery();
+		$id    = $this->add_widget( array( 'status' => 'active' ) );
 
-		$id = $query->add_item(
-			array(
-				'name'   => 'Widget',
-				'status' => 'active',
-			)
-		);
-
-		// Warm the by-status cache for 'active'.
-		$query->get_item_by( 'status', 'active' );
-
-		// Transition the only active row to inactive.
+		$query->get_item_by( 'status', 'active' );          // Warm.
 		$query->update_item( $id, array( 'status' => 'inactive' ) );
 
-		// No active rows remain — the old-value lookup must miss.
-		$result = $query->get_item_by( 'status', 'active' );
-
 		$this->assertFalse(
-			$result,
-			'get_item_by() must not return a row by its pre-transition cache_key value.'
+			$query->get_item_by( 'status', 'active' ),
+			'A lookup by a pre-transition cache_key value must not return the row.'
 		);
 	}
 
 	/**
-	 * The same invariant proven against the database: a fresh, uncached lookup
-	 * by the old value returns false, so the cached lookup must agree.
+	 * Cached and uncached lookups by the old value must agree after a transition.
 	 *
 	 * @since 3.1.0
 	 */
 	public function test_cached_and_uncached_agree_after_transition(): void {
 		$query = new TestQuery();
+		$id    = $this->add_widget( array( 'status' => 'active' ) );
 
-		$id = $query->add_item(
-			array(
-				'name'   => 'Widget',
-				'status' => 'active',
-			)
-		);
 		$query->get_item_by( 'status', 'active' );
 		$query->update_item( $id, array( 'status' => 'inactive' ) );
 
-		// Cached answer (cache may still hold the stale 'active' slot).
 		$cached = $query->get_item_by( 'status', 'active' );
-
-		// Uncached answer (forced fresh read).
 		wp_cache_flush();
 		$fresh = $query->get_item_by( 'status', 'active' );
 
+		$this->assertSame( $fresh, $cached );
+	}
+
+	/**
+	 * After a transition, a lookup by the NEW value returns the row with its
+	 * updated data.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_lookup_by_new_value_returns_row_after_transition(): void {
+		$query = new TestQuery();
+		$id    = $this->add_widget( array( 'status' => 'active' ) );
+
+		$query->get_item_by( 'status', 'active' );          // Warm the old value.
+		$query->update_item( $id, array( 'status' => 'inactive' ) );
+
+		$result = $query->get_item_by( 'status', 'inactive' );
+
+		$this->assertIsObject( $result );
+		$this->assertSame( $id, (int) $result->id );
+		$this->assertSame( 'inactive', $result->status );
+	}
+
+	/**
+	 * A write to a NON-cache_key column must still rotate the salt, so a lookup
+	 * by an unchanged cache_key value re-resolves the row with fresh data rather
+	 * than returning the pre-write cached copy.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_lookup_reflects_update_to_non_cache_key_column(): void {
+		$query = new TestQuery();
+		$id    = $this->add_widget(
+			array(
+				'name'   => 'Original',
+				'status' => 'active',
+			)
+		);
+
+		$first = $query->get_item_by( 'status', 'active' );  // Warm with name "Original".
+		$this->assertSame( 'Original', $first->name );
+
+		$query->update_item( $id, array( 'name' => 'Renamed' ) );
+
+		$second = $query->get_item_by( 'status', 'active' );
 		$this->assertSame(
-			$fresh,
-			$cached,
-			'Cached and uncached lookups by the same value must return the same result.'
+			'Renamed',
+			$second->name,
+			'Lookup must reflect the updated name, not the pre-write cached copy.'
 		);
 	}
 
 	// -------------------------------------------------------------------------
-	// Defect 2: non-unique cache_key collision.
+	// Delete invalidation.
 	// -------------------------------------------------------------------------
 
 	/**
-	 * When two rows share a status value, the cached single-item lookup must
-	 * agree with a fresh database read. Currently the cache holds only the
-	 * last-written row, which disagrees with the DB's LIMIT 1 ordering.
+	 * After a row is deleted, a lookup by its cache_key value must miss.
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_non_unique_cache_key_cached_matches_database(): void {
-		$this->markTestSkipped(
-			'Defect 2 (non-unique cache_key collision) is unfixed — see berlindb/core #203. '
-			. 'Cache invalidation cannot resolve it; it requires restricting cache_key to unique columns. '
-			. 'Remove this skip when that fix lands.'
-		);
-
+	public function test_lookup_misses_after_delete(): void {
 		$query = new TestQuery();
+		$id    = $this->add_widget( array( 'status' => 'active' ) );
 
-		$query->add_item(
+		$query->get_item_by( 'status', 'active' );          // Warm.
+		$query->delete_item( $id );
+
+		$this->assertFalse(
+			$query->get_item_by( 'status', 'active' ),
+			'A lookup by a deleted row cache_key value must not return it.'
+		);
+	}
+
+	/**
+	 * Cached and uncached lookups must agree after a delete.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_cached_and_uncached_agree_after_delete(): void {
+		$query = new TestQuery();
+		$id    = $this->add_widget( array( 'status' => 'active' ) );
+
+		$query->get_item_by( 'status', 'active' );
+		$query->delete_item( $id );
+
+		$cached = $query->get_item_by( 'status', 'active' );
+		wp_cache_flush();
+		$fresh = $query->get_item_by( 'status', 'active' );
+
+		$this->assertSame( $fresh, $cached );
+	}
+
+	// -------------------------------------------------------------------------
+	// Non-unique collision.
+	// -------------------------------------------------------------------------
+
+	/**
+	 * When two rows share a value, the cached single-item lookup must agree with
+	 * a fresh database read (both return the WHERE ... LIMIT 1 winner).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_non_unique_cached_matches_database(): void {
+		$query = new TestQuery();
+		$this->add_widget(
 			array(
 				'name'   => 'Row A',
 				'status' => 'active',
 			)
 		);
-		$query->add_item(
+		$this->add_widget(
 			array(
 				'name'   => 'Row B',
 				'status' => 'active',
 			)
 		);
 
-		// Cached answer (both add_item() calls warmed the single 'active' slot).
 		$cached = $query->get_item_by( 'status', 'active' );
-
-		// Uncached answer (forced fresh read).
 		wp_cache_flush();
 		$fresh = $query->get_item_by( 'status', 'active' );
 
-		$this->assertSame(
-			(int) ( $fresh->id ?? 0 ),
-			(int) ( $cached->id ?? 0 ),
-			'Cached single-item lookup must return the same row as a fresh database read.'
+		$this->assertSame( (int) $fresh->id, (int) $cached->id );
+	}
+
+	/**
+	 * Repeated lookups within the same generation (no intervening write) return
+	 * a consistent row.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_repeated_lookups_are_stable_within_a_generation(): void {
+		$query = new TestQuery();
+		$this->add_widget(
+			array(
+				'name'   => 'Row A',
+				'status' => 'active',
+			)
 		);
+		$this->add_widget(
+			array(
+				'name'   => 'Row B',
+				'status' => 'active',
+			)
+		);
+
+		$first  = $query->get_item_by( 'status', 'active' );
+		$second = $query->get_item_by( 'status', 'active' );
+
+		$this->assertSame( (int) $first->id, (int) $second->id );
+	}
+
+	// -------------------------------------------------------------------------
+	// Distinct values.
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Distinct cache_key values must not collide: each lookup returns its own row.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_distinct_values_do_not_collide(): void {
+		$query       = new TestQuery();
+		$id_active   = $this->add_widget(
+			array(
+				'name'   => 'Active',
+				'status' => 'active',
+			)
+		);
+		$id_inactive = $this->add_widget(
+			array(
+				'name'   => 'Inactive',
+				'status' => 'inactive',
+			)
+		);
+
+		$active   = $query->get_item_by( 'status', 'active' );
+		$inactive = $query->get_item_by( 'status', 'inactive' );
+
+		$this->assertSame( $id_active, (int) $active->id );
+		$this->assertSame( $id_inactive, (int) $inactive->id );
+
+		// Re-read once warm to confirm the cached entries are still distinct.
+		$this->assertSame( $id_active, (int) $query->get_item_by( 'status', 'active' )->id );
+		$this->assertSame( $id_inactive, (int) $query->get_item_by( 'status', 'inactive' )->id );
+	}
+
+	// -------------------------------------------------------------------------
+	// Falsy values.
+	// -------------------------------------------------------------------------
+
+	/**
+	 * A cache_key value of the string '0' is a valid lookup and must round-trip
+	 * through the cache (regression guard for the empty() bail).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_lookup_by_string_zero_value(): void {
+		$query = new TestQuery();
+		$id    = $this->add_widget(
+			array(
+				'name'   => 'Zero',
+				'status' => '0',
+			)
+		);
+
+		$first  = $query->get_item_by( 'status', '0' );      // DB → cache.
+		$second = $query->get_item_by( 'status', '0' );      // Cache hit.
+
+		$this->assertSame( $id, (int) $first->id );
+		$this->assertSame( $id, (int) $second->id );
+	}
+
+	// -------------------------------------------------------------------------
+	// Non-cache_key and primary columns.
+	// -------------------------------------------------------------------------
+
+	/**
+	 * A lookup by a non-cache_key column is not cached but must still return the
+	 * correct row from the database.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_lookup_by_non_cache_key_column_returns_row(): void {
+		$query = new TestQuery();
+		$id    = $this->add_widget(
+			array(
+				'name'     => 'Prioritised',
+				'status'   => 'active',
+				'priority' => 7,
+			)
+		);
+
+		$result = $query->get_item_by( 'priority', 7 );
+
+		$this->assertIsObject( $result );
+		$this->assertSame( $id, (int) $result->id );
+	}
+
+	/**
+	 * A lookup by the primary column returns the row through the by-id cache.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_lookup_by_primary_returns_row(): void {
+		$query = new TestQuery();
+		$id    = $this->add_widget( array( 'name' => 'ByID' ) );
+
+		$first  = $query->get_item_by( 'id', $id );
+		$second = $query->get_item_by( 'id', $id );
+
+		$this->assertSame( $id, (int) $first->id );
+		$this->assertSame( $id, (int) $second->id );
+		$this->assertSame( 'ByID', $second->name );
+	}
+
+	/**
+	 * A lookup by a value that matches no row returns false.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_lookup_with_no_match_returns_false(): void {
+		$query = new TestQuery();
+		$this->add_widget( array( 'status' => 'active' ) );
+
+		$this->assertFalse( $query->get_item_by( 'status', 'nonexistent' ) );
 	}
 }

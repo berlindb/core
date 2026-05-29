@@ -2506,12 +2506,26 @@ class Query {
 			return $retval;
 		}
 
-		// Get all of the cache groups.
-		$groups = $this->get_cache_groups();
+		// Resolve the cache group for this column (empty if not a cache_key column).
+		$primary = $this->get_primary_column_name();
+		$groups  = $this->get_cache_groups();
+		$group   = isset( $groups[ $column_name ] ) ? $groups[ $column_name ] : '';
+
+		/*
+		 * Cache key. The primary column is stable and unique, so its value (the
+		 * id) is used directly as a by-id object-cache key. Secondary cache_key
+		 * columns salt the key with last_changed, so any write rotates it: old
+		 * lookups are abandoned (no stale slots) and the cached entry always
+		 * reflects the actual query result (no last-writer value collisions).
+		 */
+		$cache_key = $column_value;
+		if ( ( $column_name !== $primary ) && ! empty( $group ) ) {
+			$cache_key = $this->get_item_by_cache_key( $column_name, $column_value );
+		}
 
 		// Check cache.
-		if ( ! empty( $groups[ $column_name ] ) ) {
-			$retval = $this->cache_get( $column_value, $groups[ $column_name ] );
+		if ( ! empty( $group ) ) {
+			$retval = $this->cache_get( $cache_key, $group );
 		}
 
 		// Item not cached.
@@ -2525,9 +2539,17 @@ class Query {
 				return false;
 			}
 
-			// Update item cache(s) — read path, do not bump last_changed.
+			// Cache the result — read path, do not bump last_changed.
 			if ( is_object( $retval ) ) {
+
+				// Always warm the canonical primary by-id object cache.
 				$this->update_item_cache( $retval, false );
+
+				// For secondary cache_key columns, store the salted lookup so the
+				// next get_item_by() by this value is a hit until the next write.
+				if ( ( $column_name !== $primary ) && ! empty( $group ) ) {
+					$this->cache_set( $cache_key, $retval, $group );
+				}
 			}
 		}
 
@@ -2737,11 +2759,6 @@ class Query {
 			return false;
 		}
 
-		// Keep the original object so its pre-update cache_key slots — including
-		// the old values — can be invalidated after the write. The array cast
-		// below is destructive, so capture the object first.
-		$original = $item;
-
 		// Cast as an array for easier manipulation.
 		$item = (array) $item;
 
@@ -2805,19 +2822,9 @@ class Query {
 			return false;
 		}
 
-		/*
-		 * Invalidate slots keyed on the row's OLD values, but only when a
-		 * cache_key column's value actually changed. update_item_cache() rewrites
-		 * the slots keyed on NEW values; when a cache_key column changes, its
-		 * old-value slot lives at a different key that update_item_cache() never
-		 * touches, so without this the stale row lingers there and
-		 * get_item_by( $col, $old_value ) returns it. When no cache_key column
-		 * changed, every slot keeps its key and the re-warm overwrites it in
-		 * place — so the clean would be pure churn.
-		 */
-		if ( ! empty( array_intersect_key( $save, $this->get_cache_groups() ) ) ) {
-			$this->clean_item_cache( $original );
-		}
+		// Refresh the primary by-id cache and rotate last_changed. The bump
+		// invalidates every salted secondary get_item_by() lookup, so a lookup
+		// by an old cache_key value can no longer return the stale row.
 		$this->update_item_cache( $item_id );
 
 		// Transition item data.
@@ -3497,6 +3504,27 @@ class Query {
 	}
 
 	/**
+	 * Build a last_changed-salted cache key for a get_item_by() lookup.
+	 *
+	 * Secondary cache_key lookups embed the table-wide last_changed value so
+	 * that any write rotates the key — abandoning stale lookups without
+	 * per-slot deletion — and md5() the column value so arbitrary or long
+	 * values still produce a safe, bounded cache key.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $column_name  Column being looked up.
+	 * @param mixed  $column_value Value being looked up.
+	 * @return string
+	 */
+	private function get_item_by_cache_key( $column_name = '', $column_value = '' ): string {
+		$last_changed = $this->get_last_changed_cache();
+		$hashed       = md5( (string) $column_value );
+
+		return "item_by:{$column_name}:{$hashed}:{$last_changed}";
+	}
+
+	/**
 	 * Maybe prime item & item-meta caches.
 	 *
 	 * Accepts a single ID, or an array of IDs.
@@ -3622,10 +3650,14 @@ class Query {
 			$items = array( $items );
 		}
 
-		// Get the cache groups.
-		$groups = $this->get_cache_groups();
+		// Get the cache groups and the primary column name.
+		$groups  = $this->get_cache_groups();
+		$primary = $this->get_primary_column_name();
 
-		// Loop through all items and cache them.
+		// Warm the primary by-id object cache only. Secondary cache_key lookups
+		// are salted and lazily populated by get_item_by(); proactively warming
+		// them here would write keys the salted reads never hit, and overwrite
+		// non-unique lookups with the last-written row.
 		foreach ( $items as $item ) {
 
 			// Skip if item is not an object.
@@ -3633,11 +3665,9 @@ class Query {
 				continue;
 			}
 
-			// Loop through groups and set cache.
-			if ( ! empty( $groups ) ) {
-				foreach ( $groups as $key => $group ) {
-					$this->cache_set( $item->{$key}, $item, $group );
-				}
+			// Warm the primary by-id object cache.
+			if ( isset( $groups[ $primary ], $item->{$primary} ) ) {
+				$this->cache_set( $item->{$primary}, $item, $groups[ $primary ] );
 			}
 		}
 
@@ -3677,10 +3707,13 @@ class Query {
 			$items = array( $items );
 		}
 
-		// Get the cache groups.
-		$groups = $this->get_cache_groups();
+		// Get the cache groups and the primary column name.
+		$groups  = $this->get_cache_groups();
+		$primary = $this->get_primary_column_name();
 
-		// Loop through all items and clean them.
+		// Delete the primary by-id object cache for each item. Secondary
+		// cache_key lookups are salted, so the last_changed bump below
+		// invalidates them without per-slot deletion.
 		foreach ( $items as $item ) {
 
 			// Skip if item is not an object.
@@ -3688,15 +3721,13 @@ class Query {
 				continue;
 			}
 
-			// Loop through groups and delete cache.
-			if ( ! empty( $groups ) ) {
-				foreach ( $groups as $key => $group ) {
-					$this->cache_delete( $item->{$key}, $group );
-				}
+			// Delete the primary by-id object cache.
+			if ( isset( $groups[ $primary ], $item->{$primary} ) ) {
+				$this->cache_delete( $item->{$primary}, $groups[ $primary ] );
 			}
 		}
 
-		// Update last changed.
+		// Update last changed — rotates the salt, invalidating secondary lookups.
 		$this->update_last_changed_cache();
 
 		return true;
@@ -3779,7 +3810,7 @@ class Query {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param string $key    Cache key.
+	 * @param int|string $key    Cache key.
 	 * @param mixed  $value  Cache value.
 	 * @param string $group  Cache group. Defaults to $this->cache_group.
 	 * @param int    $expire Expiration.
@@ -3833,7 +3864,7 @@ class Query {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param string $key    Cache key.
+	 * @param int|string $key    Cache key.
 	 * @param mixed  $value  Cache value.
 	 * @param string $group  Cache group. Defaults to $this->cache_group.
 	 * @param int    $expire Expiration.
@@ -3864,7 +3895,7 @@ class Query {
 	 *
 	 * @global bool $_wp_suspend_cache_invalidation
 	 *
-	 * @param string $key   Cache key.
+	 * @param int|string $key   Cache key.
 	 * @param string $group Cache group. Defaults to $this->cache_group.
 	 */
 	private function cache_delete( $key = '', $group = '' ): void {
