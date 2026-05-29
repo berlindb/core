@@ -2806,14 +2806,18 @@ class Query {
 		}
 
 		/*
-		 * Invalidate slots keyed on the row's OLD values, then re-warm slots
-		 * keyed on its NEW values. update_item_cache() only writes new-value
-		 * slots; when a cache_key column changes, its old-value slot lives at a
-		 * different key that update_item_cache() never touches, so without this
-		 * the stale row lingers there and get_item_by( $col, $old_value )
-		 * returns it.
+		 * Invalidate slots keyed on the row's OLD values, but only when a
+		 * cache_key column's value actually changed. update_item_cache() rewrites
+		 * the slots keyed on NEW values; when a cache_key column changes, its
+		 * old-value slot lives at a different key that update_item_cache() never
+		 * touches, so without this the stale row lingers there and
+		 * get_item_by( $col, $old_value ) returns it. When no cache_key column
+		 * changed, every slot keeps its key and the re-warm overwrites it in
+		 * place — so the clean would be pure churn.
 		 */
-		$this->clean_item_cache( $original );
+		if ( ! empty( array_intersect_key( $save, $this->get_cache_groups() ) ) ) {
+			$this->clean_item_cache( $original );
+		}
 		$this->update_item_cache( $item_id );
 
 		// Transition item data.
