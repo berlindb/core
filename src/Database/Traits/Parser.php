@@ -1290,7 +1290,7 @@ trait Parser {
 				? strtotime( $datetime, (int) $now )
 				: (int) $datetime;
 
-			// strtotime() may return false for unparseable input.
+			// strtotime() may return false for unparsable input.
 			if ( false === $datetime ) {
 				return false;
 			}
