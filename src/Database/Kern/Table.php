@@ -551,12 +551,15 @@ class Table {
 	 * cleared by uninstall(). This is always a cache hit — the version option
 	 * is autoloaded and served from WordPress's in-memory options cache.
 	 *
+	 * Compares against the empty string rather than using empty(), so a table
+	 * whose version is the string '0' is still correctly reported as installed.
+	 *
 	 * @since 3.1.0
 	 *
 	 * @return bool True if a version is stored, false if not.
 	 */
 	public function is_installed(): bool {
-		return ! empty( $this->get_version() );
+		return ( $this->get_version() !== '' );
 	}
 
 	/**

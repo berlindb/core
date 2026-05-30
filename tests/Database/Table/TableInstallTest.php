@@ -223,4 +223,57 @@ class TableInstallTest extends TestCase {
 			'maybe_upgrade() must be registered on admin_init.'
 		);
 	}
+
+	// -------------------------------------------------------------------------
+	// is_installed().
+	// -------------------------------------------------------------------------
+
+	/**
+	 * is_installed() returns true once a database version is stored.
+	 *
+	 * Sets the version option explicitly rather than relying on ambient state:
+	 * DDL in other tests implicitly commits, which can leave the shared fixture's
+	 * version option in an indeterminate committed state across tests.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_is_installed_returns_true_when_version_stored(): void {
+		update_option( self::$table->get_db_version_key(), self::$table->get_schema_version() );
+
+		$this->assertTrue( self::$table->is_installed() );
+	}
+
+	/**
+	 * is_installed() returns false after uninstall() clears the version.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_is_installed_returns_false_after_uninstall(): void {
+		$this->bypass_table_filters();
+		self::$table->uninstall();
+		$installed = self::$table->is_installed();
+		self::$table->install();
+		$this->restore_table_filters();
+
+		$this->assertFalse( $installed );
+	}
+
+	/**
+	 * A stored version of the string '0' must still count as installed.
+	 *
+	 * is_installed() compares against '' rather than using empty(), which would
+	 * treat '0' as empty and wrongly report the table as not installed.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_is_installed_true_for_zero_version(): void {
+		$key      = self::$table->get_db_version_key();
+		$previous = get_option( $key );
+
+		update_option( $key, '0' );
+		$installed = self::$table->is_installed();
+		update_option( $key, $previous );
+
+		$this->assertTrue( $installed, "A version of '0' must report as installed." );
+	}
 }
