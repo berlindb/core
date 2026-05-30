@@ -457,14 +457,17 @@ class ColumnTest extends TestCase {
 	// Validation helpers.
 
 	/**
-	 * Test that validate_uuid generates a urn:uuid: prefixed string for an empty value.
+	 * validate_uuid() returns the column default for an empty value.
+	 *
+	 * Generation is now the responsibility of Column::intercept(); validate_uuid()
+	 * is a pure format check that degrades to $this->default on invalid input.
 	 *
 	 * @since 2.1.0
+	 * @since 3.1.0 Updated: validate_uuid() no longer generates; expects default.
 	 */
-	public function test_validate_uuid_generates_urn_prefix_for_empty_value() {
+	public function test_validate_uuid_returns_default_for_empty_value() {
 		$column = new Column( array( 'uuid' => true ) );
-		$result = $column->validate_uuid( '' );
-		$this->assertStringStartsWith( 'urn:uuid:', $result );
+		$this->assertSame( $column->default, $column->validate_uuid( '' ) );
 	}
 
 	/**
