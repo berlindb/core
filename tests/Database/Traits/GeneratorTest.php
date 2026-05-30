@@ -10,7 +10,7 @@
 
 namespace BerlinDB\Tests;
 
-use Yoast\WPTestUtils\WPIntegration\TestCase;
+use PHPUnit\Framework\TestCase;
 
 /**
  * Minimal test subject for the Generator trait.

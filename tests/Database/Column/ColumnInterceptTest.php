@@ -15,7 +15,7 @@
 namespace BerlinDB\Tests;
 
 use BerlinDB\Database\Kern\Column;
-use Yoast\WPTestUtils\WPIntegration\TestCase;
+use PHPUnit\Framework\TestCase;
 
 /**
  * Tests for the Column value-interception hook.

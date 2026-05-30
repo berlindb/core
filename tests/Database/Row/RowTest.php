@@ -11,7 +11,7 @@
 namespace BerlinDB\Tests;
 
 use BerlinDB\Tests\Fixtures\TestRow;
-use Yoast\WPTestUtils\WPIntegration\TestCase;
+use PHPUnit\Framework\TestCase;
 
 /**
  * Tests for BerlinDB\Database\Row via the TestRow fixture.

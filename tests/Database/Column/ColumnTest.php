@@ -11,7 +11,7 @@
 namespace BerlinDB\Tests;
 
 use BerlinDB\Database\Column;
-use Yoast\WPTestUtils\WPIntegration\TestCase;
+use PHPUnit\Framework\TestCase;
 
 /**
  * Tests for BerlinDB\Database\Column.

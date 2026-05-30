@@ -28,7 +28,7 @@ use BerlinDB\Database\Operators\NotLike;
 use BerlinDB\Database\Operators\NotRegexp;
 use BerlinDB\Database\Operators\Regexp;
 use BerlinDB\Database\Operators\Rlike;
-use Yoast\WPTestUtils\WPIntegration\TestCase;
+use PHPUnit\Framework\TestCase;
 
 /**
  * Tests for all BerlinDB operator classes.
