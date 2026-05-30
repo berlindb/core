@@ -2831,11 +2831,13 @@ class Query {
 		// Refresh the primary by-id cache and rotate the Query group's salt.
 		$this->update_item_cache( $item_id );
 
-		// Rotate only the secondary lookup groups whose cache_key value changed.
-		// Lookups by columns that did not change stay warm and still resolve
-		// fresh objects through the by-id cache refreshed above.
-		$changed = array_values( array_intersect( array_keys( $save ), array_keys( $this->get_cache_groups() ) ) );
-		$this->update_secondary_last_changed_caches( $changed );
+		/*
+		 * Rotate the secondary lookup groups for the columns that changed. The
+		 * helper ignores any names that are not cache_key columns, so the written
+		 * column names can be passed as-is. Lookups by unchanged columns stay
+		 * warm and still resolve fresh objects through the by-id cache above.
+		 */
+		$this->update_secondary_last_changed_caches( array_keys( $save ) );
 
 		// Transition item data.
 		$this->transition_item( $item_id, $save, $item );

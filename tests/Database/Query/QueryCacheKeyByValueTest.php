@@ -2,12 +2,13 @@
 /**
  * Coherence tests for get_item_by() and the cache_key column caching path.
  *
- * BerlinDB caches single items looked up by a cache_key column. The secondary
- * (non-primary) lookups cache the matching primary ID using the table-wide
+ * BerlinDB caches single items looked up by a cache_key column. Secondary
+ * (non-primary) lookups cache the matching primary ID using the lookup group's
  * last_changed salt and are populated lazily from the actual query result, so:
  *
- *   1. Stale-after-transition: any write bumps last_changed, so a lookup by an
- *      old value re-resolves from the database instead of returning a stale row.
+ *   1. Stale-after-transition: writes that can affect a cache_key mapping bump
+ *      that lookup group's last_changed, so a lookup by an old value re-resolves
+ *      from the database instead of returning a stale row.
  *
  *   2. Non-unique collision: the cached entry is the actual WHERE col = value
  *      LIMIT 1 result, so it agrees with a fresh database read by construction.
@@ -161,9 +162,8 @@ class QueryCacheKeyByValueTest extends TestCase {
 	}
 
 	/**
-	 * A write to a NON-cache_key column must still rotate the salt, so a lookup
-	 * by an unchanged cache_key value re-resolves the row with fresh data rather
-	 * than returning the pre-write cached copy.
+	 * A write to a NON-cache_key column may leave the secondary lookup warm, but
+	 * it must still resolve fresh object data through the primary by-id cache.
 	 *
 	 * @since 3.1.0
 	 */
@@ -185,7 +185,7 @@ class QueryCacheKeyByValueTest extends TestCase {
 		$this->assertSame(
 			'Renamed',
 			$second->name,
-			'Lookup must reflect the updated name, not the pre-write cached copy.'
+			'Lookup must reflect the updated name, even when the value-to-ID lookup survives.'
 		);
 	}
 
