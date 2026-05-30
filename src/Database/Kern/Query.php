@@ -1170,20 +1170,6 @@ class Query {
 	/** Private Getters *******************************************************/
 
 	/**
-	 * Return the current UTC time in MySQL DATETIME format.
-	 *
-	 * Used by add_item() and update_item() as the PHP-side equivalent of
-	 * MySQL's CURRENT_TIMESTAMP. Always UTC, never local server time.
-	 *
-	 * @since 1.0.0
-	 *
-	 * @return string Current UTC time as 'Y-m-d H:i:s'.
-	 */
-	private function get_current_time() {
-		return gmdate( 'Y-m-d H:i:s' );
-	}
-
-	/**
 	 * Get a single database row by any column and value, skipping cache.
 	 *
 	 * @since 1.0.0
@@ -1223,8 +1209,6 @@ class Query {
 		// Return row.
 		return $result;
 	}
-
-
 
 	/**
 	 * Retrieves a list of items matching the query vars.
@@ -2629,24 +2613,10 @@ class Query {
 			return false;
 		}
 
-		// Get the current time (maybe used by created/modified).
-		$time = $this->get_current_time();
-
-		// If date-created exists, but is empty or default, use the current time.
-		$created = $this->get_column_by( array( 'created' => true ) );
-		if ( ! empty( $created ) && ( empty( $save[ $created->name ] ) || ( $save[ $created->name ] === $created->default ) ) ) {
-			$save[ $created->name ] = $time;
-		}
-
-		// If date-modified exists, but is empty or default, use the current time.
-		$modified = $this->get_column_by( array( 'modified' => true ) );
-		if ( ! empty( $modified ) && ( empty( $save[ $modified->name ] ) || ( $save[ $modified->name ] === $modified->default ) ) ) {
-			$save[ $modified->name ] = $time;
-		}
-
-		// Reduce & validate.
+		// Reduce (caps), let columns intercept generated values, then validate.
 		$reduce = $this->reduce_item( 'insert', $save );
-		$save   = $this->validate_item( $reduce );
+		$save   = $this->intercept_item( 'insert', $reduce );
+		$save   = $this->validate_item( $save );
 
 		// Default return value.
 		$retval = false;
@@ -2712,11 +2682,8 @@ class Query {
 		// Cast object to array.
 		$save = (array) $item;
 
-		/*
-		 * Strip the UUID so add_item() generates a fresh one via validate_uuid().
-		 * A UUID explicitly provided in $data will be restored by the merge below.
-		 */
-		unset( $save['uuid'] );
+		// Let columns intercept copied values before overrides are restored.
+		$save = $this->intercept_item( 'copy', $save );
 
 		// Maybe merge data with original item.
 		if ( ! empty( $data ) && is_array( $data ) ) {
@@ -2800,15 +2767,10 @@ class Query {
 			return false;
 		}
 
-		// If date-modified exists, use the current time.
-		$modified = $this->get_column_by( array( 'modified' => true ) );
-		if ( ! empty( $modified ) ) {
-			$save[ $modified->name ] = $this->get_current_time();
-		}
-
-		// Reduce & validate.
+		// Reduce (caps), let columns intercept generated values, then validate.
 		$reduce = $this->reduce_item( 'update', $save );
-		$save   = $this->validate_item( $reduce );
+		$save   = $this->intercept_item( 'update', $reduce );
+		$save   = $this->validate_item( $save );
 
 		// Default return value.
 		$retval = false;
@@ -2948,6 +2910,51 @@ class Query {
 
 		// Return the validated item.
 		return $this->filter_item( $item );
+	}
+
+	/**
+	 * Let each column intercept its value for a save operation.
+	 *
+	 * Loops every column (not just the keys present in $item, so it can inject
+	 * values the caller omitted — e.g. created/modified) and delegates to
+	 * Column::intercept().
+	 *
+	 * Sits beside reduce_item() and validate_item() in the save pipeline:
+	 * reduce (caps) -> intercept (generated values) -> validate (sanitize).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string               $method One of insert|update|select|delete|copy.
+	 * @param array<string, mixed> $item   Item field key/value pairs.
+	 * @return array<string, mixed>
+	 */
+	private function intercept_item( $method = 'insert', $item = array() ) {
+
+		// Bail if item is empty or not an array.
+		if ( empty( $item ) || ! is_array( $item ) ) {
+			return $item;
+		}
+
+		// Let each column intercept its value.
+		foreach ( $this->get_columns() as $column ) {
+			$name    = $column->name;
+			$current = $item[ $name ] ?? null;
+			$new     = $column->intercept( $method, $current );
+
+			// A non-null value intercepted to null removes the column entirely.
+			if ( ( null !== $current ) && ( null === $new ) ) {
+				unset( $item[ $name ] );
+				continue;
+			}
+
+			// Only write back when interception changed the value.
+			if ( $new !== $current ) {
+				$item[ $name ] = $new;
+			}
+		}
+
+		// Return the intercepted item.
+		return $item;
 	}
 
 	/**

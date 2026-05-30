@@ -1544,6 +1544,55 @@ class Column {
 		return $value;
 	}
 
+	/**
+	 * Intercept this column's value for a save operation.
+	 *
+	 * Returns the value to store. The base implementation manages the built-in
+	 * "created" and "modified" flags by stamping the current time. It also
+	 * clears UUID values from copy operations so add_item() can
+	 * regenerate them.
+	 *
+	 * Contract: returns the (possibly replaced) value to store. The caller
+	 * (Query::intercept_item()) writes it back only when it differs from the
+	 * incoming value, and unsets the column when a non-null value becomes null.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $method One of insert|update|select|delete|copy.
+	 * @param mixed  $value  Incoming value (null when the column was not supplied).
+	 * @return mixed
+	 */
+	public function intercept( $method = 'insert', $value = null ) {
+
+		// Copy: clear values that must be regenerated for the new row.
+		if ( 'copy' === $method ) {
+			if ( ! empty( $this->uuid ) ) {
+				return null;
+			}
+
+			return $value;
+		}
+
+		// Created: stamp on insert when empty or still the column default.
+		if ( ! empty( $this->created ) && ( 'insert' === $method ) && ( empty( $value ) || ( $value === $this->default ) ) ) {
+			return gmdate( 'Y-m-d H:i:s' );
+		}
+
+		// Modified: stamp on every update, and on insert when empty or default.
+		if ( ! empty( $this->modified ) ) {
+			if ( 'update' === $method ) {
+				return gmdate( 'Y-m-d H:i:s' );
+			}
+
+			if ( ( 'insert' === $method ) && ( empty( $value ) || ( $value === $this->default ) ) ) {
+				return gmdate( 'Y-m-d H:i:s' );
+			}
+		}
+
+		// No interception: leave the value untouched.
+		return $value;
+	}
+
 	/** Table Helpers *********************************************************/
 
 	/**
