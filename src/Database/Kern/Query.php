@@ -2520,7 +2520,7 @@ class Query {
 		 */
 		$cache_key = $column_value;
 		if ( ( false === $is_primary ) && ! empty( $group ) ) {
-			$cache_key = $this->get_item_cache_key( $column_value );
+			$cache_key = $this->get_item_cache_key( $column_value, $group );
 		}
 
 		// Check cache.
@@ -2672,8 +2672,10 @@ class Query {
 			$this->save_extra_item_meta( $retval, $meta );
 		}
 
-		// Update item cache(s).
+		// Update item cache(s). A new row can become the first match for any
+		// value, so rotate every secondary lookup group.
 		$this->update_item_cache( $retval );
+		$this->update_secondary_last_changed_caches();
 
 		// Transition item data.
 		$this->transition_item( $retval, $save, array() );
@@ -2826,10 +2828,14 @@ class Query {
 			return false;
 		}
 
-		// Refresh the primary by-id cache and rotate last_changed. The bump
-		// invalidates every salted secondary get_item_by() lookup, so a lookup
-		// by an old cache_key value can no longer return the stale row.
+		// Refresh the primary by-id cache and rotate the Query group's salt.
 		$this->update_item_cache( $item_id );
+
+		// Rotate only the secondary lookup groups whose cache_key value changed.
+		// Lookups by columns that did not change stay warm and still resolve
+		// fresh objects through the by-id cache refreshed above.
+		$changed = array_values( array_intersect( array_keys( $save ), array_keys( $this->get_cache_groups() ) ) );
+		$this->update_secondary_last_changed_caches( $changed );
 
 		// Transition item data.
 		$this->transition_item( $item_id, $save, $item );
@@ -2889,9 +2895,11 @@ class Query {
 			return false;
 		}
 
-		// Clean caches on successful delete.
+		// Clean caches on successful delete. The removed row's value-to-ID
+		// mappings are now gone, so rotate every secondary lookup group.
 		$this->delete_all_item_meta( $item_id );
 		$this->clean_item_cache( $item );
+		$this->update_secondary_last_changed_caches();
 
 		// Get the action name with prefix and item name.
 		$action_name = $this->apply_prefix( $this->get_item_name() . '_deleted' );
@@ -3451,11 +3459,12 @@ class Query {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param mixed $column_value Value being looked up.
+	 * @param mixed  $column_value Value being looked up.
+	 * @param string $group        Secondary lookup group to salt from. Default empty.
 	 * @return string
 	 */
-	private function get_item_cache_key( $column_value = '' ): string {
-		return md5( (string) $column_value ) . ':' . $this->get_last_changed_cache();
+	private function get_item_cache_key( $column_value = '', $group = '' ): string {
+		return md5( (string) $column_value ) . ':' . $this->get_last_changed_cache( $group );
 	}
 
 	/**
@@ -3700,7 +3709,7 @@ class Query {
 		 * invalidate the list cache that was just stored.
 		 */
 		if ( true === $bump_last_changed ) {
-			$this->update_last_changed_cache();
+			$this->update_primary_last_changed_cache();
 		}
 	}
 
@@ -3735,9 +3744,7 @@ class Query {
 		$groups  = $this->get_cache_groups();
 		$primary = $this->get_primary_column_name();
 
-		// Delete the primary by-id object cache for each item. Secondary
-		// cache_key lookups are salted, so the last_changed bump below
-		// invalidates them without per-slot deletion.
+		// Delete the primary by-id object cache for each item.
 		foreach ( $items as $item ) {
 
 			// Skip if item is not an object.
@@ -3751,26 +3758,88 @@ class Query {
 			}
 		}
 
-		// Update last changed — rotates the salt, invalidating secondary lookups.
-		$this->update_last_changed_cache();
+		/*
+		 * Rotate the Query (primary) group's salt, invalidating the result-list
+		 * cache. Secondary lookup groups are rotated by the caller via
+		 * update_secondary_last_changed_caches(), since only the caller knows the
+		 * operation.
+		 */
+		$this->update_primary_last_changed_cache();
 
 		return true;
 	}
 
 	/**
-	 * Update the last_changed key for the cache group.
+	 * Set the last_changed generation for a cache group to the current time.
+	 *
+	 * Low-level primitive. Prefer the semantic wrappers
+	 * update_primary_last_changed_cache() and
+	 * update_secondary_last_changed_caches() at write sites; this is also used
+	 * by get_last_changed_cache() to lazily initialise a group.
 	 *
 	 * @since 1.0.0
 	 *
 	 * @param string $group Cache group. Defaults to $this->cache_group.
-	 * @return string The last time a cache group was changed.
+	 * @return string The new last_changed value.
 	 */
-	private function update_last_changed_cache( $group = '' ) {
+	private function set_last_changed( $group = '' ) {
 		$last_changed = microtime();
 
 		$this->cache_set( 'last_changed', $last_changed, $group );
 
 		return $last_changed;
+	}
+
+	/**
+	 * Rotate the Query (primary) group's last_changed salt.
+	 *
+	 * Invalidates the result-list cache. Called on every write, since any column
+	 * change can affect query ordering or membership.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return string The new last_changed value.
+	 */
+	private function update_primary_last_changed_cache() {
+		return $this->set_last_changed();
+	}
+
+	/**
+	 * Rotate the last_changed salt for secondary cache_key lookup groups.
+	 *
+	 * Each secondary cache_key column has its own "{cache_group}-by-{column}"
+	 * group with an independent last_changed generation, so a get_item_by()
+	 * lookup for one column survives writes that cannot affect it. The Query
+	 * (primary) group's salt is rotated separately by update_item_cache() and
+	 * clean_item_cache() on every write.
+	 *
+	 * Pass the specific column names whose values changed (an update), or null
+	 * to rotate every secondary group (an insert or delete, either of which can
+	 * change which row is the first match for any value).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param list<string>|null $columns Column names to invalidate, or null for all.
+	 */
+	private function update_secondary_last_changed_caches( $columns = null ): void {
+
+		// Get the cache groups and the primary column name.
+		$groups  = $this->get_cache_groups();
+		$primary = $this->get_primary_column_name();
+
+		// Rotate the salt for each affected secondary group.
+		foreach ( $groups as $name => $group ) {
+
+			// The primary/Query group is rotated separately, on every write.
+			if ( $name === $primary ) {
+				continue;
+			}
+
+			// Rotate all secondary groups (null), or only the named ones.
+			if ( ( null === $columns ) || in_array( $name, $columns, true ) ) {
+				$this->set_last_changed( $group );
+			}
+		}
 	}
 
 	/**
@@ -3787,9 +3856,9 @@ class Query {
 		// Get the last changed cache value.
 		$last_changed = $this->cache_get( 'last_changed', $group );
 
-		// Maybe update the last changed value.
+		// Maybe initialise the last changed value.
 		if ( false === $last_changed ) {
-			$last_changed = $this->update_last_changed_cache( $group );
+			$last_changed = $this->set_last_changed( $group );
 		}
 
 		// Return the last changed value for the cache group.

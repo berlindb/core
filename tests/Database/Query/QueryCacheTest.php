@@ -132,7 +132,7 @@ class QueryCacheTest extends TestCase {
 	 * instance must reflect the deletion — not return the stale cached result.
 	 *
 	 * This is the regression case from berlindb/core#160: the old
-	 * update_last_changed_cache() guard (`if (empty($this->last_changed))`)
+	 * set_last_changed() guard (`if (empty($this->last_changed))`)
 	 * prevented the cache key from advancing after a mutation, so the second
 	 * query would hit the now-invalid cache entry and return the deleted item.
 	 *
