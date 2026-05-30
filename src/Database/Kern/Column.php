@@ -1485,63 +1485,26 @@ class Column {
 	/**
 	 * Validate a UUID.
 	 *
-	 * This uses the v4 algorithm to generate a UUID that is used to uniquely
-	 * and universally identify a given database row without any direct
-	 * connection or correlation to the data in that row.
-	 *
-	 * From http://php.net/manual/en/function.uniqid.php#94959
+	 * Confirms the value is a correctly-prefixed URN UUID string and passes it
+	 * through unchanged. Returns the column default for any value that fails the
+	 * check — generation is the caller's responsibility (Column::intercept()).
 	 *
 	 * @since 1.0.0
-	 * @param string $value The UUID value (empty on insert, string on update).
-	 * @return string Generated UUID.
+	 * @since 3.1.0 Pure format validation; generation moved to intercept().
+	 *
+	 * @param string $value The UUID value to validate.
+	 * @return string The original value if valid, or the column default.
 	 */
 	public function validate_uuid( $value = '' ) {
-
-		// Default URN UUID prefix.
 		$prefix = 'urn:uuid:';
 
-		/*
-		 * Bail if not empty and correctly prefixed
-		 * (UUIDs should _never_ change once they are set)
-		 */
-		if ( ! empty( $value ) && ( 0 === strpos( $value, $prefix ) ) ) {
+		// Return early if valid UUID string with correct prefix.
+		if ( is_string( $value ) && ( 0 === strpos( $value, $prefix ) ) ) {
 			return $value;
 		}
 
-		// Put the pieces together.
-		// phpcs:disable PEAR.Functions.FunctionCallSignature.EmptyLine
-		$value = sprintf(
-			"{$prefix}%04x%04x-%04x-%04x-%04x-%04x%04x%04x",
-
-			// 32 bits for "time_low".
-			wp_rand( 0, 0xffff ),
-			wp_rand( 0, 0xffff ),
-
-			// 16 bits for "time_mid".
-			wp_rand( 0, 0xffff ),
-
-			/*
-			 * 16 bits for "time_hi_and_version",
-			 * four most significant bits holds version number 4
-			 */
-			wp_rand( 0, 0x0fff ) | 0x4000,
-
-			/*
-			 * 16 bits, 8 bits for "clk_seq_hi_res",
-			 * 8 bits for "clk_seq_low",
-			 * two most significant bits holds zero and one for variant DCE1.1
-			 */
-			wp_rand( 0, 0x3fff ) | 0x8000,
-
-			// 48 bits for "node".
-			wp_rand( 0, 0xffff ),
-			wp_rand( 0, 0xffff ),
-			wp_rand( 0, 0xffff )
-		);
-		// phpcs:enable PEAR.Functions.FunctionCallSignature.EmptyLine
-
-		// Return the new UUID.
-		return $value;
+		// Return the default if the value is invalid.
+		return (string) $this->default;
 	}
 
 	/**
@@ -1571,6 +1534,11 @@ class Column {
 			}
 
 			return $value;
+		}
+
+		// UUID: generate on insert when empty; never touch on update.
+		if ( ! empty( $this->uuid ) && ( 'insert' === $method ) && empty( $value ) ) {
+			return $this->generate_uuid();
 		}
 
 		// Created: stamp on insert when empty or still the column default.

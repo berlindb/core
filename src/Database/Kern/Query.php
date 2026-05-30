@@ -495,9 +495,7 @@ class Query {
 	private function set_query_var_defaults(): void {
 
 		// Default query variable value.
-		$this->query_var_default_value = function_exists( 'random_bytes' )
-			? $this->apply_prefix( bin2hex( random_bytes( 18 ) ) )
-			: $this->apply_prefix( uniqid( '_', true ) );
+		$this->query_var_default_value = $this->generate_random_string();
 
 		// Get the primary column name.
 		$primary = $this->get_primary_column_name();
