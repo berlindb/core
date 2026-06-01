@@ -11,6 +11,11 @@ description: >-
 
 Use this skill for BerlinDB 3.x work in WordPress plugins and libraries.
 
+> **Contributing to BerlinDB core itself** (editing `src/`, `tests/`, configs)?
+> This skill is consumer-facing — it covers *using* the library. The
+> contributor workflow, coding-style rules, and verification gate live in the
+> repository's `CLAUDE.md`. Read that first when working on the core.
+
 ## First Moves
 
 1. Check the installed BerlinDB version and current branch before editing.
