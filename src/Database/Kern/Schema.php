@@ -706,6 +706,54 @@ class Schema {
 	}
 
 	/**
+	 * Get every relationship declared in this schema as Relationship objects.
+	 *
+	 * Acts as the compiler for relationship declarations: it walks all columns,
+	 * reads their per-column shorthand entries, and folds each one into a
+	 * first-class Relationship object whose local side is the declaring column.
+	 * Columns without relationships are skipped. See
+	 * Column::sanitize_relationships() for the shorthand entry shape, and
+	 * berlindb/core #193 for how the Query class uses these to prime related
+	 * items.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return list<Relationship>
+	 */
+	public function get_relationships() {
+		$retval = array();
+
+		// Loop through columns and compile any declared relationships.
+		foreach ( $this->get_columns() as $column ) {
+
+			// Skip columns that declare no relationships.
+			if ( empty( $column->relationships ) ) {
+				continue;
+			}
+
+			// Each shorthand entry maps this column to one remote column.
+			foreach ( $column->relationships as $relationship ) {
+				$args = array(
+					'type'       => $relationship['type'],
+					'columns'    => array( $column->name ),
+					'query'      => $relationship['query'],
+					'references' => array( $relationship['column'] ),
+				);
+
+				// Pass an explicit accessor name through when declared; the
+				// Relationship derives one from the local column otherwise.
+				if ( isset( $relationship['name'] ) ) {
+					$args['name'] = $relationship['name'];
+				}
+
+				$retval[] = new Relationship( $args );
+			}
+		}
+
+		return $retval;
+	}
+
+	/**
 	 * Add an index to this schema.
 	 *
 	 * Convenience wrapper around add_item() for indexes.

@@ -1159,4 +1159,236 @@ class ColumnTest extends TestCase {
 		$this->assertIsArray( $result );
 		$this->assertSame( 'bar', $result['foo'] );
 	}
+
+	// Relationships (berlindb/core #193).
+
+	/**
+	 * Test that the default relationships property is an empty array.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_default_relationships_is_empty_array() {
+		$column = new Column();
+		$this->assertSame( array(), $column->relationships );
+	}
+
+	/**
+	 * Test that a fully specified relationship is preserved.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_relationship_full_entry_is_preserved() {
+		$column = new Column(
+			array(
+				'name'          => 'order_id',
+				'type'          => 'bigint',
+				'relationships' => array(
+					array(
+						'query'  => 'EDD\\Database\\Queries\\Order',
+						'column' => 'id',
+						'type'   => 'belongs_to',
+					),
+				),
+			)
+		);
+
+		$this->assertSame(
+			array(
+				array(
+					'query'  => 'EDD\\Database\\Queries\\Order',
+					'column' => 'id',
+					'type'   => 'belongs_to',
+				),
+			),
+			$column->relationships
+		);
+	}
+
+	/**
+	 * Test that an omitted type defaults to belongs_to.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_relationship_type_defaults_to_belongs_to() {
+		$column = new Column(
+			array(
+				'relationships' => array(
+					array(
+						'query'  => 'EDD\\Database\\Queries\\Order',
+						'column' => 'id',
+					),
+				),
+			)
+		);
+
+		$this->assertSame( 'belongs_to', $column->relationships[0]['type'] );
+	}
+
+	/**
+	 * Test that an unrecognized type falls back to belongs_to.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_relationship_invalid_type_falls_back_to_belongs_to() {
+		$column = new Column(
+			array(
+				'relationships' => array(
+					array(
+						'query'  => 'EDD\\Database\\Queries\\Order',
+						'column' => 'id',
+						'type'   => 'nonsense',
+					),
+				),
+			)
+		);
+
+		$this->assertSame( 'belongs_to', $column->relationships[0]['type'] );
+	}
+
+	/**
+	 * Test that a has_many type is preserved.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_relationship_has_many_type_is_preserved() {
+		$column = new Column(
+			array(
+				'relationships' => array(
+					array(
+						'query'  => 'EDD\\Database\\Queries\\OrderItem',
+						'column' => 'order_id',
+						'type'   => 'has_many',
+					),
+				),
+			)
+		);
+
+		$this->assertSame( 'has_many', $column->relationships[0]['type'] );
+	}
+
+	/**
+	 * Test that entries missing a required key are dropped.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_relationship_drops_entries_missing_required_keys() {
+		$column = new Column(
+			array(
+				'relationships' => array(
+					array( 'column' => 'id' ),                            // No table.
+					array( 'query' => 'EDD\\Database\\Queries\\Order' ),  // No column.
+					array(
+						'query'  => 'EDD\\Database\\Queries\\Order',
+						'column' => 'id',
+					),
+				),
+			)
+		);
+
+		$this->assertCount( 1, $column->relationships );
+		$this->assertSame( 'EDD\\Database\\Queries\\Order', $column->relationships[0]['query'] );
+	}
+
+	/**
+	 * Test that non-array entries are dropped and the result is re-keyed as a list.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_relationship_drops_non_array_entries_and_rekeys() {
+		$column = new Column(
+			array(
+				'relationships' => array(
+					'not-an-array',
+					array(
+						'query'  => 'EDD\\Database\\Queries\\Order',
+						'column' => 'id',
+					),
+				),
+			)
+		);
+
+		$this->assertCount( 1, $column->relationships );
+		$this->assertArrayHasKey( 0, $column->relationships );
+	}
+
+	/**
+	 * Test that the column name is sanitized.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_relationship_column_name_is_sanitized() {
+		$column = new Column(
+			array(
+				'relationships' => array(
+					array(
+						'query'  => 'EDD\\Database\\Queries\\Order',
+						'column' => 'order-id',
+					),
+				),
+			)
+		);
+
+		$this->assertSame( 'order_id', $column->relationships[0]['column'] );
+	}
+
+	/**
+	 * Test that the Query class name keeps backslashes but strips invalid characters.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_relationship_query_name_is_sanitized() {
+		$column = new Column(
+			array(
+				'relationships' => array(
+					array(
+						'query'  => 'EDD\\Database\\Queries\\Order; DROP TABLE',
+						'column' => 'id',
+					),
+				),
+			)
+		);
+
+		$this->assertSame( 'EDD\\Database\\Queries\\OrderDROPTABLE', $column->relationships[0]['query'] );
+	}
+
+	/**
+	 * Test that an optional relationship name is passed through and sanitized.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_relationship_name_passthrough() {
+		$column = new Column(
+			array(
+				'relationships' => array(
+					array(
+						'name'   => 'creator',
+						'query'  => 'EDD\\Database\\Queries\\User',
+						'column' => 'id',
+					),
+				),
+			)
+		);
+
+		$this->assertSame( 'creator', $column->relationships[0]['name'] );
+	}
+
+	/**
+	 * Test that a relationship without a name omits the key (derived later).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_relationship_without_name_omits_key() {
+		$column = new Column(
+			array(
+				'relationships' => array(
+					array(
+						'query'  => 'EDD\\Database\\Queries\\Order',
+						'column' => 'id',
+					),
+				),
+			)
+		);
+
+		$this->assertArrayNotHasKey( 'name', $column->relationships[0] );
+	}
 }

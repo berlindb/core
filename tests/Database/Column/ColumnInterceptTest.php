@@ -143,6 +143,42 @@ class ColumnInterceptTest extends TestCase {
 		$this->assertSame( 'widget', $column->intercept( 'copy', 'widget' ) );
 	}
 
+	// -------------------------------------------------------------------------
+	// Unset sentinel.
+	// -------------------------------------------------------------------------
+
+	/**
+	 * intercept_unset_value is private — direct property access is impossible.
+	 *
+	 * This guards against regressions to protected/public visibility, which
+	 * would mean Query (outside the class hierarchy) was silently reading an
+	 * uninitialised empty string instead of the generated sentinel.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_intercept_unset_value_property_is_private(): void {
+		$prop = new \ReflectionProperty( Column::class, 'intercept_unset_value' );
+		$this->assertTrue( $prop->isPrivate() );
+	}
+
+	/**
+	 * is_unset_sentinel() identifies the generated unset sentinel.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_is_unset_sentinel_identifies_unset_value(): void {
+		$column = new Column(
+			array(
+				'uuid' => true,
+			)
+		);
+
+		$sentinel = $column->intercept( 'copy', '9a130ddc-0194-4e65-bd97-e2bd42259614' );
+
+		$this->assertTrue( $column->is_unset_sentinel( $sentinel ) );
+		$this->assertFalse( $column->is_unset_sentinel( '' ) );
+	}
+
 	/**
 	 * A UUID column returns its unset sentinel when copied.
 	 *
@@ -157,9 +193,10 @@ class ColumnInterceptTest extends TestCase {
 			)
 		);
 
-		$this->assertSame(
-			$column->intercept_unset_value,
-			$column->intercept( 'copy', '9a130ddc-0194-4e65-bd97-e2bd42259614' )
+		$this->assertTrue(
+			$column->is_unset_sentinel(
+				$column->intercept( 'copy', '9a130ddc-0194-4e65-bd97-e2bd42259614' )
+			)
 		);
 	}
 }

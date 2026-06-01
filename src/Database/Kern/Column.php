@@ -66,16 +66,6 @@ class Column {
 	use \BerlinDB\Database\Traits\Base;
 	use \BerlinDB\Database\Traits\Boot;
 
-	/** Internal **************************************************************/
-
-	/**
-	 * Unique sentinel value that tells Query to remove an intercepted column.
-	 *
-	 * @since 3.1.0
-	 * @var string
-	 */
-	protected $intercept_unset_value = '';
-
 	/** Attributes ************************************************************/
 
 	/**
@@ -482,12 +472,25 @@ class Column {
 	 * database tables.
 	 *
 	 * These are typically unenforced foreign keys, and are used by the Query
-	 * class to help prime related items.
+	 * class to help prime related items. Each entry maps this column to a
+	 * column on another table, addressed by that table's Query class. See
+	 * sanitize_relationships() for the recognized entry shape.
 	 *
 	 * @since 1.0.0
-	 * @var   list<mixed>
+	 * @since 3.1.0 Structured foreign-key declarations.
+	 * @var   list<array{query: string, column: string, type: string, name?: string}>
 	 */
 	public $relationships = array();
+
+	/** Internal Attributes ***************************************************/
+
+	/**
+	 * Unique sentinel value that tells Query to remove an intercepted column.
+	 *
+	 * @since 3.1.0
+	 * @var string
+	 */
+	private $intercept_unset_value = '';
 
 	/** Factories *************************************************************/
 
@@ -684,7 +687,7 @@ class Column {
 					// Any int.
 				case 'SERIAL DEFAULT VALUE':
 					// Skip if not an int type.
-					if ( in_array( strtolower( $args[ 'type' ] ), array( 'tinyint', 'smallint', 'mediumint', 'int', 'bigint' ), true ) ) {
+					if ( $this->is_int( $args[ 'type' ] ) ) {
 						$args[ 'allow_null' ] = false;
 						$args[ 'default' ]    = false;
 						$args[ 'primary' ]    = true;
@@ -720,13 +723,15 @@ class Column {
 	 * Return if a column type is JSON.
 	 *
 	 * @since 3.0.0
+	 * @param string $type Optional type string to test. Defaults to $this->type.
 	 * @return bool True if json type only.
 	 */
-	public function is_json() {
+	public function is_json( $type = '' ) {
 		return $this->is_type(
 			array(
 				'json',
-			)
+			),
+			$type
 		);
 	}
 
@@ -734,13 +739,15 @@ class Column {
 	 * Return if a column type is a bool.
 	 *
 	 * @since 3.0.0
+	 * @param string $type Optional type string to test. Defaults to $this->type.
 	 * @return bool True if bool type only.
 	 */
-	public function is_bool() {
+	public function is_bool( $type = '' ) {
 		return $this->is_type(
 			array(
 				'bool',
-			)
+			),
+			$type
 		);
 	}
 
@@ -748,9 +755,10 @@ class Column {
 	 * Return if a column type is a date.
 	 *
 	 * @since 3.0.0
+	 * @param string $type Optional type string to test. Defaults to $this->type.
 	 * @return bool True if any date or time.
 	 */
-	public function is_date_time() {
+	public function is_date_time( $type = '' ) {
 		return $this->is_type(
 			array(
 				'date',
@@ -758,7 +766,8 @@ class Column {
 				'timestamp',
 				'time',
 				'year',
-			)
+			),
+			$type
 		);
 	}
 
@@ -766,9 +775,10 @@ class Column {
 	 * Return if a column type is an integer.
 	 *
 	 * @since 3.0.0
+	 * @param string $type Optional type string to test. Defaults to $this->type.
 	 * @return bool True if int.
 	 */
-	public function is_int() {
+	public function is_int( $type = '' ) {
 		return $this->is_type(
 			array(
 				'tinyint',
@@ -776,7 +786,8 @@ class Column {
 				'mediumint',
 				'int',
 				'bigint',
-			)
+			),
+			$type
 		);
 	}
 
@@ -784,15 +795,17 @@ class Column {
 	 * Return if a column type is decimal.
 	 *
 	 * @since 3.0.0
+	 * @param string $type Optional type string to test. Defaults to $this->type.
 	 * @return bool True if float.
 	 */
-	public function is_decimal() {
+	public function is_decimal( $type = '' ) {
 		return $this->is_type(
 			array(
 				'float',
 				'double',
 				'decimal',
-			)
+			),
+			$type
 		);
 	}
 
@@ -802,9 +815,10 @@ class Column {
 	 * Consider using is_int() or is_decimal() for improved specificity.
 	 *
 	 * @since 1.0.0
+	 * @param string $type Optional type string to test. Defaults to $this->type.
 	 * @return bool True if bit, int, or float.
 	 */
-	public function is_numeric() {
+	public function is_numeric( $type = '' ) {
 		return $this->is_type(
 			array(
 
@@ -822,7 +836,8 @@ class Column {
 				'float',
 				'double',
 				'decimal',
-			)
+			),
+			$type
 		);
 	}
 
@@ -832,9 +847,10 @@ class Column {
 	 * For binary strings (blobs) use is_binary().
 	 *
 	 * @since 3.0.0
+	 * @param string $type Optional type string to test. Defaults to $this->type.
 	 * @return bool True if text.
 	 */
-	public function is_text() {
+	public function is_text( $type = '' ) {
 		return $this->is_type(
 			array(
 
@@ -847,7 +863,8 @@ class Column {
 				'text',
 				'mediumtext',
 				'longtext',
-			)
+			),
+			$type
 		);
 	}
 
@@ -855,9 +872,10 @@ class Column {
 	 * Return if a column type is binary.
 	 *
 	 * @since 3.0.0
+	 * @param string $type Optional type string to test. Defaults to $this->type.
 	 * @return bool True if binary.
 	 */
-	public function is_binary() {
+	public function is_binary( $type = '' ) {
 		return $this->is_type(
 			array(
 
@@ -870,7 +888,8 @@ class Column {
 				'blob',
 				'mediumblob',
 				'longblob',
-			)
+			),
+			$type
 		);
 	}
 
@@ -880,53 +899,61 @@ class Column {
 	 * Return if this column is of a certain type.
 	 *
 	 * @since 1.0.0
-	 * @since 3.0.0 Empty $type returns false.
-	 * @param array<string>|string $type The type to check.
+	 * @since 3.0.0 Empty $types returns false; optional $type needle added.
+	 * @param array<string>|string $types The types to check.
+	 * @param string               $type  Optional type to test. Defaults to $this->type.
 	 * @return bool True if type matches.
 	 */
-	private function is_type( $type = '' ) {
+	private function is_type( $types = '', $type = '' ) {
 
 		// Bail if no type passed.
-		if ( empty( $type ) ) {
+		if ( empty( $types ) ) {
 			return false;
 		}
 
 		// If string, cast to array.
-		if ( is_string( $type ) ) {
-			$type = (array) $type;
+		if ( is_string( $types ) ) {
+			$types = (array) $types;
 		}
 
 		// Make them lowercase.
-		$types = array_map( 'strtolower', $type );
+		$types = array_map( 'strtolower', $types );
+
+		// Use the provided type or fall back to this column's type.
+		$type = strtolower( ! empty( $type ) ? $type : $this->type );
 
 		// Return if match.
-		return (bool) in_array( strtolower( $this->type ), $types, true );
+		return (bool) in_array( $type, $types, true );
 	}
 
 	/**
 	 * Return if this column has a certain extra value.
 	 *
 	 * @since 3.0.0
-	 * @param array<string>|string $extra The extra value to check.
+	 * @param array<string>|string $extras The extra value to check.
+	 * @param string               $extra  Optional extra value to test. Defaults to $this->extra.
 	 * @return bool True if extra matches.
 	 */
-	private function is_extra( $extra = '' ) {
+	private function is_extra( $extras = '', $extra = '' ) {
 
 		// Bail if no extra passed.
-		if ( empty( $extra ) ) {
+		if ( empty( $extras ) ) {
 			return false;
 		}
 
 		// If string, cast to array.
-		if ( is_string( $extra ) ) {
-			$extra = (array) $extra;
+		if ( is_string( $extras ) ) {
+			$extras = (array) $extras;
 		}
 
 		// Make them lowercase.
-		$extras = array_map( 'strtoupper', $extra );
+		$extras = array_map( 'strtoupper', $extras );
+
+		// Use the provided extra or fall back to this column's extra.
+		$extra = strtoupper( ! empty( $extra ) ? $extra : $this->extra );
 
 		// Return if match.
-		return (bool) in_array( strtoupper( $this->extra ), $extras, true );
+		return (bool) in_array( $extra, $extras, true );
 	}
 
 	/** Private Sanitizers ****************************************************/
@@ -970,15 +997,93 @@ class Column {
 	}
 
 	/**
-	 * Sanitize relationships array.
+	 * Sanitize the relationships array.
 	 *
-	 * @todo
+	 * Each relationship declares an (unenforced) foreign key from this column to
+	 * a column on another table, addressed by that table's Query class.
+	 * Reading: "this column's value maps to {column} on the table managed by
+	 * {query}." See berlindb/core #193 for the integration roadmap.
+	 *
+	 * Recognized entry keys:
+	 *
+	 * - 'query'  (string) Required. FQCN of the remote Query class.
+	 * - 'column' (string) Required. Column on that table this value maps to.
+	 * - 'type'   (string) Optional. 'belongs_to' (this column holds the FK) or
+	 *                     'has_many' (this column is the referenced key).
+	 *                     Defaults to 'belongs_to'.
+	 * - 'name'   (string) Optional. Accessor handle for the relationship. When
+	 *                     omitted, the Relationship derives it from the local
+	 *                     column (trailing _id / _uuid removed).
+	 *
+	 * Invalid or incomplete entries are dropped.
+	 *
 	 * @since 1.0.0
+	 * @since 3.1.0 Structured foreign-key declarations.
 	 * @param list<mixed> $relationships Default empty array.
-	 * @return list<mixed>
+	 * @return list<array{query: string, column: string, type: string, name?: string}>
 	 */
 	private function sanitize_relationships( $relationships = array() ) {
-		return array_values( array_filter( $relationships ) );
+
+		// Default return value.
+		$retval = array();
+
+		// Allowed relationship types.
+		$allowed_types = array( 'belongs_to', 'has_many' );
+
+		// Loop through relationships.
+		foreach ( $relationships as $relationship ) {
+
+			// Skip if the entry is not an array.
+			if ( ! is_array( $relationship ) ) {
+				continue;
+			}
+
+			// Skip unless 'query' and 'column' are both non-empty strings.
+			if (
+				empty( $relationship['query'] ) || ! is_string( $relationship['query'] ) ||
+				empty( $relationship['column'] ) || ! is_string( $relationship['column'] )
+			) {
+				continue;
+			}
+
+			// Sanitize 'column' as a valid column name.
+			$column = $this->sanitize_column_name( $relationship['column'] );
+			if ( empty( $column ) ) {
+				continue;
+			}
+
+			// Sanitize 'query' as a PHP class name (letters, digits, _, and \).
+			$query = preg_replace( '/[^a-zA-Z0-9_\\\\]/', '', $relationship['query'] );
+			if ( empty( $query ) ) {
+				continue;
+			}
+
+			// Sanitize optional 'type', falling back to 'belongs_to'.
+			$type = ( isset( $relationship['type'] ) && in_array( $relationship['type'], $allowed_types, true ) )
+				? $relationship['type']
+				: 'belongs_to';
+
+			// Build the sanitized entry.
+			$entry = array(
+				'query'  => $query,
+				'column' => $column,
+				'type'   => $type,
+			);
+
+			// Pass through an optional 'name' (accessor); omitted entries are
+			// derived from the local column by the Relationship object.
+			if ( ! empty( $relationship['name'] ) && is_string( $relationship['name'] ) ) {
+				$name = $this->sanitize_column_name( $relationship['name'] );
+
+				if ( is_string( $name ) && ( '' !== $name ) ) {
+					$entry['name'] = $name;
+				}
+			}
+
+			$retval[] = $entry;
+		}
+
+		return $retval;
 	}
 
 	/**
@@ -1779,5 +1884,16 @@ class Column {
 
 		// Return the create string.
 		return $retval;
+	}
+
+	/**
+	 * Return whether a value is this column's unset sentinel.
+	 *
+	 * @since 3.1.0
+	 * @param mixed $value Value to compare.
+	 * @return bool
+	 */
+	public function is_unset_sentinel( $value ): bool {
+		return ( $value === $this->intercept_unset_value );
 	}
 }

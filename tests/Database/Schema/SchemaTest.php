@@ -12,6 +12,7 @@ namespace BerlinDB\Tests;
 
 use BerlinDB\Database\Column;
 use BerlinDB\Database\Index;
+use BerlinDB\Database\Kern\Relationship;
 use BerlinDB\Tests\Fixtures\TestSchema;
 use Yoast\WPTestUtils\WPIntegration\TestCase;
 
@@ -787,5 +788,95 @@ class SchemaTest extends TestCase {
 		$schema->clear();
 		$schema->add_column( array( 'type' => 'bigint' ) ); // no name — invalid
 		$this->assertSame( '', $schema->get_create_table_string() );
+	}
+
+	// Relationships (berlindb/core #193).
+
+	/**
+	 * Test that get_relationships() returns an empty array when no column declares any.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_get_relationships_is_empty_when_none_declared() {
+		$schema = new TestSchema();
+		$schema->clear();
+		$schema->add_column(
+			array(
+				'name' => 'id',
+				'type' => 'bigint',
+			)
+		);
+		$this->assertSame( array(), $schema->get_relationships() );
+	}
+
+	/**
+	 * Test that get_relationships() compiles column shorthands into Relationship
+	 * objects whose local side is the declaring column.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_get_relationships_compiles_to_relationship_objects() {
+		$schema = new TestSchema();
+		$schema->clear();
+		$schema->add_column(
+			array(
+				'name' => 'id',
+				'type' => 'bigint',
+			)
+		);
+		$schema->add_column(
+			array(
+				'name'          => 'order_id',
+				'type'          => 'bigint',
+				'relationships' => array(
+					array(
+						'query'  => 'EDD\\Database\\Queries\\Order',
+						'column' => 'id',
+						'type'   => 'belongs_to',
+					),
+				),
+			)
+		);
+
+		$relationships = $schema->get_relationships();
+
+		$this->assertCount( 1, $relationships );
+		$this->assertInstanceOf( Relationship::class, $relationships[0] );
+		$this->assertSame( array( 'order_id' ), $relationships[0]->columns );
+		$this->assertSame( 'EDD\\Database\\Queries\\Order', $relationships[0]->query );
+		$this->assertSame( array( 'id' ), $relationships[0]->references );
+		$this->assertSame( 'belongs_to', $relationships[0]->type );
+
+		// The accessor name derives from the local column (order_id -> order).
+		$this->assertSame( 'order', $relationships[0]->name );
+	}
+
+	/**
+	 * Test that an explicit relationship name flows through the compiler.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_get_relationships_passes_explicit_name_through() {
+		$schema = new TestSchema();
+		$schema->clear();
+		$schema->add_column(
+			array(
+				'name'          => 'created_by_user_id',
+				'type'          => 'bigint',
+				'relationships' => array(
+					array(
+						'name'   => 'creator',
+						'query'  => 'EDD\\Database\\Queries\\User',
+						'column' => 'id',
+						'type'   => 'belongs_to',
+					),
+				),
+			)
+		);
+
+		$relationships = $schema->get_relationships();
+
+		$this->assertCount( 1, $relationships );
+		$this->assertSame( 'creator', $relationships[0]->name );
 	}
 }

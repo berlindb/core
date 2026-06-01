@@ -2940,7 +2940,7 @@ class Query {
 			$new     = $column->intercept( $method, $current );
 
 			// The column's generated unset sentinel removes the column entirely.
-			if ( $new === $column->intercept_unset_value ) {
+			if ( $column->is_unset_sentinel( $new ) ) {
 				unset( $item[ $name ] );
 				continue;
 			}
