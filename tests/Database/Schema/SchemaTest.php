@@ -879,4 +879,47 @@ class SchemaTest extends TestCase {
 		$this->assertCount( 1, $relationships );
 		$this->assertSame( 'creator', $relationships[0]->name );
 	}
+
+	/**
+	 * Test that two relationships sharing an accessor name are a validation error.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_duplicate_relationship_names_are_invalid() {
+		$schema = new TestSchema();
+		$schema->clear();
+		$schema->add_column(
+			array(
+				'name'          => 'order_id',
+				'type'          => 'bigint',
+				'relationships' => array(
+					// Derives the name 'order' from the column.
+					array(
+						'query'  => 'Acme\\Queries\\Order',
+						'column' => 'id',
+						'type'   => 'belongs_to',
+					),
+				),
+			)
+		);
+		$schema->add_column(
+			array(
+				'name'          => 'shop_id',
+				'type'          => 'bigint',
+				'relationships' => array(
+					// Explicitly named 'order' — collides with the derived one.
+					array(
+						'name'   => 'order',
+						'query'  => 'Acme\\Queries\\Shop',
+						'column' => 'id',
+						'type'   => 'belongs_to',
+					),
+				),
+			)
+		);
+
+		$errors = $schema->get_validation_errors();
+
+		$this->assertContains( 'Duplicate relationship name found: order.', $errors );
+	}
 }

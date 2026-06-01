@@ -66,6 +66,52 @@ class Column {
 	use \BerlinDB\Database\Traits\Base;
 	use \BerlinDB\Database\Traits\Boot;
 
+	/** Constants *************************************************************/
+
+	/**
+	 * Extra column attributes recognised by BerlinDB.
+	 *
+	 * Used by sanitize_extra() to validate values before they are interpolated
+	 * into SQL strings.
+	 *
+	 * @since 3.1.0
+	 * @var   array<int, string>
+	 */
+	private const EXTRAS = array(
+		'AUTO_INCREMENT',
+		'ON UPDATE CURRENT_TIMESTAMP',
+
+		// See: special_args().
+		'SERIAL',
+		'SERIAL DEFAULT VALUE',
+	);
+
+	/**
+	 * Printf-style value patterns recognised by BerlinDB.
+	 *
+	 * Used by sanitize_pattern() to validate the format placeholder.
+	 *
+	 * @since 3.1.0
+	 * @var   array{'%s', '%d', '%f'}
+	 */
+	private const PATTERNS = array(
+		'%s', // String.
+		'%d', // Integer (decimal).
+		'%f', // Float.
+	);
+
+	/**
+	 * Relationship types recognised by BerlinDB.
+	 *
+	 * Used by sanitize_relationships() to validate the relationship direction.
+	 * Mirrors Relationship::TYPES; kept as a private const here under the same
+	 * encapsulation convention, rather than coupling Column to Relationship.
+	 *
+	 * @since 3.1.0
+	 * @var   array<int, string>
+	 */
+	private const RELATIONSHIP_TYPES = array( 'belongs_to', 'has_many' );
+
 	/** Attributes ************************************************************/
 
 	/**
@@ -1027,9 +1073,6 @@ class Column {
 		// Default return value.
 		$retval = array();
 
-		// Allowed relationship types.
-		$allowed_types = array( 'belongs_to', 'has_many' );
-
 		// Loop through relationships.
 		foreach ( $relationships as $relationship ) {
 
@@ -1059,7 +1102,7 @@ class Column {
 			}
 
 			// Sanitize optional 'type', falling back to 'belongs_to'.
-			$type = ( isset( $relationship['type'] ) && in_array( $relationship['type'], $allowed_types, true ) )
+			$type = ( isset( $relationship['type'] ) && in_array( $relationship['type'], self::RELATIONSHIP_TYPES, true ) )
 				? $relationship['type']
 				: 'belongs_to';
 
@@ -1098,21 +1141,11 @@ class Column {
 		// Default return value.
 		$retval = '';
 
-		// Allowed extra values.
-		$allowed_extras = array(
-			'AUTO_INCREMENT',
-			'ON UPDATE CURRENT_TIMESTAMP',
-
-			// See: special_args().
-			'SERIAL',
-			'SERIAL DEFAULT VALUE',
-		);
-
 		// Always uppercase.
 		$value = strtoupper( $value );
 
 		// Set return value if allowed.
-		if ( in_array( $value, $allowed_extras, true ) ) {
+		if ( in_array( $value, self::EXTRAS, true ) ) {
 			$retval = $value;
 		}
 
@@ -1142,15 +1175,8 @@ class Column {
 	 */
 	private function sanitize_pattern( $pattern = '%s' ) {
 
-		// Allowed patterns.
-		$allowed_patterns = array(
-			'%s', // String.
-			'%d', // Integer (decimal).
-			'%f', // Float.
-		);
-
 		// Return pattern if allowed.
-		if ( in_array( $pattern, $allowed_patterns, true ) ) {
+		if ( in_array( $pattern, self::PATTERNS, true ) ) {
 			return $pattern;
 		}
 

@@ -976,6 +976,28 @@ class Schema {
 			$errors[] = 'Schema defines multiple primary keys.';
 		}
 
+		// Relationship accessor names must be unique within the schema, since
+		// they address related data (and become Row accessors). See #193.
+		$relationship_names = array();
+
+		foreach ( $this->get_relationships() as $relationship ) {
+
+			$relationship_name = ! empty( $relationship->name )
+				? $relationship->name
+				: false;
+
+			if ( empty( $relationship_name ) ) {
+				$errors[] = 'Schema relationship is missing a valid name.';
+				continue;
+			}
+
+			if ( isset( $relationship_names[ $relationship_name ] ) ) {
+				$errors[] = "Duplicate relationship name found: {$relationship_name}.";
+			}
+
+			$relationship_names[ $relationship_name ] = true;
+		}
+
 		return array_values( array_unique( $errors ) );
 	}
 

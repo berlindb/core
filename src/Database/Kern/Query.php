@@ -980,6 +980,101 @@ class Query {
 		return $retval;
 	}
 
+	/** Public Relationships **************************************************/
+
+	/**
+	 * Get every relationship declared by this query's schema.
+	 *
+	 * Delegates to Schema::get_relationships(), which compiles each column's
+	 * shorthand declarations into Relationship value objects. The objects stay
+	 * inert here; runtime resolution (remote table, cache priming, lazy Row
+	 * loading) is a query-level concern layered on top. See berlindb/core #193.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return Relationship[]
+	 */
+	public function get_relationships() {
+
+		// Bail with no relationships unless the schema can supply them.
+		if ( ! ( $this->schema_object instanceof Schema ) ) {
+			return array();
+		}
+
+		return $this->schema_object->get_relationships();
+	}
+
+	/**
+	 * Get a single relationship by its accessor name.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $name Relationship accessor name (e.g. 'customer').
+	 * @return Relationship|false The matching Relationship, or false if none.
+	 */
+	public function get_relationship( $name = '' ) {
+
+		// Bail if no name to match.
+		if ( ! is_string( $name ) || ( '' === $name ) ) {
+			return false;
+		}
+
+		// Return the first relationship whose accessor name matches.
+		foreach ( $this->get_relationships() as $relationship ) {
+			if ( $relationship->name === $name ) {
+				return $relationship;
+			}
+		}
+
+		// Not found.
+		return false;
+	}
+
+	/**
+	 * Get the relationships where this query's rows hold the foreign key.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return Relationship[]
+	 */
+	public function get_belongs_to_relationships() {
+		return $this->get_relationships_by_type( 'belongs_to' );
+	}
+
+	/**
+	 * Get the relationships where remote rows point back at this query.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return Relationship[]
+	 */
+	public function get_has_many_relationships() {
+		return $this->get_relationships_by_type( 'has_many' );
+	}
+
+	/**
+	 * Filter this query's relationships by type.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $type Relationship type ('belongs_to' or 'has_many').
+	 * @return Relationship[]
+	 */
+	private function get_relationships_by_type( $type = '' ) {
+
+		// Default return value.
+		$retval = array();
+
+		// Collect relationships whose type matches.
+		foreach ( $this->get_relationships() as $relationship ) {
+			if ( $relationship->type === $type ) {
+				$retval[] = $relationship;
+			}
+		}
+
+		return $retval;
+	}
+
 	/** Public Parsers ********************************************************/
 
 	/**
