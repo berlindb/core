@@ -1,0 +1,6 @@
+{
+	"intelephense.environment.includePaths": [
+		".stubs"
+	],
+	"intelephense.environment.phpVersion": "8.1.0"
+}

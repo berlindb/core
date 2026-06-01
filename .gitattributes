@@ -4,6 +4,8 @@
 /.gitignore export-ignore
 /.markdownlint.json export-ignore
 /.phpunit.result.cache export-ignore
+/.stubs export-ignore
+/.vscode export-ignore
 /bin export-ignore
 /composer.lock export-ignore
 /CONTRIBUTING.md export-ignore
