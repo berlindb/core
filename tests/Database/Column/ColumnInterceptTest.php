@@ -144,11 +144,11 @@ class ColumnInterceptTest extends TestCase {
 	}
 
 	/**
-	 * A UUID column clears its value when copied.
+	 * A UUID column returns its unset sentinel when copied.
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_uuid_column_unsets_value_on_copy(): void {
+	public function test_uuid_column_returns_unset_sentinel_on_copy(): void {
 		$column = new Column(
 			array(
 				'name' => 'uuid',
@@ -157,6 +157,9 @@ class ColumnInterceptTest extends TestCase {
 			)
 		);
 
-		$this->assertNull( $column->intercept( 'copy', '9a130ddc-0194-4e65-bd97-e2bd42259614' ) );
+		$this->assertSame(
+			$column->intercept_unset_value,
+			$column->intercept( 'copy', '9a130ddc-0194-4e65-bd97-e2bd42259614' )
+		);
 	}
 }

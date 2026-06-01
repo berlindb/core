@@ -66,83 +66,15 @@ class Column {
 	use \BerlinDB\Database\Traits\Base;
 	use \BerlinDB\Database\Traits\Boot;
 
-	/** Factories *************************************************************/
+	/** Internal **************************************************************/
 
 	/**
-	 * Build a Column from a single SHOW COLUMNS row.
+	 * Unique sentinel value that tells Query to remove an intercepted column.
 	 *
-	 * Maps the six-field associative array returned by wpdb::get_results()
-	 * (Field, Type, Null, Key, Default, Extra) to Column constructor args.
-	 *
-	 * Only properties reliably derivable from MySQL metadata are populated.
-	 * Application-level flags such as searchable, sortable, transition, and
-	 * cache_key are left at their defaults and can be configured afterwards.
-	 *
-	 * Expected $row keys: Field, Type, Null, Key, Default, Extra.
-	 *
-	 * @since 3.0.0
-	 *
-	 * @param array<string, mixed> $row SHOW COLUMNS row.
-	 * @return self
+	 * @since 3.1.0
+	 * @var string
 	 */
-	public static function from_mysql( array $row ) {
-
-		// Parse the type string: e.g. "bigint(20) unsigned", "varchar(191)", "datetime".
-		$type_raw  = $row['Type'] ?? '';
-		$base_type = '';
-		$length    = false;
-		$unsigned  = false;
-		$zerofill  = false;
-
-		if ( preg_match( '/^(\w+)(?:\(([^)]+)\))?\s*(unsigned)?\s*(zerofill)?/i', $type_raw, $m ) ) {
-			$base_type = $m[1];
-
-			// Decimal/enum types include a comma; take only the precision part.
-			if ( ! empty( $m[2] ) ) {
-				$comma_pos = strpos( $m[2], ',' );
-				$length    = ( false !== $comma_pos )
-					? (int) substr( $m[2], 0, $comma_pos )
-					: (int) $m[2];
-			}
-
-			$unsigned = ! empty( $m[3] );
-			$zerofill = ! empty( $m[4] );
-		}
-
-		// Derive flags from the row fields.
-		$allow_null = isset( $row['Null'] ) && ( 'YES' === $row['Null'] );
-		$primary    = isset( $row['Key'] ) && ( 'PRI' === $row['Key'] );
-		$date_query = in_array( strtolower( $base_type ), array( 'date', 'datetime', 'timestamp', 'time', 'year' ), true );
-
-		// A null Default means the column default IS null; a missing key means no default at all.
-		$default = array_key_exists( 'Default', $row ) ? $row['Default'] : false;
-
-		/*
-		 * Return a new Column instance with the above properties. Note that
-		 * some properties are left at their defaults, and can be configured
-		 * after the fact.
-		 */
-		return new self(
-			array(
-				'name'       => $row['Field'] ?? '',
-				'type'       => $base_type,
-				'length'     => $length,
-				'unsigned'   => $unsigned,
-				'zerofill'   => $zerofill,
-				'allow_null' => $allow_null,
-				'default'    => $default,
-				'extra'      => $row['Extra'] ?? '',
-				'primary'    => $primary,
-				'date_query' => $date_query,
-
-				// Empty strings trigger auto-inference inside sanitize_pattern(),
-				// sanitize_cast(), and sanitize_validation().
-				'pattern'    => '',
-				'cast'       => '',
-				'validate'   => '',
-			)
-		);
-	}
+	protected $intercept_unset_value = '';
 
 	/** Attributes ************************************************************/
 
@@ -556,6 +488,93 @@ class Column {
 	 * @var   list<mixed>
 	 */
 	public $relationships = array();
+
+	/** Factories *************************************************************/
+
+	/**
+	 * Build a Column from a single SHOW COLUMNS row.
+	 *
+	 * Maps the six-field associative array returned by wpdb::get_results()
+	 * (Field, Type, Null, Key, Default, Extra) to Column constructor args.
+	 *
+	 * Only properties reliably derivable from MySQL metadata are populated.
+	 * Application-level flags such as searchable, sortable, transition, and
+	 * cache_key are left at their defaults and can be configured afterwards.
+	 *
+	 * Expected $row keys: Field, Type, Null, Key, Default, Extra.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param array<string, mixed> $row SHOW COLUMNS row.
+	 * @return self
+	 */
+	public static function from_mysql( array $row ) {
+
+		// Parse the type string: e.g. "bigint(20) unsigned", "varchar(191)", "datetime".
+		$type_raw  = $row['Type'] ?? '';
+		$base_type = '';
+		$length    = false;
+		$unsigned  = false;
+		$zerofill  = false;
+
+		if ( preg_match( '/^(\w+)(?:\(([^)]+)\))?\s*(unsigned)?\s*(zerofill)?/i', $type_raw, $m ) ) {
+			$base_type = $m[1];
+
+			// Decimal/enum types include a comma; take only the precision part.
+			if ( ! empty( $m[2] ) ) {
+				$comma_pos = strpos( $m[2], ',' );
+				$length    = ( false !== $comma_pos )
+					? (int) substr( $m[2], 0, $comma_pos )
+					: (int) $m[2];
+			}
+
+			$unsigned = ! empty( $m[3] );
+			$zerofill = ! empty( $m[4] );
+		}
+
+		// Derive flags from the row fields.
+		$allow_null = isset( $row['Null'] ) && ( 'YES' === $row['Null'] );
+		$primary    = isset( $row['Key'] ) && ( 'PRI' === $row['Key'] );
+		$date_query = in_array( strtolower( $base_type ), array( 'date', 'datetime', 'timestamp', 'time', 'year' ), true );
+
+		// A null Default means the column default IS null; a missing key means no default at all.
+		$default = array_key_exists( 'Default', $row ) ? $row['Default'] : false;
+
+		/*
+		 * Return a new Column instance with the above properties. Note that
+		 * some properties are left at their defaults, and can be configured
+		 * after the fact.
+		 */
+		return new self(
+			array(
+				'name'       => $row['Field'] ?? '',
+				'type'       => $base_type,
+				'length'     => $length,
+				'unsigned'   => $unsigned,
+				'zerofill'   => $zerofill,
+				'allow_null' => $allow_null,
+				'default'    => $default,
+				'extra'      => $row['Extra'] ?? '',
+				'primary'    => $primary,
+				'date_query' => $date_query,
+
+				// Empty strings trigger auto-inference inside sanitize_pattern(),
+				// sanitize_cast(), and sanitize_validation().
+				'pattern'    => '',
+				'cast'       => '',
+				'validate'   => '',
+			)
+		);
+	}
+
+	/**
+	 * Initialize generated values.
+	 *
+	 * @since 3.1.0
+	 */
+	protected function init(): void {
+		$this->intercept_unset_value = $this->generate_random_string();
+	}
 
 	/**
 	 * Validate arguments after they are parsed.
@@ -1512,12 +1531,12 @@ class Column {
 	 *
 	 * Returns the value to store. The base implementation manages the built-in
 	 * "created" and "modified" flags by stamping the current time. It also
-	 * clears UUID values from copy operations so add_item() can
+	 * returns the unset sentinel for UUID copy operations so add_item() can
 	 * regenerate them.
 	 *
 	 * Contract: returns the (possibly replaced) value to store. The caller
 	 * (Query::intercept_item()) writes it back only when it differs from the
-	 * incoming value, and unsets the column when a non-null value becomes null.
+	 * incoming value, and unsets the column when the unset sentinel is returned.
 	 *
 	 * @since 3.1.0
 	 *
@@ -1530,7 +1549,7 @@ class Column {
 		// Copy: clear values that must be regenerated for the new row.
 		if ( 'copy' === $method ) {
 			if ( ! empty( $this->uuid ) ) {
-				return null;
+				return $this->intercept_unset_value;
 			}
 
 			return $value;

@@ -2939,8 +2939,8 @@ class Query {
 			$current = $item[ $name ] ?? null;
 			$new     = $column->intercept( $method, $current );
 
-			// A non-null value intercepted to null removes the column entirely.
-			if ( ( null !== $current ) && ( null === $new ) ) {
+			// The column's generated unset sentinel removes the column entirely.
+			if ( $new === $column->intercept_unset_value ) {
 				unset( $item[ $name ] );
 				continue;
 			}
