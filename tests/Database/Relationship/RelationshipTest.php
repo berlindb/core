@@ -347,7 +347,7 @@ class RelationshipTest extends TestCase {
 	 * @since 3.1.0
 	 */
 	public function test_name_derivation_disambiguates_same_target() {
-		$creator = new Relationship(
+		$creator  = new Relationship(
 			array(
 				'columns'    => array( 'created_by_user_id' ),
 				'references' => array( 'id' ),

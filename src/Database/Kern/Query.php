@@ -49,6 +49,9 @@ defined( 'ABSPATH' ) || exit;
  *                                      Default false.
  *     @type bool    $update_meta_cache Prime the meta cache for found items.
  *                                      Default false.
+ *     @type list<string>|false $with  Relationship names to eager-prime (warms
+ *                                      the related items' caches to avoid N+1).
+ *                                      Names only; false disables. Default false.
  * }
  */
 class Query {
@@ -527,6 +530,9 @@ class Query {
 			'cache_results'     => true,
 			'update_item_cache' => true,
 			'update_meta_cache' => true,
+
+			// Relationship priming (quiet by default; array of names to prime).
+			'with'              => false,
 		);
 
 		/* Query Parsers ******************************************************/
@@ -618,6 +624,9 @@ class Query {
 
 		// Shape the items.
 		$this->items = $this->shape_items( $item_ids );
+
+		// Prime caches for declared relationships (quiet unless requested).
+		$this->prime_relationship_caches();
 	}
 
 	/**
@@ -3741,6 +3750,125 @@ class Query {
 
 		// Return true because something was cached.
 		return true;
+	}
+
+	/**
+	 * Prime this query's item caches for a known set of primary IDs.
+	 *
+	 * Public entry point so other Query instances (e.g. relationship cache
+	 * priming) can warm this query's item cache in a single bulk read. Forces
+	 * the prime regardless of the update_item_cache query var, because the
+	 * calling query is the one expressing the intent.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param list<int|string> $ids Primary-key values to prime.
+	 * @return void
+	 */
+	public function prime_items( $ids = array() ) {
+		$this->prime_item_caches( $ids, true );
+	}
+
+	/**
+	 * Prime caches for related items referenced by the current result set.
+	 *
+	 * For each belongs_to relationship, collects the local foreign-key values
+	 * from the shaped items and warms the remote query's item cache in a single
+	 * bulk read — avoiding N+1 lookups when rows later access their parents.
+	 *
+	 * Quiet by default: runs only when 'with' names one or more relationships.
+	 * has_many collection priming is a separate, later concern and is not
+	 * handled here. See berlindb/core #193.
+	 *
+	 * @since 3.1.0
+	 */
+	private function prime_relationship_caches(): void {
+
+		// Relationship names requested for priming.
+		$with = $this->get_query_var( 'with' );
+
+		// Bail unless a non-empty list of names was requested.
+		if ( ! is_array( $with ) || empty( $with ) ) {
+			return;
+		}
+
+		// Bail unless we have an array of shaped items to read foreign keys from.
+		if ( empty( $this->items ) || ! is_array( $this->items ) ) {
+			return;
+		}
+
+		// Capture locally so the array type survives the method calls below.
+		$items = $this->items;
+
+		// Prime each named belongs_to relationship (the bounded, safe case).
+		foreach ( $this->get_belongs_to_relationships() as $relationship ) {
+
+			// Skip relationships not named in the 'with' list.
+			if ( ! in_array( $relationship->name, $with, true ) ) {
+				continue;
+			}
+
+			$this->prime_belongs_to_relationship( $relationship, $items );
+		}
+	}
+
+	/**
+	 * Warm the remote query's item cache for a single belongs_to relationship.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param Relationship                 $relationship The relationship to prime.
+	 * @param array<int|string, mixed>     $items        Shaped result items to read foreign keys from.
+	 */
+	private function prime_belongs_to_relationship( Relationship $relationship, array $items ): void {
+
+		$columns    = $relationship->columns;
+		$references = $relationship->references;
+
+		// Only single-column foreign keys are primed for now.
+		if ( ( count( $columns ) !== 1 ) || ( count( $references ) !== 1 ) ) {
+			return;
+		}
+
+		// Resolve the remote query class.
+		$class = $relationship->get_query_class();
+
+		if ( ( '' === $class ) || ! class_exists( $class ) ) {
+			return;
+		}
+
+		// Instantiate the remote query (sunrise only; no database query).
+		$remote = new $class();
+
+		// Must be a sibling Query, and priming warms the remote primary-key
+		// cache, so the relationship must reference the remote primary column.
+		if ( ! ( $remote instanceof self ) || ( $references[0] !== $remote->get_primary_column_name() ) ) {
+			return;
+		}
+
+		// Collect the local foreign-key values from the shaped items.
+		$local_column = $columns[0];
+		$values       = array();
+
+		foreach ( $items as $item ) {
+
+			// Skip items that do not expose the local column.
+			if ( ! is_object( $item ) || ! isset( $item->{$local_column} ) ) {
+				continue;
+			}
+
+			$value = $item->{$local_column};
+
+			// Skip empty foreign keys (no relation), de-duplicate the rest.
+			if ( ! empty( $value ) ) {
+				$values[ (string) $value ] = $value;
+			}
+		}
+
+		// Warm the remote item cache in a single bulk read.
+		if ( ! empty( $values ) ) {
+			$remote->prime_items( array_values( $values ) );
+		}
 	}
 
 	/**
