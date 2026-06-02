@@ -1104,13 +1104,13 @@ class Column {
 			}
 
 			/*
-			 * Validate 'query' as a PHP class reference (letters, digits, _, \).
-			 * REJECT — don't strip — anything else: silently mutating a bad value
-			 * could turn it into a different, real class (e.g. 'Order; DROP TABLE'
-			 * -> 'OrderDROPTABLE'), so drop the whole relationship instead.
+			 * Validate 'query' as a PHP class reference. sanitize_class_name()
+			 * REJECTS (doesn't strip) anything invalid, returning '' — so a
+			 * malformed value like 'Order; DROP TABLE' drops the whole
+			 * relationship rather than mutating into a different, real class.
 			 */
-			$query = trim( $relationship['query'] );
-			if ( ( '' === $query ) || ! preg_match( '/^[a-zA-Z0-9_\\\\]+$/', $query ) ) {
+			$query = $this->sanitize_class_name( $relationship['query'] );
+			if ( '' === $query ) {
 				continue;
 			}
 

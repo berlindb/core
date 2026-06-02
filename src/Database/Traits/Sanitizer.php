@@ -187,6 +187,39 @@ trait Sanitizer {
 	}
 
 	/**
+	 * Sanitize a PHP class reference (a fully-qualified class name).
+	 *
+	 * Unlike the SQL-identifier sanitizers, a class reference may contain
+	 * namespace separators. This REJECTS rather than strips: a value carrying
+	 * any other character returns '', because stripping could quietly turn a bad
+	 * value into a different, real class (e.g. 'Order; DROP TABLE' becomes
+	 * 'OrderDROPTABLE'). Surrounding whitespace is trimmed and is not on its own
+	 * a reason to reject. Callers should still verify class_exists()/is_a() at
+	 * the point of use.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $class Raw class reference.
+	 *
+	 * @return string The class reference unchanged if valid, or '' if rejected.
+	 */
+	protected function sanitize_class_name( $class = '' ) {
+
+		// Bail if not a string.
+		if ( ! is_string( $class ) ) {
+			return '';
+		}
+
+		// Trim; surrounding whitespace alone is not a reason to reject.
+		$class = trim( $class );
+
+		// Reject (do not strip) anything a class reference cannot contain.
+		return ( '' !== $class ) && ( 1 === preg_match( '/^[a-zA-Z0-9_\\\\]+$/', $class ) )
+			? $class
+			: '';
+	}
+
+	/**
 	 * Wrap a sanitized identifier in MySQL backtick quotes.
 	 *
 	 * Must be called after the identifier has already been passed through one of

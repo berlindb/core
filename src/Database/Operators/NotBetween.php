@@ -80,12 +80,7 @@ class NotBetween extends Base {
 	public function get_value_sql( $value = null, $pattern = '%s' ) {
 
 		// Maybe split a comma- or space-delimited string into an array.
-		if ( is_scalar( $value ) ) {
-			$value = preg_split( '/[,\s]+/', trim( $value ) );
-			$value = false !== $value
-				? $value
-				: array();
-		}
+		$value = $this->split_value_list( $value );
 
 		// Use only the first two elements.
 		$value = is_array( $value )

@@ -143,6 +143,34 @@ trait Operator {
 	}
 
 	/**
+	 * Normalize a value into a list for multi-value operators.
+	 *
+	 * A scalar is split on commas and/or whitespace (e.g. "1, 2 3" => [1,2,3]);
+	 * arrays pass through unchanged. Shared by the multi-value operators (IN,
+	 * NOT IN, BETWEEN, NOT BETWEEN) so the split lives in one place.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param mixed $value Array of values, or a comma/space-delimited string.
+	 *
+	 * @return mixed A list of values when $value was scalar; otherwise $value as-is.
+	 */
+	protected function split_value_list( $value = null ) {
+
+		// Arrays (and other non-scalars) pass through untouched.
+		if ( ! is_scalar( $value ) ) {
+			return $value;
+		}
+
+		// Split a comma- or space-delimited string into a list.
+		$parts = preg_split( '/[,\s]+/', trim( (string) $value ) );
+
+		return is_array( $parts )
+			? $parts
+			: array();
+	}
+
+	/**
 	 * Generate the full SQL WHERE expression for this operator.
 	 *
 	 * Assembles "{column} {compare} {value}" using the Column's own SQL

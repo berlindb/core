@@ -193,7 +193,9 @@ class Relationship extends Base {
 		}
 
 		// Deterministic, sanitized alias for this relationship's remote table.
-		$alias = 'bdb_rel_' . (string) preg_replace( '/[^a-zA-Z0-9_]/', '_', $name );
+		// sanitize_table_alias() applies the canonical identifier rules (and
+		// normalizes/trims underscores); the 'bdb_rel_' prefix keeps it unique.
+		$alias = 'bdb_rel_' . (string) $this->sanitize_table_alias( $name );
 
 		/*
 		 * Operator-driven conditions on the remote columns (shared by both

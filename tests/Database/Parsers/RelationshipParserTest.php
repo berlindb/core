@@ -370,8 +370,9 @@ class RelationshipParserTest extends TestCase {
 			array( 'weird name!' => $rel )
 		);
 
-		// Non-identifier chars in the spec name collapse to underscores.
-		$this->assertStringContainsString( 'AS `bdb_rel_weird_name_`', $result['join'] );
+		// Non-identifier chars collapse to underscores; sanitize_table_alias()
+		// normalizes runs and trims trailing underscores ('weird name!' -> 'weird_name').
+		$this->assertStringContainsString( 'AS `bdb_rel_weird_name`', $result['join'] );
 	}
 
 	/**

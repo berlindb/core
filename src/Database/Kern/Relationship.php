@@ -222,7 +222,7 @@ class Relationship {
 			'constraint' => array( $this, 'sanitize_index_name' ),
 			'type'       => array( $this, 'sanitize_type' ),
 			'columns'    => array( $this, 'sanitize_columns' ),
-			'query'      => array( $this, 'sanitize_query_class' ),
+			'query'      => array( $this, 'sanitize_class_name' ),
 			'references' => array( $this, 'sanitize_columns' ),
 			'on_delete'  => array( $this, 'sanitize_referential_action' ),
 			'on_update'  => array( $this, 'sanitize_referential_action' ),
@@ -421,37 +421,6 @@ class Relationship {
 		$base = preg_replace( '/_(id|uuid)$/', '', (string) $column );
 
 		return $this->sanitize_name( is_string( $base ) ? $base : $column );
-	}
-
-	/**
-	 * Sanitize the remote Query class as a PHP class name.
-	 *
-	 * A valid class reference contains only letters, digits, underscores, and
-	 * namespace separators. Rather than stripping invalid characters — which
-	 * would silently mutate a bad value into a different, possibly real class
-	 * name (e.g. 'Order; DROP TABLE' -> 'OrderDROPTABLE') — this REJECTS any
-	 * input that isn't already a clean class reference, returning '' so the
-	 * relationship resolves to no class and is treated as undeclared.
-	 *
-	 * @since 3.1.0
-	 *
-	 * @param string $query Remote Query class name.
-	 * @return string The class name unchanged if valid, or '' if rejected.
-	 */
-	private function sanitize_query_class( $query = '' ) {
-
-		// Bail if not a string.
-		if ( ! is_string( $query ) ) {
-			return '';
-		}
-
-		// Trim surrounding whitespace; that alone is not a reason to reject.
-		$query = trim( $query );
-
-		// Reject (don't mutate) anything carrying characters a class can't have.
-		return ( '' !== $query ) && ( 1 === preg_match( '/^[a-zA-Z0-9_\\\\]+$/', $query ) )
-			? $query
-			: '';
 	}
 
 	/**

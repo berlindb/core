@@ -80,9 +80,7 @@ class NotIn extends Base {
 	public function get_value_sql( $value = null, $pattern = '%s' ) {
 
 		// Maybe split a comma- or space-delimited string into an array.
-		if ( is_scalar( $value ) ) {
-			$value = preg_split( '/[,\s]+/', trim( $value ) );
-		}
+		$value = $this->split_value_list( $value );
 
 		// Bail if empty — NOT IN () is invalid SQL.
 		if ( empty( $value ) ) {
