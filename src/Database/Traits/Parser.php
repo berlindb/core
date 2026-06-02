@@ -1214,8 +1214,10 @@ trait Parser {
 			return '';
 		}
 
-		// Normalise value: arrays pass through; floats become strings;
-		// other scalars are unchanged; bools, objects, and null become null.
+		/*
+		 * Normalise value: arrays pass through; floats become strings;
+		 * other scalars are unchanged; bools, objects, and null become null.
+		 */
 		if ( is_array( $value ) ) {
 			$value = array_values( $value );
 		} elseif ( is_float( $value ) ) {

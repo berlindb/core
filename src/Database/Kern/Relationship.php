@@ -321,8 +321,10 @@ class Relationship {
 			return '';
 		}
 
-		// Bail unless this is the owning side; the constraint lives on the
-		// table that holds the foreign key.
+		/*
+		 * Bail unless this is the owning side; the constraint lives on the
+		 * table that holds the foreign key.
+		 */
 		if ( 'belongs_to' !== $this->type ) {
 			return '';
 		}
@@ -345,8 +347,10 @@ class Relationship {
 		$local  = implode( ', ', array_map( array( $this, 'quote_identifier' ), $this->columns ) );
 		$remote = implode( ', ', array_map( array( $this, 'quote_identifier' ), $this->references ) );
 
-		// Optionally prefix an explicit constraint name. sanitize_index_name()
-		// can yield false for an unnamed constraint, so guard with empty().
+		/*
+		 * Optionally prefix an explicit constraint name. sanitize_index_name()
+		 * can yield false for an unnamed constraint, so guard with empty().
+		 */
 		$prefix = ! empty( $this->constraint )
 			? 'CONSTRAINT ' . $this->quote_identifier( $this->constraint ) . ' '
 			: '';

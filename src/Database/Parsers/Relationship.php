@@ -106,10 +106,12 @@ class Relationship extends Base {
 		$joins  = array();
 		$wheres = array();
 
-		// Drop exact-duplicate specs, and count how many times each relationship
-		// name is used so repeats get DISTINCT table aliases. Two specs naming the
-		// same belongs_to with different join modes (e.g. INNER and LEFT) would
-		// otherwise both emit `AS bdb_rel_{name}` and collide ("not unique alias").
+		/*
+		 * Drop exact-duplicate specs, and count how many times each relationship
+		 * name is used so repeats get DISTINCT table aliases. Two specs naming the
+		 * same belongs_to with different join modes (e.g. INNER and LEFT) would
+		 * otherwise both emit `AS bdb_rel_{name}` and collide ("not unique alias").
+		 */
 		$seen         = array();
 		$alias_counts = array();
 
@@ -218,10 +220,12 @@ class Relationship extends Base {
 			return false;
 		}
 
-		// Deterministic, sanitized alias for this relationship's remote table.
-		// sanitize_table_alias() applies the canonical identifier rules (and
-		// normalizes/trims underscores); the 'bdb_rel_' prefix plus the caller's
-		// suffix (when a name repeats) keep it unique across specs.
+		/*
+		 * Deterministic, sanitized alias for this relationship's remote table.
+		 * sanitize_table_alias() applies the canonical identifier rules (and
+		 * normalizes/trims underscores); the 'bdb_rel_' prefix plus the caller's
+		 * suffix (when a name repeats) keep it unique across specs.
+		 */
 		$alias = 'bdb_rel_' . (string) $this->sanitize_table_alias( $name ) . $alias_suffix;
 
 		/*

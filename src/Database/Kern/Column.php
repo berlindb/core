@@ -607,8 +607,10 @@ class Column {
 				'primary'    => $primary,
 				'date_query' => $date_query,
 
-				// Empty strings trigger auto-inference inside sanitize_pattern(),
-				// sanitize_cast(), and sanitize_validation().
+				/*
+				 * Empty strings trigger auto-inference inside sanitize_pattern(),
+				 * sanitize_cast(), and sanitize_validation().
+				 */
 				'pattern'    => '',
 				'cast'       => '',
 				'validate'   => '',

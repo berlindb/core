@@ -1438,8 +1438,10 @@ class Table {
 			$version = $this->version;
 		}
 
-		// Update the DB version. Autoload is explicit so the option is always
-		// served from WordPress's in-memory options cache rather than a live query.
+		/*
+		 * Update the DB version. Autoload is explicit so the option is always
+		 * served from WordPress's in-memory options cache rather than a live query.
+		 */
 		$this->is_global()
 			? update_network_option( get_main_network_id(), $this->db_version_key, $version )
 			: update_option( $this->db_version_key, $version, true );

@@ -70,8 +70,10 @@ class Schema {
 		// Resolve the database interface through the static wrapper.
 		$db = self::get_db_global();
 
-		// Suppress wpdb errors so a nonexistent table silently returns an empty
-		// Schema rather than printing an HTML error block into the page output.
+		/*
+		 * Suppress wpdb errors so a nonexistent table silently returns an empty
+		 * Schema rather than printing an HTML error block into the page output.
+		 */
 		$suppress = $db->suppress_errors( true );
 
 		// Prepare the query.
@@ -995,8 +997,10 @@ class Schema {
 			$errors[] = 'Schema defines multiple primary keys.';
 		}
 
-		// Relationship accessor names must be unique within the schema, since
-		// they address related data (and become Row accessors). See #193.
+		/*
+		 * Relationship accessor names must be unique within the schema, since
+		 * they address related data (and become Row accessors). See #193.
+		 */
 		$relationship_names = array();
 
 		foreach ( $this->get_relationships() as $relationship ) {

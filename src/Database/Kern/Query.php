@@ -864,8 +864,10 @@ class Query {
 			}
 		}
 
-		// Column::$type is stored uppercase; match that convention so callers can
-		// pass either case (e.g. 'json' or 'JSON') and get consistent results.
+		/*
+		 * Column::$type is stored uppercase; match that convention so callers can
+		 * pass either case (e.g. 'json' or 'JSON') and get consistent results.
+		 */
 		if ( isset( $args[ 'type' ] ) && is_string( $args[ 'type' ] ) ) {
 			$args[ 'type' ] = strtoupper( $args[ 'type' ] );
 		}
@@ -1189,15 +1191,17 @@ class Query {
 		// Local key value to match against the remote side.
 		$local_value = $item->{$columns[0]};
 
-		// has_many: many remote rows point back at this item's key. Resolve via
-		// the remote query's own result cache, which a prior 'with' prime warms
-		// in bulk (one query per value, keyed identically to this call).
-		//
-		// 'number' => 0 (no limit): a relationship accessor returns the FULL child
-		// set, not a paginated page. This must match the priming side
-		// (prime_has_many) exactly, or a primed call (all children) and an
-		// unprimed call (the default 100-row page) would disagree. Pagination is
-		// the caller's job via a direct query().
+		/*
+		 * has_many: many remote rows point back at this item's key. Resolve via
+		 * the remote query's own result cache, which a prior 'with' prime warms
+		 * in bulk (one query per value, keyed identically to this call).
+		 *
+		 * 'number' => 0 (no limit): a relationship accessor returns the FULL child
+		 * set, not a paginated page. This must match the priming side
+		 * (prime_has_many) exactly, or a primed call (all children) and an
+		 * unprimed call (the default 100-row page) would disagree. Pagination is
+		 * the caller's job via a direct query().
+		 */
 		if ( 'has_many' === $relationship->type ) {
 			$found = $remote->query(
 				array(
@@ -1281,8 +1285,10 @@ class Query {
 			if ( 'in' === $strategy ) {
 				$this->resolve_relationship_in_filter( $spec );
 			} else {
-				// 'join' strategy: hand the spec to the Relationship parser via
-				// its own query var (which segments the cache key on its own).
+				/*
+				 * 'join' strategy: hand the spec to the Relationship parser via
+				 * its own query var (which segments the cache key on its own).
+				 */
 				$existing = $this->get_query_var( 'relation_query' );
 				$list     = is_array( $existing ) ? $existing : array();
 
@@ -1296,8 +1302,10 @@ class Query {
 			}
 		}
 
-		// The 'relation' var is an internal directive consumed above; remove it
-		// so the column parsers never see it.
+		/*
+		 * The 'relation' var is an internal directive consumed above; remove it
+		 * so the column parsers never see it.
+		 */
 		unset( $this->query_vars[ 'relation' ] );
 	}
 
@@ -1353,16 +1361,20 @@ class Query {
 			return;
 		}
 
-		// Must reference the remote primary key, so fields=ids yields the values
-		// the local foreign key matches against.
+		/*
+		 * Must reference the remote primary key, so fields=ids yields the values
+		 * the local foreign key matches against.
+		 */
 		if ( $references[0] !== $remote->get_primary_column_name() ) {
 			$this->short_circuit_relation( "relation strategy 'in' requires referencing the remote primary key: {$name}" );
 			return;
 		}
 
-		// Resolve every matching remote row (number => 0 means no limit). Full
-		// rows are fetched so primary IDs read with correct typing; this also
-		// warms the remote item cache for any later related access.
+		/*
+		 * Resolve every matching remote row (number => 0 means no limit). Full
+		 * rows are fetched so primary IDs read with correct typing; this also
+		 * warms the remote item cache for any later related access.
+		 */
 		$remote_rows = $remote->query(
 			array_merge(
 				$where,
@@ -1400,9 +1412,11 @@ class Query {
 			}
 		}
 
-		// Apply as a native {fk}__in filter for this run (segments the cache key
-		// correctly). Set query_vars directly — set_query_var() would also mutate
-		// the persistent defaults.
+		/*
+		 * Apply as a native {fk}__in filter for this run (segments the cache key
+		 * correctly). Set query_vars directly — set_query_var() would also mutate
+		 * the persistent defaults.
+		 */
 		$this->query_vars[ $var ] = $remote_ids;
 	}
 
@@ -1628,8 +1642,10 @@ class Query {
 	 */
 	private function get_item_raw( $column_name = '', $column_value = '' ) {
 
-		// Bail if value is non-scalar, boolean false, or empty string.
-		// Intentionally allows 0 and '0' — both are valid column values.
+		/*
+		 * Bail if value is non-scalar, boolean false, or empty string.
+		 * Intentionally allows 0 and '0' — both are valid column values.
+		 */
 		if ( ! is_scalar( $column_value ) || false === $column_value || '' === $column_value ) {
 			return false;
 		}
@@ -1685,8 +1701,10 @@ class Query {
 			);
 		}
 
-		// A relationship filter resolved to no possible matches: return nothing
-		// without caching (an empty resolved set must never widen to all rows).
+		/*
+		 * A relationship filter resolved to no possible matches: return nothing
+		 * without caching (an empty resolved set must never widen to all rows).
+		 */
 		if ( true === $this->get_current( 'relation_short_circuit', false ) ) {
 			$this->set_found_items( array() );
 
@@ -2976,8 +2994,10 @@ class Query {
 		// Default return value.
 		$retval = false;
 
-		// Bail if value is non-scalar, boolean false, or empty string.
-		// Intentionally allows 0 and '0' — both are valid column values.
+		/*
+		 * Bail if value is non-scalar, boolean false, or empty string.
+		 * Intentionally allows 0 and '0' — both are valid column values.
+		 */
 		if ( ! is_scalar( $column_value ) || false === $column_value || '' === $column_value ) {
 			return $retval;
 		}
@@ -3139,8 +3159,10 @@ class Query {
 			$this->save_extra_item_meta( $retval, $meta );
 		}
 
-		// Update item cache(s). A new row can become the first match for any
-		// value, so rotate every secondary lookup group.
+		/*
+		 * Update item cache(s). A new row can become the first match for any
+		 * value, so rotate every secondary lookup group.
+		 */
 		$this->update_item_cache( $retval );
 		$this->update_secondary_last_changed_caches();
 
@@ -3356,8 +3378,10 @@ class Query {
 			return false;
 		}
 
-		// Clean caches on successful delete. The removed row's value-to-ID
-		// mappings are now gone, so rotate every secondary lookup group.
+		/*
+		 * Clean caches on successful delete. The removed row's value-to-ID
+		 * mappings are now gone, so rotate every secondary lookup group.
+		 */
 		$this->delete_all_item_meta( $item_id );
 		$this->clean_item_cache( $item );
 		$this->update_secondary_last_changed_caches();
@@ -4230,8 +4254,10 @@ class Query {
 		// Resolve the remote query instance (guarded; null when unresolvable).
 		$remote = $this->resolve_remote_query( $relationship );
 
-		// Priming warms the remote primary-key cache, so the relationship must
-		// resolve to a sibling Query that references the remote primary column.
+		/*
+		 * Priming warms the remote primary-key cache, so the relationship must
+		 * resolve to a sibling Query that references the remote primary column.
+		 */
 		if ( ( null === $remote ) || ( $references[0] !== $remote->get_primary_column_name() ) ) {
 			return;
 		}
@@ -4376,9 +4402,11 @@ class Query {
 			}
 		}
 
-		// Warm each value's native result cache — including empties. 'number' => 0
-		// (no limit) must match get_related()'s has_many query exactly, so the
-		// primed key equals the key that lookup computes (the full child set).
+		/*
+		 * Warm each value's native result cache — including empties. 'number' => 0
+		 * (no limit) must match get_related()'s has_many query exactly, so the
+		 * primed key equals the key that lookup computes (the full child set).
+		 */
 		foreach ( $values as $value ) {
 			$ids = $grouped[ (string) $value ] ?? array();
 			$this->prime_query(
@@ -4729,8 +4757,10 @@ class Query {
 	 */
 	private function cache_get( $key = '', $group = '', $force = false ) {
 
-		// Bail if no cache key. Return false (not null) so callers using
-		// strict false === checks correctly detect a cache miss.
+		/*
+		 * Bail if no cache key. Return false (not null) so callers using
+		 * strict false === checks correctly detect a cache miss.
+		 */
 		if ( false === $key || '' === $key ) {
 			return false;
 		}
