@@ -31,13 +31,21 @@ use Yoast\WPTestUtils\WPIntegration\TestCase;
 class PrimingSchema extends Schema {
 	public $columns = array(
 		array(
-			'name'      => 'id',
-			'type'      => 'bigint',
-			'length'    => '20',
-			'unsigned'  => true,
-			'extra'     => 'auto_increment',
-			'cache_key' => true,
-			'sortable'  => true,
+			'name'          => 'id',
+			'type'          => 'bigint',
+			'length'        => '20',
+			'unsigned'      => true,
+			'extra'         => 'auto_increment',
+			'cache_key'     => true,
+			'sortable'      => true,
+			'relationships' => array(
+				array(
+					'name'   => 'children',
+					'query'  => PrimingQuery::class,
+					'column' => 'parent_id',
+					'type'   => 'has_many',
+				),
+			),
 		),
 		array(
 			'name'      => 'status',
@@ -119,6 +127,9 @@ class QueryRelationshipPrimingTest extends TestCase {
 	/** @var int Parent row id for the current test. */
 	private $parent_id = 0;
 
+	/** @var int Child row id for the current test. */
+	private $child_id = 0;
+
 	/**
 	 * Install the fixture table once.
 	 *
@@ -157,7 +168,7 @@ class QueryRelationshipPrimingTest extends TestCase {
 		self::$table->delete_all();
 
 		$this->parent_id = (int) self::$query->add_item( array( 'status' => 'parent' ) );
-		self::$query->add_item(
+		$this->child_id  = (int) self::$query->add_item(
 			array(
 				'status'    => 'child',
 				'parent_id' => $this->parent_id,
@@ -226,5 +237,167 @@ class QueryRelationshipPrimingTest extends TestCase {
 		);
 
 		$this->assertGreaterThan( 0, $this->queries_to_fetch_parent() );
+	}
+
+	// get_related() (#193, Phase 4).
+
+	/**
+	 * Test that get_related() returns the parent Row for a belongs_to.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_get_related_returns_belongs_to_row() {
+		$child  = self::$query->get_item( $this->child_id );
+		$parent = self::$query->get_related( $child, 'parent' );
+
+		$this->assertInstanceOf( PrimingRow::class, $parent );
+		$this->assertSame( $this->parent_id, (int) $parent->id );
+	}
+
+	/**
+	 * Test that get_related() returns the child collection for a has_many.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_get_related_returns_has_many_collection() {
+		$parent   = self::$query->get_item( $this->parent_id );
+		$children = self::$query->get_related( $parent, 'children' );
+
+		$this->assertIsArray( $children );
+		$this->assertCount( 1, $children );
+		$this->assertSame( $this->child_id, (int) $children[0]->id );
+	}
+
+	/**
+	 * Test that a belongs_to with an empty local key returns null.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_get_related_belongs_to_empty_key_is_null() {
+		// The parent row has parent_id = 0, so its 'parent' relation is empty.
+		$parent = self::$query->get_item( $this->parent_id );
+
+		$this->assertNull( self::$query->get_related( $parent, 'parent' ) );
+	}
+
+	/**
+	 * Test that an unknown relationship name returns null.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_get_related_unknown_name_is_null() {
+		$child = self::$query->get_item( $this->child_id );
+
+		$this->assertNull( self::$query->get_related( $child, 'nope' ) );
+	}
+
+	/**
+	 * Test that a primed belongs_to is fetched by get_related() with no SQL.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_get_related_uses_primed_cache() {
+		global $wpdb;
+
+		// Prime the parent via the child query.
+		$results = self::$query->query(
+			array(
+				'status' => 'child',
+				'with'   => array( 'parent' ),
+			)
+		);
+		$child   = reset( $results );
+
+		$before = $wpdb->num_queries;
+		$parent = self::$query->get_related( $child, 'parent' );
+		$after  = $wpdb->num_queries;
+
+		$this->assertSame( $this->parent_id, (int) $parent->id );
+		$this->assertSame( $before, $after );
+	}
+
+	// has_many collection priming (#193).
+
+	/**
+	 * Test that priming a has_many warms the child collection, so fetching it
+	 * with get_related() fires no SQL.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_has_many_priming_warms_collection() {
+		global $wpdb;
+
+		// Query the parent with its children primed in bulk.
+		self::$query->query(
+			array(
+				'status' => 'parent',
+				'with'   => array( 'children' ),
+			)
+		);
+
+		$parent = self::$query->get_item( $this->parent_id );
+
+		$before   = $wpdb->num_queries;
+		$children = self::$query->get_related( $parent, 'children' );
+		$after    = $wpdb->num_queries;
+
+		$this->assertCount( 1, $children );
+		$this->assertSame( $this->child_id, (int) $children[0]->id );
+		$this->assertSame( $before, $after );
+	}
+
+	/**
+	 * Test that childless parents are primed as an empty collection (cache hit).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_has_many_priming_caches_empty_collection() {
+		global $wpdb;
+
+		// The child row has no children of its own.
+		self::$query->query(
+			array(
+				'status' => 'child',
+				'with'   => array( 'children' ),
+			)
+		);
+
+		$child = self::$query->get_item( $this->child_id );
+
+		$before   = $wpdb->num_queries;
+		$children = self::$query->get_related( $child, 'children' );
+		$after    = $wpdb->num_queries;
+
+		$this->assertSame( array(), $children );
+		$this->assertSame( $before, $after );
+	}
+
+	/**
+	 * Test that the collection cache invalidates when a new child is written.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_has_many_collection_invalidates_on_write() {
+		// Prime and read the initial collection.
+		self::$query->query(
+			array(
+				'status' => 'parent',
+				'with'   => array( 'children' ),
+			)
+		);
+
+		$parent = self::$query->get_item( $this->parent_id );
+		$this->assertCount( 1, self::$query->get_related( $parent, 'children' ) );
+
+		// Add a second child; the write rotates last_changed.
+		self::$query->add_item(
+			array(
+				'status'    => 'child',
+				'parent_id' => $this->parent_id,
+			)
+		);
+
+		// The stale collection must not be served.
+		$this->assertCount( 2, self::$query->get_related( $parent, 'children' ) );
 	}
 }

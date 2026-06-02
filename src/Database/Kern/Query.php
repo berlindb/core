@@ -1084,6 +1084,103 @@ class Query {
 		return $retval;
 	}
 
+	/**
+	 * Get the related data for one of this query's items, by relationship name.
+	 *
+	 * Explicit accessor for a declared relationship (see berlindb/core #193). For
+	 * a belongs_to relationship this returns the single related Row (or null);
+	 * for has_many it returns an array of related Rows. When the belongs_to side
+	 * references the remote primary key, the lookup runs through get_item(), so a
+	 * previously primed cache (the 'with' query arg) makes it a cache hit.
+	 *
+	 * The Relationship value object stays inert: this method does the remote
+	 * resolution, keeping Row a pure data object.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param object $item Item produced by this query.
+	 * @param string $name Relationship accessor name (e.g. 'parent').
+	 * @return object|object[]|null Related Row for belongs_to (or null); array of
+	 *                              Rows for has_many; null when not resolvable.
+	 */
+	public function get_related( $item = null, $name = '' ) {
+
+		// Bail without an item object or a relationship name.
+		if ( ! is_object( $item ) || ! is_string( $name ) || ( '' === $name ) ) {
+			return null;
+		}
+
+		// Bail unless the relationship is declared.
+		$relationship = $this->get_relationship( $name );
+		if ( ! ( $relationship instanceof Relationship ) ) {
+			return null;
+		}
+
+		// Only single-column relationships are resolved for now.
+		$columns    = $relationship->columns;
+		$references = $relationship->references;
+		if ( ( count( $columns ) !== 1 ) || ( count( $references ) !== 1 ) ) {
+			return null;
+		}
+
+		// Bail unless the local key is present and non-empty on the item.
+		if ( ! isset( $item->{$columns[0]} ) || empty( $item->{$columns[0]} ) ) {
+			return ( 'has_many' === $relationship->type )
+				? array()
+				: null;
+		}
+
+		// Resolve the remote query class.
+		$class = $relationship->get_query_class();
+		if ( ( '' === $class ) || ! class_exists( $class ) ) {
+			return null;
+		}
+
+		$remote = new $class();
+		if ( ! ( $remote instanceof self ) ) {
+			return null;
+		}
+
+		// Local key value to match against the remote side.
+		$local_value = $item->{$columns[0]};
+
+		// has_many: many remote rows point back at this item's key. Resolve via
+		// the remote query's own result cache, which a prior 'with' prime warms
+		// in bulk (one query per value, keyed identically to this call).
+		if ( 'has_many' === $relationship->type ) {
+			$found = $remote->query(
+				array(
+					$references[0] => $local_value,
+				)
+			);
+
+			return is_array( $found )
+				? $found
+				: array();
+		}
+
+		// belongs_to referencing the remote primary key — cache-friendly.
+		if ( $references[0] === $remote->get_primary_column_name() ) {
+			$found = $remote->get_item( $local_value );
+
+			return ! empty( $found )
+				? $found
+				: null;
+		}
+
+		// belongs_to referencing a non-primary remote column.
+		$found = $remote->query(
+			array(
+				$references[0] => $local_value,
+				'number'       => 1,
+			)
+		);
+
+		return ( is_array( $found ) && ! empty( $found ) )
+			? reset( $found )
+			: null;
+	}
+
 	/** Public Parsers ********************************************************/
 
 	/**
@@ -3772,13 +3869,12 @@ class Query {
 	/**
 	 * Prime caches for related items referenced by the current result set.
 	 *
-	 * For each belongs_to relationship, collects the local foreign-key values
-	 * from the shaped items and warms the remote query's item cache in a single
-	 * bulk read — avoiding N+1 lookups when rows later access their parents.
+	 * For each named relationship, warms caches so later access avoids N+1
+	 * lookups: belongs_to warms the remote item caches for the parents this
+	 * result set points at; has_many warms each item's child collection.
 	 *
 	 * Quiet by default: runs only when 'with' names one or more relationships.
-	 * has_many collection priming is a separate, later concern and is not
-	 * handled here. See berlindb/core #193.
+	 * See berlindb/core #193.
 	 *
 	 * @since 3.1.0
 	 */
@@ -3800,15 +3896,18 @@ class Query {
 		// Capture locally so the array type survives the method calls below.
 		$items = $this->items;
 
-		// Prime each named belongs_to relationship (the bounded, safe case).
+		// Prime each named belongs_to relationship (warm the parents' caches).
 		foreach ( $this->get_belongs_to_relationships() as $relationship ) {
-
-			// Skip relationships not named in the 'with' list.
-			if ( ! in_array( $relationship->name, $with, true ) ) {
-				continue;
+			if ( in_array( $relationship->name, $with, true ) ) {
+				$this->prime_belongs_to_relationship( $relationship, $items );
 			}
+		}
 
-			$this->prime_belongs_to_relationship( $relationship, $items );
+		// Prime each named has_many relationship (warm the child collections).
+		foreach ( $this->get_has_many_relationships() as $relationship ) {
+			if ( in_array( $relationship->name, $with, true ) ) {
+				$this->prime_has_many_relationship( $relationship, $items );
+			}
 		}
 	}
 
@@ -3869,6 +3968,176 @@ class Query {
 		if ( ! empty( $values ) ) {
 			$remote->prime_items( array_values( $values ) );
 		}
+	}
+
+	/**
+	 * Warm the remote child collections for a single has_many relationship.
+	 *
+	 * Collects this side's key values (the values the remote foreign key points
+	 * at) and asks the remote query to prime every matching child collection in
+	 * one bulk read.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param Relationship             $relationship The relationship to prime.
+	 * @param array<int|string, mixed> $items        Shaped result items to read keys from.
+	 */
+	private function prime_has_many_relationship( Relationship $relationship, array $items ): void {
+
+		$columns    = $relationship->columns;
+		$references = $relationship->references;
+
+		// Only single-column relationships are primed for now.
+		if ( ( count( $columns ) !== 1 ) || ( count( $references ) !== 1 ) ) {
+			return;
+		}
+
+		// Resolve the remote query class.
+		$class = $relationship->get_query_class();
+
+		if ( ( '' === $class ) || ! class_exists( $class ) ) {
+			return;
+		}
+
+		// Instantiate the remote query (sunrise only; no database query).
+		$remote = new $class();
+
+		if ( ! ( $remote instanceof self ) ) {
+			return;
+		}
+
+		// Collect this side's key values (what the remote foreign key points at).
+		$local_column = $columns[0];
+		$values       = array();
+
+		foreach ( $items as $item ) {
+
+			// Skip items that do not expose the local key column.
+			if ( ! is_object( $item ) || ! isset( $item->{$local_column} ) ) {
+				continue;
+			}
+
+			$value = $item->{$local_column};
+
+			// Skip empty keys, de-duplicate the rest.
+			if ( ! empty( $value ) ) {
+				$values[ (string) $value ] = $value;
+			}
+		}
+
+		// Warm the child collections in a single bulk read.
+		if ( ! empty( $values ) ) {
+			$remote->prime_has_many( $references[0], array_values( $values ) );
+		}
+	}
+
+	/**
+	 * Prime this query's native result cache for a set of foreign-key values.
+	 *
+	 * Public entry point used by has_many relationship priming. Performs one
+	 * bulk read of every row whose $fk_column is in $values, warms the by-id
+	 * item cache for those rows, then warms this query's own result-list cache
+	 * for each per-value query — "{$fk_column} => value" — including empty
+	 * results, so childless parents are a cache hit too.
+	 *
+	 * Because the result cache is reused (rather than a bespoke collection
+	 * cache), a later get_related() / query() for one value resolves natively
+	 * and inherits the standard last_changed invalidation.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string                  $fk_column Foreign-key column on this table.
+	 * @param list<int|string>|string $values    Foreign-key values to prime.
+	 * @return void
+	 */
+	public function prime_has_many( $fk_column = '', $values = array() ) {
+
+		// Bail without a valid column or any values.
+		if ( ! $this->is_valid_column( $fk_column ) || empty( $values ) ) {
+			return;
+		}
+
+		// De-duplicate the values.
+		$values = array_values( array_unique( (array) $values ) );
+
+		// Build the escaped IN() clause for the foreign-key column.
+		$in = $this->get_in_sql( $fk_column, $values );
+
+		if ( '' === $in ) {
+			return;
+		}
+
+		// One bulk read of every related row.
+		$table   = $this->get_table_name();
+		$results = $this->db()->get_results( "SELECT * FROM {$table} WHERE {$fk_column} IN {$in}" );
+
+		// Normalize to an array of rows.
+		$rows = ( ! empty( $results ) && is_array( $results ) )
+			? $results
+			: array();
+
+		// Warm the by-id item cache for every related row.
+		if ( ! empty( $rows ) ) {
+			/** @var list<object> $rows */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
+			$this->update_item_cache( $rows, false );
+		}
+
+		// Group related primary IDs by foreign-key value.
+		$primary = $this->get_primary_column_name();
+		$grouped = array();
+
+		foreach ( $rows as $row ) {
+			if ( is_object( $row ) && isset( $row->{$fk_column}, $row->{$primary} ) ) {
+				$grouped[ (string) $row->{$fk_column} ][] = $row->{$primary};
+			}
+		}
+
+		// Warm each value's native result cache — including empties.
+		foreach ( $values as $value ) {
+			$ids = $grouped[ (string) $value ] ?? array();
+			$this->prime_query( array( $fk_column => $value ), $ids );
+		}
+	}
+
+	/**
+	 * Warm this query's result-list cache for a set of query vars.
+	 *
+	 * Runs the same parse + cache-key path as query() so the cached entry is
+	 * keyed identically to a real query() call — but skips the database read,
+	 * storing the supplied item IDs instead. A later query() with the same vars
+	 * is then a cache hit.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string, mixed> $query_vars Query vars to cache under.
+	 * @param list<int|string>     $item_ids   Item IDs the query resolves to.
+	 * @return void
+	 */
+	public function prime_query( $query_vars = array(), $item_ids = array() ) {
+		$this->run(
+			function () use ( $query_vars, $item_ids ) {
+
+				// Parse vars exactly as query() does, so the cache key matches.
+				$this->parse_query( $query_vars );
+
+				// Respect the per-query caching flag.
+				if ( true !== (bool) $this->get_query_var( 'cache_results' ) ) {
+					return;
+				}
+
+				// Store the known IDs under the same key query() would compute.
+				$ids = array_values( $item_ids );
+
+				$this->cache_set(
+					$this->get_cache_key(),
+					array(
+						'item_ids'    => $ids,
+						'found_items' => count( $ids ),
+					),
+					$this->cache_group
+				);
+			}
+		);
 	}
 
 	/**
