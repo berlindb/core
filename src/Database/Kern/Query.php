@@ -533,6 +533,13 @@ class Query {
 
 			// Relationship priming (quiet by default; array of names to prime).
 			'with'              => false,
+
+			/*
+			 * Strict columns: when true, a clause naming an unknown/typo'd column
+			 * fails closed (matches no rows) instead of being silently dropped —
+			 * a dropped filter widens results to everything. Off for back-compat.
+			 */
+			'strict_columns'    => false,
 		);
 
 		/* Query Parsers ******************************************************/

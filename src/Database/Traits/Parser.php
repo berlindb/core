@@ -1003,16 +1003,16 @@ trait Parser {
 		if ( array_key_exists( 'key', $clause ) && array_key_exists( 'value', $clause ) ) {
 			$name = $this->sanitize_column_name( $clause[ 'key' ] );
 
-			// Bail if the key doesn't sanitize to a valid column name.
+			// Key doesn't sanitize to a valid column name.
 			if ( empty( $name ) ) {
-				return $retval;
+				return $this->unresolved_column_clause( $retval );
 			}
 
-			// Bail if the column doesn't exist in the schema.
+			// Column doesn't exist in the schema.
 			$col = $this->caller( 'get_column_by', array( 'name' => $name ) );
 
 			if ( empty( $col ) ) {
-				return $retval;
+				return $this->unresolved_column_clause( $retval );
 			}
 
 			// Get the qualified column name for SQL.
@@ -1031,6 +1031,36 @@ trait Parser {
 		}
 
 		// Return join/where array.
+		return $retval;
+	}
+
+	/**
+	 * Decide how to handle a clause whose column could not be resolved.
+	 *
+	 * A first-order clause reaches this point only because it requested a filter,
+	 * yet its key names no real column. Two safe-but-opposite outcomes exist:
+	 *
+	 *  - Lenient (default): drop the clause — return the empty $retval. Back-compat,
+	 *    but note a dropped filter WIDENS results, since it matches every row.
+	 *  - Strict: fail closed — emit a never-true condition so the unknown/typo'd
+	 *    column matches no rows. Opt in via the 'strict_columns' query var.
+	 *
+	 * The caller controls this with the 'strict_columns' query var, so it only
+	 * ever fires on a clause the parser owns (a typo in the user's own query),
+	 * never on a sibling parser's clause.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array{join: list<string>, where: list<string>} $retval The in-progress (empty) clause result.
+	 * @return array{join: list<string>, where: list<string>}
+	 */
+	protected function unresolved_column_clause( array $retval ) {
+
+		// Fail closed only when the caller opted into strict columns.
+		if ( (bool) $this->caller( 'get_query_var', 'strict_columns' ) ) {
+			$retval[ 'where' ][] = '1 = 0';
+		}
+
 		return $retval;
 	}
 

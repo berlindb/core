@@ -564,4 +564,81 @@ class CompareParserTest extends TestCase {
 		$this->assertContains( 'Alpha Widget', $names );
 		$this->assertContains( 'Beta Widget', $names );
 	}
+
+	/**
+	 * Test that 'strict_columns' => true flips the unknown-column behavior from
+	 * fail-open to fail-closed: a typo'd column matches no rows, not all rows.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_strict_unknown_column_fails_closed() {
+
+		$results = self::$query->query(
+			array(
+				'compare_query'  => array(
+					'key'   => 'does_not_exist',
+					'value' => 'whatever',
+				),
+				'strict_columns' => true,
+			)
+		);
+
+		// Fail closed: zero rows, not all five.
+		$this->assertCount( 0, $results );
+	}
+
+	/**
+	 * Test that in strict mode an unknown column ANDed with a valid clause fails
+	 * the whole group closed, rather than leaking the valid sibling's rows.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_strict_unknown_column_in_and_fails_closed() {
+
+		$results = self::$query->query(
+			array(
+				'compare_query'  => array(
+					'relation' => 'AND',
+					array(
+						'key'   => 'status',
+						'value' => 'active',
+					),
+					array(
+						'key'   => 'nonexistent_column',
+						'value' => 'whatever',
+					),
+				),
+				'strict_columns' => true,
+			)
+		);
+
+		// status = 'active' matches 2, but the bad column ANDs the group to nothing.
+		$this->assertCount( 0, $results );
+	}
+
+	/**
+	 * Test that strict mode does NOT affect a clause whose column is valid: it
+	 * behaves identically to the lenient default. Strict only changes the outcome
+	 * for an unresolved column, never a real one.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_strict_does_not_affect_valid_columns() {
+
+		$results = self::$query->query(
+			array(
+				'compare_query'  => array(
+					'key'   => 'status',
+					'value' => 'active',
+				),
+				'strict_columns' => true,
+			)
+		);
+
+		$this->assertCount( 2, $results );
+
+		$names = wp_list_pluck( $results, 'name' );
+		$this->assertContains( 'Alpha Widget', $names );
+		$this->assertContains( 'Beta Widget', $names );
+	}
 }
