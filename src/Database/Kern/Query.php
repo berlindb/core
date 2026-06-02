@@ -2018,6 +2018,21 @@ class Query {
 		$where   = array();
 		$parsers = array();
 
+		/*
+		 * Every parser's dedicated container query var (e.g. compare_query,
+		 * date_query, meta_query, relation_query). A parser handed the FULL
+		 * query_vars must not see another parser's container, or it can recurse
+		 * into a clause it does not own (cross-parser bleed). Collected once and
+		 * stripped per parser below.
+		 */
+		$container_vars = array();
+		foreach ( $this->parsers as $descriptor ) {
+			$container_var = $descriptor->get_query_var();
+			if ( is_string( $container_var ) && ( '' !== $container_var ) ) {
+				$container_vars[] = $container_var;
+			}
+		}
+
 		// Loop through parsers.
 		foreach ( $this->parsers as $key => $descriptor ) {
 
@@ -2025,7 +2040,8 @@ class Query {
 			$class = get_class( $descriptor );
 
 			// Default to all $query_vars.
-			$qv = $query_vars;
+			$qv       = $query_vars;
+			$narrowed = false;
 
 			// Check if $query_vars contains the query_var for this parser.
 			$parser_query_var = $descriptor->get_query_var();
@@ -2051,7 +2067,25 @@ class Query {
 					&&
 					is_array( $query_vars[ $parser_query_var ] )
 				) {
-					$qv = $query_vars[ $parser_query_var ];
+					$qv       = $query_vars[ $parser_query_var ];
+					$narrowed = true;
+				}
+			}
+
+			/*
+			 * Cross-parser isolation: when a parser operates on the full
+			 * query_vars (it was not narrowed to its own sub-array), strip the
+			 * sibling container vars so it cannot recurse into a clause owned by
+			 * another parser. This is what fed e.g. a compare_query clause to the
+			 * Date parser. A parser's own container is kept; per-column keys
+			 * (status__in, name_search, date_created_query, ...) are not
+			 * containers and are untouched.
+			 */
+			if ( false === $narrowed ) {
+				foreach ( $container_vars as $container_var ) {
+					if ( $container_var !== $parser_query_var ) {
+						unset( $qv[ $container_var ] );
+					}
 				}
 			}
 

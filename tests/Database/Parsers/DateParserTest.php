@@ -283,6 +283,71 @@ class DateParserTest extends TestCase {
 	}
 
 	/**
+	 * Regression: a sibling parser's clause must not bleed into the Date parser.
+	 *
+	 * With a top-level 'column' default and no date_query, the Date parser used
+	 * to receive the full query_vars and recurse into the compare_query clause,
+	 * emitting a phantom `date_created = <priority value>` ANDed into the query.
+	 * Only Gamma has priority 30 (date_created 2022-03-10, not '30'), so the
+	 * phantom date filter would wrongly exclude it. Cross-parser isolation in
+	 * parse_join_where_parsers() now strips the sibling container.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_compare_query_does_not_bleed_into_date_column() {
+
+		$results = self::$query->query(
+			array(
+				'column'        => 'date_created',
+				'compare_query' => array(
+					array(
+						'key'     => 'priority',
+						'value'   => 30,
+						'compare' => '=',
+					),
+				),
+			)
+		);
+
+		// Only the priority comparison applies; Gamma is returned, not excluded.
+		$this->assertCount( 1, $results );
+		$this->assertSame( 'Gamma Gadget', $results[0]->name );
+	}
+
+	/**
+	 * Test that the '{column}_query' date shorthand still works when a
+	 * compare_query is also present — the shorthand (Date's own key) is kept,
+	 * the sibling compare_query container is isolated, and both real filters
+	 * apply with no bleed.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_column_query_shorthand_coexists_with_compare_query() {
+
+		$results = self::$query->query(
+			array(
+				'date_created_query' => array(
+					'after' => '2022-01-01',
+				),
+				'compare_query'      => array(
+					array(
+						'key'     => 'priority',
+						'value'   => 25,
+						'compare' => '>',
+					),
+				),
+			)
+		);
+
+		// after 2022 => Gamma/Delta/Epsilon; priority > 25 => the same three.
+		$names = wp_list_pluck( $results, 'name' );
+		$this->assertCount( 3, $results );
+		$this->assertContains( 'Gamma Gadget', $names );
+		$this->assertContains( 'Delta Gadget', $names );
+		$this->assertContains( 'Epsilon Widget', $names );
+	}
+
+	/**
 	 * Test that before filter returns rows created before the given date.
 	 *
 	 * @since 3.0.0
