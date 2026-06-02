@@ -159,6 +159,49 @@ class MetaParserTest extends TestCase {
 	}
 
 	/**
+	 * Regression: a meta_query whose key collides with a real column name must
+	 * not bleed into the Compare parser.
+	 *
+	 * 'status' is both a real column on the widgets table and the meta key used
+	 * here. Before Compare scoped itself to its own compare_query, it received
+	 * the full query_vars (its own var being unset), walked the meta_query
+	 * clause, recognised 'status' as a valid column, and emitted a spurious
+	 * `widgets.status = 'shipped'` — which excluded the row the meta JOIN had
+	 * correctly matched, returning 0 rows instead of 1.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_meta_key_colliding_with_column_does_not_bleed() {
+		global $wpdb;
+
+		// setUp() only cleans 'berlindb_test_%' keys; clear our colliding key.
+		$wpdb->query( "DELETE FROM {$wpdb->postmeta} WHERE meta_key = 'status'" );
+
+		// Alpha's real column status is 'active'; give it postmeta status 'shipped'.
+		add_metadata( 'post', $this->ids[0], 'status', 'shipped' );
+		wp_cache_flush();
+
+		$results = self::$query->query(
+			array(
+				'meta_query' => array(
+					array(
+						'key'     => 'status',
+						'value'   => 'shipped',
+						'compare' => '=',
+					),
+				),
+			)
+		);
+
+		// Matched via postmeta only; the column status ('active') must be ignored.
+		$this->assertCount( 1, $results );
+		$this->assertSame( 'Alpha Widget', $results[0]->name );
+
+		// Cleanup so the colliding key doesn't leak into sibling tests.
+		$wpdb->query( "DELETE FROM {$wpdb->postmeta} WHERE meta_key = 'status'" );
+	}
+
+	/**
 	 * Test that meta_query with exists compare returns rows that have the key.
 	 *
 	 * @since 3.0.0
