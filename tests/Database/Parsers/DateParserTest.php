@@ -256,6 +256,33 @@ class DateParserTest extends TestCase {
 	}
 
 	/**
+	 * Test that a date_query naming a column that exists but is NOT a date column
+	 * fails closed: it matches no rows, rather than dropping the clause (which
+	 * would widen results to the whole table). The column is named on the clause
+	 * itself, so it's an unambiguous typo/misuse — not a foreign clause Date swept
+	 * up — and is safe to fail closed.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_explicit_non_date_column_fails_closed() {
+
+		// 'name' is a real column on the table, but not a date_query column.
+		$results = self::$query->query(
+			array(
+				'date_query' => array(
+					array(
+						'column' => 'name',
+						'after'  => '2020-01-01',
+					),
+				),
+			)
+		);
+
+		// Fail closed: zero rows, not the whole table.
+		$this->assertCount( 0, $results );
+	}
+
+	/**
 	 * Test that before filter returns rows created before the given date.
 	 *
 	 * @since 3.0.0

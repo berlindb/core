@@ -410,11 +410,27 @@ class Date extends Base {
 		$inclusive     = ! empty( $clause[ 'inclusive' ] );
 
 		/*
+		 * Track whether the column was explicitly requested for THIS clause —
+		 * either via the clause's own 'column', or (below) a {col}_query key.
+		 * A column merely inherited from the parser default could belong to a
+		 * foreign sub-array that only matched a date first-order key, so we must
+		 * not fail those closed.
+		 */
+		$explicit = ! empty( $clause[ 'column' ] );
+
+		/*
 		 * Per-column shorthand (e.g. 'date_created_query', 'start_query',
 		 * 'end_query'): when the clause carries no explicit 'column', recover it
 		 * from the clause key by stripping the '_query' suffix. This is the form
-		 * EDD and Sugar Calendar use. The resolved name is validated as a date
-		 * column by get_column_sql() below, so a bogus key stays inert.
+		 * EDD and Sugar Calendar use.
+		 *
+		 * NOTE: a derived column is NOT treated as explicit. A sibling parser's
+		 * var name also ends in '_query' (e.g. 'compare_query' strips to
+		 * 'compare'), so when Date receives the full query_vars it can strip a
+		 * foreign clause's key here. If that derived name isn't a date column it
+		 * must DROP (below), not fail closed — failing closed would emit 1 = 0
+		 * into an unrelated parser's query. Only a genuine '{date_col}_query'
+		 * resolves to a real date column and proceeds.
 		 */
 		if ( empty( $column_name ) && is_string( $clause_key ) ) {
 			$derived = $this->strip_column_suffix( $clause_key );
@@ -427,6 +443,7 @@ class Date extends Base {
 		/*
 		 * Bail if no date column is resolved — this clause doesn't belong to a
 		 * date query (e.g. a non-date sub-array accidentally matched first_keys).
+		 * Dropped (not failed closed) so it can't bleed into a foreign query.
 		 */
 		if ( empty( $column_name ) ) {
 			return array(
@@ -438,12 +455,26 @@ class Date extends Base {
 		// Resolve and qualify the column, validating date_query support.
 		$column = $this->get_column_sql( $column_name, array( 'date_query' => true ) );
 
-		// Bail if the name doesn't map to a schema date column.
+		/*
+		 * The name doesn't map to a date column. When the clause itself named the
+		 * column ('column' => ...), that's a typo/misuse — fail closed so it
+		 * matches no rows instead of dropping (which widens results to every row).
+		 * A column derived from the clause key or inherited from the default may
+		 * belong to a foreign sub-array Date merely swept up, so those are dropped
+		 * to avoid emitting 1 = 0 into an unrelated parser's query.
+		 */
 		if ( empty( $column ) ) {
-			return array(
-				'join'  => array(),
-				'where' => array(),
-			);
+			return $explicit
+				? $this->unresolved_column_clause(
+					array(
+						'join'  => array(),
+						'where' => array(),
+					)
+				)
+				: array(
+					'join'  => array(),
+					'where' => array(),
+				);
 		}
 
 		// Assign greater-than and less-than values.
