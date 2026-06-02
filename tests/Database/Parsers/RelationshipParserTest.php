@@ -463,4 +463,47 @@ class RelationshipParserTest extends TestCase {
 		$this->assertSame( '', $result['join'] );
 		$this->assertSame( '', $result['where'] );
 	}
+
+	/**
+	 * Test that a belongs_to spec with exists => false emits a NOT EXISTS (anti
+	 * join) instead of an INNER JOIN.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_belongs_to_negation_emits_not_exists() {
+		$result = $this->parse(
+			array(
+				'name'   => 'parent',
+				'where'  => array( 'status' => 'active' ),
+				'exists' => false,
+			),
+			array( 'parent' => $this->relationship() )
+		);
+
+		$this->assertSame( '', $result['join'] );
+		$this->assertStringContainsString( 'NOT EXISTS ( SELECT 1 FROM', $result['where'] );
+		$this->assertStringContainsString( '`bdb_rel_parent`.`id` = `o`.`parent_id`', $result['where'] );
+		$this->assertStringContainsString( '`bdb_rel_parent`.`status`', $result['where'] );
+	}
+
+	/**
+	 * Test that a has_many spec with exists => false emits a NOT EXISTS.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_has_many_negation_emits_not_exists() {
+		$result = $this->parse(
+			array(
+				'name'   => 'items',
+				'exists' => false,
+			),
+			array(
+				'items' => $this->relationship( 'items', 'has_many', array( 'id' ), array( 'order_id' ) ),
+			)
+		);
+
+		$this->assertSame( '', $result['join'] );
+		$this->assertStringContainsString( 'NOT EXISTS ( SELECT 1 FROM', $result['where'] );
+		$this->assertStringContainsString( '`bdb_rel_items`.`order_id` = `o`.`id`', $result['where'] );
+	}
 }

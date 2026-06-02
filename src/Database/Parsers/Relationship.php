@@ -26,8 +26,9 @@ defined( 'ABSPATH' ) || exit;
  * shaped:
  *
  *     array(
- *         'name'  => 'order',                         // declared relationship name
- *         'where' => array( 'status' => 'complete' ), // conditions on the joined table
+ *         'name'   => 'order',                         // declared relationship name
+ *         'where'  => array( 'status' => 'complete' ), // conditions on the joined table
+ *         'exists' => true,                            // optional; false = "no match" (anti join)
  *     )
  *
  * For each spec it resolves the relationship to its remote Query, emits an
@@ -41,9 +42,11 @@ defined( 'ABSPATH' ) || exit;
  * unsupported type, unknown remote column) fails closed by emitting a
  * "1 = 0" condition, so a misconfigured filter never widens to all rows.
  *
- * Single-column relationships: belongs_to filters with an INNER JOIN;
- * has_many filters with a correlated WHERE EXISTS (semi join), which keeps each
- * local row once instead of duplicating it per matching child.
+ * Single-column relationships. A positive belongs_to filter uses an INNER JOIN;
+ * a positive has_many filter uses a correlated WHERE EXISTS (semi join), which
+ * keeps each local row once instead of duplicating it per matching child. When
+ * a spec sets 'exists' => false, either direction becomes a WHERE NOT EXISTS
+ * (anti join) — rows that have no matching related row.
  *
  * @since 3.1.0
  */
@@ -186,13 +189,21 @@ class Relationship extends Base {
 		// Deterministic, sanitized alias for this relationship's remote table.
 		$alias = 'bdb_rel_' . (string) preg_replace( '/[^a-zA-Z0-9_]/', '_', $name );
 
-		// Operator-driven conditions on the remote columns (shared by both
-		// strategies). Returns false if any remote column is unknown.
+		/*
+		 * Operator-driven conditions on the remote columns (shared by both
+		 * strategies). Returns false if any remote column is unknown.
+		 */
 		$conditions = $this->build_conditions( $remote, $alias, $conds );
 
 		if ( false === $conditions ) {
 			return false;
 		}
+
+		/*
+		 * Whether to match rows that HAVE a matching relation (default) or, when
+		 * 'exists' is explicitly false, rows that do NOT (anti / NOT EXISTS).
+		 */
+		$exists_positive = ! array_key_exists( 'exists', $spec ) || (bool) $spec[ 'exists' ];
 
 		// Pre-quote the shared identifiers.
 		$local      = (string) $this->caller( 'get_quoted_column_name_aliased', $columns[0] );
@@ -200,9 +211,12 @@ class Relationship extends Base {
 		$remote_sql = $this->quote_identifier( $remote_table );
 		$ref_sql    = $alias_sql . '.' . $this->quote_identifier( $remote_ref );
 
-		// belongs_to: this row's foreign key points at one remote row, so an
-		// INNER JOIN is correct and never duplicates the local row.
-		if ( 'belongs_to' === $type ) {
+		/*
+		 * belongs_to (positive): this row's foreign key points at one remote
+		 * row, so an INNER JOIN is correct and never duplicates the local row.
+		 * It also exposes the joined columns for later selection/ordering.
+		 */
+		if ( ( 'belongs_to' === $type ) && ( true === $exists_positive ) ) {
 			$join = 'INNER JOIN ' . $remote_sql . ' AS ' . $alias_sql . ' ON ' . $local . ' = ' . $ref_sql;
 
 			return array(
@@ -211,15 +225,27 @@ class Relationship extends Base {
 			);
 		}
 
-		// has_many: many remote rows point back here. A correlated EXISTS
-		// (semi join) keeps each local row once, unlike an INNER JOIN to the
-		// children which would duplicate the local row per match.
+		/*
+		 * All other cases use a correlated (NOT) EXISTS — a semi/anti join that
+		 * keeps each local row once: has_many matching (EXISTS), or "no matching
+		 * relation" in either direction (NOT EXISTS).
+		 */
 		$sub_where = array_merge(
 			array( $ref_sql . ' = ' . $local ),
 			$conditions
 		);
 
-		$exists = 'EXISTS ( SELECT 1 FROM ' . $remote_sql . ' AS ' . $alias_sql
+		// EXISTS or NOT EXISTS, depending on the 'exists' spec key.
+		$keyword = ( true === $exists_positive )
+			? 'EXISTS'
+			: 'NOT EXISTS';
+
+		/*
+		 * Subquery with the JOIN conditions in its WHERE clause; the JOIN itself is
+		 * unnecessary since the remote table is only used for filtering, never for
+		 * selection or ordering.
+		 */
+		$exists = $keyword . ' ( SELECT 1 FROM ' . $remote_sql . ' AS ' . $alias_sql
 			. ' WHERE ' . implode( ' AND ', $sub_where ) . ' )';
 
 		return array(

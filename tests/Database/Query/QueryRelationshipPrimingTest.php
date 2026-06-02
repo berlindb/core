@@ -582,4 +582,48 @@ class QueryRelationshipPrimingTest extends TestCase {
 		$this->assertCount( 1, $results );
 		$this->assertSame( $this->parent_id, (int) $results[0]->id );
 	}
+
+	/**
+	 * Test a belongs_to anti join (exists => false): rows whose parent does not
+	 * have status 'parent'. Only the parent row (which has no parent) qualifies.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_relation_join_belongs_to_anti() {
+		$results = self::$query->query(
+			array(
+				'relation' => array(
+					'name'     => 'parent',
+					'where'    => array( 'status' => 'parent' ),
+					'strategy' => 'join',
+					'exists'   => false,
+				),
+			)
+		);
+
+		$this->assertCount( 1, $results );
+		$this->assertSame( $this->parent_id, (int) $results[0]->id );
+	}
+
+	/**
+	 * Test a has_many anti join (exists => false): rows that have no child with
+	 * status 'child'. Only the child row (which has no children) qualifies.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_relation_join_has_many_anti() {
+		$results = self::$query->query(
+			array(
+				'relation' => array(
+					'name'     => 'children',
+					'where'    => array( 'status' => 'child' ),
+					'strategy' => 'join',
+					'exists'   => false,
+				),
+			)
+		);
+
+		$this->assertCount( 1, $results );
+		$this->assertSame( $this->child_id, (int) $results[0]->id );
+	}
 }
