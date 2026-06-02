@@ -29,6 +29,7 @@ defined( 'ABSPATH' ) || exit;
  *         'name'   => 'order',                         // declared relationship name
  *         'where'  => array( 'status' => 'complete' ), // conditions on the joined table
  *         'exists' => true,                            // optional; false = "no match" (anti join)
+ *         'join'   => 'inner',                         // optional; 'inner' (default) or 'left'
  *     )
  *
  * For each spec it resolves the relationship to its remote Query, emits an
@@ -42,11 +43,16 @@ defined( 'ABSPATH' ) || exit;
  * unsupported type, unknown remote column) fails closed by emitting a
  * "1 = 0" condition, so a misconfigured filter never widens to all rows.
  *
- * Single-column relationships. A positive belongs_to filter uses an INNER JOIN;
- * a positive has_many filter uses a correlated WHERE EXISTS (semi join), which
- * keeps each local row once instead of duplicating it per matching child. When
- * a spec sets 'exists' => false, either direction becomes a WHERE NOT EXISTS
- * (anti join) — rows that have no matching related row.
+ * Single-column relationships. A positive belongs_to filter uses an INNER JOIN
+ * (or a LEFT JOIN when the spec sets 'join' => 'left', which keeps unmatched
+ * local rows). A positive has_many filter uses a correlated WHERE EXISTS (semi
+ * join), which keeps each local row once instead of duplicating it per matching
+ * child. When a spec sets 'exists' => false, either direction becomes a WHERE
+ * NOT EXISTS (anti join) — rows that have no matching related row.
+ *
+ * RIGHT and FULL OUTER joins are intentionally unsupported: a RIGHT join would
+ * turn a local-row filter into a remote-driven result with null local IDs, and
+ * MySQL has no native FULL OUTER join. Query the inverse relationship instead.
  *
  * @since 3.1.0
  */
@@ -199,6 +205,11 @@ class Relationship extends Base {
 			return false;
 		}
 
+		// Wrap the combined group as a list element (empty when no conditions).
+		$condition_list = ( '' === $conditions )
+			? array()
+			: array( $conditions );
+
 		/*
 		 * Whether to match rows that HAVE a matching relation (default) or, when
 		 * 'exists' is explicitly false, rows that do NOT (anti / NOT EXISTS).
@@ -213,15 +224,20 @@ class Relationship extends Base {
 
 		/*
 		 * belongs_to (positive): this row's foreign key points at one remote
-		 * row, so an INNER JOIN is correct and never duplicates the local row.
-		 * It also exposes the joined columns for later selection/ordering.
+		 * row, so a join never duplicates the local row, and exposes the joined
+		 * columns for later selection/ordering. INNER keeps only matched rows;
+		 * LEFT (opt-in via 'join' => 'left') keeps unmatched local rows too.
 		 */
 		if ( ( 'belongs_to' === $type ) && ( true === $exists_positive ) ) {
-			$join = 'INNER JOIN ' . $remote_sql . ' AS ' . $alias_sql . ' ON ' . $local . ' = ' . $ref_sql;
+			$keyword = ( isset( $spec[ 'join' ] ) && is_string( $spec[ 'join' ] ) && ( 'left' === strtolower( $spec[ 'join' ] ) ) )
+				? 'LEFT JOIN'
+				: 'INNER JOIN';
+
+			$join = $keyword . ' ' . $remote_sql . ' AS ' . $alias_sql . ' ON ' . $local . ' = ' . $ref_sql;
 
 			return array(
 				'join'  => $join,
-				'where' => $conditions,
+				'where' => $condition_list,
 			);
 		}
 
@@ -232,7 +248,7 @@ class Relationship extends Base {
 		 */
 		$sub_where = array_merge(
 			array( $ref_sql . ' = ' . $local ),
-			$conditions
+			$condition_list
 		);
 
 		// EXISTS or NOT EXISTS, depending on the 'exists' spec key.
@@ -255,17 +271,29 @@ class Relationship extends Base {
 	}
 
 	/**
-	 * Build the operator-driven WHERE conditions for a relationship's remote
-	 * columns.
+	 * Build the operator-driven WHERE group for a relationship's remote columns.
+	 *
+	 * Conditions are joined by AND by default, or by OR when the conditions
+	 * carry a 'relation' => 'OR' key (mirroring the engine's boolean convention).
+	 * A group of more than one condition is parenthesized so it composes safely
+	 * with the surrounding clauses.
 	 *
 	 * @since 3.1.0
 	 *
 	 * @param Query                $remote The remote query whose schema owns the columns.
 	 * @param string               $alias  The remote table alias.
-	 * @param array<string, mixed> $conds  Column => condition map.
-	 * @return list<string>|false List of WHERE expressions, or false on an unknown column.
+	 * @param array<string, mixed> $conds  Column => condition map (+ optional 'relation').
+	 * @return string|false The combined WHERE group (or '' if none), or false on an unknown column.
 	 */
 	private function build_conditions( Query $remote, string $alias, array $conds ) {
+
+		// Extract the boolean relation for this group ('AND' default, or 'OR').
+		$relation = ( isset( $conds[ 'relation' ] ) && is_string( $conds[ 'relation' ] ) && ( 'OR' === strtoupper( $conds[ 'relation' ] ) ) )
+			? 'OR'
+			: 'AND';
+
+		// 'relation' is a directive, not a column condition.
+		unset( $conds[ 'relation' ] );
 
 		$where = array();
 
@@ -283,7 +311,15 @@ class Relationship extends Base {
 			}
 		}
 
-		return $where;
+		// No conditions.
+		if ( empty( $where ) ) {
+			return '';
+		}
+
+		// A single condition needs no grouping; otherwise wrap with the relation.
+		return ( 1 === count( $where ) )
+			? $where[0]
+			: '( ' . implode( " {$relation} ", $where ) . ' )';
 	}
 
 	/**

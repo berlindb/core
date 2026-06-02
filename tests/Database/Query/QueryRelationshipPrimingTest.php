@@ -626,4 +626,59 @@ class QueryRelationshipPrimingTest extends TestCase {
 		$this->assertCount( 1, $results );
 		$this->assertSame( $this->child_id, (int) $results[0]->id );
 	}
+
+	/**
+	 * Test that a relation where with relation => OR matches via either branch.
+	 * The child's parent has status 'parent', satisfying the OR group.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_relation_join_where_or() {
+		$results = self::$query->query(
+			array(
+				'relation' => array(
+					'name'     => 'parent',
+					'strategy' => 'join',
+					'where'    => array(
+						'relation' => 'OR',
+						'status'   => array( 'parent', 'unused' ),
+						'id'       => array(
+							'compare' => '>',
+							'value'   => 999999,
+						),
+					),
+				),
+			)
+		);
+
+		$this->assertCount( 1, $results );
+		$this->assertSame( $this->child_id, (int) $results[0]->id );
+	}
+
+	/**
+	 * Test that a belongs_to LEFT JOIN keeps unmatched local rows. With no
+	 * conditions, both the parent (no parent of its own) and the child are
+	 * returned — unlike an INNER JOIN, which would return only the child.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_relation_join_left_includes_unmatched() {
+		$results = self::$query->query(
+			array(
+				'orderby'  => 'id',
+				'order'    => 'ASC',
+				'relation' => array(
+					'name'     => 'parent',
+					'strategy' => 'join',
+					'join'     => 'left',
+				),
+			)
+		);
+
+		$ids = array_map( 'intval', wp_list_pluck( $results, 'id' ) );
+
+		$this->assertCount( 2, $results );
+		$this->assertContains( $this->parent_id, $ids );
+		$this->assertContains( $this->child_id, $ids );
+	}
 }

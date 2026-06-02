@@ -506,4 +506,93 @@ class RelationshipParserTest extends TestCase {
 		$this->assertStringContainsString( 'NOT EXISTS ( SELECT 1 FROM', $result['where'] );
 		$this->assertStringContainsString( '`bdb_rel_items`.`order_id` = `o`.`id`', $result['where'] );
 	}
+
+	/**
+	 * Test that a where with relation => OR combines conditions with OR, in a
+	 * parenthesized group.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_where_relation_or_groups_conditions() {
+		$result = $this->parse(
+			array(
+				'name'  => 'parent',
+				'where' => array(
+					'relation' => 'OR',
+					'status'   => 'active',
+					'total'    => array(
+						'compare' => '>',
+						'value'   => 100,
+					),
+				),
+			),
+			array( 'parent' => $this->relationship() )
+		);
+
+		$this->assertStringContainsString( ' OR ', $result['where'] );
+		$this->assertStringContainsString( '`bdb_rel_parent`.`status`', $result['where'] );
+		$this->assertStringContainsString( '`bdb_rel_parent`.`total`', $result['where'] );
+
+		// The group is parenthesized so it composes safely.
+		$this->assertStringStartsWith( '(', trim( $result['where'] ) );
+	}
+
+	/**
+	 * Test that 'relation' is treated as a directive, not a column condition.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_relation_key_is_not_a_column() {
+		// 'relation' would not be a valid column; if it were treated as one this
+		// would fail closed. Instead it selects AND/OR and the real column wins.
+		$result = $this->parse(
+			array(
+				'name'  => 'parent',
+				'where' => array(
+					'relation' => 'AND',
+					'status'   => 'active',
+				),
+			),
+			array( 'parent' => $this->relationship() )
+		);
+
+		$this->assertStringContainsString( '`bdb_rel_parent`.`status`', $result['where'] );
+		$this->assertStringNotContainsString( '1 = 0', $result['where'] );
+	}
+
+	/**
+	 * Test that a belongs_to spec with join => 'left' emits a LEFT JOIN.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_belongs_to_left_join() {
+		$result = $this->parse(
+			array(
+				'name' => 'parent',
+				'join' => 'left',
+			),
+			array( 'parent' => $this->relationship() )
+		);
+
+		$this->assertStringContainsString( 'LEFT JOIN', $result['join'] );
+		$this->assertStringNotContainsString( 'INNER JOIN', $result['join'] );
+		$this->assertStringContainsString( 'ON `o`.`parent_id` = `bdb_rel_parent`.`id`', $result['join'] );
+	}
+
+	/**
+	 * Test that an unrecognized join keyword falls back to INNER JOIN.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_unknown_join_keyword_defaults_to_inner() {
+		$result = $this->parse(
+			array(
+				'name' => 'parent',
+				'join' => 'cross',
+			),
+			array( 'parent' => $this->relationship() )
+		);
+
+		$this->assertStringContainsString( 'INNER JOIN', $result['join'] );
+	}
 }
