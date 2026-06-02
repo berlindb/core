@@ -61,6 +61,7 @@ class PrimingSchema extends Schema {
 			'length'        => '20',
 			'unsigned'      => true,
 			'default'       => 0,
+			'in'            => true,
 			'relationships' => array(
 				array(
 					'query'  => PrimingQuery::class,
@@ -399,5 +400,84 @@ class QueryRelationshipPrimingTest extends TestCase {
 
 		// The stale collection must not be served.
 		$this->assertCount( 2, self::$query->get_related( $parent, 'children' ) );
+	}
+
+	// Relationship filtering — 'in' strategy (#193, Phase 5).
+
+	/**
+	 * Test that the 'in' strategy filters local rows by a belongs_to parent's
+	 * attribute (only the child has a parent with status 'parent').
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_relation_in_filters_by_belongs_to() {
+		$results = self::$query->query(
+			array(
+				'relation' => array(
+					'name'     => 'parent',
+					'where'    => array( 'status' => 'parent' ),
+					'strategy' => 'in',
+				),
+			)
+		);
+
+		$this->assertCount( 1, $results );
+		$this->assertSame( $this->child_id, (int) $results[0]->id );
+	}
+
+	/**
+	 * Test that a filter matching no parents returns NOTHING (not every row).
+	 * This is the critical empty-subquery short-circuit.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_relation_in_empty_match_returns_nothing() {
+		$results = self::$query->query(
+			array(
+				'relation' => array(
+					'name'  => 'parent',
+					'where' => array( 'status' => 'does-not-exist' ),
+				),
+			)
+		);
+
+		$this->assertSame( array(), $results );
+	}
+
+	/**
+	 * Test that an unknown relationship name fails closed (no rows), never open.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_relation_in_unknown_name_fails_closed() {
+		$results = self::$query->query(
+			array(
+				'relation' => array(
+					'name'  => 'nope',
+					'where' => array( 'status' => 'parent' ),
+				),
+			)
+		);
+
+		$this->assertSame( array(), $results );
+	}
+
+	/**
+	 * Test that the 'in' strategy on a has_many relationship fails closed
+	 * (unsupported), rather than ignoring the filter and returning all rows.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_relation_in_on_has_many_fails_closed() {
+		$results = self::$query->query(
+			array(
+				'relation' => array(
+					'name'  => 'children',
+					'where' => array( 'status' => 'child' ),
+				),
+			)
+		);
+
+		$this->assertSame( array(), $results );
 	}
 }

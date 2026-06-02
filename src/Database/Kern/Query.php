@@ -1181,6 +1181,196 @@ class Query {
 			: null;
 	}
 
+	/**
+	 * Resolve declared relationship filters into concrete query vars.
+	 *
+	 * Reads the 'relation' query var — a single spec or a list of specs, each
+	 * shaped { name, where, strategy } — and rewrites it into native query vars
+	 * so the rest of the pipeline (and the cache key) handle it normally.
+	 *
+	 * The 'in' strategy resolves to a {local_fk}__in filter via a subquery. Any
+	 * unresolvable or empty-matching filter short-circuits the query to zero
+	 * rows — fail-closed, so a misconfigured filter never widens to all rows.
+	 * See berlindb/core #193.
+	 *
+	 * @since 3.1.0
+	 */
+	private function resolve_relationship_filters(): void {
+
+		// Reset the per-run short-circuit flag.
+		$this->set_current( 'relation_short_circuit', false );
+
+		// Read the relation filter(s).
+		$relation = $this->get_query_var( 'relation' );
+
+		// Bail if no relation filter was requested.
+		if ( empty( $relation ) || ! is_array( $relation ) ) {
+			return;
+		}
+
+		// Normalize a single spec to a list of specs.
+		$specs = isset( $relation['name'] )
+			? array( $relation )
+			: $relation;
+
+		// Resolve each spec by its strategy.
+		foreach ( $specs as $spec ) {
+
+			// Skip malformed specs.
+			if ( ! is_array( $spec ) || empty( $spec['name'] ) || ! is_string( $spec['name'] ) ) {
+				continue;
+			}
+
+			// Default to the subquery strategy; 'join' is handled separately.
+			$strategy = ( isset( $spec['strategy'] ) && ( 'join' === $spec['strategy'] ) )
+				? 'join'
+				: 'in';
+
+			if ( 'in' === $strategy ) {
+				$this->resolve_relationship_in_filter( $spec );
+			} else {
+				// 'join' is not wired here yet; fail closed until implemented.
+				$this->short_circuit_relation(
+					"relation strategy '{$strategy}' is not available",
+					array( 'name' => $spec['name'] )
+				);
+			}
+		}
+
+		// The 'relation' var is an internal directive consumed above; remove it
+		// so the column parsers never see it.
+		unset( $this->query_vars[ 'relation' ] );
+	}
+
+	/**
+	 * Resolve a single 'in'-strategy relationship filter to a {fk}__in query var.
+	 *
+	 * Runs a subquery against the remote query for the spec's 'where' vars, then
+	 * constrains this query's local foreign key to the matching remote primary
+	 * IDs. Single-column belongs_to only, and the local foreign key must declare
+	 * 'in' => true.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string, mixed> $spec Relationship filter spec ({ name, where }).
+	 */
+	private function resolve_relationship_in_filter( array $spec ): void {
+
+		$name  = (string) $spec['name'];
+		$where = ( isset( $spec['where'] ) && is_array( $spec['where'] ) )
+			? $spec['where']
+			: array();
+
+		// The relationship must be declared.
+		$relationship = $this->get_relationship( $name );
+
+		if ( ! ( $relationship instanceof Relationship ) ) {
+			$this->short_circuit_relation( "unknown relationship: {$name}" );
+			return;
+		}
+
+		// Only single-column belongs_to is supported by the 'in' strategy.
+		$columns    = $relationship->columns;
+		$references = $relationship->references;
+
+		if ( ( 'belongs_to' !== $relationship->type ) || ( count( $columns ) !== 1 ) || ( count( $references ) !== 1 ) ) {
+			$this->short_circuit_relation( "relation strategy 'in' supports single-column belongs_to only: {$name}" );
+			return;
+		}
+
+		// The local foreign-key column must support __in.
+		$local_fk = $columns[0];
+
+		if ( empty( $this->get_column_field( array( 'name' => $local_fk ), 'in', false ) ) ) {
+			$this->short_circuit_relation( "column '{$local_fk}' must declare 'in' => true for relation strategy 'in'" );
+			return;
+		}
+
+		// Resolve the remote query class.
+		$class = $relationship->get_query_class();
+
+		if ( ( '' === $class ) || ! class_exists( $class ) ) {
+			$this->short_circuit_relation( "remote query class not found: {$class}" );
+			return;
+		}
+
+		$remote = new $class();
+
+		// Must reference the remote primary key, so fields=ids yields the values
+		// the local foreign key matches against.
+		if ( ! ( $remote instanceof self ) || ( $references[0] !== $remote->get_primary_column_name() ) ) {
+			$this->short_circuit_relation( "relation strategy 'in' requires referencing the remote primary key: {$name}" );
+			return;
+		}
+
+		// Resolve every matching remote row (number => 0 means no limit). Full
+		// rows are fetched so primary IDs read with correct typing; this also
+		// warms the remote item cache for any later related access.
+		$remote_rows = $remote->query(
+			array_merge(
+				$where,
+				array( 'number' => 0 )
+			)
+		);
+
+		$primary    = $remote->get_primary_column_name();
+		$remote_ids = array();
+
+		if ( is_array( $remote_rows ) ) {
+			foreach ( $remote_rows as $row ) {
+				if ( is_object( $row ) && isset( $row->{$primary} ) && is_scalar( $row->{$primary} ) ) {
+					$remote_ids[] = $row->{$primary};
+				}
+			}
+		}
+
+		// No matches: the local result must be empty.
+		if ( empty( $remote_ids ) ) {
+			$this->short_circuit_relation( '' );
+			return;
+		}
+
+		// Combine with any existing __in on the same column (AND semantics).
+		$var      = "{$local_fk}__in";
+		$existing = $this->get_query_var( $var );
+
+		if ( is_array( $existing ) && ! empty( $existing ) ) {
+			$remote_ids = array_values( array_intersect( $existing, $remote_ids ) );
+
+			if ( empty( $remote_ids ) ) {
+				$this->short_circuit_relation( '' );
+				return;
+			}
+		}
+
+		// Apply as a native {fk}__in filter for this run (segments the cache key
+		// correctly). Set query_vars directly — set_query_var() would also mutate
+		// the persistent defaults.
+		$this->query_vars[ $var ] = $remote_ids;
+	}
+
+	/**
+	 * Flag the current run to return no rows (fail-closed relationship filter).
+	 *
+	 * An empty $reason marks a legitimate empty match (no log); a non-empty
+	 * $reason marks a misconfigured filter and is logged as a warning.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string               $reason  Why the filter could not be applied.
+	 * @param array<string, mixed> $context Optional log context.
+	 */
+	private function short_circuit_relation( $reason = '', $context = array() ): void {
+
+		// Flag the current run to return no rows.
+		$this->set_current( 'relation_short_circuit', true );
+
+		// Log misconfigured filters; an empty reason is a legitimate no-match.
+		if ( '' !== $reason ) {
+			$this->log( 'warning', 'relation_filter', $reason, $context );
+		}
+	}
+
 	/** Public Parsers ********************************************************/
 
 	/**
@@ -1437,6 +1627,19 @@ class Query {
 			);
 		}
 
+		// A relationship filter resolved to no possible matches: return nothing
+		// without caching (an empty resolved set must never widen to all rows).
+		if ( true === $this->get_current( 'relation_short_circuit', false ) ) {
+			$this->set_found_items( array() );
+
+			// Mirror get_items()'s count/non-count return shapes for empty.
+			$this->items = $this->get_query_var( 'count' )
+				? ( $this->get_query_var( 'groupby' ) ? array() : 0 )
+				: array();
+
+			return $this->items;
+		}
+
 		// Check the cache.
 		$cache_results = (bool) $this->get_query_var( 'cache_results' );
 		$cache_key     = $this->get_cache_key();
@@ -1643,6 +1846,9 @@ class Query {
 				)
 			);
 		}
+
+		// Resolve any relationship filters into concrete query vars.
+		$this->resolve_relationship_filters();
 	}
 
 	/**
