@@ -498,4 +498,70 @@ class CompareParserTest extends TestCase {
 		$this->assertCount( 1, $results );
 		$this->assertSame( 'Delta Gadget', $results[0]->name );
 	}
+
+	/**
+	 * Characterization test: a comparison against a column that does NOT exist
+	 * currently fails OPEN — the clause is silently dropped and every row is
+	 * returned, rather than matching nothing.
+	 *
+	 * This is intentional for now, not an oversight: a parser whose own query var
+	 * is unset receives the entire query_vars array (see
+	 * Query::parse_join_where_parsers()), so Compare is routinely handed clauses
+	 * that belong to OTHER parsers (e.g. a meta_query's key). The fail-open drop
+	 * in Traits\Parser::get_sql_for_clause() is what lets it ignore those foreign
+	 * clauses. Making it fail closed here would break any query that combines
+	 * parsers (proven against MetaParserTest). Failing closed safely first
+	 * requires narrowing each parser to its own query var; until then this test
+	 * pins the current, deliberate behavior so a future change is a conscious one.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_unknown_column_currently_fails_open() {
+
+		$results = self::$query->query(
+			array(
+				'compare_query' => array(
+					'key'   => 'does_not_exist',
+					'value' => 'whatever',
+				),
+			)
+		);
+
+		// Fail-open: the invalid clause is dropped, so all five rows come back.
+		$this->assertCount( 5, $results );
+	}
+
+	/**
+	 * Characterization test: an unknown column ANDed with a valid clause is
+	 * silently ignored, leaking the rows matched by the valid sibling instead of
+	 * narrowing to nothing. Pairs with test_unknown_column_currently_fails_open()
+	 * to document the present (fail-open) behavior of the shared leaf builder.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_unknown_column_in_and_currently_leaks() {
+
+		$results = self::$query->query(
+			array(
+				'compare_query' => array(
+					'relation' => 'AND',
+					array(
+						'key'   => 'status',
+						'value' => 'active',
+					),
+					array(
+						'key'   => 'nonexistent_column',
+						'value' => 'whatever',
+					),
+				),
+			)
+		);
+
+		// The bad column is dropped, so only status = 'active' applies: 2 rows.
+		$this->assertCount( 2, $results );
+
+		$names = wp_list_pluck( $results, 'name' );
+		$this->assertContains( 'Alpha Widget', $names );
+		$this->assertContains( 'Beta Widget', $names );
+	}
 }
