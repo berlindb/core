@@ -168,6 +168,94 @@ class DateParserTest extends TestCase {
 	}
 
 	/**
+	 * Test the per-column shorthand '{column}_query', where the column is implied
+	 * by the var name rather than an explicit 'column' key. This is the form EDD
+	 * (date_created_query) and Sugar Calendar (start_query/end_query) use, and it
+	 * must produce the same result as the canonical date_query form.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_column_query_shorthand_after_matches_canonical() {
+
+		$shorthand = self::$query->query(
+			array(
+				'date_created_query' => array(
+					'after' => '2022-01-01',
+				),
+			)
+		);
+
+		$canonical = self::$query->query(
+			array(
+				'date_query' => array(
+					array(
+						'column' => 'date_created',
+						'after'  => '2022-01-01',
+					),
+				),
+			)
+		);
+
+		// Shorthand resolves the column from the var name: same 3 rows.
+		$this->assertCount( 3, $shorthand );
+		$this->assertSame(
+			wp_list_pluck( $canonical, 'id' ),
+			wp_list_pluck( $shorthand, 'id' )
+		);
+
+		$names = wp_list_pluck( $shorthand, 'name' );
+		$this->assertContains( 'Gamma Gadget', $names );
+		$this->assertContains( 'Delta Gadget', $names );
+		$this->assertContains( 'Epsilon Widget', $names );
+	}
+
+	/**
+	 * Test the '{column}_query' shorthand with an inclusive before range, mirroring
+	 * the exact shape Sugar Calendar passes (no explicit 'column').
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_column_query_shorthand_before_inclusive() {
+
+		$results = self::$query->query(
+			array(
+				'date_created_query' => array(
+					'inclusive' => true,
+					'before'    => '2021-06-01',
+				),
+			)
+		);
+
+		// Inclusive of 2021-06-01: Alpha (2020) and Beta (2021-06-01).
+		$names = wp_list_pluck( $results, 'name' );
+		$this->assertContains( 'Alpha Widget', $names );
+		$this->assertContains( 'Beta Widget', $names );
+		$this->assertNotContains( 'Gamma Gadget', $names );
+	}
+
+	/**
+	 * Test that an unknown '{column}_query' (no matching date column) stays inert
+	 * rather than bleeding: it resolves no column, so it adds no WHERE clause.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_unknown_column_query_shorthand_is_inert() {
+
+		$all = self::$query->query( array() );
+
+		$bogus = self::$query->query(
+			array(
+				'nonexistent_query' => array(
+					'after' => '2022-01-01',
+				),
+			)
+		);
+
+		// No date column resolves, so the clause is dropped and all rows return.
+		$this->assertCount( count( $all ), $bogus );
+	}
+
+	/**
 	 * Test that before filter returns rows created before the given date.
 	 *
 	 * @since 3.0.0

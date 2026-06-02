@@ -410,6 +410,21 @@ class Date extends Base {
 		$inclusive     = ! empty( $clause[ 'inclusive' ] );
 
 		/*
+		 * Per-column shorthand (e.g. 'date_created_query', 'start_query',
+		 * 'end_query'): when the clause carries no explicit 'column', recover it
+		 * from the clause key by stripping the '_query' suffix. This is the form
+		 * EDD and Sugar Calendar use. The resolved name is validated as a date
+		 * column by get_column_sql() below, so a bogus key stays inert.
+		 */
+		if ( empty( $column_name ) && is_string( $clause_key ) ) {
+			$derived = $this->strip_column_suffix( $clause_key );
+
+			if ( false !== $derived ) {
+				$column_name = $derived;
+			}
+		}
+
+		/*
 		 * Bail if no date column is resolved — this clause doesn't belong to a
 		 * date query (e.g. a non-date sub-array accidentally matched first_keys).
 		 */

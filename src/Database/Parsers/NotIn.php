@@ -138,8 +138,14 @@ class NotIn extends Base {
 			// Make sure $values is an array.
 			$values = (array) $values;
 
+			// Recover the column name; skip keys without this parser's suffix.
+			$name = $this->strip_column_suffix( $column );
+
+			if ( false === $name ) {
+				continue;
+			}
+
 			// Get the pattern.
-			$name    = str_replace( '__not_in', '', $column );
 			$pattern = (string) $this->caller( 'get_column_field', array( 'name' => $name ), 'pattern', '%s' );
 
 			// Get the aliased column name for SQL.

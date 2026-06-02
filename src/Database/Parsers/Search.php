@@ -138,7 +138,12 @@ class Search extends Base {
 		// Strip the _search suffix and get the aliased SQL column names.
 		$sql_columns = array();
 		foreach ( $search_columns as $key ) {
-			$name          = str_replace( '_search', '', $key );
+			$name = $this->strip_column_suffix( $key );
+
+			if ( false === $name ) {
+				continue;
+			}
+
 			$aliased       = (string) $this->caller( 'get_quoted_column_name_aliased', $name );
 			$sql_columns[] = ! empty( $aliased ) ? $aliased : (string) $name;
 		}

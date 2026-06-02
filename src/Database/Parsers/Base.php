@@ -108,6 +108,51 @@ abstract class Base {
 	}
 
 	/**
+	 * Recover a column name from a per-column query var key.
+	 *
+	 * Strips this parser's {@see $column_suffix} from the end of the key — e.g.
+	 * 'status__in' => 'status', 'date_created_query' => 'date_created' — so the
+	 * several per-column parsers (In, NotIn, Search, Date) don't each re-implement
+	 * the same string surgery. Returns false when the key does not carry this
+	 * parser's suffix, so callers can skip keys that aren't theirs.
+	 *
+	 * Validating the resulting name against the schema is left to the caller,
+	 * because each parser scopes columns differently: In/NotIn trust their
+	 * first_keys, Search intersects search_columns, and Date validates via
+	 * get_column_sql(). This helper only does the (shared) suffix removal.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $key The per-column query var key.
+	 * @return string|false The column name with the suffix removed, or false.
+	 */
+	protected function strip_column_suffix( $key ) {
+
+		// Bail on non-strings.
+		if ( ! is_string( $key ) || ( '' === $key ) ) {
+			return false;
+		}
+
+		$suffix = $this->column_suffix;
+
+		// No suffix to strip (e.g. By): the key is the column name as-is.
+		if ( '' === $suffix ) {
+			return $key;
+		}
+
+		// Only keys carrying this parser's suffix belong to it.
+		if ( ! str_ends_with( $key, $suffix ) ) {
+			return false;
+		}
+
+		$name = substr( $key, 0, -strlen( $suffix ) );
+
+		return ( '' !== $name )
+			? $name
+			: false;
+	}
+
+	/**
 	 * Get the default operator class list.
 	 *
 	 * This is filterable so individual parser families can register custom
