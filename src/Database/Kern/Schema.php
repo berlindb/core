@@ -740,10 +740,15 @@ class Schema {
 					'references' => array( $relationship['column'] ),
 				);
 
-				// Pass an explicit accessor name through when declared; the
-				// Relationship derives one from the local column otherwise.
-				if ( isset( $relationship['name'] ) ) {
-					$args['name'] = $relationship['name'];
+				/*
+				 * Pass declared optional attributes through; the Relationship
+				 * derives an accessor name from the local column otherwise, and
+				 * validates the enforced-FK attributes itself.
+				 */
+				foreach ( array( 'name', 'enforce', 'on_delete', 'on_update', 'constraint' ) as $key ) {
+					if ( isset( $relationship[ $key ] ) ) {
+						$args[ $key ] = $relationship[ $key ];
+					}
 				}
 
 				$retval[] = new Relationship( $args );

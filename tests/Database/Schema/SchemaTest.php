@@ -922,4 +922,43 @@ class SchemaTest extends TestCase {
 
 		$this->assertContains( 'Duplicate relationship name found: order.', $errors );
 	}
+
+	/**
+	 * Test that enforced-FK attributes flow from the shorthand into a compiled
+	 * Relationship that emits the matching FOREIGN KEY DDL.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_get_relationships_passes_enforced_fk_attributes() {
+		$schema = new TestSchema();
+		$schema->clear();
+		$schema->add_column(
+			array(
+				'name'          => 'order_id',
+				'type'          => 'bigint',
+				'relationships' => array(
+					array(
+						'query'      => 'Acme\\Queries\\Order',
+						'column'     => 'id',
+						'type'       => 'belongs_to',
+						'enforce'    => true,
+						'on_delete'  => 'cascade',
+						'constraint' => 'fk_order',
+					),
+				),
+			)
+		);
+
+		$relationships = $schema->get_relationships();
+		$this->assertCount( 1, $relationships );
+
+		$relationship = $relationships[0];
+		$this->assertTrue( $relationship->enforce );
+		$this->assertSame( 'CASCADE', $relationship->on_delete );
+		$this->assertSame( 'fk_order', $relationship->constraint );
+		$this->assertSame(
+			'CONSTRAINT `fk_order` FOREIGN KEY (`order_id`) REFERENCES `wp_acme_orders` (`id`) ON DELETE CASCADE',
+			$relationship->get_create_string( 'wp_acme_orders' )
+		);
+	}
 }

@@ -524,7 +524,7 @@ class Column {
 	 *
 	 * @since 1.0.0
 	 * @since 3.1.0 Structured foreign-key declarations.
-	 * @var   list<array{query: string, column: string, type: string, name?: string}>
+	 * @var   list<array{query: string, column: string, type: string, name?: string, enforce?: bool, on_delete?: string, on_update?: string, constraint?: string}>
 	 */
 	public $relationships = array();
 
@@ -1061,12 +1061,20 @@ class Column {
 	 *                     omitted, the Relationship derives it from the local
 	 *                     column (trailing _id / _uuid removed).
 	 *
+	 * Optional enforced-FK attributes (passed through for the Relationship to
+	 * validate; only meaningful when emitting real FOREIGN KEY DDL):
+	 *
+	 * - 'enforce'    (bool)   Emit a real FOREIGN KEY constraint. Default false.
+	 * - 'on_delete'  (string) Referential action on delete.
+	 * - 'on_update'  (string) Referential action on update.
+	 * - 'constraint' (string) Explicit SQL constraint name.
+	 *
 	 * Invalid or incomplete entries are dropped.
 	 *
 	 * @since 1.0.0
 	 * @since 3.1.0 Structured foreign-key declarations.
 	 * @param list<mixed> $relationships Default empty array.
-	 * @return list<array{query: string, column: string, type: string, name?: string}>
+	 * @return list<array{query: string, column: string, type: string, name?: string, enforce?: bool, on_delete?: string, on_update?: string, constraint?: string}>
 	 */
 	private function sanitize_relationships( $relationships = array() ) {
 
@@ -1113,8 +1121,10 @@ class Column {
 				'type'   => $type,
 			);
 
-			// Pass through an optional 'name' (accessor); omitted entries are
-			// derived from the local column by the Relationship object.
+			/*
+			 * Pass through an optional 'name' (accessor); omitted entries are
+			 * derived from the local column by the Relationship object.
+			 */
 			if ( ! empty( $relationship['name'] ) && is_string( $relationship['name'] ) ) {
 				$name = $this->sanitize_column_name( $relationship['name'] );
 
@@ -1123,9 +1133,29 @@ class Column {
 				}
 			}
 
+			/*
+			 * Pass through optional enforced-FK attributes; the Relationship is
+			 * the authority that validates their values.
+			 */
+			if ( isset( $relationship['enforce'] ) ) {
+				$entry['enforce'] = wp_validate_boolean( $relationship['enforce'] );
+			}
+
+			/*
+			 * Pass through optional DDL attributes for real FOREIGN KEYs; the
+			 * Relationship is the authority that validates their values.
+			 */
+			foreach ( array( 'on_delete', 'on_update', 'constraint' ) as $ddl_key ) {
+				if ( ! empty( $relationship[ $ddl_key ] ) && is_string( $relationship[ $ddl_key ] ) ) {
+					$entry[ $ddl_key ] = $relationship[ $ddl_key ];
+				}
+			}
+
+			// Append the sanitized entry to the return value.
 			$retval[] = $entry;
 		}
 
+		// Return the sanitized relationships.
 		return $retval;
 	}
 

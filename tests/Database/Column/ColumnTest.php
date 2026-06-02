@@ -1391,4 +1391,31 @@ class ColumnTest extends TestCase {
 
 		$this->assertArrayNotHasKey( 'name', $column->relationships[0] );
 	}
+
+	/**
+	 * Test that optional enforced-FK attributes pass through the shorthand.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_relationship_enforced_attributes_passthrough() {
+		$column = new Column(
+			array(
+				'relationships' => array(
+					array(
+						'query'      => 'Acme\\Queries\\Order',
+						'column'     => 'id',
+						'enforce'    => true,
+						'on_delete'  => 'cascade',
+						'constraint' => 'fk_order',
+					),
+				),
+			)
+		);
+
+		$entry = $column->relationships[0];
+
+		$this->assertTrue( $entry['enforce'] );
+		$this->assertSame( 'cascade', $entry['on_delete'] );
+		$this->assertSame( 'fk_order', $entry['constraint'] );
+	}
 }
