@@ -86,15 +86,28 @@ class RelationshipTest extends TestCase {
 	}
 
 	/**
-	 * Test that the Query class name keeps backslashes but strips invalid characters.
+	 * Test that a clean fully-qualified Query class name is accepted unchanged.
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_query_class_name_is_sanitized() {
+	public function test_query_class_name_valid_is_accepted() {
+		$relationship = new Relationship(
+			array( 'query' => 'EDD\\Database\\Queries\\Order' )
+		);
+		$this->assertSame( 'EDD\\Database\\Queries\\Order', $relationship->query );
+	}
+
+	/**
+	 * Test that a Query class name with invalid characters is REJECTED to '',
+	 * not silently mutated into a different class name.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_query_class_name_invalid_is_rejected() {
 		$relationship = new Relationship(
 			array( 'query' => 'EDD\\Database\\Queries\\Order; DROP TABLE' )
 		);
-		$this->assertSame( 'EDD\\Database\\Queries\\OrderDROPTABLE', $relationship->query );
+		$this->assertSame( '', $relationship->query );
 	}
 
 	/**

@@ -62,6 +62,51 @@ A typical integration defines:
 In BerlinDB 3.x, `Table` and `Query` instantiate Schema objects from class names
 or accept Schema instances. Prefer `::class` constants for schema and row shape.
 
+## Relationships (3.1.0, #193)
+
+Declare a relationship on the column that holds the key, via a `relationships`
+array in the Schema. Each entry needs `query` (FQCN of the remote `Query`
+class), `column` (the key on the remote side), and `type`
+(`belongs_to` | `has_many`); `name` (the accessor) is optional and derived from
+the local column otherwise.
+
+```php
+// On the column holding the foreign key (e.g. 'order_id'):
+'relationships' => array(
+    array(
+        'query'  => \EDD\Database\Queries\Order::class,
+        'column' => 'id',          // remote key referenced
+        'type'   => 'belongs_to',
+        'name'   => 'order',       // optional accessor
+    ),
+),
+```
+
+- **Prime caches** with `with` (quiet by default — pass accessor names to warm):
+  `$q->query( array( 'status' => 'active', 'with' => array( 'order' ) ) );`
+- **Resolve related rows** with `get_related()` (on the `Query`, not the `Row`):
+  `$order = $q->get_related( $item, 'order' );` — `belongs_to` returns a `Row`
+  or `null`; `has_many` returns an array of `Row`s (the FULL child set —
+  pagination is a direct `query()`, not a relationship accessor).
+- **Filter rows by a relationship** with the `relation` query var; two strategies:
+  - `'in'` (default) — resolves a subquery into a `{fk}__in` filter:
+    `'relation' => array( 'name' => 'order', 'where' => array( 'status' => 'complete' ), 'strategy' => 'in' )`
+  - `'join'` — a real JOIN/EXISTS, supporting INNER (default) or
+    `'join' => 'left'`, `'exists' => false` (anti-join), operator conditions
+    (`array( 'compare' => '>', 'value' => 100 )`), and nested AND/OR `where`
+    groups:
+    `'relation' => array( 'name' => 'order', 'where' => array( 'status' => 'complete' ), 'strategy' => 'join' )`
+
+Notes:
+
+- Runtime relationship features (`get_related`, priming, `relation` filtering)
+  are **single-column only** for now — one local key referencing one remote key.
+- Relationship filters **fail closed**: a misconfigured or empty-matching filter
+  returns no rows, never all rows.
+- Enforced foreign-key metadata (`enforce`, `on_delete`, `on_update`,
+  `constraint`) is **declarable but not yet emitted as DDL** — relationships are
+  enforced at the application layer (WordPress avoids real foreign keys).
+
 ## High-Risk Gotchas
 
 - Nullable columns use `'allow_null' => true`, not `'null' => true`.

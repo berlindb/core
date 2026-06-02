@@ -300,6 +300,11 @@ class Relationship {
 	 * supplied by the caller, because this value object addresses the remote
 	 * side by Query class and does not resolve it to a table on its own.
 	 *
+	 * Future-ready, not yet wired: Schema::get_create_table_string() does NOT
+	 * call this, so enforced foreign keys are not emitted during table install
+	 * (see that method's docblock for why). This renders the fragment for when
+	 * DDL emission is added; relationships are application-enforced for now.
+	 *
 	 * @since 3.1.0
 	 *
 	 * @param string $remote_table Resolved physical name of the referenced table.
@@ -421,12 +426,17 @@ class Relationship {
 	/**
 	 * Sanitize the remote Query class as a PHP class name.
 	 *
-	 * Keeps letters, digits, underscores, and namespace separators.
+	 * A valid class reference contains only letters, digits, underscores, and
+	 * namespace separators. Rather than stripping invalid characters — which
+	 * would silently mutate a bad value into a different, possibly real class
+	 * name (e.g. 'Order; DROP TABLE' -> 'OrderDROPTABLE') — this REJECTS any
+	 * input that isn't already a clean class reference, returning '' so the
+	 * relationship resolves to no class and is treated as undeclared.
 	 *
 	 * @since 3.1.0
 	 *
 	 * @param string $query Remote Query class name.
-	 * @return string Sanitized class name, or empty string on failure.
+	 * @return string The class name unchanged if valid, or '' if rejected.
 	 */
 	private function sanitize_query_class( $query = '' ) {
 
@@ -435,11 +445,12 @@ class Relationship {
 			return '';
 		}
 
-		// Strip anything that cannot appear in a PHP class name.
-		$retval = preg_replace( '/[^a-zA-Z0-9_\\\\]/', '', $query );
+		// Trim surrounding whitespace; that alone is not a reason to reject.
+		$query = trim( $query );
 
-		return is_string( $retval )
-			? $retval
+		// Reject (don't mutate) anything carrying characters a class can't have.
+		return ( '' !== $query ) && ( 1 === preg_match( '/^[a-zA-Z0-9_\\\\]+$/', $query ) )
+			? $query
 			: '';
 	}
 

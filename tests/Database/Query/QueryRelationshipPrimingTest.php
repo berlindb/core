@@ -402,6 +402,48 @@ class QueryRelationshipPrimingTest extends TestCase {
 		$this->assertCount( 2, self::$query->get_related( $parent, 'children' ) );
 	}
 
+	/**
+	 * Test that get_related() returns the FULL child set even past the default
+	 * 100-row page, and that the primed and unprimed paths agree.
+	 *
+	 * Regression for the cache/limit mismatch: priming stored every child ID,
+	 * but get_related() queried at the default limit, so a primed lookup (all
+	 * children) and an unprimed one (the first 100) disagreed. Both now query
+	 * with number => 0.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_has_many_returns_all_children_past_default_limit() {
+
+		// A parent with more children than the default page (100).
+		$big_parent = (int) self::$query->add_item( array( 'status' => 'big-parent' ) );
+
+		for ( $i = 0; $i < 101; $i++ ) {
+			self::$query->add_item(
+				array(
+					'status'    => 'child',
+					'parent_id' => $big_parent,
+				)
+			);
+		}
+
+		// Unprimed: a relationship accessor must return all 101, not the first 100.
+		wp_cache_flush();
+		$parent = self::$query->get_item( $big_parent );
+		$this->assertCount( 101, self::$query->get_related( $parent, 'children' ) );
+
+		// Primed via 'with': must agree with the unprimed count exactly.
+		wp_cache_flush();
+		self::$query->query(
+			array(
+				'status' => 'big-parent',
+				'with'   => array( 'children' ),
+			)
+		);
+		$parent = self::$query->get_item( $big_parent );
+		$this->assertCount( 101, self::$query->get_related( $parent, 'children' ) );
+	}
+
 	// Relationship filtering — 'in' strategy (#193, Phase 5).
 
 	/**
@@ -680,5 +722,107 @@ class QueryRelationshipPrimingTest extends TestCase {
 		$this->assertCount( 2, $results );
 		$this->assertContains( $this->parent_id, $ids );
 		$this->assertContains( $this->child_id, $ids );
+	}
+
+	// Cache-key segmentation across different relationship filters (#193).
+
+	/**
+	 * Test that two different 'in'-strategy relationship filters resolve to
+	 * distinct cache keys — the second filter must not be served the first's
+	 * cached result. The 'in' strategy rewrites to a {fk}__in var, which already
+	 * segments the key; this pins that it stays true.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_relation_in_filters_segment_the_cache_key() {
+
+		// Two parents with distinct statuses, each with its own child.
+		$red_parent  = (int) self::$query->add_item( array( 'status' => 'red' ) );
+		$blue_parent = (int) self::$query->add_item( array( 'status' => 'blue' ) );
+		$red_child   = (int) self::$query->add_item(
+			array(
+				'status'    => 'child',
+				'parent_id' => $red_parent,
+			)
+		);
+		$blue_child  = (int) self::$query->add_item(
+			array(
+				'status'    => 'child',
+				'parent_id' => $blue_parent,
+			)
+		);
+
+		// Filter to children of the red parent (warms a cache entry).
+		$red = self::$query->query(
+			array(
+				'relation' => array(
+					'name'     => 'parent',
+					'where'    => array( 'status' => 'red' ),
+					'strategy' => 'in',
+				),
+			)
+		);
+
+		// Filter to children of the blue parent — must compute a different key.
+		$blue = self::$query->query(
+			array(
+				'relation' => array(
+					'name'     => 'parent',
+					'where'    => array( 'status' => 'blue' ),
+					'strategy' => 'in',
+				),
+			)
+		);
+
+		$this->assertSame( array( $red_child ), array_map( 'intval', wp_list_pluck( $red, 'id' ) ) );
+		$this->assertSame( array( $blue_child ), array_map( 'intval', wp_list_pluck( $blue, 'id' ) ) );
+	}
+
+	/**
+	 * Test that two different 'join'-strategy filters resolve to distinct cache
+	 * keys. The 'join' strategy routes specs into the 'relation_query' parser var,
+	 * which is registered and so segments the cache key per filter.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_relation_join_filters_segment_the_cache_key() {
+
+		$red_parent  = (int) self::$query->add_item( array( 'status' => 'red' ) );
+		$blue_parent = (int) self::$query->add_item( array( 'status' => 'blue' ) );
+		$red_child   = (int) self::$query->add_item(
+			array(
+				'status'    => 'child',
+				'parent_id' => $red_parent,
+			)
+		);
+		$blue_child  = (int) self::$query->add_item(
+			array(
+				'status'    => 'child',
+				'parent_id' => $blue_parent,
+			)
+		);
+
+		$red = self::$query->query(
+			array(
+				'relation' => array(
+					'name'     => 'parent',
+					'where'    => array( 'status' => 'red' ),
+					'strategy' => 'join',
+				),
+			)
+		);
+
+		$blue = self::$query->query(
+			array(
+				'relation' => array(
+					'name'     => 'parent',
+					'where'    => array( 'status' => 'blue' ),
+					'strategy' => 'join',
+				),
+			)
+		);
+
+		$this->assertSame( array( $red_child ), array_map( 'intval', wp_list_pluck( $red, 'id' ) ) );
+		$this->assertSame( array( $blue_child ), array_map( 'intval', wp_list_pluck( $blue, 'id' ) ) );
 	}
 }

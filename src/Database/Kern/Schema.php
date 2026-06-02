@@ -861,6 +861,16 @@ class Schema {
 	 * to be placed inside the parentheses of a CREATE TABLE query. Validation
 	 * runs first; returns an empty string if the schema is not valid.
 	 *
+	 * NOTE: foreign-key DDL is intentionally NOT emitted here. Relationship
+	 * metadata (type, columns, references, and the enforce / on_delete /
+	 * on_update / constraint attributes) is declarable, and
+	 * Relationship::get_create_string() can render a FOREIGN KEY fragment — but
+	 * it is future-ready metadata, not wired into table creation. WordPress
+	 * deliberately avoids real foreign keys (dbDelta doesn't support them, and
+	 * enforced keys would require resolving and install-ordering the remote
+	 * table), so relationships are enforced at the application layer for now.
+	 * Only columns and indexes are emitted.
+	 *
 	 * @since 3.0.0
 	 *
 	 * @return string SQL body string, or empty string if invalid or empty.
@@ -872,7 +882,11 @@ class Schema {
 			return '';
 		}
 
-		// Build SQL fragments for each collection.
+		/*
+		 * Columns and indexes only. Relationship/foreign-key DDL is declarable
+		 * (see Relationship::get_create_string()) but intentionally not emitted —
+		 * see this method's docblock.
+		 */
 		$strings = array(
 			$this->get_items_create_string( 'columns' ),
 			$this->get_items_create_string( 'indexes' ),

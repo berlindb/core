@@ -1103,9 +1103,14 @@ class Column {
 				continue;
 			}
 
-			// Sanitize 'query' as a PHP class name (letters, digits, _, and \).
-			$query = preg_replace( '/[^a-zA-Z0-9_\\\\]/', '', $relationship['query'] );
-			if ( empty( $query ) ) {
+			/*
+			 * Validate 'query' as a PHP class reference (letters, digits, _, \).
+			 * REJECT — don't strip — anything else: silently mutating a bad value
+			 * could turn it into a different, real class (e.g. 'Order; DROP TABLE'
+			 * -> 'OrderDROPTABLE'), so drop the whole relationship instead.
+			 */
+			$query = trim( $relationship['query'] );
+			if ( ( '' === $query ) || ! preg_match( '/^[a-zA-Z0-9_\\\\]+$/', $query ) ) {
 				continue;
 			}
 

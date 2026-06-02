@@ -1147,10 +1147,17 @@ class Query {
 		// has_many: many remote rows point back at this item's key. Resolve via
 		// the remote query's own result cache, which a prior 'with' prime warms
 		// in bulk (one query per value, keyed identically to this call).
+		//
+		// 'number' => 0 (no limit): a relationship accessor returns the FULL child
+		// set, not a paginated page. This must match the priming side
+		// (prime_has_many) exactly, or a primed call (all children) and an
+		// unprimed call (the default 100-row page) would disagree. Pagination is
+		// the caller's job via a direct query().
 		if ( 'has_many' === $relationship->type ) {
 			$found = $remote->query(
 				array(
 					$references[0] => $local_value,
+					'number'       => 0,
 				)
 			);
 
@@ -4306,10 +4313,12 @@ class Query {
 			}
 		}
 
-		// Warm each value's native result cache — including empties.
+		// Warm each value's native result cache — including empties. 'number' => 0
+		// (no limit) must match get_related()'s has_many query exactly, so the
+		// primed key equals the key that lookup computes (the full child set).
 		foreach ( $values as $value ) {
 			$ids = $grouped[ (string) $value ] ?? array();
-			$this->prime_query( array( $fk_column => $value ), $ids );
+			$this->prime_query( array( $fk_column => $value, 'number' => 0 ), $ids );
 		}
 	}
 

@@ -1332,11 +1332,35 @@ class ColumnTest extends TestCase {
 	}
 
 	/**
-	 * Test that the Query class name keeps backslashes but strips invalid characters.
+	 * Test that a clean fully-qualified Query class name is accepted unchanged
+	 * (backslashes preserved).
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_relationship_query_name_is_sanitized() {
+	public function test_relationship_query_name_valid_is_accepted() {
+		$column = new Column(
+			array(
+				'relationships' => array(
+					array(
+						'query'  => 'EDD\\Database\\Queries\\Order',
+						'column' => 'id',
+					),
+				),
+			)
+		);
+
+		$this->assertCount( 1, $column->relationships );
+		$this->assertSame( 'EDD\\Database\\Queries\\Order', $column->relationships[0]['query'] );
+	}
+
+	/**
+	 * Test that a Query class name carrying invalid characters is REJECTED (the
+	 * whole relationship is dropped) rather than silently mutated into a
+	 * different, possibly real, class name.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_relationship_query_name_invalid_is_rejected() {
 		$column = new Column(
 			array(
 				'relationships' => array(
@@ -1348,7 +1372,8 @@ class ColumnTest extends TestCase {
 			)
 		);
 
-		$this->assertSame( 'EDD\\Database\\Queries\\OrderDROPTABLE', $column->relationships[0]['query'] );
+		// The malformed entry is dropped, not coerced to 'OrderDROPTABLE'.
+		$this->assertSame( array(), $column->relationships );
 	}
 
 	/**
