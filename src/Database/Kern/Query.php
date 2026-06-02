@@ -1272,9 +1272,16 @@ class Query {
 		// Resolve each spec by its strategy.
 		foreach ( $specs as $spec ) {
 
-			// Skip malformed specs.
+			/*
+			 * Fail closed on a malformed spec. The 'relation' var is explicitly a
+			 * relationship filter, so a missing/invalid 'name' (e.g. a
+			 * 'relationship' => 'parent' typo for 'name') is a misconfiguration:
+			 * short-circuit the whole query to zero rows rather than widen to all.
+			 * break (not return) so the 'relation' cleanup below still runs.
+			 */
 			if ( ! is_array( $spec ) || empty( $spec['name'] ) || ! is_string( $spec['name'] ) ) {
-				continue;
+				$this->short_circuit_relation( 'malformed relation spec (missing or invalid "name")' );
+				break;
 			}
 
 			// Default to the subquery strategy; 'join' is handled separately.

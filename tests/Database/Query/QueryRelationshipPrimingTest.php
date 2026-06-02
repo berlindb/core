@@ -764,6 +764,51 @@ class QueryRelationshipPrimingTest extends TestCase {
 		$this->assertContains( $this->child_id, $ids );
 	}
 
+	/**
+	 * Test that a LEFT JOIN WITH a where condition filters unmatched rows — the
+	 * condition is emitted into the outer WHERE, so the unmatched parent row
+	 * (parent_id = 0, NULL-joined) is excluded and LEFT behaves like INNER. Pins
+	 * the documented caveat: 'join' => 'left' keeps unmatched rows only when
+	 * there are no conditions.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_relation_join_left_with_condition_filters_unmatched() {
+		$results = self::$query->query(
+			array(
+				'relation' => array(
+					'name'     => 'parent',
+					'strategy' => 'join',
+					'join'     => 'left',
+					'where'    => array( 'status' => 'parent' ),
+				),
+			)
+		);
+
+		// Only the child matches (its parent has status 'parent'); the parent
+		// row has no parent, so the condition filters it out despite the LEFT.
+		$this->assertCount( 1, $results );
+		$this->assertSame( $this->child_id, (int) $results[0]->id );
+	}
+
+	/**
+	 * Test that a malformed relation spec (missing 'name', e.g. a 'relationship'
+	 * => 'parent' typo) FAILS CLOSED — returns no rows, never every row.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_relation_malformed_spec_fails_closed() {
+		$results = self::$query->query(
+			array(
+				'relation' => array(
+					array( 'where' => array( 'status' => 'parent' ) ), // no 'name'
+				),
+			)
+		);
+
+		$this->assertSame( array(), $results );
+	}
+
 	// Cache-key segmentation across different relationship filters (#193).
 
 	/**

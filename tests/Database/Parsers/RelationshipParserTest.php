@@ -449,11 +449,13 @@ class RelationshipParserTest extends TestCase {
 	}
 
 	/**
-	 * Test that a malformed spec (no name) is skipped without error.
+	 * Test that a malformed spec (no name) FAILS CLOSED rather than being
+	 * silently skipped — an explicit-but-misconfigured relationship filter must
+	 * match no rows, not all rows.
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_malformed_spec_skipped() {
+	public function test_malformed_spec_fails_closed() {
 		$result = $this->parse(
 			array(
 				array( 'where' => array( 'status' => 'active' ) ), // no 'name'
@@ -462,7 +464,7 @@ class RelationshipParserTest extends TestCase {
 		);
 
 		$this->assertSame( '', $result['join'] );
-		$this->assertSame( '', $result['where'] );
+		$this->assertSame( '1 = 0', $result['where'] );
 	}
 
 	/**

@@ -44,8 +44,12 @@ defined( 'ABSPATH' ) || exit;
  * "1 = 0" condition, so a misconfigured filter never widens to all rows.
  *
  * Single-column relationships. A positive belongs_to filter uses an INNER JOIN
- * (or a LEFT JOIN when the spec sets 'join' => 'left', which keeps unmatched
- * local rows). A positive has_many filter uses a correlated WHERE EXISTS (semi
+ * (or a LEFT JOIN when the spec sets 'join' => 'left'). NOTE: LEFT keeps
+ * unmatched local rows ONLY when the relationship carries no 'where' conditions
+ * — conditions are emitted into the outer WHERE (not the ON clause), so any
+ * condition on the joined columns excludes the NULL-joined unmatched rows, and
+ * LEFT then behaves like INNER. Use a conditionless 'join' => 'left' to keep
+ * unmatched rows. A positive has_many filter uses a correlated WHERE EXISTS (semi
  * join), which keeps each local row once instead of duplicating it per matching
  * child. When a spec sets 'exists' => false, either direction becomes a WHERE
  * NOT EXISTS (anti join) — rows that have no matching related row.
@@ -118,8 +122,14 @@ class Relationship extends Base {
 		// Build each relationship clause.
 		foreach ( $specs as $spec ) {
 
-			// Skip malformed specs.
+			/*
+			 * Fail closed on a malformed spec. An entry under relation_query is
+			 * explicitly a relationship filter, so a missing/invalid 'name' (e.g.
+			 * a 'relationship' => 'parent' typo for 'name') is a misconfiguration
+			 * that must match no rows — never silently widen to all rows.
+			 */
 			if ( ! is_array( $spec ) || empty( $spec[ 'name' ] ) || ! is_string( $spec[ 'name' ] ) ) {
+				$wheres[] = '1 = 0';
 				continue;
 			}
 
@@ -259,7 +269,10 @@ class Relationship extends Base {
 		 * belongs_to (positive): this row's foreign key points at one remote
 		 * row, so a join never duplicates the local row, and exposes the joined
 		 * columns for later selection/ordering. INNER keeps only matched rows;
-		 * LEFT (opt-in via 'join' => 'left') keeps unmatched local rows too.
+		 * LEFT (opt-in via 'join' => 'left') keeps unmatched local rows ONLY when
+		 * there are no conditions — $condition_list goes into the outer WHERE, so
+		 * a condition on the joined columns filters NULL-joined rows out (LEFT
+		 * then behaves like INNER).
 		 */
 		if ( ( 'belongs_to' === $type ) && ( true === $exists_positive ) ) {
 			$keyword = ( isset( $spec[ 'join' ] ) && is_string( $spec[ 'join' ] ) && ( 'left' === strtolower( $spec[ 'join' ] ) ) )
