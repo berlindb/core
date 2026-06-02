@@ -692,7 +692,12 @@ trait Parser {
 	/**
 	 * Determines and validates what first-order keys to use.
 	 *
-	 * Use first $first_keys if passed and valid.
+	 * Declared abstract here (like set_operators()) because the meaningful
+	 * default lives on Parsers\Base, which derives per-column keys from the
+	 * column_filter / column_suffix descriptor it owns. The trait is the
+	 * column-agnostic engine and must not reach into that config, so it states
+	 * the dependency and lets the consumer (Base, and subclasses such as
+	 * Compare/Date/Meta) provide the implementation. set_first_keys() calls it.
 	 *
 	 * @since 3.0.0
 	 *
@@ -700,11 +705,7 @@ trait Parser {
 	 *
 	 * @return list<string> The first-order keys.
 	 */
-	protected function get_first_keys( $first_keys = array() ) {
-		return ! empty( $first_keys ) && is_array( $first_keys )
-			? $first_keys
-			: $this->first_keys;
-	}
+	abstract protected function get_first_keys( $first_keys = array() );
 
 	/**
 	 * Generates SQL clauses to be appended to a main query.
