@@ -379,4 +379,123 @@ class CompareParserTest extends TestCase {
 
 		$this->assertSame( 3, (int) $count );
 	}
+
+	/**
+	 * Test that a top-level relation => OR unions two first-order clauses.
+	 *
+	 * This proves recursion is an engine feature (Traits\Parser::get_sql_for_query),
+	 * not a Meta-only one: the Compare parser inherits the same boolean tree.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_relation_or_unions_first_order_clauses() {
+
+		// ( status = 'active' OR priority = 50 ) => Alpha, Beta, Epsilon.
+		$results = self::$query->query(
+			array(
+				'compare_query' => array(
+					'relation' => 'OR',
+					array(
+						'key'   => 'status',
+						'value' => 'active',
+					),
+					array(
+						'key'     => 'priority',
+						'value'   => 50,
+						'compare' => '=',
+					),
+				),
+			)
+		);
+
+		$this->assertCount( 3, $results );
+
+		$names = wp_list_pluck( $results, 'name' );
+		$this->assertContains( 'Alpha Widget', $names );
+		$this->assertContains( 'Beta Widget', $names );
+		$this->assertContains( 'Epsilon Widget', $names );
+	}
+
+	/**
+	 * Test that an AND subgroup nested inside a top-level OR recurses correctly.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_and_subgroup_nested_in_or() {
+
+		// ( status = 'pending' OR ( status = 'inactive' AND priority > 30 ) )
+		//   => Epsilon (pending) + Delta (inactive, 40) = 2 rows. Gamma (30) is
+		//   excluded because the inner AND requires priority > 30.
+		$results = self::$query->query(
+			array(
+				'compare_query' => array(
+					'relation' => 'OR',
+					array(
+						'key'   => 'status',
+						'value' => 'pending',
+					),
+					array(
+						'relation' => 'AND',
+						array(
+							'key'   => 'status',
+							'value' => 'inactive',
+						),
+						array(
+							'key'     => 'priority',
+							'value'   => 30,
+							'compare' => '>',
+						),
+					),
+				),
+			)
+		);
+
+		$this->assertCount( 2, $results );
+
+		$names = wp_list_pluck( $results, 'name' );
+		$this->assertContains( 'Epsilon Widget', $names );
+		$this->assertContains( 'Delta Gadget', $names );
+		$this->assertNotContains( 'Gamma Gadget', $names );
+	}
+
+	/**
+	 * Test that an OR subgroup nested inside a top-level AND is properly grouped.
+	 *
+	 * This is the discriminating case: only correct parenthesization yields the
+	 * right rows. ( priority > 30 AND ( status = 'inactive' OR status = 'active' ) )
+	 * matches Delta only — Epsilon (50, pending) passes the priority test but fails
+	 * the grouped OR; if the OR were not grouped, operator precedence would let the
+	 * active rows leak in.
+	 *
+	 * @since 3.0.0
+	 */
+	public function test_or_subgroup_nested_in_and_is_grouped() {
+
+		$results = self::$query->query(
+			array(
+				'compare_query' => array(
+					'relation' => 'AND',
+					array(
+						'key'     => 'priority',
+						'value'   => 30,
+						'compare' => '>',
+					),
+					array(
+						'relation' => 'OR',
+						array(
+							'key'   => 'status',
+							'value' => 'inactive',
+						),
+						array(
+							'key'   => 'status',
+							'value' => 'active',
+						),
+					),
+				),
+			)
+		);
+
+		$this->assertCount( 1, $results );
+		$this->assertSame( 'Delta Gadget', $results[0]->name );
+	}
 }
