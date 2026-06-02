@@ -273,16 +273,33 @@ class Relationship extends Base {
 	/**
 	 * Build the operator-driven WHERE group for a relationship's remote columns.
 	 *
-	 * Conditions are joined by AND by default, or by OR when the conditions
-	 * carry a 'relation' => 'OR' key (mirroring the engine's boolean convention).
-	 * A group of more than one condition is parenthesized so it composes safely
-	 * with the surrounding clauses.
+	 * Conditions are joined by AND by default, or by OR when the group carries a
+	 * 'relation' => 'OR' key (mirroring the engine's boolean convention). A group
+	 * of more than one member is parenthesized so it composes safely with the
+	 * surrounding clauses.
+	 *
+	 * Nesting is recursive, like the Meta parser's query tree: a member keyed by
+	 * a STRING is a leaf condition ( column => value ), while a member keyed by an
+	 * INTEGER whose value is an array is a nested subgroup that recurses here with
+	 * its own 'relation'. This keeps the terse column => value shorthand for the
+	 * common (flat) case yet allows arbitrary depth, e.g.:
+	 *
+	 *     array(
+	 *         'relation' => 'AND',
+	 *         'status'   => 'active',
+	 *         array(
+	 *             'relation' => 'OR',
+	 *             'tier'  => 'gold',
+	 *             'total' => array( 'compare' => '>', 'value' => 1000 ),
+	 *         ),
+	 *     )
+	 *     // => ( status = 'active' AND ( tier = 'gold' OR total > 1000 ) )
 	 *
 	 * @since 3.1.0
 	 *
 	 * @param Query                $remote The remote query whose schema owns the columns.
 	 * @param string               $alias  The remote table alias.
-	 * @param array<string, mixed> $conds  Column => condition map (+ optional 'relation').
+	 * @param array<string, mixed> $conds  Column => condition map (+ optional 'relation' and nested subgroups).
 	 * @return string|false The combined WHERE group (or '' if none), or false on an unknown column.
 	 */
 	private function build_conditions( Query $remote, string $alias, array $conds ) {
@@ -299,9 +316,12 @@ class Relationship extends Base {
 
 		foreach ( $conds as $column => $cond ) {
 
-			$expr = $this->build_condition( $remote, $alias, (string) $column, $cond );
+			// Integer-keyed array members are nested subgroups: recurse.
+			$expr = ( is_int( $column ) && is_array( $cond ) )
+				? $this->build_conditions( $remote, $alias, $cond )
+				: $this->build_condition( $remote, $alias, (string) $column, $cond );
 
-			// Unknown remote column: fail closed.
+			// Unknown remote column (at any depth): fail closed.
 			if ( false === $expr ) {
 				return false;
 			}

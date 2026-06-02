@@ -595,4 +595,110 @@ class RelationshipParserTest extends TestCase {
 
 		$this->assertStringContainsString( 'INNER JOIN', $result['join'] );
 	}
+
+	/**
+	 * Test that an integer-keyed array member is treated as a nested subgroup,
+	 * recursing with its own relation (Meta-parser-style boolean nesting).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_nested_subgroup_recurses_with_own_relation() {
+		$result = $this->parse(
+			array(
+				'name'  => 'parent',
+				'where' => array(
+					'relation' => 'AND',
+					'status'   => 'active',
+					array(
+						'relation' => 'OR',
+						'total'    => array(
+							'compare' => '>',
+							'value'   => 1000,
+						),
+						'order_id' => 5,
+					),
+				),
+			),
+			array( 'parent' => $this->relationship() )
+		);
+
+		// Outer group glues the leaf and the subgroup with AND.
+		$this->assertStringContainsString( ' AND ', $result['where'] );
+
+		// Inner subgroup glues its two members with OR, parenthesized.
+		$this->assertStringContainsString( ' OR ', $result['where'] );
+		$this->assertStringContainsString( '`bdb_rel_parent`.`status`', $result['where'] );
+		$this->assertStringContainsString( '`bdb_rel_parent`.`total`', $result['where'] );
+		$this->assertStringContainsString( '`bdb_rel_parent`.`order_id`', $result['where'] );
+
+		// The OR group is nested inside the outer AND group: two opening parens
+		// appear before the inner OR keyword.
+		$or_position    = strpos( $result['where'], ' OR ' );
+		$prefix         = substr( $result['where'], 0, (int) $or_position );
+		$opening_parens = substr_count( $prefix, '(' );
+		$this->assertGreaterThanOrEqual( 2, $opening_parens );
+	}
+
+	/**
+	 * Test that an unknown column inside a nested subgroup fails closed, with the
+	 * false propagating up through the recursion.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_nested_subgroup_unknown_column_fails_closed() {
+		$result = $this->parse(
+			array(
+				'name'  => 'parent',
+				'where' => array(
+					'status' => 'active',
+					array(
+						'relation'    => 'OR',
+						'nonexistent' => 'x',
+					),
+				),
+			),
+			array( 'parent' => $this->relationship() )
+		);
+
+		$this->assertSame( '', $result['join'] );
+		$this->assertStringContainsString( '1 = 0', $result['where'] );
+	}
+
+	/**
+	 * Test that subgroups nest to arbitrary depth.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_deeply_nested_subgroups() {
+		$result = $this->parse(
+			array(
+				'name'  => 'parent',
+				'where' => array(
+					'relation' => 'OR',
+					'status'   => 'active',
+					array(
+						'relation' => 'AND',
+						'total'    => array(
+							'compare' => '>',
+							'value'   => 100,
+						),
+						array(
+							'relation' => 'OR',
+							'order_id' => array( 1, 2, 3 ),
+							'status'   => 'pending',
+						),
+					),
+				),
+			),
+			array( 'parent' => $this->relationship() )
+		);
+
+		$this->assertStringNotContainsString( '1 = 0', $result['where'] );
+		$this->assertStringContainsString( ' OR ', $result['where'] );
+		$this->assertStringContainsString( ' AND ', $result['where'] );
+		$this->assertStringContainsStringIgnoringCase( 'IN', $result['where'] );
+
+		// Three levels deep => at least three opening parens overall.
+		$this->assertGreaterThanOrEqual( 3, substr_count( $result['where'], '(' ) );
+	}
 }
