@@ -48,12 +48,22 @@ class PrimingSchema extends Schema {
 			),
 		),
 		array(
-			'name'      => 'status',
-			'type'      => 'varchar',
-			'length'    => '20',
-			'default'   => '',
-			'cache_key' => true,
-			'in'        => true,
+			'name'          => 'status',
+			'type'          => 'varchar',
+			'length'        => '20',
+			'default'       => '',
+			'cache_key'     => true,
+			'in'            => true,
+			// A relationship pointing at a real class that is NOT a Query, to
+			// exercise resolve_remote_query()'s instanceof guard (fails closed).
+			'relationships' => array(
+				array(
+					'name'   => 'bogus',
+					'query'  => 'stdClass',
+					'column' => 'id',
+					'type'   => 'belongs_to',
+				),
+			),
 		),
 		array(
 			'name'          => 'parent_id',
@@ -315,6 +325,36 @@ class QueryRelationshipPrimingTest extends TestCase {
 
 		$this->assertSame( $this->parent_id, (int) $parent->id );
 		$this->assertSame( $before, $after );
+	}
+
+	/**
+	 * Test that get_related() fails closed when the relationship's query class
+	 * is a real class but NOT a sibling Query (resolve_remote_query() guard).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_get_related_non_query_class_is_null() {
+		// The 'bogus' relationship points at stdClass — a class that exists but
+		// is not a Query, so the remote can't be resolved.
+		$item = (object) array( 'status' => 'anything' );
+
+		$this->assertNull( self::$query->get_related( $item, 'bogus' ) );
+	}
+
+	/**
+	 * Test the empty-relationship-key policy: a 0 or '0' local key means "no
+	 * relation", so get_related() returns null for a belongs_to without querying.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_get_related_zero_key_is_no_relation() {
+		// Integer zero and string '0' both count as unset.
+		$this->assertNull( self::$query->get_related( (object) array( 'parent_id' => 0 ), 'parent' ) );
+		$this->assertNull( self::$query->get_related( (object) array( 'parent_id' => '0' ), 'parent' ) );
+
+		// A real key still resolves (sanity: the guard isn't over-broad).
+		$resolved = self::$query->get_related( (object) array( 'parent_id' => $this->parent_id ), 'parent' );
+		$this->assertSame( $this->parent_id, (int) $resolved->id );
 	}
 
 	// has_many collection priming (#193).

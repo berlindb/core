@@ -1113,6 +1113,25 @@ class Query {
 	}
 
 	/**
+	 * Whether a local key value represents "no relation".
+	 *
+	 * POLICY: a foreign key of 0, '0', '', null (or any other empty() value) is
+	 * treated as unset — there is no related row — mirroring WordPress's
+	 * convention that 0 is the no-parent/no-object value. This is the single,
+	 * named home for that rule, used by get_related() and the priming collectors,
+	 * so the choice is explicit and testable. If a scheme ever needs a literal
+	 * 0/'0' key to be a valid relation, change it here.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param mixed $value The local key value to test.
+	 * @return bool True when the value is an empty/no-relation key.
+	 */
+	private function is_empty_relationship_key( $value ): bool {
+		return empty( $value );
+	}
+
+	/**
 	 * Get the related data for one of this query's items, by relationship name.
 	 *
 	 * Explicit accessor for a declared relationship (see berlindb/core #193). For
@@ -1151,15 +1170,9 @@ class Query {
 			return null;
 		}
 
-		/*
-		 * Bail unless the local key is present and "set". POLICY: a 0 / '0' /
-		 * '' / null foreign key means "no relation" (the WordPress convention
-		 * that 0 is the unset/no-parent value), so empty() is intentional here
-		 * and in the priming collectors. If arbitrary FK schemes ever need a
-		 * literal 0/'0' key to be valid, this rule (and the collectors) should
-		 * move behind one explicit policy helper rather than change ad hoc.
-		 */
-		if ( ! isset( $item->{$columns[0]} ) || empty( $item->{$columns[0]} ) ) {
+		// Bail unless the local key is present and represents an actual relation
+		// (see is_empty_relationship_key() for the 0/'0'/''/null policy).
+		if ( ! isset( $item->{$columns[0]} ) || $this->is_empty_relationship_key( $item->{$columns[0]} ) ) {
 			return ( 'has_many' === $relationship->type )
 				? array()
 				: null;
@@ -4201,7 +4214,7 @@ class Query {
 			$value = $item->{$local_column};
 
 			// Skip empty foreign keys (no relation), de-duplicate the rest.
-			if ( ! empty( $value ) ) {
+			if ( ! $this->is_empty_relationship_key( $value ) ) {
 				$values[ (string) $value ] = $value;
 			}
 		}
@@ -4254,8 +4267,8 @@ class Query {
 
 			$value = $item->{$local_column};
 
-			// Skip empty keys, de-duplicate the rest.
-			if ( ! empty( $value ) ) {
+			// Skip empty keys (no relation), de-duplicate the rest.
+			if ( ! $this->is_empty_relationship_key( $value ) ) {
 				$values[ (string) $value ] = $value;
 			}
 		}
