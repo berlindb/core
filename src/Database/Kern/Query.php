@@ -1170,8 +1170,10 @@ class Query {
 			return null;
 		}
 
-		// Bail unless the local key is present and represents an actual relation
-		// (see is_empty_relationship_key() for the 0/'0'/''/null policy).
+		/*
+		 * Bail unless the local key is present and represents an actual relation
+		 * (see is_empty_relationship_key() for the 0/'0'/''/null policy).
+		 */
 		if ( ! isset( $item->{$columns[0]} ) || $this->is_empty_relationship_key( $item->{$columns[0]} ) ) {
 			return ( 'has_many' === $relationship->type )
 				? array()
