@@ -106,6 +106,13 @@ class Relationship extends Base {
 		$joins  = array();
 		$wheres = array();
 
+		// Drop exact-duplicate specs, and count how many times each relationship
+		// name is used so repeats get DISTINCT table aliases. Two specs naming the
+		// same belongs_to with different join modes (e.g. INNER and LEFT) would
+		// otherwise both emit `AS bdb_rel_{name}` and collide ("not unique alias").
+		$seen         = array();
+		$alias_counts = array();
+
 		// Build each relationship clause.
 		foreach ( $specs as $spec ) {
 
@@ -114,7 +121,23 @@ class Relationship extends Base {
 				continue;
 			}
 
-			$clause = $this->build_clause( $spec );
+			// Skip exact-duplicate specs (same filter and same join mode).
+			$fingerprint = (string) wp_json_encode( $spec );
+
+			if ( isset( $seen[ $fingerprint ] ) ) {
+				continue;
+			}
+
+			$seen[ $fingerprint ] = true;
+
+			// Disambiguate the alias when the same relationship name repeats.
+			$name         = (string) $spec[ 'name' ];
+			$occurrence   = ( $alias_counts[ $name ] = ( $alias_counts[ $name ] ?? 0 ) + 1 );
+			$alias_suffix = ( $occurrence > 1 )
+				? '_' . (string) $occurrence
+				: '';
+
+			$clause = $this->build_clause( $spec, $alias_suffix );
 
 			// Fail closed: an unresolvable spec must not widen the result set.
 			if ( false === $clause ) {
@@ -145,10 +168,13 @@ class Relationship extends Base {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param array<string, mixed> $spec Relationship filter spec ({ name, where }).
+	 * @param array<string, mixed> $spec         Relationship filter spec ({ name, where }).
+	 * @param string               $alias_suffix Optional suffix appended to the remote
+	 *                                           table alias to keep repeated relationship
+	 *                                           names distinct (e.g. '_2'). Default ''.
 	 * @return array{join: string, where: list<string>}|false False if unresolvable.
 	 */
-	private function build_clause( array $spec ) {
+	private function build_clause( array $spec, $alias_suffix = '' ) {
 
 		$name  = (string) $spec[ 'name' ];
 		$conds = ( isset( $spec[ 'where' ] ) && is_array( $spec[ 'where' ] ) )
@@ -194,8 +220,9 @@ class Relationship extends Base {
 
 		// Deterministic, sanitized alias for this relationship's remote table.
 		// sanitize_table_alias() applies the canonical identifier rules (and
-		// normalizes/trims underscores); the 'bdb_rel_' prefix keeps it unique.
-		$alias = 'bdb_rel_' . (string) $this->sanitize_table_alias( $name );
+		// normalizes/trims underscores); the 'bdb_rel_' prefix plus the caller's
+		// suffix (when a name repeats) keep it unique across specs.
+		$alias = 'bdb_rel_' . (string) $this->sanitize_table_alias( $name ) . $alias_suffix;
 
 		/*
 		 * Operator-driven conditions on the remote columns (shared by both

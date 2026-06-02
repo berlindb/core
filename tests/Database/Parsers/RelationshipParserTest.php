@@ -702,4 +702,55 @@ class RelationshipParserTest extends TestCase {
 		// Three levels deep => at least three opening parens overall.
 		$this->assertGreaterThanOrEqual( 3, substr_count( $result['where'], '(' ) );
 	}
+
+	/**
+	 * Test that two specs naming the SAME belongs_to relationship with different
+	 * join modes get DISTINCT aliases, instead of emitting `AS bdb_rel_parent`
+	 * twice (which MySQL rejects as a duplicate alias).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_same_relationship_distinct_join_modes_get_distinct_aliases() {
+		$result = $this->parse(
+			array(
+				array(
+					'name' => 'parent',
+					'join' => 'inner',
+				),
+				array(
+					'name' => 'parent',
+					'join' => 'left',
+				),
+			),
+			array( 'parent' => $this->relationship() )
+		);
+
+		// Both join modes are present...
+		$this->assertStringContainsString( 'INNER JOIN', $result['join'] );
+		$this->assertStringContainsString( 'LEFT JOIN', $result['join'] );
+
+		// ...under DISTINCT aliases (base + disambiguated), never colliding.
+		$this->assertStringContainsString( 'AS `bdb_rel_parent`', $result['join'] );
+		$this->assertStringContainsString( 'AS `bdb_rel_parent_2`', $result['join'] );
+		$this->assertSame( 1, substr_count( $result['join'], 'AS `bdb_rel_parent`' ) );
+	}
+
+	/**
+	 * Test that two exact-duplicate specs collapse to a single JOIN (no redundant
+	 * second join and no spurious disambiguation suffix).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_identical_relationship_specs_are_deduped() {
+		$result = $this->parse(
+			array(
+				array( 'name' => 'parent' ),
+				array( 'name' => 'parent' ),
+			),
+			array( 'parent' => $this->relationship() )
+		);
+
+		$this->assertSame( 1, substr_count( $result['join'], 'AS `bdb_rel_parent`' ) );
+		$this->assertStringNotContainsString( 'bdb_rel_parent_2', $result['join'] );
+	}
 }

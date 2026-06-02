@@ -44,11 +44,15 @@ defined( 'ABSPATH' ) || exit;
  *
  *     Optional. Array or query string of relationship parameters. Default empty.
  *
- *     @type string       $name       Optional constraint name (used only when enforced).
+ *     @type string       $name       Optional accessor handle for this relationship
+ *                                    (used by get_related() and relation filters).
+ *                                    Derived from the local column when omitted.
  *     @type string       $type       Relationship type: 'belongs_to' or 'has_many'.
  *     @type list<string> $columns    Local column names that hold the relationship.
  *     @type string       $query      FQCN of the remote Query class.
  *     @type list<string> $references Remote column names this relationship maps to.
+ *     @type string       $constraint Optional SQL foreign-key constraint name
+ *                                    (used only when enforced).
  *     @type string       $on_delete  Referential action: RESTRICT, CASCADE, SET NULL, NO ACTION, SET DEFAULT.
  *     @type string       $on_update  Referential action: RESTRICT, CASCADE, SET NULL, NO ACTION, SET DEFAULT.
  *     @type bool         $enforce    Emit real FOREIGN KEY DDL? Default false.

@@ -1151,7 +1151,14 @@ class Query {
 			return null;
 		}
 
-		// Bail unless the local key is present and non-empty on the item.
+		/*
+		 * Bail unless the local key is present and "set". POLICY: a 0 / '0' /
+		 * '' / null foreign key means "no relation" (the WordPress convention
+		 * that 0 is the unset/no-parent value), so empty() is intentional here
+		 * and in the priming collectors. If arbitrary FK schemes ever need a
+		 * literal 0/'0' key to be valid, this rule (and the collectors) should
+		 * move behind one explicit policy helper rather than change ad hoc.
+		 */
 		if ( ! isset( $item->{$columns[0]} ) || empty( $item->{$columns[0]} ) ) {
 			return ( 'has_many' === $relationship->type )
 				? array()
