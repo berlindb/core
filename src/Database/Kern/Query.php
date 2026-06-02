@@ -1229,11 +1229,18 @@ class Query {
 			if ( 'in' === $strategy ) {
 				$this->resolve_relationship_in_filter( $spec );
 			} else {
-				// 'join' is not wired here yet; fail closed until implemented.
-				$this->short_circuit_relation(
-					"relation strategy '{$strategy}' is not available",
-					array( 'name' => $spec['name'] )
-				);
+				// 'join' strategy: hand the spec to the Relationship parser via
+				// its own query var (which segments the cache key on its own).
+				$existing = $this->get_query_var( 'relation_query' );
+				$list     = is_array( $existing ) ? $existing : array();
+
+				// Normalize an existing single spec to a list before appending.
+				if ( isset( $list[ 'name' ] ) ) {
+					$list = array( $list );
+				}
+
+				$list[]                               = $spec;
+				$this->query_vars[ 'relation_query' ] = $list;
 			}
 		}
 
@@ -1532,6 +1539,7 @@ class Query {
 			'BerlinDB\\Database\\Parsers\\Date',
 			'BerlinDB\\Database\\Parsers\\Meta',
 			'BerlinDB\\Database\\Parsers\\Compare',
+			'BerlinDB\\Database\\Parsers\\Relationship',
 		);
 
 		// Return the query var parser classes, filtered.

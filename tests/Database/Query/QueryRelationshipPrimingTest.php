@@ -480,4 +480,85 @@ class QueryRelationshipPrimingTest extends TestCase {
 
 		$this->assertSame( array(), $results );
 	}
+
+	// Relationship filtering — 'join' strategy (#193, Phase 5b).
+
+	/**
+	 * Test that the 'join' strategy filters local rows by a belongs_to parent's
+	 * attribute via a real INNER JOIN (only the child has a 'parent' parent).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_relation_join_filters_by_belongs_to() {
+		$results = self::$query->query(
+			array(
+				'relation' => array(
+					'name'     => 'parent',
+					'where'    => array( 'status' => 'parent' ),
+					'strategy' => 'join',
+				),
+			)
+		);
+
+		$this->assertCount( 1, $results );
+		$this->assertSame( $this->child_id, (int) $results[0]->id );
+	}
+
+	/**
+	 * Test that a join filter matching no parents returns no rows.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_relation_join_empty_match_returns_nothing() {
+		$results = self::$query->query(
+			array(
+				'relation' => array(
+					'name'     => 'parent',
+					'where'    => array( 'status' => 'does-not-exist' ),
+					'strategy' => 'join',
+				),
+			)
+		);
+
+		$this->assertSame( array(), $results );
+	}
+
+	/**
+	 * Test that the 'join' strategy delegates to Operators (array value => IN).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_relation_join_uses_operators() {
+		$results = self::$query->query(
+			array(
+				'relation' => array(
+					'name'     => 'parent',
+					'where'    => array( 'status' => array( 'parent', 'other' ) ),
+					'strategy' => 'join',
+				),
+			)
+		);
+
+		$this->assertCount( 1, $results );
+		$this->assertSame( $this->child_id, (int) $results[0]->id );
+	}
+
+	/**
+	 * Test that an unknown relationship name fails closed for the join strategy.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_relation_join_unknown_name_fails_closed() {
+		$results = self::$query->query(
+			array(
+				'relation' => array(
+					'name'     => 'nope',
+					'where'    => array( 'status' => 'parent' ),
+					'strategy' => 'join',
+				),
+			)
+		);
+
+		$this->assertSame( array(), $results );
+	}
 }
