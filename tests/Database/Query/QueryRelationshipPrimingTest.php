@@ -561,4 +561,25 @@ class QueryRelationshipPrimingTest extends TestCase {
 
 		$this->assertSame( array(), $results );
 	}
+
+	/**
+	 * Test that a has_many join filter (WHERE EXISTS) returns each parent once.
+	 * Only the parent row has a child with status 'child'.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_relation_join_has_many_filters_via_exists() {
+		$results = self::$query->query(
+			array(
+				'relation' => array(
+					'name'     => 'children',
+					'where'    => array( 'status' => 'child' ),
+					'strategy' => 'join',
+				),
+			)
+		);
+
+		$this->assertCount( 1, $results );
+		$this->assertSame( $this->parent_id, (int) $results[0]->id );
+	}
 }

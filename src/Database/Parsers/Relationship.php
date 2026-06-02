@@ -41,7 +41,9 @@ defined( 'ABSPATH' ) || exit;
  * unsupported type, unknown remote column) fails closed by emitting a
  * "1 = 0" condition, so a misconfigured filter never widens to all rows.
  *
- * First slice: single-column belongs_to relationships, INNER JOIN only.
+ * Single-column relationships: belongs_to filters with an INNER JOIN;
+ * has_many filters with a correlated WHERE EXISTS (semi join), which keeps each
+ * local row once instead of duplicating it per matching child.
  *
  * @since 3.1.0
  */
@@ -151,11 +153,12 @@ class Relationship extends Base {
 			return false;
 		}
 
-		// Single-column belongs_to only (first slice).
+		// Single-column belongs_to or has_many.
 		$columns    = $relationship->columns;
 		$references = $relationship->references;
+		$type       = $relationship->type;
 
-		if ( ( 'belongs_to' !== $relationship->type ) || ( 1 !== count( $columns ) ) || ( 1 !== count( $references ) ) ) {
+		if ( ( 1 !== count( $columns ) ) || ( 1 !== count( $references ) ) || ! in_array( $type, array( 'belongs_to', 'has_many' ), true ) ) {
 			return false;
 		}
 
@@ -180,15 +183,64 @@ class Relationship extends Base {
 			return false;
 		}
 
-		// Deterministic, sanitized alias for this relationship's joined table.
+		// Deterministic, sanitized alias for this relationship's remote table.
 		$alias = 'bdb_rel_' . (string) preg_replace( '/[^a-zA-Z0-9_]/', '_', $name );
 
-		// INNER JOIN remote AS alias ON local.fk = alias.ref.
-		$local = (string) $this->caller( 'get_quoted_column_name_aliased', $columns[0] );
-		$join  = 'INNER JOIN ' . $this->quote_identifier( $remote_table ) . ' AS ' . $this->quote_identifier( $alias )
-			. ' ON ' . $local . ' = ' . $this->quote_identifier( $alias ) . '.' . $this->quote_identifier( $remote_ref );
+		// Operator-driven conditions on the remote columns (shared by both
+		// strategies). Returns false if any remote column is unknown.
+		$conditions = $this->build_conditions( $remote, $alias, $conds );
 
-		// WHERE conditions on the joined table, via Operators.
+		if ( false === $conditions ) {
+			return false;
+		}
+
+		// Pre-quote the shared identifiers.
+		$local      = (string) $this->caller( 'get_quoted_column_name_aliased', $columns[0] );
+		$alias_sql  = $this->quote_identifier( $alias );
+		$remote_sql = $this->quote_identifier( $remote_table );
+		$ref_sql    = $alias_sql . '.' . $this->quote_identifier( $remote_ref );
+
+		// belongs_to: this row's foreign key points at one remote row, so an
+		// INNER JOIN is correct and never duplicates the local row.
+		if ( 'belongs_to' === $type ) {
+			$join = 'INNER JOIN ' . $remote_sql . ' AS ' . $alias_sql . ' ON ' . $local . ' = ' . $ref_sql;
+
+			return array(
+				'join'  => $join,
+				'where' => $conditions,
+			);
+		}
+
+		// has_many: many remote rows point back here. A correlated EXISTS
+		// (semi join) keeps each local row once, unlike an INNER JOIN to the
+		// children which would duplicate the local row per match.
+		$sub_where = array_merge(
+			array( $ref_sql . ' = ' . $local ),
+			$conditions
+		);
+
+		$exists = 'EXISTS ( SELECT 1 FROM ' . $remote_sql . ' AS ' . $alias_sql
+			. ' WHERE ' . implode( ' AND ', $sub_where ) . ' )';
+
+		return array(
+			'join'  => '',
+			'where' => array( $exists ),
+		);
+	}
+
+	/**
+	 * Build the operator-driven WHERE conditions for a relationship's remote
+	 * columns.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param Query                $remote The remote query whose schema owns the columns.
+	 * @param string               $alias  The remote table alias.
+	 * @param array<string, mixed> $conds  Column => condition map.
+	 * @return list<string>|false List of WHERE expressions, or false on an unknown column.
+	 */
+	private function build_conditions( Query $remote, string $alias, array $conds ) {
+
 		$where = array();
 
 		foreach ( $conds as $column => $cond ) {
@@ -205,10 +257,7 @@ class Relationship extends Base {
 			}
 		}
 
-		return array(
-			'join'  => $join,
-			'where' => $where,
-		);
+		return $where;
 	}
 
 	/**
