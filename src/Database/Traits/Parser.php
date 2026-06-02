@@ -1035,19 +1035,13 @@ trait Parser {
 	}
 
 	/**
-	 * Decide how to handle a clause whose column could not be resolved.
+	 * Fail a clause closed when its column cannot be resolved.
 	 *
 	 * A first-order clause reaches this point only because it requested a filter,
-	 * yet its key names no real column. Two safe-but-opposite outcomes exist:
-	 *
-	 *  - Lenient (default): drop the clause — return the empty $retval. Back-compat,
-	 *    but note a dropped filter WIDENS results, since it matches every row.
-	 *  - Strict: fail closed — emit a never-true condition so the unknown/typo'd
-	 *    column matches no rows. Opt in via the 'strict_columns' query var.
-	 *
-	 * The caller controls this with the 'strict_columns' query var, so it only
-	 * ever fires on a clause the parser owns (a typo in the user's own query),
-	 * never on a sibling parser's clause.
+	 * yet its key names no real column (a typo, or a column absent from this
+	 * schema). Emitting a never-true condition makes the clause match no rows —
+	 * rather than dropping it, which would silently WIDEN results to every row, a
+	 * dangerous outcome that is never the caller's intent.
 	 *
 	 * @since 3.1.0
 	 *
@@ -1056,10 +1050,8 @@ trait Parser {
 	 */
 	protected function unresolved_column_clause( array $retval ) {
 
-		// Fail closed only when the caller opted into strict columns.
-		if ( (bool) $this->caller( 'get_query_var', 'strict_columns' ) ) {
-			$retval[ 'where' ][] = '1 = 0';
-		}
+		// Never-true condition: an unresolvable column matches nothing.
+		$retval[ 'where' ][] = '1 = 0';
 
 		return $retval;
 	}

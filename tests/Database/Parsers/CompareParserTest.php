@@ -500,23 +500,14 @@ class CompareParserTest extends TestCase {
 	}
 
 	/**
-	 * Characterization test: a comparison against a column that does NOT exist
-	 * currently fails OPEN — the clause is silently dropped and every row is
-	 * returned, rather than matching nothing.
-	 *
-	 * This is intentional for now, not an oversight: a parser whose own query var
-	 * is unset receives the entire query_vars array (see
-	 * Query::parse_join_where_parsers()), so Compare is routinely handed clauses
-	 * that belong to OTHER parsers (e.g. a meta_query's key). The fail-open drop
-	 * in Traits\Parser::get_sql_for_clause() is what lets it ignore those foreign
-	 * clauses. Making it fail closed here would break any query that combines
-	 * parsers (proven against MetaParserTest). Failing closed safely first
-	 * requires narrowing each parser to its own query var; until then this test
-	 * pins the current, deliberate behavior so a future change is a conscious one.
+	 * Test that a comparison against a column that does not exist fails CLOSED:
+	 * the clause matches no rows, rather than being silently dropped (a dropped
+	 * filter would widen results to the entire table). A requested filter that
+	 * cannot be expressed must match nothing.
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_unknown_column_currently_fails_open() {
+	public function test_unknown_column_fails_closed() {
 
 		$results = self::$query->query(
 			array(
@@ -524,62 +515,6 @@ class CompareParserTest extends TestCase {
 					'key'   => 'does_not_exist',
 					'value' => 'whatever',
 				),
-			)
-		);
-
-		// Fail-open: the invalid clause is dropped, so all five rows come back.
-		$this->assertCount( 5, $results );
-	}
-
-	/**
-	 * Characterization test: an unknown column ANDed with a valid clause is
-	 * silently ignored, leaking the rows matched by the valid sibling instead of
-	 * narrowing to nothing. Pairs with test_unknown_column_currently_fails_open()
-	 * to document the present (fail-open) behavior of the shared leaf builder.
-	 *
-	 * @since 3.1.0
-	 */
-	public function test_unknown_column_in_and_currently_leaks() {
-
-		$results = self::$query->query(
-			array(
-				'compare_query' => array(
-					'relation' => 'AND',
-					array(
-						'key'   => 'status',
-						'value' => 'active',
-					),
-					array(
-						'key'   => 'nonexistent_column',
-						'value' => 'whatever',
-					),
-				),
-			)
-		);
-
-		// The bad column is dropped, so only status = 'active' applies: 2 rows.
-		$this->assertCount( 2, $results );
-
-		$names = wp_list_pluck( $results, 'name' );
-		$this->assertContains( 'Alpha Widget', $names );
-		$this->assertContains( 'Beta Widget', $names );
-	}
-
-	/**
-	 * Test that 'strict_columns' => true flips the unknown-column behavior from
-	 * fail-open to fail-closed: a typo'd column matches no rows, not all rows.
-	 *
-	 * @since 3.1.0
-	 */
-	public function test_strict_unknown_column_fails_closed() {
-
-		$results = self::$query->query(
-			array(
-				'compare_query'  => array(
-					'key'   => 'does_not_exist',
-					'value' => 'whatever',
-				),
-				'strict_columns' => true,
 			)
 		);
 
@@ -588,16 +523,16 @@ class CompareParserTest extends TestCase {
 	}
 
 	/**
-	 * Test that in strict mode an unknown column ANDed with a valid clause fails
-	 * the whole group closed, rather than leaking the valid sibling's rows.
+	 * Test that an unknown column ANDed with a valid clause fails the whole group
+	 * closed, rather than leaking the rows matched by the valid sibling.
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_strict_unknown_column_in_and_fails_closed() {
+	public function test_unknown_column_in_and_fails_closed() {
 
 		$results = self::$query->query(
 			array(
-				'compare_query'  => array(
+				'compare_query' => array(
 					'relation' => 'AND',
 					array(
 						'key'   => 'status',
@@ -608,7 +543,6 @@ class CompareParserTest extends TestCase {
 						'value' => 'whatever',
 					),
 				),
-				'strict_columns' => true,
 			)
 		);
 
@@ -617,24 +551,31 @@ class CompareParserTest extends TestCase {
 	}
 
 	/**
-	 * Test that strict mode does NOT affect a clause whose column is valid: it
-	 * behaves identically to the lenient default. Strict only changes the outcome
-	 * for an unresolved column, never a real one.
+	 * Test that an unknown column ORed with a valid clause is neutralized: the
+	 * never-true branch contributes nothing to an OR, so the valid sibling's rows
+	 * are returned unchanged (contrast with AND, which fails the whole group).
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_strict_does_not_affect_valid_columns() {
+	public function test_unknown_column_in_or_is_neutralized() {
 
 		$results = self::$query->query(
 			array(
-				'compare_query'  => array(
-					'key'   => 'status',
-					'value' => 'active',
+				'compare_query' => array(
+					'relation' => 'OR',
+					array(
+						'key'   => 'status',
+						'value' => 'active',
+					),
+					array(
+						'key'   => 'nonexistent_column',
+						'value' => 'whatever',
+					),
 				),
-				'strict_columns' => true,
 			)
 		);
 
+		// Only the valid branch contributes: Alpha + Beta.
 		$this->assertCount( 2, $results );
 
 		$names = wp_list_pluck( $results, 'name' );
