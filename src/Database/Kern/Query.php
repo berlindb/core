@@ -1085,6 +1085,34 @@ class Query {
 	}
 
 	/**
+	 * Resolve a relationship's remote Query class to a fresh, guarded instance.
+	 *
+	 * Returns null when the relationship names no class, the class does not
+	 * exist, or it is not a sibling Query — so callers fail closed on a
+	 * misdeclared or missing remote. Instantiation is sunrise-only (no query).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param Relationship $relationship The relationship whose remote query to build.
+	 * @return self|null The remote query instance, or null when unresolvable.
+	 */
+	private function resolve_remote_query( Relationship $relationship ) {
+
+		// Reject a missing or non-existent class.
+		$class = $relationship->get_query_class();
+		if ( ( '' === $class ) || ! class_exists( $class ) ) {
+			return null;
+		}
+
+		// Instantiate; must be a sibling Query to be usable.
+		$remote = new $class();
+
+		return ( $remote instanceof self )
+			? $remote
+			: null;
+	}
+
+	/**
 	 * Get the related data for one of this query's items, by relationship name.
 	 *
 	 * Explicit accessor for a declared relationship (see berlindb/core #193). For
@@ -1130,14 +1158,9 @@ class Query {
 				: null;
 		}
 
-		// Resolve the remote query class.
-		$class = $relationship->get_query_class();
-		if ( ( '' === $class ) || ! class_exists( $class ) ) {
-			return null;
-		}
-
-		$remote = new $class();
-		if ( ! ( $remote instanceof self ) ) {
+		// Resolve the remote query instance (guarded; null when unresolvable).
+		$remote = $this->resolve_remote_query( $relationship );
+		if ( null === $remote ) {
 			return null;
 		}
 
@@ -1300,19 +1323,17 @@ class Query {
 			return;
 		}
 
-		// Resolve the remote query class.
-		$class = $relationship->get_query_class();
+		// Resolve the remote query instance (guarded; null when unresolvable).
+		$remote = $this->resolve_remote_query( $relationship );
 
-		if ( ( '' === $class ) || ! class_exists( $class ) ) {
-			$this->short_circuit_relation( "remote query class not found: {$class}" );
+		if ( null === $remote ) {
+			$this->short_circuit_relation( "remote query class not resolved for relation: {$name}" );
 			return;
 		}
 
-		$remote = new $class();
-
 		// Must reference the remote primary key, so fields=ids yields the values
 		// the local foreign key matches against.
-		if ( ! ( $remote instanceof self ) || ( $references[0] !== $remote->get_primary_column_name() ) ) {
+		if ( $references[0] !== $remote->get_primary_column_name() ) {
 			$this->short_circuit_relation( "relation strategy 'in' requires referencing the remote primary key: {$name}" );
 			return;
 		}
@@ -4150,19 +4171,12 @@ class Query {
 			return;
 		}
 
-		// Resolve the remote query class.
-		$class = $relationship->get_query_class();
+		// Resolve the remote query instance (guarded; null when unresolvable).
+		$remote = $this->resolve_remote_query( $relationship );
 
-		if ( ( '' === $class ) || ! class_exists( $class ) ) {
-			return;
-		}
-
-		// Instantiate the remote query (sunrise only; no database query).
-		$remote = new $class();
-
-		// Must be a sibling Query, and priming warms the remote primary-key
-		// cache, so the relationship must reference the remote primary column.
-		if ( ! ( $remote instanceof self ) || ( $references[0] !== $remote->get_primary_column_name() ) ) {
+		// Priming warms the remote primary-key cache, so the relationship must
+		// resolve to a sibling Query that references the remote primary column.
+		if ( ( null === $remote ) || ( $references[0] !== $remote->get_primary_column_name() ) ) {
 			return;
 		}
 
@@ -4213,17 +4227,10 @@ class Query {
 			return;
 		}
 
-		// Resolve the remote query class.
-		$class = $relationship->get_query_class();
+		// Resolve the remote query instance (guarded; null when unresolvable).
+		$remote = $this->resolve_remote_query( $relationship );
 
-		if ( ( '' === $class ) || ! class_exists( $class ) ) {
-			return;
-		}
-
-		// Instantiate the remote query (sunrise only; no database query).
-		$remote = new $class();
-
-		if ( ! ( $remote instanceof self ) ) {
+		if ( null === $remote ) {
 			return;
 		}
 
@@ -4318,7 +4325,13 @@ class Query {
 		// primed key equals the key that lookup computes (the full child set).
 		foreach ( $values as $value ) {
 			$ids = $grouped[ (string) $value ] ?? array();
-			$this->prime_query( array( $fk_column => $value, 'number' => 0 ), $ids );
+			$this->prime_query(
+				array(
+					$fk_column => $value,
+					'number'   => 0,
+				),
+				$ids
+			);
 		}
 	}
 
