@@ -153,6 +153,45 @@ abstract class Base {
 	}
 
 	/**
+	 * Build this parser's first-order keys from its column scope.
+	 *
+	 * The per-column parsers (By, In, NotIn, Search) all derive their first-order
+	 * keys identically: every column matching {@see $column_filter}, suffixed with
+	 * {@see $column_suffix} — e.g. 'status__in', 'name_search', or the bare column
+	 * name for By. This shared default replaces those near-identical overrides; it
+	 * is the inverse of {@see strip_column_suffix()}.
+	 *
+	 * Parsers whose clauses are not per-column (Compare, Date, Meta) override this
+	 * with a static key list. An explicitly supplied $first_keys is honored as-is,
+	 * preserving the engine contract from Traits\Parser.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param list<string> $first_keys Optional. Explicit first-order keys to use as-is.
+	 * @return list<string> The first-order keys.
+	 */
+	protected function get_first_keys( $first_keys = array() ) {
+
+		// Honor an explicitly supplied set.
+		if ( ! empty( $first_keys ) && is_array( $first_keys ) ) {
+			return $first_keys;
+		}
+
+		// Default values.
+		$keys    = array();
+		$columns = (array) $this->caller( 'get_columns', $this->column_filter, 'and', 'name' );
+
+		// Each column in scope, plus this parser's suffix.
+		foreach ( $columns as $column ) {
+			if ( is_string( $column ) ) {
+				$keys[] = "{$column}{$this->column_suffix}";
+			}
+		}
+
+		return $keys;
+	}
+
+	/**
 	 * Get the default operator class list.
 	 *
 	 * This is filterable so individual parser families can register custom

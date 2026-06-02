@@ -65,30 +65,6 @@ class Search extends Base {
 	protected $default = '';
 
 	/**
-	 * Determines and validates what first-order keys to use.
-	 *
-	 * Use first $first_keys if passed and valid.
-	 *
-	 * @since 3.0.0
-	 *
-	 * @param list<string> $first_keys Array of first-order keys.
-	 *
-	 * @return list<string> The first-order keys.
-	 */
-	protected function get_first_keys( $first_keys = array() ) {
-		$first_keys = array();
-		$columns    = (array) $this->caller( 'get_columns', array( 'searchable' => true ), 'and', 'name' );
-
-		foreach ( $columns as $column ) {
-			if ( is_string( $column ) ) {
-				$first_keys[] = "{$column}_search";
-			}
-		}
-
-		return $first_keys;
-	}
-
-	/**
 	 * Generate SQL WHERE clauses for a first-order query clause.
 	 *
 	 * "First-order" means that it's an array with a 'key' or 'value'.

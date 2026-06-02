@@ -67,30 +67,6 @@ class NotIn extends Base {
 	protected $default = null;
 
 	/**
-	 * Determines and validates what first-order keys to use.
-	 *
-	 * Use first $first_keys if passed and valid.
-	 *
-	 * @since 3.0.0
-	 *
-	 * @param list<string> $first_keys Array of first-order keys.
-	 *
-	 * @return list<string> The first-order keys.
-	 */
-	protected function get_first_keys( $first_keys = array() ) {
-		$first_keys = array();
-		$not_ins    = (array) $this->caller( 'get_columns', array( 'not_in' => true ), 'and', 'name' );
-
-		foreach ( $not_ins as $not_in ) {
-			if ( is_string( $not_in ) ) {
-				$first_keys[] = "{$not_in}__not_in";
-			}
-		}
-
-		return $first_keys;
-	}
-
-	/**
 	 * Generate SQL WHERE clauses for a first-order query clause.
 	 *
 	 * "First-order" means that it's an array with a 'key' or 'value'.
