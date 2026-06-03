@@ -80,6 +80,14 @@ class PrimingSchema extends Schema {
 				),
 			),
 		),
+
+		// A numeric-valued string column, to exercise typed CAST comparisons.
+		array(
+			'name'    => 'amount',
+			'type'    => 'varchar',
+			'length'  => '20',
+			'default' => '',
+		),
 	);
 
 	public $indexes = array(
@@ -96,7 +104,7 @@ class PrimingSchema extends Schema {
 class PrimingTable extends Table {
 	protected $schema  = PrimingSchema::class;
 	protected $name    = 'berlindb_priming_test';
-	protected $version = '202606010';
+	protected $version = '202606020';
 }
 
 /**
@@ -106,6 +114,7 @@ class PrimingRow extends Row {
 	public $id        = 0;
 	public $status    = '';
 	public $parent_id = 0;
+	public $amount    = '';
 }
 
 /**
@@ -623,6 +632,66 @@ class QueryRelationshipPrimingTest extends TestCase {
 
 		$this->assertCount( 1, $results );
 		$this->assertSame( $this->child_id, (int) $results[0]->id );
+	}
+
+	/**
+	 * Test end-to-end that an opt-in cast changes which rows match. The parent's
+	 * amount is stored as text ('100', '30'); filtering children by
+	 * parent.amount > '50' returns nothing under a string compare ('1' < '5'),
+	 * but returns the child of the '100' parent once the value is CAST to SIGNED.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_relation_join_typed_cast_changes_results() {
+
+		// Two parents whose amounts sort differently as text vs as numbers.
+		$big_parent   = (int) self::$query->add_item(
+			array(
+				'status' => 'parent',
+				'amount' => '100',
+			)
+		);
+		$small_parent = (int) self::$query->add_item(
+			array(
+				'status' => 'parent',
+				'amount' => '30',
+			)
+		);
+
+		$big_child = (int) self::$query->add_item(
+			array(
+				'status'    => 'child',
+				'parent_id' => $big_parent,
+			)
+		);
+		self::$query->add_item(
+			array(
+				'status'    => 'child',
+				'parent_id' => $small_parent,
+			)
+		);
+
+		$filter = array(
+			'name'     => 'parent',
+			'strategy' => 'join',
+			'where'    => array(
+				'amount' => array(
+					'compare' => '>',
+					'value'   => '50',
+				),
+			),
+		);
+
+		// Without a cast, a lexical string compare matches no parent ('1'/'3' < '5').
+		$string_results = self::$query->query( array( 'relation' => array( $filter ) ) );
+		$this->assertSame( array(), $string_results );
+
+		// With an explicit SIGNED cast, the numeric compare matches the '100' parent.
+		$filter['where']['amount']['cast'] = 'SIGNED';
+
+		$cast_results = self::$query->query( array( 'relation' => array( $filter ) ) );
+		$this->assertCount( 1, $cast_results );
+		$this->assertSame( $big_child, (int) $cast_results[0]->id );
 	}
 
 	/**

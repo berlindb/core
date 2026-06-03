@@ -1057,38 +1057,6 @@ trait Parser {
 	}
 
 	/**
-	 * Return the appropriate alias for the given type if applicable.
-	 *
-	 * @since 3.0.0
-	 *
-	 * @param string $type MySQL type to CAST().
-	 * @return string MySQL type.
-	 */
-	public function get_cast_for_type( $type = '' ) {
-
-		// Bail if empty.
-		if ( empty( $type ) ) {
-			return 'CHAR';
-		}
-
-		// Convert to uppercase.
-		$upper_type = strtoupper( $type );
-
-		// Bail if no match.
-		if ( ! preg_match( '/^(?:BINARY|CHAR|DATE|DATETIME|SIGNED|UNSIGNED|TIME|NUMERIC(?:\(\d+(?:,\s?\d+)?\))?|DECIMAL(?:\(\d+(?:,\s?\d+)?\))?)$/', $upper_type ) ) {
-			return 'CHAR';
-		}
-
-		// Fallback support for old 'NUMERIC' type.
-		if ( 'NUMERIC' === $upper_type ) {
-			$upper_type = 'SIGNED';
-		}
-
-		// Return uppercase type.
-		return $upper_type;
-	}
-
-	/**
 	 * Validates the given query values.
 	 *
 	 * @since 3.0.0

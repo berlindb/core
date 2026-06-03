@@ -10,6 +10,7 @@
 
 namespace BerlinDB\Tests;
 
+use BerlinDB\Database\Parsers\Meta;
 use BerlinDB\Tests\Fixtures\TestQuery;
 use BerlinDB\Tests\Fixtures\TestTable;
 use Yoast\WPTestUtils\WPIntegration\TestCase;
@@ -621,5 +622,72 @@ class MetaParserTest extends TestCase {
 		$names = wp_list_pluck( $results, 'name' );
 		$this->assertContains( 'Alpha Widget', $names );
 		$this->assertContains( 'Gamma Gadget', $names );
+	}
+
+	// get_cast_for_type() — meta_query's own cast vocabulary.
+
+	/**
+	 * Test that get_cast_for_type() accepts supported MySQL cast targets.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @dataProvider valid_cast_type_provider
+	 *
+	 * @param string $type     Input cast type.
+	 * @param string $expected Expected normalized cast type.
+	 */
+	public function test_get_cast_for_type_accepts_supported_types( string $type, string $expected ) {
+		$this->assertSame( $expected, ( new Meta() )->get_cast_for_type( $type ) );
+	}
+
+	/**
+	 * Test that get_cast_for_type() falls back to CHAR for empty or unsupported
+	 * types (CHAR is Meta's "no cast" sentinel).
+	 *
+	 * @since 3.0.0
+	 *
+	 * @dataProvider invalid_cast_type_provider
+	 *
+	 * @param string $type Unsupported cast type.
+	 */
+	public function test_get_cast_for_type_falls_back_to_char( string $type ) {
+		$this->assertSame( 'CHAR', ( new Meta() )->get_cast_for_type( $type ) );
+	}
+
+	/**
+	 * Valid cast type provider.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @return array<string, array{string, string}>
+	 */
+	public function valid_cast_type_provider(): array {
+		return array(
+			'binary'            => array( 'binary', 'BINARY' ),
+			'char'              => array( 'char', 'CHAR' ),
+			'date'              => array( 'date', 'DATE' ),
+			'datetime'          => array( 'datetime', 'DATETIME' ),
+			'signed'            => array( 'signed', 'SIGNED' ),
+			'unsigned'          => array( 'unsigned', 'UNSIGNED' ),
+			'time'              => array( 'time', 'TIME' ),
+			'numeric alias'     => array( 'numeric', 'SIGNED' ),
+			'numeric precision' => array( 'numeric(10, 2)', 'NUMERIC(10, 2)' ),
+			'decimal precision' => array( 'decimal(10,2)', 'DECIMAL(10,2)' ),
+		);
+	}
+
+	/**
+	 * Invalid cast type provider.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @return array<string, array{string}>
+	 */
+	public function invalid_cast_type_provider(): array {
+		return array(
+			'empty'        => array( '' ),
+			'varchar'      => array( 'varchar' ),
+			'sql fragment' => array( 'SIGNED) UNSIGNED' ),
+		);
 	}
 }

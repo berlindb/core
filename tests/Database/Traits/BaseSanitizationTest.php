@@ -96,6 +96,33 @@ class BaseSanitizationTestHelper {
 	public function get_first_letters( $string, $sep = '_' ) {
 		return $this->first_letters( $string, $sep );
 	}
+
+	/**
+	 * Public access to protected sanitize_sql_cast_type method.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $type
+	 *
+	 * @return string
+	 */
+	public function get_sanitized_sql_cast_type( $type ) {
+		return $this->sanitize_sql_cast_type( $type );
+	}
+
+	/**
+	 * Public access to protected cast_reference method.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $reference
+	 * @param string $cast
+	 *
+	 * @return string
+	 */
+	public function get_cast_reference( $reference, $cast = '' ) {
+		return $this->cast_reference( $reference, $cast );
+	}
 }
 
 /**
@@ -601,5 +628,65 @@ class BaseSanitizationTest extends \PHPUnit\Framework\TestCase {
 	 */
 	public function test_first_letters_returns_empty_for_all_special_chars() {
 		$this->assertSame( '!', $this->helper->get_first_letters( '!@#$%' ) );
+	}
+
+	// ========================================================================
+	// sanitize_sql_cast_type() tests.
+	// ========================================================================
+
+	/**
+	 * Test sanitize_sql_cast_type accepts and uppercases the safe CAST targets.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_sanitize_sql_cast_type_accepts_valid_targets() {
+		$this->assertSame( 'SIGNED', $this->helper->get_sanitized_sql_cast_type( 'SIGNED' ) );
+		$this->assertSame( 'UNSIGNED', $this->helper->get_sanitized_sql_cast_type( 'unsigned' ) );
+		$this->assertSame( 'DATE', $this->helper->get_sanitized_sql_cast_type( ' date ' ) );
+		$this->assertSame( 'DATETIME', $this->helper->get_sanitized_sql_cast_type( 'DateTime' ) );
+		$this->assertSame( 'TIME', $this->helper->get_sanitized_sql_cast_type( 'TIME' ) );
+		$this->assertSame( 'BINARY', $this->helper->get_sanitized_sql_cast_type( 'BINARY' ) );
+		$this->assertSame( 'CHAR', $this->helper->get_sanitized_sql_cast_type( 'CHAR' ) );
+		$this->assertSame( 'CHAR(20)', $this->helper->get_sanitized_sql_cast_type( 'char(20)' ) );
+		$this->assertSame( 'DECIMAL', $this->helper->get_sanitized_sql_cast_type( 'DECIMAL' ) );
+		$this->assertSame( 'DECIMAL(10,2)', $this->helper->get_sanitized_sql_cast_type( 'decimal(10,2)' ) );
+	}
+
+	/**
+	 * Test sanitize_sql_cast_type rejects unknown or unsafe input to ''.
+	 *
+	 * Note: NUMERIC is deliberately NOT accepted here (it is meta_query legacy
+	 * vocabulary handled by Parser::get_cast_for_type(), not this general one).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_sanitize_sql_cast_type_rejects_unknown() {
+		$this->assertSame( '', $this->helper->get_sanitized_sql_cast_type( '' ) );
+		$this->assertSame( '', $this->helper->get_sanitized_sql_cast_type( 'NUMERIC' ) );
+		$this->assertSame( '', $this->helper->get_sanitized_sql_cast_type( 'nonsense' ) );
+		$this->assertSame( '', $this->helper->get_sanitized_sql_cast_type( 'SIGNED; DROP TABLE' ) );
+		$this->assertSame( '', $this->helper->get_sanitized_sql_cast_type( 'INT' ) );
+	}
+
+	// ========================================================================
+	// cast_reference() tests.
+	// ========================================================================
+
+	/**
+	 * Test cast_reference wraps a reference only for a non-default cast.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_cast_reference_wraps_only_when_needed() {
+		$ref = '`a`.`col`';
+
+		// Only an empty cast is a no-op.
+		$this->assertSame( $ref, $this->helper->get_cast_reference( $ref, '' ) );
+
+		// Every non-empty target wraps in CAST() — including CHAR, a valid cast
+		// for string-semantics comparison on a numeric column.
+		$this->assertSame( 'CAST(`a`.`col` AS CHAR)', $this->helper->get_cast_reference( $ref, 'CHAR' ) );
+		$this->assertSame( 'CAST(`a`.`col` AS SIGNED)', $this->helper->get_cast_reference( $ref, 'SIGNED' ) );
+		$this->assertSame( 'CAST(`a`.`col` AS DATETIME)', $this->helper->get_cast_reference( $ref, 'DATETIME' ) );
 	}
 }

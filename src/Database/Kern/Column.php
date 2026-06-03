@@ -1879,21 +1879,78 @@ class Column {
 	 * When $alias is provided it is quoted and prepended, producing the fully
 	 * qualified form used in WHERE and SELECT clauses: `alias`.`column`.
 	 *
+	 * When $cast is a non-empty CAST target the reference is wrapped in
+	 * CAST( ... AS $cast ). The $cast must already be normalized by the caller
+	 * (sanitize_sql_cast_type() or get_sql_cast_type()); casting is opt-in and is
+	 * never applied by default.
+	 *
 	 * @since 3.0.0
 	 *
 	 * @param string $alias Optional. Table alias to prefix. Default empty (no alias).
+	 * @param string $cast  Optional. Normalized CAST target. Default empty (no cast).
 	 *
 	 * @return string Quoted SQL reference, e.g. `alias`.`column` or `column`.
 	 */
-	public function get_name_sql( string $alias = '' ): string {
+	public function get_name_sql( string $alias = '', string $cast = '' ): string {
 
 		// Quote the column name.
 		$quoted = $this->quote_identifier( $this->name );
 
-		// Return the column name, optionally prefixed with the quoted alias.
-		return ! empty( $alias )
+		// Optionally prefix with the quoted alias.
+		$reference = ! empty( $alias )
 			? $this->quote_identifier( $alias ) . '.' . $quoted
 			: $quoted;
+
+		// Optionally wrap in a CAST() — a no-op when $cast is empty or 'CHAR'.
+		return $this->cast_reference( $reference, $cast );
+	}
+
+	/**
+	 * Derive a safe MySQL CAST() target from this column's own declared type.
+	 *
+	 * The SQL-side sibling of sanitize_cast(): where that picks a PHP coercion
+	 * callback (intval/floatval/...) from the column's type, this picks the SQL
+	 * CAST target. Native string types (text, char), and any type with no useful
+	 * cast (binary, json, bool, ...), return '' (no cast).
+	 *
+	 * This is a building block for callers that opt in to casting; it is never
+	 * applied automatically.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return string A CAST target (e.g. 'SIGNED', 'DECIMAL', 'DATETIME'), or ''.
+	 */
+	public function get_sql_cast_type(): string {
+
+		// Integers cast to (UN)SIGNED based on the column's signedness.
+		if ( $this->is_int() ) {
+			return ! empty( $this->unsigned )
+				? 'UNSIGNED'
+				: 'SIGNED';
+		}
+
+		// Floats and decimals cast to DECIMAL.
+		if ( $this->is_decimal() ) {
+			return 'DECIMAL';
+		}
+
+		// Date/time types cast to the closest CAST target by subtype.
+		if ( $this->is_date_time() ) {
+			$type = strtolower( (string) $this->type );
+
+			if ( 'date' === $type ) {
+				return 'DATE';
+			}
+
+			if ( 'time' === $type ) {
+				return 'TIME';
+			}
+
+			return 'DATETIME';
+		}
+
+		// Everything else (text, binary, json, bool, ...) has no useful cast.
+		return '';
 	}
 
 	/**

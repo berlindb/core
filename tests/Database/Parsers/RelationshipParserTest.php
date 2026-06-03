@@ -273,6 +273,78 @@ class RelationshipParserTest extends TestCase {
 	}
 
 	/**
+	 * Test that an explicit cast string wraps the column side in CAST().
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_where_condition_explicit_cast() {
+		$result = $this->parse(
+			array(
+				'name'  => 'parent',
+				'where' => array(
+					'total' => array(
+						'compare' => '>',
+						'value'   => 100,
+						'cast'    => 'SIGNED',
+					),
+				),
+			),
+			array( 'parent' => $this->relationship() )
+		);
+
+		$this->assertStringContainsString( 'CAST(`bdb_rel_parent`.`total` AS SIGNED)', $result['where'] );
+	}
+
+	/**
+	 * Test that cast => true derives the CAST target from the remote column's
+	 * own type (an unsigned bigint => UNSIGNED).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_where_condition_cast_derived_from_column() {
+		$result = $this->parse(
+			array(
+				'name'  => 'parent',
+				'where' => array(
+					'total' => array(
+						'compare' => '>',
+						'value'   => 100,
+						'cast'    => true,
+					),
+				),
+			),
+			array( 'parent' => $this->relationship() )
+		);
+
+		$this->assertStringContainsString( 'CAST(`bdb_rel_parent`.`total` AS UNSIGNED)', $result['where'] );
+	}
+
+	/**
+	 * Test that an invalid cast is ignored (no cast) — casting is opt-in and
+	 * fail-safe, never widening or breaking the comparison.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_where_condition_invalid_cast_is_ignored() {
+		$result = $this->parse(
+			array(
+				'name'  => 'parent',
+				'where' => array(
+					'total' => array(
+						'compare' => '>',
+						'value'   => 100,
+						'cast'    => 'nonsense',
+					),
+				),
+			),
+			array( 'parent' => $this->relationship() )
+		);
+
+		$this->assertStringNotContainsString( 'CAST(', $result['where'] );
+		$this->assertStringContainsString( '`bdb_rel_parent`.`total`', $result['where'] );
+	}
+
+	/**
 	 * Test that multiple where conditions are AND-combined.
 	 *
 	 * @since 3.1.0

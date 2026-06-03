@@ -690,14 +690,14 @@ class Meta extends Base {
 				$column    = 'meta_value';
 				$qt_column = $this->quote_identifier( $column );
 
-				// Default.
-				if ( 'CHAR' === $meta_type ) {
-					$retval[ 'where' ][] = "{$qt_alias}.{$qt_column} {$meta_sql_compare} {$where}";
-
-					// CAST().
-				} else {
-					$retval[ 'where' ][] = "CAST({$qt_alias}.{$qt_column} AS {$meta_type}) {$meta_sql_compare} {$where}";
-				}
+				/*
+				 * Optionally CAST the value column. Meta uses 'CHAR' as its "no
+				 * cast" sentinel (the native string type), so map it to '' for
+				 * cast_reference(); any other type wraps in CAST().
+				 */
+				$qt_ref              = "{$qt_alias}.{$qt_column}";
+				$value_cast          = ( 'CHAR' === $meta_type ) ? '' : $meta_type;
+				$retval[ 'where' ][] = $this->cast_reference( $qt_ref, $value_cast ) . " {$meta_sql_compare} {$where}";
 			}
 		}
 
@@ -764,13 +764,51 @@ class Meta extends Base {
 			? 'SIGNED'
 			: $cast_str;
 
+		// Meta's 'CHAR' sentinel means no cast (native string type).
+		$cast = ( 'CHAR' === $cast ) ? '' : $cast;
+
 		/*
 		 * Return the ORDER BY fragment, with casting if needed. Meta always
 		 * uses the JOIN alias established in get_sql_for_clause(), never the
 		 * primary table alias.
 		 */
-		return ( 'CHAR' === $cast )
-			? "{$qt_alias}.{$qt_column}"
-			: "CAST({$qt_alias}.{$qt_column} AS {$cast})";
+		return $this->cast_reference( "{$qt_alias}.{$qt_column}", $cast );
+	}
+
+	/**
+	 * Map a meta_query 'type' value to a MySQL CAST() target.
+	 *
+	 * This is meta_query's own (back-compat) cast vocabulary: an empty or
+	 * unsupported type falls back to 'CHAR' (Meta's "no cast" sentinel), and the
+	 * legacy 'NUMERIC' alias folds to 'SIGNED'. For a clean, general SQL cast
+	 * validator without these quirks, use Sanitizer::sanitize_sql_cast_type().
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param string $type MySQL type to CAST().
+	 * @return string MySQL type.
+	 */
+	public function get_cast_for_type( $type = '' ) {
+
+		// Bail if empty.
+		if ( empty( $type ) ) {
+			return 'CHAR';
+		}
+
+		// Convert to uppercase.
+		$upper_type = strtoupper( $type );
+
+		// Bail if no match.
+		if ( ! preg_match( '/^(?:BINARY|CHAR|DATE|DATETIME|SIGNED|UNSIGNED|TIME|NUMERIC(?:\(\d+(?:,\s?\d+)?\))?|DECIMAL(?:\(\d+(?:,\s?\d+)?\))?)$/', $upper_type ) ) {
+			return 'CHAR';
+		}
+
+		// Fallback support for old 'NUMERIC' type.
+		if ( 'NUMERIC' === $upper_type ) {
+			$upper_type = 'SIGNED';
+		}
+
+		// Return uppercase type.
+		return $upper_type;
 	}
 }

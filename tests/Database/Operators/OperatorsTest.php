@@ -552,6 +552,41 @@ class OperatorsTest extends TestCase {
 	}
 
 	/**
+	 * Test that get_sql wraps the column side in CAST() when a cast is given,
+	 * for a scalar operator.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_get_sql_casts_column_for_scalar_operator() {
+		$col = new Column(
+			array(
+				'name' => 'total',
+				'type' => 'varchar',
+			)
+		);
+		$sql = ( new Equal() )->get_sql( $col, 't', '100', 'SIGNED' );
+		$this->assertStringContainsString( 'CAST(`t`.`total` AS SIGNED)', $sql );
+	}
+
+	/**
+	 * Test that get_sql casts the column side for a value-overriding operator
+	 * (IN), proving the cast applies to the LHS regardless of operator subclass.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_get_sql_casts_column_for_in_operator() {
+		$col = new Column(
+			array(
+				'name' => 'total',
+				'type' => 'varchar',
+			)
+		);
+		$sql = ( new In() )->get_sql( $col, 't', array( '1', '2' ), 'SIGNED' );
+		$this->assertStringContainsString( 'CAST(`t`.`total` AS SIGNED)', $sql );
+		$this->assertStringContainsStringIgnoringCase( 'IN', $sql );
+	}
+
+	/**
 	 * Test that get_sql returns an empty string when get_value_sql returns empty.
 	 *
 	 * NotExists::get_value_sql() always returns '' so get_sql() short-circuits.

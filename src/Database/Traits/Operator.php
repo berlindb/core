@@ -183,10 +183,11 @@ trait Operator {
 	 * @param Column $col   The schema column providing its name, alias, and pattern.
 	 * @param string $alias Optional. Table alias to prefix the column reference. Default empty.
 	 * @param mixed  $value The value(s) to compare against.
+	 * @param string $cast  Optional. Normalized CAST target for the column side. Default empty (no cast).
 	 *
 	 * @return string Full SQL expression, or empty string when not applicable.
 	 */
-	public function get_sql( Column $col, string $alias = '', $value = null ): string {
+	public function get_sql( Column $col, string $alias = '', $value = null, string $cast = '' ): string {
 
 		// Get the prepared value fragment, deriving the pattern from the column.
 		$value_sql = $this->get_value_sql( $value, $col->pattern );
@@ -196,7 +197,7 @@ trait Operator {
 			return '';
 		}
 
-		// Assemble and return the full expression.
-		return $col->get_name_sql( $alias ) . ' ' . $this->get_sql_compare() . ' ' . $value_sql;
+		// Assemble and return the full expression, optionally casting the column.
+		return $col->get_name_sql( $alias, $cast ) . ' ' . $this->get_sql_compare() . ' ' . $value_sql;
 	}
 }

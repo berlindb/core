@@ -236,4 +236,60 @@ trait Sanitizer {
 	protected function quote_identifier( $identifier = '' ) {
 		return '`' . str_replace( '`', '``', (string) $identifier ) . '`';
 	}
+
+	/**
+	 * Sanitize a value into a safe MySQL CAST() target type.
+	 *
+	 * A clean, general validator for the safe subset of CAST targets: BINARY,
+	 * CHAR (optionally length), DATE, DATETIME, TIME, SIGNED, UNSIGNED, and
+	 * DECIMAL (optionally precision/scale). Anything else REJECTS to '' — an
+	 * empty result meaning "no cast" — rather than coercing to a default type.
+	 *
+	 * Unlike Parser::get_cast_for_type(), this carries none of meta_query's
+	 * legacy vocabulary (no NUMERIC fold, no CHAR fallback); that mapper is now
+	 * a thin Meta-flavored layer over this method.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $type Raw cast type.
+	 *
+	 * @return string The uppercased CAST target if valid, or '' if rejected.
+	 */
+	protected function sanitize_sql_cast_type( $type = '' ): string {
+
+		// Bail if not a string.
+		if ( ! is_string( $type ) ) {
+			return '';
+		}
+
+		// Uppercase and trim; case and surrounding whitespace are not rejections.
+		$upper = strtoupper( trim( $type ) );
+
+		// Reject (do not coerce) anything outside the safe CAST target subset.
+		return ( 1 === preg_match( '/^(?:BINARY|CHAR(?:\(\d+\))?|DATE|DATETIME|TIME|SIGNED|UNSIGNED|DECIMAL(?:\(\d+(?:,\s?\d+)?\))?)$/', $upper ) )
+			? $upper
+			: '';
+	}
+
+	/**
+	 * Wrap an already-quoted SQL reference in a CAST() when a cast is requested.
+	 *
+	 * The $cast MUST already be normalized (e.g. via sanitize_sql_cast_type() or
+	 * get_cast_for_type()); this method does not validate it. Only an empty $cast
+	 * is a no-op — every other target (including CHAR, which is a valid cast for
+	 * string-semantics comparison or LIKE on a numeric column) is wrapped. A
+	 * caller that uses CHAR as a "no cast" sentinel must map it to '' first.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $reference An already-quoted column reference, e.g. `a`.`col`.
+	 * @param string $cast      A normalized CAST target, or '' for no cast.
+	 *
+	 * @return string The reference, optionally wrapped in CAST( ... AS $cast ).
+	 */
+	protected function cast_reference( string $reference, string $cast = '' ): string {
+		return ( '' === $cast )
+			? $reference
+			: "CAST({$reference} AS {$cast})";
+	}
 }

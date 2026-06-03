@@ -451,8 +451,26 @@ class Relationship extends Base {
 			return '';
 		}
 
+		/*
+		 * Resolve an optional, opt-in CAST for the column side. 'cast' => true
+		 * derives the target from the remote column's own type; a string is an
+		 * explicit override (validated). Absent/false/invalid means no cast —
+		 * casting is never applied by default.
+		 */
+		$cast = '';
+
+		if ( is_array( $cond ) ) {
+			$requested = $cond[ 'cast' ] ?? null;
+
+			if ( true === $requested ) {
+				$cast = $column_object->get_sql_cast_type();
+			} elseif ( is_string( $requested ) ) {
+				$cast = $this->sanitize_sql_cast_type( $requested );
+			}
+		}
+
 		// Build the comparison SQL against the joined alias.
-		$expr = $operator->get_sql( $column_object, $alias, $value );
+		$expr = $operator->get_sql( $column_object, $alias, $value, $cast );
 
 		return is_string( $expr )
 			? $expr

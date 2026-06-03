@@ -1445,4 +1445,102 @@ class ColumnTest extends TestCase {
 		$this->assertSame( 'cascade', $entry['on_delete'] );
 		$this->assertSame( 'fk_order', $entry['constraint'] );
 	}
+
+	// SQL CAST helpers.
+
+	/**
+	 * Test that get_sql_cast_type derives the right SQL CAST target by type.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_get_sql_cast_type_by_column_type() {
+		$signed = new Column(
+			array(
+				'name'     => 'count',
+				'type'     => 'bigint',
+				'unsigned' => false,
+			)
+		);
+		$this->assertSame( 'SIGNED', $signed->get_sql_cast_type() );
+
+		$unsigned = new Column(
+			array(
+				'name'     => 'count',
+				'type'     => 'bigint',
+				'unsigned' => true,
+			)
+		);
+		$this->assertSame( 'UNSIGNED', $unsigned->get_sql_cast_type() );
+
+		$decimal = new Column(
+			array(
+				'name' => 'total',
+				'type' => 'decimal',
+			)
+		);
+		$this->assertSame( 'DECIMAL', $decimal->get_sql_cast_type() );
+
+		$date = new Column(
+			array(
+				'name' => 'created',
+				'type' => 'date',
+			)
+		);
+		$this->assertSame( 'DATE', $date->get_sql_cast_type() );
+
+		$datetime = new Column(
+			array(
+				'name' => 'created',
+				'type' => 'datetime',
+			)
+		);
+		$this->assertSame( 'DATETIME', $datetime->get_sql_cast_type() );
+
+		$time = new Column(
+			array(
+				'name' => 'elapsed',
+				'type' => 'time',
+			)
+		);
+		$this->assertSame( 'TIME', $time->get_sql_cast_type() );
+	}
+
+	/**
+	 * Test that get_sql_cast_type returns '' (no cast) for native string types.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_get_sql_cast_type_is_empty_for_text() {
+		$column = new Column(
+			array(
+				'name' => 'label',
+				'type' => 'varchar',
+			)
+		);
+		$this->assertSame( '', $column->get_sql_cast_type() );
+	}
+
+	/**
+	 * Test that get_name_sql wraps the reference in CAST only when a cast is given.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_get_name_sql_optionally_casts() {
+		$column = new Column(
+			array(
+				'name' => 'total',
+				'type' => 'varchar',
+			)
+		);
+
+		// No cast: unchanged behavior.
+		$this->assertSame( '`total`', $column->get_name_sql() );
+		$this->assertSame( '`a`.`total`', $column->get_name_sql( 'a' ) );
+
+		// With a cast: wrapped.
+		$this->assertSame( 'CAST(`a`.`total` AS SIGNED)', $column->get_name_sql( 'a', 'SIGNED' ) );
+
+		// CHAR is a real cast target (string-semantics comparison / LIKE).
+		$this->assertSame( 'CAST(`a`.`total` AS CHAR)', $column->get_name_sql( 'a', 'CHAR' ) );
+	}
 }
