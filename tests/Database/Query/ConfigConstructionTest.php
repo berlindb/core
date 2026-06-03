@@ -1,16 +1,14 @@
 <?php
 /**
- * SPIKE (#204 Phase 0a) — viability of defining a full table-set purely from
- * config arrays, with NO Schema/Table/Query/Row subclasses.
+ * Config-only construction (#204 Phase 0a) — a full table-set (Schema, Table,
+ * Query) defined purely from config arrays, with NO subclasses.
  *
- * The hypothesis: Boot::__construct() -> set_vars() already hydrates any kern
- * class from an array (the same path `new Column([...])` uses), and set_schema()
- * already accepts a Schema instance. If so, a registry/factory for presets
- * (MetaTable, #204) needs no eval / anonymous classes / codegen — just config +
- * a registry. This spike exercises construct -> install -> CRUD entirely from
- * config to confirm that, and to surface whatever breaks.
- *
- * Run alone: bin/run-tests.sh -p 8.2 -w 6.7 -- --filter ConfigHydrationSpikeTest
+ * Boot::__construct() -> configure()/set_vars() hydrates any kern class from an
+ * array (the path `new Column([...])` uses), set_schema() accepts a Schema
+ * instance, and the 2nd constructor arg ($config) lets a Query receive its
+ * identity before sunrise() (with empty query vars, so no query fires). This is
+ * the foundation a registry/factory for presets (MetaTable, #204) builds on —
+ * no eval / anonymous classes / codegen required.
  *
  * @package     BerlinDB\Tests
  * @copyright   2026 - JJJ and all BerlinDB contributors
@@ -20,16 +18,18 @@
 
 namespace BerlinDB\Tests;
 
+use BerlinDB\Database\Kern\Query;
+use BerlinDB\Database\Kern\Row;
 use BerlinDB\Database\Kern\Schema;
 use BerlinDB\Database\Kern\Table;
 use Yoast\WPTestUtils\WPIntegration\TestCase;
 
 /**
- * Config-only hydration spike.
+ * Config-only construction of a full table-set.
  *
  * @since 3.1.0
  */
-class ConfigHydrationSpikeTest extends TestCase {
+class ConfigConstructionTest extends TestCase {
 
 	/** @var Table */
 	private static $table;
@@ -121,28 +121,45 @@ class ConfigHydrationSpikeTest extends TestCase {
 	}
 
 	/**
-	 * SPIKE FINDING — a Query's identity is NOT config-constructable today, so
-	 * `new Query([ 'table_name' => ..., 'table_schema' => ... ])` configures
-	 * nothing and queries an unconfigured table (observed: `FROM '' i`).
+	 * A Query built purely from config (the 2nd constructor channel) round-trips
+	 * add_item -> get_item -> query, with NO Query subclass.
 	 *
-	 * Unlike Table/Schema (boot -> set_vars -> properties), Query overrides
-	 * parse_args() to treat constructor args as QUERY VARS, run the query
-	 * immediately, and return [] so set_vars() is skipped (Query.php ~259). Its
-	 * identity (table_name/table_schema/item_name/alias/cache_group) is read in
-	 * sunrise() from SUBCLASS PROPERTIES.
-	 *
-	 * => #204 Phase 0a must give Query a DEFINITION channel separate from its
-	 *    query-var constructor. Schema + Table already construct from config
-	 *    (see the passing tests above); Query is the one gap.
+	 * The definition goes in the 2nd arg ($config), which Boot::configure()
+	 * assigns to properties before sunrise() reads them; the 1st arg (query vars)
+	 * is empty, so no query fires on construction. This is the #204 Phase 0a
+	 * mechanism that makes the MetaTable preset / a registry possible.
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_query_identity_is_not_config_constructable_yet() {
-		$this->markTestSkipped(
-			'Query identity is not config-constructable yet (#204 Phase 0a): '
-			. 'Query::parse_args() reserves constructor args for query vars and '
-			. 'skips set_vars(), so table identity must come from a separate '
-			. 'definition channel. Schema and Table already hydrate from config.'
+	public function test_query_round_trips_from_config() {
+		wp_set_current_user( 1 );
+
+		$query = new Query(
+			array(),
+			array(
+				'prefix'           => 'berlindb',
+				'table_name'       => 'spike_test',
+				'table_alias'      => 'sp',
+				'table_schema'     => new Schema( self::schema_config() ),
+				'item_name'        => 'spike',
+				'item_name_plural' => 'spikes',
+				'item_shape'       => Row::class,
+				'cache_group'      => 'berlindb-spike',
+			)
 		);
+
+		// Configured and sealed, but un-run.
+		$this->assertTrue( $query->is_booted() );
+
+		$id = (int) $query->add_item( array( 'title' => 'Hello' ) );
+		$this->assertGreaterThan( 0, $id );
+
+		$item = $query->get_item( $id );
+		$this->assertNotEmpty( $item );
+		$this->assertSame( 'Hello', $item->title );
+
+		$results = $query->query( array() );
+		$ids     = array_map( 'intval', (array) wp_list_pluck( $results, 'id' ) );
+		$this->assertContains( $id, $ids );
 	}
 }

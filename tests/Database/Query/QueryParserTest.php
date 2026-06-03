@@ -451,9 +451,8 @@ class QueryParserTest extends TestCase {
 	 */
 	public function test_meta_get_sql_uses_caller_methods_for_table_resolution() {
 		$query  = new QueryMetaCallerSpy();
-		$parser = new MetaParser();
+		$parser = new MetaParser( array(), $query );
 
-		$parser->init( array(), $query );
 		$result = $parser->get_sql();
 
 		$this->assertIsArray( $result );

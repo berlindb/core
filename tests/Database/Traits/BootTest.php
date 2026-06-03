@@ -25,6 +25,7 @@ class BootTestSubject {
 	use \BerlinDB\Database\Traits\Boot {
 		__construct as protected boot_construct;
 		parse_args as public expose_parse_args;
+		configure as protected boot_configure;
 	}
 
 	/**
@@ -74,8 +75,8 @@ class BootTestSubject {
 	 *
 	 * @param array<string, mixed>|object $args Constructor arguments.
 	 */
-	public function __construct( $args = array() ) {
-		$this->boot_construct( $args );
+	public function __construct( $args = array(), array $config = array() ) {
+		$this->boot_construct( $args, $config );
 	}
 
 	/**
@@ -99,6 +100,30 @@ class BootTestSubject {
 	public function reboot( $args = array() ): void {
 		$this->events = array();
 		$this->boot( $args );
+	}
+
+	/**
+	 * Record configure() and defer to the Boot trait implementation.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string, mixed> $config Definition properties.
+	 */
+	protected function configure( array $config = array() ): void {
+		$this->events[] = 'configure';
+
+		$this->boot_configure( $config );
+	}
+
+	/**
+	 * Expose configure() so tests can attempt to re-define after boot.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string, mixed> $config Definition properties.
+	 */
+	public function expose_configure( array $config = array() ): void {
+		$this->configure( $config );
 	}
 
 	/**
@@ -189,6 +214,7 @@ class BootTest extends TestCase {
 
 		$this->assertSame(
 			array(
+				'configure',
 				'sunrise',
 				'init',
 				'finish',
@@ -222,5 +248,63 @@ class BootTest extends TestCase {
 		$this->assertSame( 'specialized', $subject->special );
 		$this->assertSame( 'yes', $result['validated'] );
 		$this->assertSame( array( 'name' => 'Berlin' ), $subject->get_stashed_args()['param'] );
+	}
+
+	/**
+	 * The $config channel assigns properties, and does so before sunrise() — so
+	 * derived state always sees the configured values.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_configure_sets_properties_before_sunrise() {
+		$subject = new BootTestSubject( array(), array( 'name' => 'Configured' ) );
+
+		$this->assertSame( 'Configured', $subject->name );
+
+		$configure_at = array_search( 'configure', $subject->events, true );
+		$sunrise_at   = array_search( 'sunrise', $subject->events, true );
+
+		$this->assertNotFalse( $configure_at );
+		$this->assertNotFalse( $sunrise_at );
+		$this->assertLessThan( $sunrise_at, $configure_at );
+	}
+
+	/**
+	 * An empty $config is a no-op — normal (args-only) construction is unchanged.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_empty_config_does_not_change_properties() {
+		$subject = new BootTestSubject();
+
+		$this->assertSame( 'default', $subject->name );
+		$this->assertTrue( $subject->is_booted() );
+	}
+
+	/**
+	 * Construction completes with the object sealed (is_booted() is true).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_is_booted_true_after_construction() {
+		$subject = new BootTestSubject();
+
+		$this->assertTrue( $subject->is_booted() );
+	}
+
+	/**
+	 * configure() is define-once: once booted, a second call does not re-assign
+	 * properties (identity is sealed).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_configure_is_define_once_after_boot() {
+		$subject = new BootTestSubject( array(), array( 'name' => 'Configured' ) );
+		$this->assertSame( 'Configured', $subject->name );
+
+		// A post-boot re-definition must be ignored.
+		$subject->expose_configure( array( 'name' => 'Changed' ) );
+
+		$this->assertSame( 'Configured', $subject->name );
 	}
 }

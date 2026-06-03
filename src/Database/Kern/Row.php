@@ -27,8 +27,12 @@ defined( 'ABSPATH' ) || exit;
  * formatted differently, this class will make sure old values are still
  * supported and new values do not conflict.
  *
+ * Rows hold the columns of a queried record as properties; those vary per
+ * table, so dynamic properties are explicitly permitted (PHP 8.2+).
+ *
  * @since 1.0.0
  */
+#[\AllowDynamicProperties]
 class Row {
 
 	/**

@@ -264,11 +264,19 @@ class Table {
 	 */
 	protected function init(): void {
 
-		// Setup this database table.
-		$this->setup();
+		// Establish the table's identity from its name.
+		$this->set_table_name();
 
-		// Bail if setup failed.
-		if ( empty( $this->name ) || empty( $this->db_version_key ) ) {
+		// Bail if the name could not be sanitized.
+		if ( empty( $this->name ) ) {
+			return;
+		}
+
+		$this->set_prefixed_name();
+		$this->set_db_version_key();
+
+		// Bail if identity is incomplete.
+		if ( empty( $this->db_version_key ) ) {
 			return;
 		}
 
@@ -1342,39 +1350,50 @@ class Table {
 	/** Private ***************************************************************/
 
 	/**
-	 * Setup the necessary table variables.
+	 * Sanitize and set this table's name.
 	 *
-	 * @since 1.0.0
+	 * Rejects (does not keep) an unsanitizable name by setting it empty, so
+	 * init() can bail before deriving anything from it.
+	 *
+	 * @since 3.1.0
 	 */
-	private function setup(): void {
+	private function set_table_name(): void {
+		$sanitized = $this->sanitize_table_name( $this->name );
 
-		// Sanitize this database table name.
-		$sanitized_name = $this->sanitize_table_name( $this->name );
+		$this->name = ( false !== $sanitized )
+			? $sanitized
+			: '';
+	}
 
-		// Bail if database table name sanitization failed.
-		if ( false === $sanitized_name ) {
+	/**
+	 * Build the prefixed table name from the (sanitized) name.
+	 *
+	 * @since 3.1.0
+	 */
+	private function set_prefixed_name(): void {
+		$this->prefixed_name = $this->apply_prefix( $this->name, '_' );
+	}
+
+	/**
+	 * Build the database version key, unless one was already provided.
+	 *
+	 * @since 3.1.0
+	 */
+	private function set_db_version_key(): void {
+
+		// Bail if a version key was explicitly set.
+		if ( ! empty( $this->db_version_key ) ) {
 			return;
 		}
 
-		$this->name = $sanitized_name;
-
-		// Separator.
-		$glue = '_';
-
-		// Setup the prefixed name.
-		$this->prefixed_name = $this->apply_prefix( $this->name, $glue );
-
-		// Maybe create database key.
-		if ( empty( $this->db_version_key ) ) {
-			$this->db_version_key = implode(
-				$glue,
-				array(
-					sanitize_key( $this->db_global ),
-					$this->prefixed_name,
-					'version',
-				)
-			);
-		}
+		$this->db_version_key = implode(
+			'_',
+			array(
+				sanitize_key( $this->db_global ),
+				$this->prefixed_name,
+				'version',
+			)
+		);
 	}
 
 	/**

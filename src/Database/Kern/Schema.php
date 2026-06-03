@@ -148,34 +148,23 @@ class Schema {
 
 	/**
 	 * Late lifecycle hook, called by Traits\Boot after class properties are
-	 * assigned. This is the single point that hydrates $columns and $indexes
-	 * into objects — it runs after set_vars(), so it sees both subclass-declared
-	 * arrays and any passed as constructor args. (An earlier sunrise() call was
-	 * redundant: init() always produces the same final state.)
+	 * assigned. The single point that hydrates $columns and $indexes into
+	 * objects — it runs after set_vars(), so it sees both subclass-declared
+	 * arrays and any passed as constructor args.
+	 *
+	 * Supports the legacy pre-set $columns/$indexes arrays (the only way to
+	 * register columns before 3.0.0); that support will not be removed.
 	 *
 	 * @since 3.0.0
 	 */
 	protected function init(): void {
-		$this->setup();
-	}
 
-	/**
-	 * Setup the class variables.
-	 *
-	 * This method includes legacy support for Schema objects that predefined
-	 * their array of Columns. This approach will not be removed, as it was the
-	 * only way to register Columns in all versions before 3.0.0.
-	 *
-	 * @since 3.0.0
-	 */
-	protected function setup(): void {
-
-		// Legacy support for pre-set $columns array.
+		// Hydrate pre-set $columns into Column objects.
 		if ( ! empty( $this->columns ) && is_array( $this->columns ) ) {
 			$this->setup_items( 'columns', $this->columns );
 		}
 
-		// Legacy support for pre-set $indexes array.
+		// Hydrate pre-set $indexes into Index objects.
 		if ( ! empty( $this->indexes ) && is_array( $this->indexes ) ) {
 			$this->setup_items( 'indexes', $this->indexes );
 		}

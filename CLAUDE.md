@@ -72,6 +72,22 @@ bin/run-tests.sh -p 8.2 -w 6.7 -- --group default
 - `tests/` — PHPUnit, mirrors `src/` layout. Tests use the aliased
   `BerlinDB\Database\*` paths (the 2.x compatibility aliases).
 
+## Construction Lifecycle (the `Boot` contract)
+
+Every Kern class is constructed through `Boot`:
+`__construct($args, $config)` → `configure → sunrise → parse_args/set_vars → init`.
+Override these hooks — **do not invent per-class lifecycle methods** (the old
+bespoke `Schema::setup()`/`Table::setup()` are gone):
+
+- **`init()`** — the normal home for post-args construction (runs after
+  `set_vars()`). Decompose work into named `set_*()` helpers, as `Query`/`Table` do.
+- **`sunrise()`** — pre-args setup; rare, only when state must be ready before
+  `parse_args()` runs (e.g. `Query` builds parsers before it queries).
+- **`configure($config)`** — the explicit "define from data" channel (2nd ctor
+  arg). Sets identity before `sunrise()`; **define-once** (no-op once
+  `is_booted()`). This is what makes a class config-constructable without a
+  subclass (`new Query( array(), $config )`).
+
 ## Roadmap Anchors
 
 - Milestone **3.1.0**: see open issues at

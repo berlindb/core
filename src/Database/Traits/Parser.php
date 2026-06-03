@@ -189,7 +189,7 @@ trait Parser {
 	 * }
 	 * @param \BerlinDB\Database\Kern\Query|null $caller The Query class that invoked this parser, or null.
 	 */
-	public function init( array $query_vars = array(), mixed $caller = null ): void {
+	protected function init( array $query_vars = array(), mixed $caller = null ): void {
 
 		// Allow subclasses to normalise query vars before the rest of init() runs.
 		$query_vars = $this->parse_query_vars( $query_vars );
