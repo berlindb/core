@@ -1116,10 +1116,20 @@ class Column {
 				continue;
 			}
 
-			// Sanitize optional 'type', falling back to 'belongs_to'.
-			$type = ( isset( $relationship['type'] ) && in_array( $relationship['type'], self::RELATIONSHIP_TYPES, true ) )
-				? $relationship['type']
-				: 'belongs_to';
+			/*
+			 * Resolve optional 'type'. An OMITTED type defaults to 'belongs_to'
+			 * (the common case). A PRESENT-but-invalid type (e.g. a typo like
+			 * 'has-many') is a misconfiguration: drop the whole relationship
+			 * rather than silently coercing it to the wrong direction — the same
+			 * reject-not-mutate stance taken for 'query' above.
+			 */
+			if ( ! isset( $relationship['type'] ) ) {
+				$type = 'belongs_to';
+			} elseif ( in_array( $relationship['type'], self::RELATIONSHIP_TYPES, true ) ) {
+				$type = $relationship['type'];
+			} else {
+				continue;
+			}
 
 			// Build the sanitized entry.
 			$entry = array(

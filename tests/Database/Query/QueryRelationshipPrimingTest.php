@@ -809,6 +809,51 @@ class QueryRelationshipPrimingTest extends TestCase {
 		$this->assertSame( array(), $results );
 	}
 
+	/**
+	 * Test that a non-array (scalar) relation fails closed — `relation =>
+	 * 'parent'` is an explicit-but-unusable filter, so it returns no rows rather
+	 * than being ignored and widening to all rows.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_relation_scalar_fails_closed() {
+		$results = self::$query->query(
+			array(
+				'relation' => 'parent',
+			)
+		);
+
+		$this->assertSame( array(), $results );
+	}
+
+	/**
+	 * Test that 'with' does NOT segment the result cache key. It only controls
+	 * relationship priming side effects, not which rows return — so a query that
+	 * differs from a cached one ONLY by 'with' must hit the same cache entry.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_with_does_not_segment_result_cache() {
+		global $wpdb;
+
+		// Warm the result cache with 'with' present (also primes the parent).
+		self::$query->query(
+			array(
+				'status' => 'child',
+				'with'   => array( 'parent' ),
+			)
+		);
+
+		// The same query WITHOUT 'with' must be a cache hit (no SQL) — same key.
+		$before  = $wpdb->num_queries;
+		$results = self::$query->query( array( 'status' => 'child' ) );
+		$after   = $wpdb->num_queries;
+
+		$this->assertSame( $before, $after );
+		$this->assertCount( 1, $results );
+		$this->assertSame( $this->child_id, (int) $results[0]->id );
+	}
+
 	// Cache-key segmentation across different relationship filters (#193).
 
 	/**

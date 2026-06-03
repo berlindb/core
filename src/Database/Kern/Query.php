@@ -1260,7 +1260,17 @@ class Query {
 		$relation = $this->get_query_var( 'relation' );
 
 		// Bail if no relation filter was requested.
-		if ( empty( $relation ) || ! is_array( $relation ) ) {
+		if ( empty( $relation ) ) {
+			return;
+		}
+
+		/*
+		 * A non-empty but non-array relation (e.g. relation => 'parent') is a
+		 * misconfiguration: an explicit filter the pipeline can't act on. Fail
+		 * closed rather than ignoring it and widening to all rows.
+		 */
+		if ( ! is_array( $relation ) ) {
+			$this->short_circuit_relation( 'relation must be an array spec (or a list of specs)' );
 			return;
 		}
 
@@ -3961,8 +3971,13 @@ class Query {
 		// Slice query_vars by query_var_defaults keys, ordered by defaults.
 		foreach ( $this->query_var_defaults as $key => $_default ) {
 
-			// Skip vars that change behaviour but must not segment the cache key.
-			if ( 'fields' === $key || 'cache_results' === $key ) {
+			/*
+			 * Skip vars that change behaviour but must not segment the cache key.
+			 * 'with' only controls relationship cache PRIMING side effects, not
+			 * which rows this query returns, so two otherwise-identical queries
+			 * that differ only by 'with' must share one result-cache entry.
+			 */
+			if ( in_array( $key, array( 'fields', 'cache_results', 'with' ), true ) ) {
 				continue;
 			}
 

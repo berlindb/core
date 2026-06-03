@@ -1225,11 +1225,13 @@ class ColumnTest extends TestCase {
 	}
 
 	/**
-	 * Test that an unrecognized type falls back to belongs_to.
+	 * Test that a PRESENT but unrecognized type drops the whole relationship
+	 * (reject-not-mutate), rather than silently coercing it to belongs_to and
+	 * running the wrong direction. An OMITTED type still defaults to belongs_to.
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_relationship_invalid_type_falls_back_to_belongs_to() {
+	public function test_relationship_invalid_type_is_dropped() {
 		$column = new Column(
 			array(
 				'relationships' => array(
@@ -1242,7 +1244,7 @@ class ColumnTest extends TestCase {
 			)
 		);
 
-		$this->assertSame( 'belongs_to', $column->relationships[0]['type'] );
+		$this->assertSame( array(), $column->relationships );
 	}
 
 	/**
