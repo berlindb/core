@@ -147,18 +147,11 @@ class Schema {
 	/** Lifecycle Methods *****************************************************/
 
 	/**
-	 * Early lifecycle hook, called by Traits\Boot before class properties are
-	 * assigned. Used to hydrate any $columns or $indexes pre-set by a subclass.
-	 *
-	 * @since 3.0.0
-	 */
-	protected function sunrise(): void {
-		$this->setup();
-	}
-
-	/**
 	 * Late lifecycle hook, called by Traits\Boot after class properties are
-	 * assigned. Ensures $columns and $indexes are always hydrated into objects.
+	 * assigned. This is the single point that hydrates $columns and $indexes
+	 * into objects — it runs after set_vars(), so it sees both subclass-declared
+	 * arrays and any passed as constructor args. (An earlier sunrise() call was
+	 * redundant: init() always produces the same final state.)
 	 *
 	 * @since 3.0.0
 	 */
@@ -175,7 +168,7 @@ class Schema {
 	 *
 	 * @since 3.0.0
 	 */
-	public function setup(): void {
+	protected function setup(): void {
 
 		// Legacy support for pre-set $columns array.
 		if ( ! empty( $this->columns ) && is_array( $this->columns ) ) {
