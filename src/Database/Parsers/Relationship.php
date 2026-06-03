@@ -453,9 +453,9 @@ class Relationship extends Base {
 
 		/*
 		 * Resolve an optional, opt-in CAST for the column side. 'cast' => true
-		 * derives the target from the remote column's own type; a string is an
-		 * explicit override (validated). Absent/false/invalid means no cast —
-		 * casting is never applied by default.
+		 * derives the target from the remote column's own type; a non-empty string
+		 * is an explicit override. Absent, false, or empty means no cast — casting
+		 * is never applied by default.
 		 */
 		$cast = '';
 
@@ -464,8 +464,17 @@ class Relationship extends Base {
 
 			if ( true === $requested ) {
 				$cast = $column_object->get_sql_cast_type();
-			} elseif ( is_string( $requested ) ) {
+			} elseif ( is_string( $requested ) && ( '' !== trim( $requested ) ) ) {
 				$cast = $this->sanitize_sql_cast_type( $requested );
+
+				/*
+				 * An explicit but invalid cast is a misconfiguration: fail closed,
+				 * consistent with the rest of the relationship API. A misspelled
+				 * 'SIGNED' should match no rows, not silently compare lexically.
+				 */
+				if ( '' === $cast ) {
+					return false;
+				}
 			}
 		}
 

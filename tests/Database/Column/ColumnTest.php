@@ -1542,5 +1542,8 @@ class ColumnTest extends TestCase {
 
 		// CHAR is a real cast target (string-semantics comparison / LIKE).
 		$this->assertSame( 'CAST(`a`.`total` AS CHAR)', $column->get_name_sql( 'a', 'CHAR' ) );
+
+		// Invalid cast is sanitized away at this public boundary (no cast).
+		$this->assertSame( '`a`.`total`', $column->get_name_sql( 'a', 'nonsense' ) );
 	}
 }

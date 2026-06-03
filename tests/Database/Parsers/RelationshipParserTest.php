@@ -320,12 +320,13 @@ class RelationshipParserTest extends TestCase {
 	}
 
 	/**
-	 * Test that an invalid cast is ignored (no cast) — casting is opt-in and
-	 * fail-safe, never widening or breaking the comparison.
+	 * Test that an explicit but invalid cast fails closed (no rows), consistent
+	 * with the rest of the relationship API — a misspelled 'SIGNED' must not fall
+	 * back to a silent lexical string comparison.
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_where_condition_invalid_cast_is_ignored() {
+	public function test_where_condition_invalid_cast_fails_closed() {
 		$result = $this->parse(
 			array(
 				'name'  => 'parent',
@@ -340,8 +341,8 @@ class RelationshipParserTest extends TestCase {
 			array( 'parent' => $this->relationship() )
 		);
 
-		$this->assertStringNotContainsString( 'CAST(', $result['where'] );
-		$this->assertStringContainsString( '`bdb_rel_parent`.`total`', $result['where'] );
+		$this->assertStringContainsString( '1 = 0', $result['where'] );
+		$this->assertStringNotContainsString( '`bdb_rel_parent`.`total`', $result['where'] );
 	}
 
 	/**

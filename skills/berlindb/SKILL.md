@@ -96,6 +96,14 @@ the local column otherwise.
     (`array( 'compare' => '>', 'value' => 100 )`), and nested AND/OR `where`
     groups:
     `'relation' => array( 'name' => 'order', 'where' => array( 'status' => 'complete' ), 'strategy' => 'join' )`
+- **Type a comparison** with an opt-in `cast` on a `where` condition — never
+  applied by default (a SQL `CAST` defeats index use):
+  - `'cast' => 'SIGNED'` — explicit target (`SIGNED`/`UNSIGNED`/`DECIMAL`/
+    `DATE`/`DATETIME`/`TIME`/`CHAR`); useful when comparing a value stored as
+    text numerically: `array( 'compare' => '>', 'value' => 100, 'cast' => 'SIGNED' )`.
+  - `'cast' => true` — derive the target from the remote column's own type.
+  - A present-but-invalid `cast` (e.g. a typo) **fails closed** (no rows), not a
+    silent lexical compare.
 
 Notes:
 

@@ -1879,15 +1879,16 @@ class Column {
 	 * When $alias is provided it is quoted and prepended, producing the fully
 	 * qualified form used in WHERE and SELECT clauses: `alias`.`column`.
 	 *
-	 * When $cast is a non-empty CAST target the reference is wrapped in
-	 * CAST( ... AS $cast ). The $cast must already be normalized by the caller
-	 * (sanitize_sql_cast_type() or get_sql_cast_type()); casting is opt-in and is
-	 * never applied by default.
+	 * When $cast is a valid CAST target the reference is wrapped in
+	 * CAST( ... AS $cast ). $cast is sanitized here (sanitize_sql_cast_type()), so
+	 * this public helper does not trust its caller — an invalid value is safely
+	 * ignored (no cast). Casting is opt-in and never applied by default. CHAR is a
+	 * real target (string-semantics comparison), not a no-op.
 	 *
 	 * @since 3.0.0
 	 *
 	 * @param string $alias Optional. Table alias to prefix. Default empty (no alias).
-	 * @param string $cast  Optional. Normalized CAST target. Default empty (no cast).
+	 * @param string $cast  Optional. A CAST target; sanitized internally (invalid => no cast). Default empty.
 	 *
 	 * @return string Quoted SQL reference, e.g. `alias`.`column` or `column`.
 	 */
@@ -1901,7 +1902,10 @@ class Column {
 			? $this->quote_identifier( $alias ) . '.' . $quoted
 			: $quoted;
 
-		// Optionally wrap in a CAST() — a no-op when $cast is empty or 'CHAR'.
+		// Sanitize the cast at this public boundary; an invalid value => no cast.
+		$cast = $this->sanitize_sql_cast_type( $cast );
+
+		// Optionally wrap in a CAST() — a no-op only when $cast is empty.
 		return $this->cast_reference( $reference, $cast );
 	}
 
