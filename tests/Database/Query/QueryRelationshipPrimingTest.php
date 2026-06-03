@@ -923,6 +923,31 @@ class QueryRelationshipPrimingTest extends TestCase {
 		$this->assertSame( $this->child_id, (int) $results[0]->id );
 	}
 
+	/**
+	 * Test the reverse of the above: a result cached WITHOUT 'with' is reused by
+	 * a later query WITH 'with', and priming still runs on that cached result —
+	 * set_items() primes relationships even when the item IDs came from cache.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_with_primes_relationships_on_cached_result() {
+
+		// Warm the result cache WITHOUT 'with' — priming is quiet, parent cold.
+		self::$query->query( array( 'status' => 'child' ) );
+
+		// Same query WITH 'with' — served from the cache (same key), but the
+		// 'with' priming must still warm the parent.
+		self::$query->query(
+			array(
+				'status' => 'child',
+				'with'   => array( 'parent' ),
+			)
+		);
+
+		// Parent is primed, so fetching it now fires no SQL.
+		$this->assertSame( 0, $this->queries_to_fetch_parent() );
+	}
+
 	// Cache-key segmentation across different relationship filters (#193).
 
 	/**
