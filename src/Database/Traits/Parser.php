@@ -1525,65 +1525,6 @@ trait Parser {
 	}
 
 	/**
-	 * Used to generate the SQL string for IN and NOT IN clauses.
-	 *
-	 * The $values being passed in should not be validated, and they will be
-	 * escaped before they are concatenated together and returned as a string.
-	 *
-	 * @since 3.0.0
-	 *
-	 * @param string             $column_name Column name.
-	 * @param list<mixed>|string $values      Array of values.
-	 * @param bool               $wrap        To wrap in parenthesis.
-	 * @param string             $pattern     Pattern to prepare with.
-	 *
-	 * @return string Escaped/prepared SQL, possibly wrapped in parenthesis.
-	 */
-	protected function build_in_sql( $column_name = '', $values = array(), $wrap = true, $pattern = '' ) {
-
-		// Bail if no values or invalid column.
-		if ( empty( $values ) || ! $this->caller( 'is_valid_column', array( $column_name ) ) ) {
-			return '';
-		}
-
-		// Maybe cast to array.
-		if ( ! is_array( $values ) ) {
-			$values = (array) $values;
-		}
-
-		// Fallback to column pattern.
-		if ( empty( $pattern ) || ! is_string( $pattern ) ) {
-			$pattern = $this->caller( 'get_column_field', array( array( 'name' => $column_name ), 'pattern', '%s' ) );
-		}
-
-		// Maybe fallback to default pattern.
-		$pattern = is_string( $pattern )
-			? $pattern
-			: '%s';
-
-		// Fill an array of patterns to match the number of values.
-		$count    = count( $values );
-		$patterns = array_fill( 0, $count, $pattern );
-
-		// Prepare.
-		$sql    = implode( ', ', $patterns );
-		$retval = $this->db()->prepare( $sql, ...$values );
-
-		// Set return value to empty string if prepare() returns falsy.
-		if ( empty( $retval ) ) {
-			$retval = '';
-		}
-
-		// Wrap them in parenthesis.
-		if ( true === $wrap ) {
-			$retval = "({$retval})";
-		}
-
-		// Return in SQL.
-		return $retval;
-	}
-
-	/**
 	 * Identify an existing table alias that is compatible with the current
 	 * query clause.
 	 *
