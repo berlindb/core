@@ -1712,6 +1712,18 @@ class Query {
 			: null;
 	}
 
+	/**
+	 * Get the full array of query variables for the current run.
+	 *
+	 * Exposed as public so parser hooks can read the query vars set for the current
+	 * run.
+	 *
+	 * @since 3.1.0
+	 */
+	public function get_query_vars() {
+		return $this->query_vars;
+	}
+
 	/** Private Getters *******************************************************/
 
 	/**

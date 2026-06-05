@@ -190,7 +190,8 @@ class In extends Base {
 		}
 
 		// Build the FIELD() expression.
-		$values  = $this->caller( 'parse_query_var', $this->caller->query_vars, $orderby );
+		$qvs     = $this->caller( 'get_query_vars' );
+		$values  = $this->caller( 'parse_query_var', $qvs, $orderby );
 		$item_in = $this->caller( 'get_in_sql', $column_name, $values, false );
 
 		// Bail if no IN values.
