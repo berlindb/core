@@ -1982,7 +1982,7 @@ class Query {
 		 * Canonicalize the type-stable structural query vars (so semantically
 		 * identical queries hash to the same cache key).
 		 */
-		$this->validate_query_vars();
+		$this->query_vars = $this->validate_query_vars( $this->query_vars );
 
 		// If counting, override some other $query_vars.
 		if ( $this->get_query_var( 'count' ) ) {
@@ -2030,8 +2030,11 @@ class Query {
 	 * etc.) are left to their parsers, preserving the engine's fail-open routing.
 	 *
 	 * @since 3.1.0
+	 *
+	 * @param array<string, mixed> $query_vars The merged query vars.
+	 * @return array<string, mixed> The query vars with structural keys canonicalized.
 	 */
-	private function validate_query_vars(): void {
+	private function validate_query_vars( array $query_vars = array() ): array {
 
 		// Structural query var => canonicalizing callback.
 		$callbacks = array(
@@ -2047,10 +2050,12 @@ class Query {
 
 		// Coerce each present structural var to its canonical type.
 		foreach ( $callbacks as $key => $callback ) {
-			if ( array_key_exists( $key, $this->query_vars ) ) {
-				$this->query_vars[ $key ] = call_user_func( $callback, $this->query_vars[ $key ] );
+			if ( array_key_exists( $key, $query_vars ) ) {
+				$query_vars[ $key ] = call_user_func( $callback, $query_vars[ $key ] );
 			}
 		}
+
+		return $query_vars;
 	}
 
 	/**

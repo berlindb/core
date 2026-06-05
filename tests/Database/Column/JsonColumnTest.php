@@ -355,7 +355,7 @@ class JsonColumnTest extends TestCase {
 				'type' => 'json',
 			)
 		);
-		$data = $col->validate_json( array( 'color' => 'red' ) );
+		$data = $col->validate( array( 'color' => 'red' ) );
 		$this->assertSame( '{"color":"red"}', $data );
 	}
 
@@ -371,7 +371,7 @@ class JsonColumnTest extends TestCase {
 				'type' => 'json',
 			)
 		);
-		$data = $col->validate_json( (object) array( 'score' => 42 ) );
+		$data = $col->validate( (object) array( 'score' => 42 ) );
 		$this->assertSame( '{"score":42}', $data );
 	}
 
@@ -388,7 +388,7 @@ class JsonColumnTest extends TestCase {
 			)
 		);
 		$input = '{"key":"value"}';
-		$this->assertSame( $input, $col->validate_json( $input ) );
+		$this->assertSame( $input, $col->validate( $input ) );
 	}
 
 	/**
@@ -403,7 +403,7 @@ class JsonColumnTest extends TestCase {
 				'type' => 'json',
 			)
 		);
-		$this->assertSame( '{}', $col->validate_json( 'not-json' ) );
+		$this->assertSame( '{}', $col->validate( 'not-json' ) );
 	}
 
 	/**
@@ -418,7 +418,7 @@ class JsonColumnTest extends TestCase {
 				'type' => 'json',
 			)
 		);
-		$this->assertSame( '{}', $col->validate_json( '' ) );
+		$this->assertSame( '{}', $col->validate( '' ) );
 	}
 
 	// ========================================================================

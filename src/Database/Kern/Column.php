@@ -1343,7 +1343,7 @@ class Column {
 		return $callback;
 	}
 
-	/** Public Validators *****************************************************/
+	/** Validators ************************************************************/
 
 	/**
 	 * Cast a value after it is read from the database.
@@ -1438,7 +1438,7 @@ class Column {
 	 * @param mixed $value Value to validate.
 	 * @return string JSON-encoded string ready for storage.
 	 */
-	public function validate_json( $value = '' ) {
+	protected function validate_json( $value = '' ) {
 
 		// Array or object: encode to a JSON string.
 		if ( is_array( $value ) || is_object( $value ) ) {
@@ -1497,7 +1497,7 @@ class Column {
 	 * @param mixed $value Default empty string.
 	 * @return mixed
 	 */
-	public function validate_null( $value = '' ) {
+	protected function validate_null( $value = '' ) {
 
 		// Value is null.
 		if ( null === $value ) {
@@ -1543,7 +1543,7 @@ class Column {
 	 * @param string $value Default ''. A datetime value that needs validating.
 	 * @return string A valid datetime value.
 	 */
-	public function validate_datetime( $value = '' ) {
+	protected function validate_datetime( $value = '' ) {
 
 		// Default empty datetime (value with NO_ZERO_DATE off).
 		$default_empty = '0000-00-00 00:00:00';
@@ -1596,7 +1596,7 @@ class Column {
 	 * @param int        $decimals Default 9. The number of decimal points to accept.
 	 * @return float Formatted to the number of decimals specified
 	 */
-	public function validate_decimal( $value = 0, $decimals = 9 ) {
+	protected function validate_decimal( $value = 0, $decimals = 9 ) {
 
 		// Protect against non-numeric decimals.
 		if ( ! is_numeric( $decimals ) ) {
@@ -1621,7 +1621,7 @@ class Column {
 	 * @param int|bool   $decimals Default false. Decimal position will be used, or 0.
 	 * @return float
 	 */
-	public function validate_numeric( $value = 0, $decimals = false ) {
+	protected function validate_numeric( $value = 0, $decimals = false ) {
 
 		// Protect against non-numeric values.
 		if ( ! is_numeric( $value ) ) {
@@ -1675,7 +1675,7 @@ class Column {
 	 * @param int $value Default zero.
 	 * @return int
 	 */
-	public function validate_int( $value = 0 ) {
+	protected function validate_int( $value = 0 ) {
 		return (int) $this->validate_numeric( $value, false );
 	}
 
@@ -1692,7 +1692,7 @@ class Column {
 	 * @param string $value The UUID value to validate.
 	 * @return string The original value if valid, or the column default.
 	 */
-	public function validate_uuid( $value = '' ) {
+	protected function validate_uuid( $value = '' ) {
 		$prefix = 'urn:uuid:';
 
 		// Return early if valid UUID string with correct prefix.

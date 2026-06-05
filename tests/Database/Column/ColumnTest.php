@@ -467,7 +467,7 @@ class ColumnTest extends TestCase {
 	 */
 	public function test_validate_uuid_returns_default_for_empty_value() {
 		$column = new Column( array( 'uuid' => true ) );
-		$this->assertSame( $column->default, $column->validate_uuid( '' ) );
+		$this->assertSame( $column->default, $column->validate( '' ) );
 	}
 
 	/**
@@ -478,7 +478,7 @@ class ColumnTest extends TestCase {
 	public function test_validate_uuid_preserves_existing_urn_uuid() {
 		$column   = new Column( array( 'uuid' => true ) );
 		$existing = 'urn:uuid:550e8400-e29b-41d4-a716-446655440000';
-		$result   = $column->validate_uuid( $existing );
+		$result   = $column->validate( $existing );
 		$this->assertSame( $existing, $result );
 	}
 
@@ -494,7 +494,7 @@ class ColumnTest extends TestCase {
 				'type' => 'bigint',
 			)
 		);
-		$result = $column->validate_int( '42' );
+		$result = $column->validate( '42' );
 		$this->assertSame( 42, $result );
 	}
 
@@ -510,7 +510,7 @@ class ColumnTest extends TestCase {
 				'type' => 'datetime',
 			)
 		);
-		$result = $column->validate_datetime( '2024-01-15 10:30:00' );
+		$result = $column->validate( '2024-01-15 10:30:00' );
 		$this->assertSame( '2024-01-15 10:30:00', $result );
 	}
 
@@ -530,7 +530,7 @@ class ColumnTest extends TestCase {
 				'type' => 'datetime',
 			)
 		);
-		$result = $column->validate_datetime( '' );
+		$result = $column->validate( '' );
 		$this->assertEmpty( $result );
 	}
 

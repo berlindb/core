@@ -213,7 +213,7 @@ class Date extends Base {
 	 * @param array<string, mixed> $date_query The date_query array.
 	 * @return bool True if all values in the query are valid, false if one or more fail.
 	 */
-	public function validate_values( $date_query = array() ) {
+	protected function validate_values( $date_query = array() ) {
 
 		// Bail if empty.
 		if ( empty( $date_query ) ) {
@@ -397,7 +397,7 @@ class Date extends Base {
 	 *     @type string $where SQL fragment to append to the main WHERE clause.
 	 * }
 	 */
-	public function get_sql_for_clause( &$clause = array(), $parent_query = array(), $clause_key = '' ) {
+	protected function get_sql_for_clause( &$clause = array(), $parent_query = array(), $clause_key = '' ) {
 
 		// The sub-parts of a $where part.
 		$where = array();

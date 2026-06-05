@@ -82,7 +82,7 @@ class Search extends Base {
 	 *     @type string $where SQL fragment to append to the main WHERE clause.
 	 * }
 	 */
-	public function get_sql_for_clause( &$clause = array(), $parent_query = array(), $clause_key = '' ) {
+	protected function get_sql_for_clause( &$clause = array(), $parent_query = array(), $clause_key = '' ) {
 
 		// Bail if no search.
 		if ( empty( $this->first_keys ) || empty( $clause[ 'search' ] ) ) {

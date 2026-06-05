@@ -445,20 +445,23 @@ class QueryParserTest extends TestCase {
 	}
 
 	/**
-	 * Ensure Meta::get_sql() resolves its table metadata from the caller query.
+	 * Ensure Meta resolves its table metadata from the caller query, via the
+	 * public get_join_where_clauses() entry point.
 	 *
 	 * @since 3.0.0
 	 */
-	public function test_meta_get_sql_uses_caller_methods_for_table_resolution() {
+	public function test_meta_resolves_table_metadata_from_caller() {
 		$query  = new QueryMetaCallerSpy();
 		$parser = new MetaParser( array(), $query );
 
-		$result = $parser->get_sql();
+		$result = $parser->get_join_where_clauses();
 
 		$this->assertIsArray( $result );
 		$this->assertSame( _get_meta_table( 'post' ), $parser->meta_table );
 		$this->assertSame( 'post_id', $parser->meta_column );
-		$this->assertSame( 'resolved_meta_widgets', $parser->primary_table );
+		// get_join_where_clauses() resolves the primary table by ALIAS (JOIN ON
+		// clauses reference the alias, not the full table name).
+		$this->assertSame( 'resolved_mw', $parser->primary_table );
 		$this->assertSame( 'resolved_widget_id', $parser->primary_column );
 	}
 

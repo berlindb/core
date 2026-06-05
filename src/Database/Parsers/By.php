@@ -85,7 +85,7 @@ class By extends Base {
 	 *     @type string $where SQL fragment to append to the main WHERE clause.
 	 * }
 	 */
-	public function get_sql_for_clause( &$clause = array(), $parent_query = array(), $clause_key = '' ) {
+	protected function get_sql_for_clause( &$clause = array(), $parent_query = array(), $clause_key = '' ) {
 
 		// Get __in's in clause.
 		$ins = $this->get_first_order_clauses( $clause );

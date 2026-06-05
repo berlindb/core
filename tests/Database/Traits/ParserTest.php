@@ -41,6 +41,19 @@ class ParserTestSubject extends ParserBase {
 	public function expose_set_first_keys( array $keys ): void {
 		$this->set_first_keys( $keys );
 	}
+
+	/**
+	 * Expose the protected sanitize_query() for tests.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string|int, mixed> $queries      Query clauses.
+	 * @param array<string|int, mixed> $parent_query Parent query.
+	 * @return array<string|int, mixed>
+	 */
+	public function expose_sanitize_query( $queries = array(), $parent_query = array() ) {
+		return $this->sanitize_query( $queries, $parent_query );
+	}
 }
 
 /**
@@ -59,7 +72,7 @@ class ParserTest extends TestCase {
 		$parser = new ParserTestSubject();
 		$parser->expose_set_first_keys( array( 'key', 'value' ) );
 
-		$result = $parser->sanitize_query(
+		$result = $parser->expose_sanitize_query(
 			array(
 				'relation' => 'OR',
 				'ignored',

@@ -309,7 +309,7 @@ class Meta extends Base {
 	 * @return array{join: string, where: string}|false Array with 'join' and 'where' SQL fragments,
 	 *                                                   or false if no meta table exists for the type.
 	 */
-	public function get_sql( $type = '', $primary_table = '', $primary_column = '' ) {
+	protected function get_sql( $type = '', $primary_table = '', $primary_column = '' ) {
 
 		// Fall back to caller for missing $type.
 		if ( empty( $type ) ) {
@@ -427,7 +427,7 @@ class Meta extends Base {
 	 *     @type string[] $where WHERE fragments to append to the main WHERE clause.
 	 * }
 	 */
-	public function get_sql_for_clause( &$clause = array(), $parent_query = array(), $clause_key = '' ) {
+	protected function get_sql_for_clause( &$clause = array(), $parent_query = array(), $clause_key = '' ) {
 
 		// Default return value.
 		$retval = array(

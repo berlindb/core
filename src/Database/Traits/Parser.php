@@ -286,7 +286,7 @@ trait Parser {
 	 *
 	 * @return array<string|int, mixed> Sanitized queries.
 	 */
-	public function sanitize_query( $queries = array(), $parent_query = array() ) {
+	protected function sanitize_query( $queries = array(), $parent_query = array() ) {
 
 		// Bail if bad queries.
 		if ( empty( $queries ) || ! is_array( $queries ) ) {
@@ -452,7 +452,7 @@ trait Parser {
 	 *                                     instead of returning the full object. Default 'compare'.
 	 * @return array<string, mixed>
 	 */
-	public function get_operators( $filter = array(), $field = 'compare' ) {
+	protected function get_operators( $filter = array(), $field = 'compare' ) {
 		return wp_filter_object_list( $this->operators, $filter, 'and', $field );
 	}
 
@@ -504,7 +504,7 @@ trait Parser {
 	 *
 	 * @return array<string, mixed> The comparison operator.
 	 */
-	public function get_defaults( $query = array() ) {
+	protected function get_defaults( $query = array() ) {
 		return array(
 			'now'           => $this->get_now( $query ),
 			'column'        => $this->get_column( $query ),
@@ -737,7 +737,7 @@ trait Parser {
 	 *     @type string $where SQL fragment to append to the main WHERE clause.
 	 * }
 	 */
-	public function get_sql( $type = '', $primary_table = '', $primary_column = '' ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed
+	protected function get_sql( $type = '', $primary_table = '', $primary_column = '' ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed
 		return $this->get_join_where_clauses();
 	}
 
@@ -949,7 +949,7 @@ trait Parser {
 	 * @param int|string               $clause_key   Optional. The array key used to name the clause.
 	 * @return array{join: list<string>, where: list<string>}
 	 */
-	public function get_sql_for_clause( &$clause = array(), $parent_query = array(), $clause_key = '' ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed
+	protected function get_sql_for_clause( &$clause = array(), $parent_query = array(), $clause_key = '' ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed
 
 		// Default return value.
 		$retval = array(
@@ -1064,7 +1064,7 @@ trait Parser {
 	 * @return bool True if all values in the query are valid, false if one or
 	 *              more fail.
 	 */
-	public function validate_values( $query = array() ) {
+	protected function validate_values( $query = array() ) {
 
 		// Bail if empty.
 		if ( empty( $query ) ) {
