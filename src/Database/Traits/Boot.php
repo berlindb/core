@@ -73,26 +73,22 @@ trait Boot {
 	 * Construct the object.
 	 *
 	 * @since 1.0.0
-	 * @since 3.1.0 The $config parameter was added to support explicit definition.
 	 *
-	 * @param array<string, mixed> $args   Array of arguments. (Query treats these as query vars.)
-	 * @param array<string, mixed> $config Optional. Explicit definition properties, assigned
-	 *                                     before any lifecycle step derives state from them.
+	 * @param array<string, mixed> $args Array of arguments. Configuration for most classes;
+	 *                                   query vars (or configuration) for Query.
 	 */
-	public function __construct( $args = array(), array $config = array() ) {
-		$this->boot( $args, $config );
+	public function __construct( $args = array() ) {
+		$this->boot( $args );
 	}
 
 	/**
 	 * Initialize the object.
 	 *
 	 * @since 3.0.0
-	 * @since 3.1.0 The $config parameter was added to support explicit definition.
 	 *
-	 * @param array<string, mixed>|object $args   Array of arguments.
-	 * @param array<string, mixed>        $config Optional. Explicit definition properties.
+	 * @param array<string, mixed>|object $args Array of arguments.
 	 */
-	protected function boot( $args = array(), array $config = array() ): void {
+	protected function boot( $args = array() ): void {
 
 		// Row subclasses pass a raw stdClass from the database — normalize to array.
 		if ( is_object( $args ) ) {
@@ -101,24 +97,20 @@ trait Boot {
 
 		// Run inside run() so finish() fires even if an exception is thrown.
 		$this->run(
-			function () use ( $args, $config ) {
+			function () use ( $args ) {
 
 				/*
-				 * Configure properties from an explicit definition, before any
-				 * lifecycle step (sunrise/init) derives state from them.
+				 * Accept configuration: turn config args into properties before
+				 * any lifecycle step (sunrise/init) derives state from them.
+				 * Returns any args that were NOT configuration (Query's query vars).
 				 */
-				$this->configure( $config );
+				$remaining = $this->configure( $args );
 
 				// Wake up.
 				$this->sunrise();
 
-				// Parse arguments.
-				$r = $this->parse_args( $args );
-
-				// Maybe set variables from arguments.
-				if ( ! empty( $r ) ) {
-					$this->set_vars( $r );
-				}
+				// Parse any remaining args (Query-only: query vars + run).
+				$this->parse_args( $remaining );
 
 				// Initialize.
 				$this->init();
@@ -130,25 +122,70 @@ trait Boot {
 	}
 
 	/**
-	 * Configure object properties from an explicit definition array.
+	 * Accept configuration: assign config arguments to object properties.
 	 *
-	 * The second, explicit construction channel — distinct from $args (which
-	 * classes like Query treat as query vars). It runs before sunrise()/init(),
-	 * so derived state always sees the configured identity. It is a no-op once
-	 * the object is booted: identity is define-once (see is_booted()).
+	 * This is the universal construction channel — every Kern class configures
+	 * itself here, before sunrise()/init() derive state from those properties.
+	 * The default treats all $args as configuration and consumes them; a class
+	 * (Query) may override to claim only some args as config and return the rest.
+	 * No-op once booted: properties are define-once (see is_booted()).
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param array<string, mixed> $config Definition properties to assign.
+	 * @param array<string, mixed> $args Construction arguments.
+	 * @return array<string, mixed> Arguments NOT consumed as configuration.
 	 */
-	protected function configure( array $config = array() ): void {
+	protected function configure( array $args = array() ): array {
 
-		// Bail if already booted (identity is sealed) or nothing to configure.
-		if ( $this->is_booted() || empty( $config ) ) {
-			return;
+		// Bail if already booted — properties are sealed.
+		if ( $this->is_booted() ) {
+			return $args;
 		}
 
-		$this->set_vars( $config );
+		// Hand the args back unconsumed if they are not configuration.
+		if ( ! $this->is_configuration( $args ) ) {
+			return $args;
+		}
+
+		// Stash the arguments + property snapshot (for defaults & reset).
+		$this->stash_args( $args );
+
+		// Bail if no arguments; nothing was consumed, nothing is left over.
+		if ( empty( $args ) ) {
+			return array();
+		}
+
+		// Merge against the current property snapshot.
+		$defaults = $this->args[ 'class' ];
+		unset( $defaults[ 'args' ] );
+		$r = wp_parse_args( $args, $defaults );
+
+		// Force special-type args, set them, then validate & set.
+		$r = $this->special_args( $r );
+		$this->set_vars( $r );
+		$this->set_vars( $this->validate_args( $r ) );
+
+		// All arguments were configuration.
+		return array();
+	}
+
+	/**
+	 * Whether the given construct args are configuration (to assign as
+	 * properties), or should be handed back to parse_args() for other handling.
+	 *
+	 * Default: yes — every class treats its construct args as configuration.
+	 * Query overrides this to recognize a definition (schema-carrying args) and
+	 * hand query vars back instead. Overriding THIS (rather than configure())
+	 * is what lets a class opt out of configuration without re-implementing,
+	 * or aliasing, the configure() pipeline.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string, mixed> $args Construction arguments.
+	 * @return bool
+	 */
+	protected function is_configuration( array $args ): bool {
+		return true;
 	}
 
 	/**
@@ -157,6 +194,18 @@ trait Boot {
 	 * @since 3.0.0
 	 */
 	protected function sunrise(): void {}
+
+	/**
+	 * Parse any arguments not consumed as configuration.
+	 *
+	 * Default is a no-op — for most classes configure() consumes everything.
+	 * Query overrides this to parse its query vars and run the query.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param array<string, mixed> $args Arguments left over from configure().
+	 */
+	protected function parse_args( array $args = array() ): void {}
 
 	/**
 	 * Initialize.
@@ -181,39 +230,6 @@ trait Boot {
 	}
 
 	/** Argument Handlers *****************************************************/
-
-	/**
-	 * Parse arguments.
-	 *
-	 * @since 3.0.0 Arguments are stashed. Bails if $args is empty.
-	 * @param array<string, mixed> $args Default empty array.
-	 * @return array<string, mixed>
-	 */
-	protected function parse_args( $args = array() ) {
-
-		// Stash the arguments.
-		$this->stash_args( $args );
-
-		// Bail if no arguments.
-		if ( empty( $args ) ) {
-			return array();
-		}
-
-		// Parse arguments without restoring Boot's internal argument stash.
-		$defaults = $this->args[ 'class' ];
-		unset( $defaults[ 'args' ] );
-
-		$r = wp_parse_args( $args, $defaults );
-
-		// Force some arguments for special column types.
-		$r = $this->special_args( $r );
-
-		// Set the arguments before they are validated & sanitized.
-		$this->set_vars( $r );
-
-		// Return array.
-		return $this->validate_args( $r );
-	}
 
 	/**
 	 * Parse special arguments.

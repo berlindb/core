@@ -74,19 +74,28 @@ bin/run-tests.sh -p 8.2 -w 6.7 -- --group default
 
 ## Construction Lifecycle (the `Boot` contract)
 
-Every Kern class is constructed through `Boot`:
-`__construct($args, $config)` → `configure → sunrise → parse_args/set_vars → init`.
+Every Kern class is constructed through `Boot`, single-arg:
+`__construct($args)` → `configure → sunrise → parse_args → init`.
 Override these hooks — **do not invent per-class lifecycle methods** (the old
 bespoke `Schema::setup()`/`Table::setup()` are gone):
 
-- **`init()`** — the normal home for post-args construction (runs after
-  `set_vars()`). Decompose work into named `set_*()` helpers, as `Query`/`Table` do.
-- **`sunrise()`** — pre-args setup; rare, only when state must be ready before
-  `parse_args()` runs (e.g. `Query` builds parsers before it queries).
-- **`configure($config)`** — the explicit "define from data" channel (2nd ctor
-  arg). Sets identity before `sunrise()`; **define-once** (no-op once
-  `is_booted()`). This is what makes a class config-constructable without a
-  subclass (`new Query( array(), $config )`).
+- **`configure($args): array`** — the **universal** config channel: assigns
+  config args to properties (before `sunrise()`/`init()` derive from them) and
+  returns whatever it did NOT consume. Default consumes everything; **define-once**
+  (no-op once `is_booted()`). Makes a class config-constructable with no subclass
+  (`new Query( $definition )`).
+- **`sunrise()`** — pre-args setup; rare, **Query only** — state that must be
+  ready before `parse_args()` runs (Query builds its parsers before it queries).
+- **`parse_args($args): void`** — **Query only**: parse the leftover query vars
+  and run. No-op default for everyone else.
+- **`init()`** — the normal home for post-config construction. Decompose work
+  into named `set_*()` helpers, as `Query`/`Table` do.
+
+`Query` is the one class whose construct args may be config OR query vars; it
+discriminates by a **schema signature** (`configure()` → `looks_like_config()`),
+applies config through the shared pipeline (`validate_args()` sanitizes it), and
+runs query vars. Structural query vars (number/order/booleans) are canonicalized
+in `validate_query_vars()` before the cache key.
 
 ## Roadmap Anchors
 

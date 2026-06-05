@@ -254,28 +254,95 @@ class Query {
 	}
 
 	/**
-	 * Parse the query arguments.
+	 * Whether construct args are a definition (config), not query vars.
 	 *
-	 * Overrides Boot::parse_args(). Runs the query immediately and returns an
-	 * empty array so Boot's boot() loop skips the set_vars() call — Query
-	 * manages its own state via query() rather than via property assignment.
+	 * A Query is the one class whose construct args may be EITHER an explicit
+	 * definition (identity properties) OR query vars. Overriding this decision
+	 * hook — rather than configure() itself — lets Boot apply config through the
+	 * shared pipeline (no trait aliasing needed) and hand query vars to
+	 * parse_args() when this returns false.
+	 *
+	 * A queryable definition must carry a schema, and query vars never do — so a
+	 * `table_schema` whose VALUE is actually a Schema (an instance, or a Schema
+	 * class-string) is a high-certainty signal. The value-type check is what
+	 * rules out a same-named column being mistaken for config.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string, mixed> $args Construction arguments.
+	 * @return bool
+	 */
+	protected function is_configuration( array $args ): bool {
+
+		// Bail if no schema reference — query vars never carry one.
+		if ( ! isset( $args[ 'table_schema' ] ) ) {
+			return false;
+		}
+
+		$schema = $args[ 'table_schema' ];
+
+		// The value must actually be a schema, never a scalar filter value.
+		return ( $schema instanceof Schema )
+			|| ( is_string( $schema ) && class_exists( $schema ) && is_a( $schema, Schema::class, true ) );
+	}
+
+	/**
+	 * Validate & sanitize Query definition (config) arguments.
+	 *
+	 * Runs only for the config path (via configure()); query vars are validated
+	 * by their parsers, not here.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string, mixed> $args Definition arguments.
+	 * @return array<string, mixed> Sanitized definition arguments.
+	 */
+	protected function validate_args( $args = array() ) {
+
+		// Sanitization callbacks for the config keys a Query accepts.
+		$callbacks = array(
+			'table_name'       => array( $this, 'sanitize_table_name' ),
+			'table_alias'      => array( $this, 'sanitize_table_alias' ),
+			'table_schema'     => '',                                      // Schema instance/class; set_schema() validates
+			'item_name'        => 'sanitize_key',
+			'item_name_plural' => 'sanitize_key',
+			'item_shape'       => array( $this, 'sanitize_class_name' ),
+			'cache_group'      => 'sanitize_key',
+			'prefix'           => 'sanitize_key',
+		);
+
+		// Default return arguments.
+		$r = array();
+
+		// Sanitize known config keys; pass everything else through.
+		foreach ( $args as $key => $value ) {
+			$r[ $key ] = ( isset( $callbacks[ $key ] ) && is_callable( $callbacks[ $key ] ) )
+				? call_user_func( $callbacks[ $key ], $value )
+				: $value;
+		}
+
+		return $r;
+	}
+
+	/**
+	 * Parse query vars and run the query.
+	 *
+	 * Receives whatever configure() did not claim as configuration. Empty when
+	 * the Query was constructed from a definition (so no query runs).
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string, mixed> $args Array of arguments.
-	 * @return array<string, mixed> Always empty — Boot should not call set_vars() for queries.
+	 * @param array<string, mixed> $args Query vars.
 	 */
-	protected function parse_args( $args = array() ) {
+	protected function parse_args( array $args = array() ): void {
 
-		// Bail if no args.
+		// Bail if there are no query vars (e.g. a configured-only construction).
 		if ( empty( $args ) ) {
-			return array();
+			return;
 		}
 
 		// Parse the query and get items.
 		$this->query( $args );
-
-		return array();
 	}
 
 	/**
@@ -1911,6 +1978,12 @@ class Query {
 			$this->query_var_defaults
 		);
 
+		/*
+		 * Canonicalize the type-stable structural query vars (so semantically
+		 * identical queries hash to the same cache key).
+		 */
+		$this->validate_query_vars();
+
 		// If counting, override some other $query_vars.
 		if ( $this->get_query_var( 'count' ) ) {
 			$this->query_vars[ 'number' ]            = false;
@@ -1942,6 +2015,42 @@ class Query {
 
 		// Resolve any relationship filters into concrete query vars.
 		$this->resolve_relationship_filters();
+	}
+
+	/**
+	 * Canonicalize the type-stable structural query vars.
+	 *
+	 * Coerces the fixed, framework-level query vars to their canonical types
+	 * (ints, booleans, ASC/DESC) so that semantically identical queries — e.g.
+	 * number '5' vs 5, order 'asc' vs 'ASC' — produce the SAME cache key instead
+	 * of fragmenting it, and so consumers always see a clean type.
+	 *
+	 * Deliberately scoped: only the closed set of structural vars is touched.
+	 * Column/clause vars ({col}, date_query, meta_query, orderby/fields shapes,
+	 * etc.) are left to their parsers, preserving the engine's fail-open routing.
+	 *
+	 * @since 3.1.0
+	 */
+	private function validate_query_vars(): void {
+
+		// Structural query var => canonicalizing callback.
+		$callbacks = array(
+			'number'            => 'intval',
+			'order'             => array( $this, 'parse_order' ),
+			'explain'           => 'wp_validate_boolean',
+			'count'             => 'wp_validate_boolean',
+			'no_found_rows'     => 'wp_validate_boolean',
+			'cache_results'     => 'wp_validate_boolean',
+			'update_item_cache' => 'wp_validate_boolean',
+			'update_meta_cache' => 'wp_validate_boolean',
+		);
+
+		// Coerce each present structural var to its canonical type.
+		foreach ( $callbacks as $key => $callback ) {
+			if ( array_key_exists( $key, $this->query_vars ) ) {
+				$this->query_vars[ $key ] = call_user_func( $callback, $this->query_vars[ $key ] );
+			}
+		}
 	}
 
 	/**

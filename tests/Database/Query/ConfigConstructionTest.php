@@ -121,12 +121,12 @@ class ConfigConstructionTest extends TestCase {
 	}
 
 	/**
-	 * A Query built purely from config (the 2nd constructor channel) round-trips
-	 * add_item -> get_item -> query, with NO Query subclass.
+	 * A Query built purely from config round-trips add_item -> get_item -> query,
+	 * with NO Query subclass.
 	 *
-	 * The definition goes in the 2nd arg ($config), which Boot::configure()
-	 * assigns to properties before sunrise() reads them; the 1st arg (query vars)
-	 * is empty, so no query fires on construction. This is the #204 Phase 0a
+	 * The definition carries a Schema, so Query::configure() recognizes it as
+	 * config (not query vars), assigns it to properties before sunrise() reads
+	 * them, and runs no query on construction. This is the #204 Phase 0a
 	 * mechanism that makes the MetaTable preset / a registry possible.
 	 *
 	 * @since 3.1.0
@@ -135,7 +135,6 @@ class ConfigConstructionTest extends TestCase {
 		wp_set_current_user( 1 );
 
 		$query = new Query(
-			array(),
 			array(
 				'prefix'           => 'berlindb',
 				'table_name'       => 'spike_test',
@@ -161,5 +160,40 @@ class ConfigConstructionTest extends TestCase {
 		$results = $query->query( array() );
 		$ids     = array_map( 'intval', (array) wp_list_pluck( $results, 'id' ) );
 		$this->assertContains( $id, $ids );
+	}
+
+	/**
+	 * The type-stable structural query vars are canonicalized (number '5' -> 5,
+	 * order 'asc' -> 'ASC', booleans coerced) so equivalent queries share a key.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_structural_query_vars_are_canonicalized() {
+		wp_set_current_user( 1 );
+
+		$query = new Query(
+			array(
+				'prefix'           => 'berlindb',
+				'table_name'       => 'spike_test',
+				'table_alias'      => 'sp',
+				'table_schema'     => new Schema( self::schema_config() ),
+				'item_name'        => 'spike',
+				'item_name_plural' => 'spikes',
+				'item_shape'       => Row::class,
+				'cache_group'      => 'berlindb-spike',
+			)
+		);
+
+		$query->query(
+			array(
+				'number'        => '5',
+				'order'         => 'asc',
+				'no_found_rows' => '',
+			)
+		);
+
+		$this->assertSame( 5, $query->query_vars['number'] );
+		$this->assertSame( 'ASC', $query->query_vars['order'] );
+		$this->assertSame( false, $query->query_vars['no_found_rows'] );
 	}
 }

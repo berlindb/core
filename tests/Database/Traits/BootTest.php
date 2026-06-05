@@ -24,7 +24,6 @@ class BootTestSubject {
 	}
 	use \BerlinDB\Database\Traits\Boot {
 		__construct as protected boot_construct;
-		parse_args as public expose_parse_args;
 		configure as protected boot_configure;
 	}
 
@@ -75,8 +74,8 @@ class BootTestSubject {
 	 *
 	 * @param array<string, mixed>|object $args Constructor arguments.
 	 */
-	public function __construct( $args = array(), array $config = array() ) {
-		$this->boot_construct( $args, $config );
+	public function __construct( $args = array() ) {
+		$this->boot_construct( $args );
 	}
 
 	/**
@@ -91,43 +90,33 @@ class BootTestSubject {
 	}
 
 	/**
-	 * Expose boot() so tests can exercise argument parsing after construction.
-	 *
-	 * @since 3.0.0
-	 *
-	 * @param array<string, mixed>|object $args Boot arguments.
-	 */
-	public function reboot( $args = array() ): void {
-		$this->events = array();
-		$this->boot( $args );
-	}
-
-	/**
-	 * Record configure() and defer to the Boot trait implementation.
+	 * Record configure() and defer to the Boot trait pipeline.
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param array<string, mixed> $config Definition properties.
+	 * @param array<string, mixed> $args Construction arguments.
+	 * @return array<string, mixed>
 	 */
-	protected function configure( array $config = array() ): void {
+	protected function configure( array $args = array() ): array {
 		$this->events[] = 'configure';
 
-		$this->boot_configure( $config );
+		return $this->boot_configure( $args );
 	}
 
 	/**
-	 * Expose configure() so tests can attempt to re-define after boot.
+	 * Expose configure() so tests can attempt to re-configure after boot.
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param array<string, mixed> $config Definition properties.
+	 * @param array<string, mixed> $args Construction arguments.
+	 * @return array<string, mixed>
 	 */
-	public function expose_configure( array $config = array() ): void {
-		$this->configure( $config );
+	public function expose_configure( array $args = array() ): array {
+		return $this->configure( $args );
 	}
 
 	/**
-	 * Called before arguments are parsed.
+	 * Record sunrise().
 	 *
 	 * @since 3.0.0
 	 */
@@ -179,7 +168,7 @@ class BootTestSubject {
 	}
 
 	/**
-	 * Called after arguments are parsed and set.
+	 * Record init().
 	 *
 	 * @since 3.0.0
 	 */
@@ -188,7 +177,7 @@ class BootTestSubject {
 	}
 
 	/**
-	 * Called by Lifecycle after boot completes.
+	 * Record finish().
 	 *
 	 * @since 3.0.0
 	 */
@@ -205,11 +194,11 @@ class BootTestSubject {
 class BootTest extends TestCase {
 
 	/**
-	 * Empty constructor arguments still run the lifecycle without setting vars.
+	 * Empty arguments run the lifecycle without configuring any properties.
 	 *
 	 * @since 3.0.0
 	 */
-	public function test_boot_with_empty_arguments_skips_set_vars() {
+	public function test_empty_arguments_run_lifecycle_without_configuring() {
 		$subject = new BootTestSubject();
 
 		$this->assertSame(
@@ -225,41 +214,37 @@ class BootTest extends TestCase {
 	}
 
 	/**
-	 * parse_args() stashes input, applies special args, sets vars, and validates.
+	 * configure() processes non-empty args: special_args, set_vars, validate_args.
 	 *
 	 * @since 3.0.0
 	 */
-	public function test_parse_args_processes_non_empty_arguments() {
-		$subject                = new BootTestSubject();
-		$subject->events        = array();
+	public function test_configure_processes_non_empty_arguments() {
 		BootTestSubject::$calls = array();
 
-		$result = $subject->expose_parse_args( array( 'name' => 'Berlin' ) );
+		$subject = new BootTestSubject( array( 'name' => 'Berlin' ) );
 
 		$this->assertSame(
 			array(
 				'special_args',
 				'set_vars',
 				'validate_args',
+				'set_vars',
 			),
 			BootTestSubject::$calls
 		);
 		$this->assertSame( 'Berlin', $subject->name );
 		$this->assertSame( 'specialized', $subject->special );
-		$this->assertSame( 'yes', $result['validated'] );
+		$this->assertSame( 'yes', $subject->validated );
 		$this->assertSame( array( 'name' => 'Berlin' ), $subject->get_stashed_args()['param'] );
 	}
 
 	/**
-	 * The $config channel assigns properties, and does so before sunrise() — so
-	 * derived state always sees the configured values.
+	 * configure() runs before sunrise(), so derived state sees configured props.
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_configure_sets_properties_before_sunrise() {
-		$subject = new BootTestSubject( array(), array( 'name' => 'Configured' ) );
-
-		$this->assertSame( 'Configured', $subject->name );
+	public function test_configure_runs_before_sunrise() {
+		$subject = new BootTestSubject( array( 'name' => 'Berlin' ) );
 
 		$configure_at = array_search( 'configure', $subject->events, true );
 		$sunrise_at   = array_search( 'sunrise', $subject->events, true );
@@ -267,18 +252,6 @@ class BootTest extends TestCase {
 		$this->assertNotFalse( $configure_at );
 		$this->assertNotFalse( $sunrise_at );
 		$this->assertLessThan( $sunrise_at, $configure_at );
-	}
-
-	/**
-	 * An empty $config is a no-op — normal (args-only) construction is unchanged.
-	 *
-	 * @since 3.1.0
-	 */
-	public function test_empty_config_does_not_change_properties() {
-		$subject = new BootTestSubject();
-
-		$this->assertSame( 'default', $subject->name );
-		$this->assertTrue( $subject->is_booted() );
 	}
 
 	/**
@@ -293,18 +266,19 @@ class BootTest extends TestCase {
 	}
 
 	/**
-	 * configure() is define-once: once booted, a second call does not re-assign
-	 * properties (identity is sealed).
+	 * configure() is define-once: once booted, a re-configure does not re-assign
+	 * properties (it returns the args unconsumed instead).
 	 *
 	 * @since 3.1.0
 	 */
 	public function test_configure_is_define_once_after_boot() {
-		$subject = new BootTestSubject( array(), array( 'name' => 'Configured' ) );
+		$subject = new BootTestSubject( array( 'name' => 'Configured' ) );
 		$this->assertSame( 'Configured', $subject->name );
 
-		// A post-boot re-definition must be ignored.
-		$subject->expose_configure( array( 'name' => 'Changed' ) );
+		// A post-boot re-definition must be ignored (and returned unconsumed).
+		$remaining = $subject->expose_configure( array( 'name' => 'Changed' ) );
 
 		$this->assertSame( 'Configured', $subject->name );
+		$this->assertSame( array( 'name' => 'Changed' ), $remaining );
 	}
 }
