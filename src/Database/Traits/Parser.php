@@ -737,7 +737,7 @@ trait Parser {
 	 *     @type string $where SQL fragment to append to the main WHERE clause.
 	 * }
 	 */
-	protected function get_sql( $type = '', $primary_table = '', $primary_column = '' ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed
+	public function get_sql( $type = '', $primary_table = '', $primary_column = '' ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed
 		return $this->get_join_where_clauses();
 	}
 

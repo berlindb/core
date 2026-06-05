@@ -965,7 +965,7 @@ class Query {
 	 * @return list<mixed>
 	 * @phpstan-return ($fallback is false ? list<mixed> : list<TDefault>)
 	 */
-	public function get_columns_field_by( $key = '', $values = array(), $field = '', $fallback = false ) {
+	protected function get_columns_field_by( $key = '', $values = array(), $field = '', $fallback = false ) {
 
 		// Bail if no values.
 		if ( empty( $values ) ) {
@@ -1003,7 +1003,7 @@ class Query {
 	 * @param bool   $alias Whether to include the table alias prefix.
 	 * @return string
 	 */
-	public function get_column_name_aliased( $column_name = '', $alias = true ) {
+	protected function get_column_name_aliased( $column_name = '', $alias = true ) {
 
 		// Default return value.
 		$retval = $column_name;
@@ -1546,7 +1546,7 @@ class Query {
 	 *
 	 * @return list<\BerlinDB\Database\Parsers\Base> Filtered array of parser objects (or field values).
 	 */
-	public function get_parsers( $args = array(), $operator = 'and', $field = false ) {
+	protected function get_parsers( $args = array(), $operator = 'and', $field = false ) {
 
 		// Determine source.
 		$current_parsers = $this->get_current_array( 'parsers' );
@@ -1676,7 +1676,7 @@ class Query {
 	 *
 	 * @return string[]
 	 */
-	public function get_query_var_parser_classes() {
+	protected function get_query_var_parser_classes() {
 
 		// Default set of query parser classes.
 		$parsers = array(
@@ -4320,7 +4320,7 @@ class Query {
 	 * @param list<int|string> $ids Primary-key values to prime.
 	 * @return void
 	 */
-	public function prime_items( $ids = array() ) {
+	protected function prime_items( $ids = array() ) {
 		$this->prime_item_caches( $ids, true );
 	}
 
@@ -4496,7 +4496,7 @@ class Query {
 	 * @param list<int|string>|string $values    Foreign-key values to prime.
 	 * @return void
 	 */
-	public function prime_has_many( $fk_column = '', $values = array() ) {
+	protected function prime_has_many( $fk_column = '', $values = array() ) {
 
 		// Bail without a valid column or any values.
 		if ( ! $this->is_valid_column( $fk_column ) || empty( $values ) ) {
@@ -4569,7 +4569,7 @@ class Query {
 	 * @param list<int|string>     $item_ids   Item IDs the query resolves to.
 	 * @return void
 	 */
-	public function prime_query( $query_vars = array(), $item_ids = array() ) {
+	protected function prime_query( $query_vars = array(), $item_ids = array() ) {
 		$this->run(
 			function () use ( $query_vars, $item_ids ) {
 
@@ -4977,7 +4977,7 @@ class Query {
 	 * @param array<string, mixed> $item The item data.
 	 * @return array<string, mixed>
 	 */
-	public function filter_item( $item = array() ) {
+	protected function filter_item( $item = array() ) {
 
 		// Generate filter name based on the singular item name.
 		$filter_name = $this->apply_prefix( 'filter_' . $this->get_item_name() . '_item' );
@@ -5013,7 +5013,7 @@ class Query {
 	 * @param string[] $parsers Array of fully-qualified Parser class names.
 	 * @return string[] Filtered array of fully-qualified Parser class names.
 	 */
-	public function filter_query_var_parsers( $parsers = array() ) {
+	protected function filter_query_var_parsers( $parsers = array() ) {
 
 		// Generate filter name with a prefix.
 		$filter_name = $this->apply_prefix( 'query_var_parsers' );
@@ -5046,7 +5046,7 @@ class Query {
 	 * @param list<object> $items The item data.
 	 * @return list<object>
 	 */
-	public function filter_items( $items = array() ) {
+	protected function filter_items( $items = array() ) {
 
 		// Generate filter name based on the plural item name.
 		$filter_name = $this->apply_prefix( 'the_' . $this->get_item_name_plural() );
@@ -5079,7 +5079,7 @@ class Query {
 	 * @param string $sql SQL query string.
 	 * @return string
 	 */
-	public function filter_found_items_query( $sql = '' ) {
+	protected function filter_found_items_query( $sql = '' ) {
 
 		// Generate filter name based on the plural item name.
 		$filter_name = $this->apply_prefix( 'found_' . $this->get_item_name_plural() . '_query' );
@@ -5115,7 +5115,7 @@ class Query {
 	 * @param array<string, mixed> $clauses All of the SQL query clauses.
 	 * @return array<string, mixed>
 	 */
-	public function filter_query_clauses( $clauses = array() ) {
+	protected function filter_query_clauses( $clauses = array() ) {
 
 		// Generate filter name based on the plural item name.
 		$filter_name = $this->apply_prefix( $this->get_item_name_plural() . '_query_clauses' );

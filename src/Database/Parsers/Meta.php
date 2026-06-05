@@ -309,7 +309,7 @@ class Meta extends Base {
 	 * @return array{join: string, where: string}|false Array with 'join' and 'where' SQL fragments,
 	 *                                                   or false if no meta table exists for the type.
 	 */
-	protected function get_sql( $type = '', $primary_table = '', $primary_column = '' ) {
+	public function get_sql( $type = '', $primary_table = '', $primary_column = '' ) {
 
 		// Fall back to caller for missing $type.
 		if ( empty( $type ) ) {
