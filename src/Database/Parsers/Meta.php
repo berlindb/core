@@ -313,17 +313,17 @@ class Meta extends Base {
 
 		// Fall back to caller for missing $type.
 		if ( empty( $type ) ) {
-			$type = $this->caller( 'get_meta_type' );
+			$type = $this->caller?->get_meta_type() ?? '';
 		}
 
 		// Fall back to caller for missing primary table.
 		if ( empty( $primary_table ) ) {
-			$primary_table = $this->caller( 'get_table_name' );
+			$primary_table = $this->caller?->get_table_name() ?? '';
 		}
 
 		// Fall back to caller for missing primary column.
 		if ( empty( $primary_column ) ) {
-			$primary_column = $this->caller( 'get_primary_column_name' );
+			$primary_column = $this->caller?->get_primary_column_name() ?? '';
 		}
 
 		// Attempt to get the secondary table.
@@ -372,9 +372,9 @@ class Meta extends Base {
 		 * Use the table alias (not the full name) so the ON clause matches
 		 * the alias used in the main query's FROM clause.
 		 */
-		$type           = $this->caller( 'get_meta_type' );
-		$primary_table  = $this->caller( 'get_table_alias' );
-		$primary_column = $this->caller( 'get_primary_column_name' );
+		$type           = $this->caller?->get_meta_type() ?? '';
+		$primary_table  = $this->caller?->get_table_alias() ?? '';
+		$primary_column = $this->caller?->get_primary_column_name() ?? '';
 
 		// Attempt to get the secondary table.
 		$meta_table = _get_meta_table( $type );

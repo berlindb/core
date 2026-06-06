@@ -1719,6 +1719,8 @@ class Query {
 	 * run.
 	 *
 	 * @since 3.1.0
+	 *
+	 * @return array<string, mixed> Parsed query vars for the current run.
 	 */
 	public function get_query_vars() {
 		return $this->query_vars;
@@ -1927,10 +1929,11 @@ class Query {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string                  $column_name Column name.
-	 * @param list<int|string>|string $values      Array of values.
-	 * @param bool                    $wrap        To wrap in parenthesis.
-	 * @param string                  $pattern     Pattern to prepare with.
+	 * @param string                          $column_name Column name.
+	 * @param array<array-key, mixed>|string  $values      Value(s) to escape. Arrays are
+	 *                                                     flattened into the prepared statement.
+	 * @param bool                            $wrap        To wrap in parenthesis.
+	 * @param string                          $pattern     Pattern to prepare with.
 	 *
 	 * @return string Escaped/prepared SQL, possibly wrapped in parenthesis.
 	 */

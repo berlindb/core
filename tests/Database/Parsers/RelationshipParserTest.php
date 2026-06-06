@@ -78,8 +78,9 @@ class RelationshipParserRemoteQuery extends Query {
 /**
  * Minimal duck-typed caller for the parser.
  *
- * The parser only calls get_query_var(), get_relationship() and
- * get_quoted_column_name_aliased() on its caller, so a tiny object suffices.
+ * The parser calls get_query_var(), get_relationship(),
+ * get_quoted_column_name_aliased() and get_columns() on its caller, so a tiny
+ * object suffices.
  */
 class RelationshipParserCaller {
 
@@ -123,6 +124,41 @@ class RelationshipParserCaller {
 	public function get_quoted_column_name_aliased( $column_name = '' ) {
 		return '`o`.`' . $column_name . '`';
 	}
+
+	/**
+	 * @param array<string, mixed> $args
+	 * @param string               $operator
+	 * @param bool|string          $field
+	 * @return array<int|string, mixed>
+	 */
+	public function get_columns( $args = array(), $operator = 'and', $field = false ) {
+		return array();
+	}
+
+	/**
+	 * @return string
+	 */
+	public function get_table_alias() {
+		return '';
+	}
+
+	/**
+	 * @param array<string, mixed> $args
+	 * @return \BerlinDB\Database\Kern\Column|false
+	 */
+	public function get_column_by( $args = array() ) {
+		return false;
+	}
+}
+
+/**
+ * Relationship parser with its query var disabled.
+ *
+ * The query_var property is declared nullable so a subclass can opt out of
+ * consuming a top-level var; this fixture exercises that null-query_var guard.
+ */
+class RelationshipParserNullQueryVar extends RelationshipParser {
+	protected $query_var = null;
 }
 
 /**
@@ -185,6 +221,28 @@ class RelationshipParserTest extends TestCase {
 	 */
 	public function test_scalar_relation_query_is_empty() {
 		$result = $this->parse( 'nonsense' );
+
+		$this->assertSame( '', $result['join'] );
+		$this->assertSame( '', $result['where'] );
+	}
+
+	/**
+	 * Test that a null query var bails with empty clauses, even when the caller
+	 * holds otherwise-valid specs and a resolvable relationship.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_null_query_var_is_empty() {
+		$caller = new RelationshipParserCaller(
+			array(
+				'name'  => 'parent',
+				'where' => array( 'status' => 'parent' ),
+			),
+			array( 'parent' => $this->relationship() )
+		);
+		$parser = new RelationshipParserNullQueryVar( array(), $caller );
+
+		$result = $parser->get_join_where_clauses();
 
 		$this->assertSame( '', $result['join'] );
 		$this->assertSame( '', $result['where'] );

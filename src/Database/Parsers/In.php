@@ -112,7 +112,7 @@ class In extends Base {
 		foreach ( array_keys( $ins ) as $column ) {
 
 			// Parse query var.
-			$values = $this->caller( 'parse_query_var', $clause, $column );
+			$values = $this->caller?->parse_query_var( $clause, $column );
 
 			// Parse item for an IN clause.
 			if ( false === $values ) {
@@ -130,10 +130,10 @@ class In extends Base {
 			}
 
 			// Get the pattern.
-			$pattern = (string) $this->caller( 'get_column_field', array( 'name' => $name ), 'pattern', '%s' );
+			$pattern = (string) $this->caller?->get_column_field( array( 'name' => $name ), 'pattern', '%s' );
 
 			// Get the aliased column name for SQL.
-			$aliased = (string) $this->caller( 'get_quoted_column_name_aliased', $name );
+			$aliased = (string) $this->caller?->get_quoted_column_name_aliased( $name );
 
 			// Convert single item arrays to literal column comparisons.
 			if ( 1 === count( $values ) ) {
@@ -143,7 +143,7 @@ class In extends Base {
 
 				// Implode.
 			} else {
-				$in_values        = (string) $this->caller( 'get_in_sql', $name, $values, true, $pattern );
+				$in_values        = (string) $this->caller?->get_in_sql( $name, $values, true, $pattern );
 				$where[ $column ] = "{$aliased} IN {$in_values}";
 			}
 		}
@@ -184,15 +184,15 @@ class In extends Base {
 		$column_name = substr( $orderby, 0, -strlen( $this->column_suffix ) );
 
 		// Verify it's a column with 'in' support.
-		$ins = $this->caller( 'get_columns', array( 'in' => true ), 'and', 'name' );
+		$ins = $this->caller->get_columns( array( 'in' => true ), 'and', 'name' );
 		if ( ! in_array( $column_name, $ins, true ) ) {
 			return '';
 		}
 
 		// Build the FIELD() expression.
-		$qvs     = $this->caller( 'get_query_vars' );
-		$values  = $this->caller( 'parse_query_var', $qvs, $orderby );
-		$item_in = $this->caller( 'get_in_sql', $column_name, $values, false );
+		$qvs     = $this->caller->get_query_vars();
+		$values  = (array) $this->caller->parse_query_var( $qvs, $orderby );
+		$item_in = $this->caller->get_in_sql( $column_name, $values, false );
 
 		// Bail if no IN values.
 		if ( empty( $item_in ) ) {
@@ -200,7 +200,7 @@ class In extends Base {
 		}
 
 		// Maybe alias the column name.
-		$aliased = (string) $this->caller( 'get_quoted_column_name_aliased', $column_name, $alias );
+		$aliased = (string) $this->caller->get_quoted_column_name_aliased( $column_name, $alias );
 		$item_in = (string) $item_in;
 
 		// Return the FIELD() expression.

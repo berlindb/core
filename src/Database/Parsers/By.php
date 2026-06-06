@@ -105,7 +105,7 @@ class By extends Base {
 		foreach ( array_keys( $ins ) as $column ) {
 
 			// Parse query var.
-			$values = $this->caller( 'parse_query_var', $clause, $column );
+			$values = $this->caller?->parse_query_var( $clause, $column );
 
 			// Parse item for an IN clause.
 			if ( false === $values ) {
@@ -115,8 +115,8 @@ class By extends Base {
 			$values = (array) $values;
 
 			// Get pattern and aliased name.
-			$pattern = (string) $this->caller( 'get_column_field', array( 'name' => $column ), 'pattern', '%s' );
-			$aliased = (string) $this->caller( 'get_quoted_column_name_aliased', $column );
+			$pattern = (string) $this->caller?->get_column_field( array( 'name' => $column ), 'pattern', '%s' );
+			$aliased = (string) $this->caller?->get_quoted_column_name_aliased( $column );
 
 			// Convert single item arrays to literal column comparisons.
 			if ( 1 === count( $values ) ) {
@@ -126,7 +126,7 @@ class By extends Base {
 
 				// Implode.
 			} else {
-				$in_values                = (string) $this->caller( 'get_in_sql', $column, $values, true, $pattern );
+				$in_values                = (string) $this->caller?->get_in_sql( $column, $values, true, $pattern );
 				$where[ "{$column}__in" ] = "{$aliased} IN {$in_values}";
 			}
 		}

@@ -536,7 +536,7 @@ trait Parser {
 				: '';
 		}
 
-		$alias = $this->caller( 'get_table_alias' );
+		$alias = $this->caller?->get_table_alias();
 
 		if ( ! empty( $alias ) ) {
 			$alias = $this->sanitize_table_alias( $alias );
@@ -596,7 +596,7 @@ trait Parser {
 	protected function get_column_sql( string $name, array $filter = array(), bool $alias = true ): string {
 
 		// Look up the column, merging any extra filter criteria.
-		$col = $this->caller( 'get_column_by', array_merge( array( 'name' => $name ), $filter ) );
+		$col = $this->caller?->get_column_by( array_merge( array( 'name' => $name ), $filter ) );
 
 		// Bail if the column doesn't exist or doesn't match the filter.
 		if ( ! $col instanceof \BerlinDB\Database\Kern\Column ) {
@@ -605,7 +605,7 @@ trait Parser {
 
 		// Resolve the table alias when requested.
 		$table_alias = $alias
-			? ( $this->caller( 'get_table_alias' ) ?? '' )
+			? ( $this->caller->get_table_alias() ?? '' )
 			: '';
 
 		// Return the qualified column name.
@@ -1009,14 +1009,14 @@ trait Parser {
 			}
 
 			// Column doesn't exist in the schema.
-			$col = $this->caller( 'get_column_by', array( 'name' => $name ) );
+			$col = $this->caller?->get_column_by( array( 'name' => $name ) );
 
 			if ( empty( $col ) ) {
 				return $this->unresolved_column_clause( $retval );
 			}
 
 			// Get the qualified column name for SQL.
-			$alias = $this->caller( 'get_table_alias' ) ?? '';
+			$alias = $this->caller->get_table_alias() ?? '';
 			$expr  = $operator->get_sql( $col, $alias, $clause[ 'value' ] );
 
 			// Maybe add the WHERE expression.
@@ -1605,33 +1605,5 @@ trait Parser {
 
 		// Return the alias.
 		return $retval;
-	}
-
-	/**
-	 * Call a method on the caller if it exists.
-	 *
-	 * @since 3.0.0
-	 *
-	 * @param string $method Method name.
-	 * @param mixed  ...$args Optional. Arguments to pass to the method.
-	 *
-	 * @return mixed|null The return value of the called method, or null if no
-	 *                    caller or method does not exist.
-	 */
-	protected function caller( $method = '', ...$args ) {
-
-		// Bail if no caller.
-		if ( empty( $this->caller ) ) {
-			return null;
-		}
-
-		// Build and verify the callback before calling.
-		$callback = array( $this->caller, $method );
-		if ( ! is_callable( $callback ) ) {
-			return null;
-		}
-
-		// Call the method on the caller and return its value.
-		return call_user_func( $callback, ...$args );
 	}
 }

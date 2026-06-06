@@ -93,8 +93,13 @@ class Relationship extends Base {
 			'where' => '',
 		);
 
+		// Bail if this parser has no query var to read.
+		if ( null === $this->query_var ) {
+			return $retval;
+		}
+
 		// Read the relationship filter spec(s) from the calling query.
-		$specs = $this->caller( 'get_query_var', $this->query_var );
+		$specs = $this->caller?->get_query_var( $this->query_var );
 
 		// Bail unless a non-empty array of specs was provided.
 		if ( ! is_array( $specs ) || empty( $specs ) ) {
@@ -194,7 +199,7 @@ class Relationship extends Base {
 			: array();
 
 		// Resolve the relationship via the calling query.
-		$relationship = $this->caller( 'get_relationship', $name );
+		$relationship = $this->caller?->get_relationship( $name );
 
 		if ( ! ( $relationship instanceof RelationshipObject ) ) {
 			return false;
@@ -260,7 +265,7 @@ class Relationship extends Base {
 		$exists_positive = ! array_key_exists( 'exists', $spec ) || (bool) $spec[ 'exists' ];
 
 		// Pre-quote the shared identifiers.
-		$local      = (string) $this->caller( 'get_quoted_column_name_aliased', $columns[0] );
+		$local      = (string) $this->caller->get_quoted_column_name_aliased( $columns[0] );
 		$alias_sql  = $this->quote_identifier( $alias );
 		$remote_sql = $this->quote_identifier( $remote_table );
 		$ref_sql    = $alias_sql . '.' . $this->quote_identifier( $remote_ref );

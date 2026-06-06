@@ -87,7 +87,7 @@ class QueryParserSpy extends ParserBase {
 	 * Capture the parser inputs and return empty SQL fragments.
 	 *
 	 * This spy verifies that parse_join_where_parsers() uses the modern approach
-	 * of having parsers call $this->caller() to fetch values directly.
+	 * of having parsers call methods on $this->caller directly.
 	 *
 	 * @since 3.0.0
 	 *
@@ -102,8 +102,8 @@ class QueryParserSpy extends ParserBase {
 		self::$query_alias    = $this->queries[0]['alias'] ?? null;
 
 		// Capture values retrieved from caller (the modern approach).
-		self::$caller_table_name = $this->caller( 'get_table_name' );
-		self::$caller_meta_type  = $this->caller( 'get_meta_type' );
+		self::$caller_table_name = $this->caller?->get_table_name();
+		self::$caller_meta_type  = $this->caller?->get_meta_type();
 
 		return array(
 			'join'  => '',
@@ -352,7 +352,7 @@ class QueryParserTest extends TestCase {
 		$this->assertSame( '', QueryParserSpy::$primary_column );
 		$this->assertSame( 'resolved_tw', QueryParserSpy::$query_alias );
 
-		// Modern approach: Parsers call $this->caller() methods directly.
+		// Modern approach: Parsers call methods on $this->caller directly.
 		$this->assertSame( 'resolved_test_widgets', QueryParserSpy::$caller_table_name );
 		$this->assertSame( 'berlindb_database_widget', QueryParserSpy::$caller_meta_type );
 

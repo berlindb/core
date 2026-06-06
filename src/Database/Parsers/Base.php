@@ -179,7 +179,7 @@ abstract class Base {
 
 		// Default values.
 		$keys    = array();
-		$columns = (array) $this->caller( 'get_columns', $this->column_filter, 'and', 'name' );
+		$columns = (array) $this->caller?->get_columns( $this->column_filter, 'and', 'name' );
 
 		// Each column in scope, plus this parser's suffix.
 		foreach ( $columns as $column ) {

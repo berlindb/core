@@ -120,7 +120,7 @@ class Search extends Base {
 				continue;
 			}
 
-			$aliased       = (string) $this->caller( 'get_quoted_column_name_aliased', $name );
+			$aliased       = (string) $this->caller?->get_quoted_column_name_aliased( $name );
 			$sql_columns[] = ! empty( $aliased ) ? $aliased : (string) $name;
 		}
 
@@ -196,7 +196,7 @@ class Search extends Base {
 		}
 
 		// Generate filter name based on the plural item name, with prefix if set.
-		$plural_name = (string) $this->caller( 'get_item_name_plural' );
+		$plural_name = (string) $this->caller->get_item_name_plural();
 
 		// Bail if filter name is empty.
 		$filter_name = $this->apply_prefix( $plural_name . '_search_columns' );
