@@ -201,6 +201,7 @@ trait Boot {
 	 * properties), or should be handed back to parse_args() for other handling.
 	 *
 	 * Default: yes — every class treats its construct args as configuration.
+	 *
 	 * Query overrides this to recognize a definition (schema-carrying args) and
 	 * hand query vars back instead. Overriding THIS (rather than configure())
 	 * is what lets a class opt out of configuration without re-implementing,
@@ -253,7 +254,7 @@ trait Boot {
 	 * @return bool
 	 */
 	public function is_booted(): bool {
-		return $this->booted;
+		return (bool) $this->booted;
 	}
 
 	/**
@@ -269,7 +270,7 @@ trait Boot {
 	 * @return bool
 	 */
 	public function is_configured(): bool {
-		return $this->configured;
+		return (bool) $this->configured;
 	}
 
 	/** Argument Handlers *****************************************************/
