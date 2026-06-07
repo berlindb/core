@@ -23,7 +23,7 @@ defined( 'ABSPATH' ) || exit;
  * available to every class that uses Boot. During construction, boot() wraps
  * the construction sequence inside run() so that the full lifecycle is:
  *
- *   __construct → boot → run() → start → configure → sunrise → parse_args → set_vars → init → finish
+ *   __construct → boot → run() → start → configure → sunrise → parse_args → init → finish
  *
  * The run() wrapper guarantees finish() fires even if an exception is thrown
  * during construction.
@@ -32,11 +32,13 @@ defined( 'ABSPATH' ) || exit;
  * own per-class lifecycle methods:
  *   - configure(): assign properties from an explicit $config definition. Runs
  *     first, so sunrise()/init() see the configured identity. Define-once
- *     (a no-op once is_booted()).
+ *     (a no-op once is_configured()); boot() itself is define-once via
+ *     is_booted().
  *   - sunrise(): pre-args setup. Rare — only when state must be ready before
  *     parse_args() runs (e.g. Query prepares its parsers before it queries).
- *   - init(): the normal home for post-args construction. Runs after set_vars(),
- *     so it sees subclass-declared, $args, and $config values alike.
+ *   - init(): the normal home for post-args construction. Runs after configure()
+ *     and parse_args(), so it sees subclass-declared, $args, and $config values
+ *     alike. (configure() applies $config to properties via set_vars().)
  *
  * @since 3.0.0
  */
@@ -70,6 +72,18 @@ trait Boot {
 	protected $booted = false;
 
 	/**
+	 * Whether a configuration (definition) has been applied to this instance.
+	 *
+	 * Distinct from $booted: an object can finish construction (booted) from
+	 * query vars without ever being configured. Sealing configure() on this flag
+	 * keeps the definition define-once.
+	 *
+	 * @since 3.1.0
+	 * @var   bool
+	 */
+	protected $configured = false;
+
+	/**
 	 * Construct the object.
 	 *
 	 * @since 1.0.0
@@ -89,6 +103,11 @@ trait Boot {
 	 * @param array<string, mixed>|object $args Array of arguments.
 	 */
 	protected function boot( $args = array() ): void {
+
+		// Bail if already booted — construction is define-once (whole lifecycle).
+		if ( $this->is_booted() ) {
+			return;
+		}
 
 		// Row subclasses pass a raw stdClass from the database — normalize to array.
 		if ( is_object( $args ) ) {
@@ -128,7 +147,7 @@ trait Boot {
 	 * itself here, before sunrise()/init() derive state from those properties.
 	 * The default treats all $args as configuration and consumes them; a class
 	 * (Query) may override to claim only some args as config and return the rest.
-	 * No-op once booted: properties are define-once (see is_booted()).
+	 * No-op once configured: the definition is define-once (see is_configured()).
 	 *
 	 * @since 3.1.0
 	 *
@@ -137,8 +156,8 @@ trait Boot {
 	 */
 	protected function configure( array $args = array() ): array {
 
-		// Bail if already booted — properties are sealed.
-		if ( $this->is_booted() ) {
+		// Bail if already configured — the definition is sealed.
+		if ( $this->is_configured() ) {
 			return $args;
 		}
 
@@ -146,6 +165,9 @@ trait Boot {
 		if ( ! $this->is_configuration( $args ) ) {
 			return $args;
 		}
+
+		// Seal: a definition is now being applied (define-once).
+		$this->configured = true;
 
 		// Stash the arguments + property snapshot (for defaults & reset).
 		$this->stash_args( $args );
@@ -217,9 +239,9 @@ trait Boot {
 	/**
 	 * Whether construction has completed.
 	 *
-	 * Once booted, the object's definition is sealed: configure() will not
-	 * re-assign properties, so identity cannot be redefined out from under any
-	 * state derived during construction.
+	 * Once booted, boot() is a no-op (the lifecycle is define-once). Sealing of
+	 * the definition itself — so configure() will not re-assign properties — is
+	 * tracked separately by is_configured().
 	 *
 	 * @since 3.1.0
 	 *
@@ -227,6 +249,21 @@ trait Boot {
 	 */
 	public function is_booted(): bool {
 		return $this->booted;
+	}
+
+	/**
+	 * Whether a configuration (definition) has been applied to this instance.
+	 *
+	 * True when construct args were consumed as a definition; false when the
+	 * object was constructed from query vars (Query) or never configured. The
+	 * definition is define-once: configure() is a no-op once this is true.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return bool
+	 */
+	public function is_configured(): bool {
+		return $this->configured;
 	}
 
 	/** Argument Handlers *****************************************************/

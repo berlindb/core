@@ -116,6 +116,17 @@ class BootTestSubject {
 	}
 
 	/**
+	 * Expose boot() so tests can attempt to re-boot after construction.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string, mixed> $args Construction arguments.
+	 */
+	public function expose_boot( array $args = array() ): void {
+		$this->boot( $args );
+	}
+
+	/**
 	 * Record sunrise().
 	 *
 	 * @since 3.0.0
@@ -183,6 +194,46 @@ class BootTestSubject {
 	 */
 	protected function finish(): void {
 		$this->events[] = 'finish';
+	}
+}
+
+/**
+ * Test subject whose args are never a definition (mirrors Query's query-var path).
+ *
+ * @since 3.1.0
+ */
+class BootTestUnconfiguredSubject {
+
+	use \BerlinDB\Database\Traits\Base;
+	use \BerlinDB\Database\Traits\Boot {
+		__construct as protected boot_construct;
+	}
+
+	/**
+	 * Public property used to confirm config is NOT applied.
+	 *
+	 * @since 3.1.0
+	 * @var string
+	 */
+	public $name = 'default';
+
+	/**
+	 * @param array<string, mixed>|object $args Construction arguments.
+	 */
+	public function __construct( $args = array() ) {
+		$this->boot_construct( $args );
+	}
+
+	/**
+	 * These args are never configuration.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string, mixed> $args Construction arguments.
+	 * @return bool
+	 */
+	protected function is_configuration( array $args ): bool {
+		return false;
 	}
 }
 
@@ -280,5 +331,48 @@ class BootTest extends TestCase {
 
 		$this->assertSame( 'Configured', $subject->name );
 		$this->assertSame( array( 'name' => 'Changed' ), $remaining );
+	}
+
+	/**
+	 * boot() is define-once: a second boot is a no-op for the whole lifecycle,
+	 * not just configure().
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_boot_is_define_once() {
+		$subject = new BootTestSubject();
+		$events  = $subject->events;
+
+		// A second boot must not re-run any lifecycle step.
+		$subject->expose_boot( array( 'name' => 'Again' ) );
+
+		$this->assertSame( $events, $subject->events );
+		$this->assertSame( 'default', $subject->name );
+		$this->assertTrue( $subject->is_booted() );
+	}
+
+	/**
+	 * is_configured() is true once a definition has been applied.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_is_configured_after_definition_applied() {
+		$subject = new BootTestSubject( array( 'name' => 'Berlin' ) );
+
+		$this->assertTrue( $subject->is_configured() );
+	}
+
+	/**
+	 * is_configured() stays false when construct args are not a definition
+	 * (the query-var path), and no config is applied — yet the object still boots.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_is_not_configured_when_args_are_not_a_definition() {
+		$subject = new BootTestUnconfiguredSubject( array( 'name' => 'Berlin' ) );
+
+		$this->assertFalse( $subject->is_configured() );
+		$this->assertTrue( $subject->is_booted() );
+		$this->assertSame( 'default', $subject->name );
 	}
 }

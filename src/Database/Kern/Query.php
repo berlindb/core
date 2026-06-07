@@ -262,10 +262,19 @@ class Query {
 	 * shared pipeline (no trait aliasing needed) and hand query vars to
 	 * parse_args() when this returns false.
 	 *
-	 * A queryable definition must carry a schema, and query vars never do — so a
-	 * `table_schema` whose VALUE is actually a Schema (an instance, or a Schema
-	 * class-string) is a high-certainty signal. The value-type check is what
-	 * rules out a same-named column being mistaken for config.
+	 * A definition carries a schema; query vars never do. So the decision keys on
+	 * `table_schema`, but it reads CONTEXT, not just the value — which lets it
+	 * defend BOTH ambiguous edges at once:
+	 *
+	 * - The value IS a Schema (instance or class-string) — unambiguously a
+	 *   definition (including an explicit override of a subclass's schema).
+	 * - The value is NOT a Schema, and the class already declares its own schema
+	 *   — a query var filtering a same-named column (e.g. an information_schema
+	 *   mirror with a literal `table_schema` column). Stays query vars.
+	 * - The value is NOT a Schema, and the class has no schema of its own (still
+	 *   the base default) — broken config: routed to the definition path so
+	 *   set_schema() reports the bad class instead of silently misrouting a typo
+	 *   onto the query-var path.
 	 *
 	 * @since 3.1.0
 	 *
@@ -281,9 +290,25 @@ class Query {
 
 		$schema = $args[ 'table_schema' ];
 
-		// The value must actually be a schema, never a scalar filter value.
-		return ( $schema instanceof Schema )
-			|| ( is_string( $schema ) && class_exists( $schema ) && is_a( $schema, Schema::class, true ) );
+		// An actual Schema value is unambiguously a definition (or an override).
+		if ( $schema instanceof Schema ) {
+			return true;
+		}
+		if ( is_string( $schema ) && class_exists( $schema ) && is_a( $schema, Schema::class, true ) ) {
+			return true;
+		}
+
+		/*
+		 * The value is not a Schema. When the class already declares its own
+		 * schema, treat it as a query var (a filter on a same-named column);
+		 * otherwise the class has no schema to query, so a present-but-invalid
+		 * value is broken config — route it to the definition path. The base
+		 * default mirrors the $table_schema property default above.
+		 */
+		$declares_own_schema = ! empty( $this->table_schema )
+			&& ( ( __NAMESPACE__ . '\\Schema' ) !== $this->table_schema );
+
+		return ! $declares_own_schema;
 	}
 
 	/**
