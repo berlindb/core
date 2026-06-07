@@ -363,15 +363,16 @@ class BootTest extends TestCase {
 	}
 
 	/**
-	 * is_configured() stays false when construct args are not a definition
-	 * (the query-var path), and no config is applied — yet the object still boots.
+	 * is_configured() is true even when the definition comes from the class's own
+	 * property defaults (the not-a-definition / query-var path): the definition is
+	 * settled, and the construct args are NOT applied as properties.
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_is_not_configured_when_args_are_not_a_definition() {
+	public function test_is_configured_when_definition_comes_from_class() {
 		$subject = new BootTestUnconfiguredSubject( array( 'name' => 'Berlin' ) );
 
-		$this->assertFalse( $subject->is_configured() );
+		$this->assertTrue( $subject->is_configured() );
 		$this->assertTrue( $subject->is_booted() );
 		$this->assertSame( 'default', $subject->name );
 	}

@@ -72,11 +72,12 @@ trait Boot {
 	protected $booted = false;
 
 	/**
-	 * Whether a configuration (definition) has been applied to this instance.
+	 * Whether this instance's definition has been settled.
 	 *
-	 * Distinct from $booted: an object can finish construction (booted) from
-	 * query vars without ever being configured. Sealing configure() on this flag
-	 * keeps the definition define-once.
+	 * Set when configure() makes its decision — whether it applies a definition
+	 * from the construct args, or defers to the class's own property defaults (a
+	 * subclass that hardcodes its identity). Sealing configure() on this flag
+	 * keeps the definition define-once. Set during construction, before $booted.
 	 *
 	 * @since 3.1.0
 	 * @var   bool
@@ -161,13 +162,17 @@ trait Boot {
 			return $args;
 		}
 
+		/*
+		 * Seal: the definition is settled the moment configure() decides — applied
+		 * from these args below, or left as the class's own property defaults when
+		 * the args are not a definition (a subclass that hardcodes its identity).
+		 */
+		$this->configured = true;
+
 		// Hand the args back unconsumed if they are not configuration.
 		if ( ! $this->is_configuration( $args ) ) {
 			return $args;
 		}
-
-		// Seal: a definition is now being applied (define-once).
-		$this->configured = true;
 
 		// Stash the arguments + property snapshot (for defaults & reset).
 		$this->stash_args( $args );
@@ -252,11 +257,12 @@ trait Boot {
 	}
 
 	/**
-	 * Whether a configuration (definition) has been applied to this instance.
+	 * Whether this instance's definition has been settled.
 	 *
-	 * True when construct args were consumed as a definition; false when the
-	 * object was constructed from query vars (Query) or never configured. The
-	 * definition is define-once: configure() is a no-op once this is true.
+	 * True once configure() has run — whether the definition came from the
+	 * construct args or from the class's own property defaults (a subclass that
+	 * hardcodes its identity). The definition is define-once: configure() is a
+	 * no-op once this is true.
 	 *
 	 * @since 3.1.0
 	 *
