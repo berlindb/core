@@ -3,7 +3,7 @@
  * Tests for Query's relationship accessors (berlindb/core #193).
  *
  * The accessors delegate to Schema::get_relationships(); constructing a Query
- * subclass without arguments triggers setup() but runs no database query, so
+ * subclass without arguments triggers init() but runs no database query, so
  * no live table is required here.
  *
  * @package     BerlinDB\Tests

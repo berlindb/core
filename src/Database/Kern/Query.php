@@ -203,7 +203,7 @@ class Query {
 	 *
 	 * Each entry must be the name of a class that extends Parsers\Base and
 	 * declares its own descriptor properties ($name, $query_var, etc.).
-	 * Subclasses can override this property before setup() runs to replace
+	 * Subclasses can override this property before init() runs to replace
 	 * or extend the default set of parsers.
 	 *
 	 * @since 3.0.0
@@ -237,15 +237,15 @@ class Query {
 	/**
 	 * Set up class attributes that rely on the configured properties.
 	 *
-	 * Overrides Boot::setup(): runs after configure() so it sees the query's
+	 * Overrides Boot::init(): runs after configure() so it sees the query's
 	 * identity, and before consume_args() so the schema and parsers exist before a
 	 * query runs. Protected so subclasses can extend it without exposing it as
 	 * part of the public query API.
 	 *
 	 * @since 3.0.0
-	 * @since 3.1.0 Renamed from sunrise() to setup() (Boot lifecycle).
+	 * @since 3.1.0 Renamed from sunrise() (Boot lifecycle).
 	 */
-	protected function setup(): void {
+	protected function init(): void {
 		$this->set_table_name();
 		$this->set_table_alias();
 		$this->set_cache_group();
@@ -562,7 +562,7 @@ class Query {
 	 * Populate $query_var_parsers with the default set of Parser class names.
 	 *
 	 * Only runs when $query_var_parsers is empty, so a subclass can replace
-	 * the entire list by declaring the property before setup() is called.
+	 * the entire list by declaring the property before init() is called.
 	 *
 	 * @since 3.0.0
 	 */
@@ -1608,7 +1608,7 @@ class Query {
 	/**
 	 * Return the table alias for use in SQL statements.
 	 *
-	 * The alias is set during setup() and carries only the plugin prefix
+	 * The alias is set during init() and carries only the plugin prefix
 	 * ($this->prefix). It is never looked up via $wpdb — aliases are
 	 * SQL-local and do not require the WordPress table prefix.
 	 *

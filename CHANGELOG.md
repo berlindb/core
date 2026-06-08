@@ -24,7 +24,7 @@ Notable changes to BerlinDB are documented here.
   flag.
 - Makes every Kern class config-constructable from an array — no subclass required
   (`new Query( $definition )`) — through a normalized `Boot` lifecycle
-  (`sunrise → configure → setup → consume_args → init → sunset`) split across the
+  (`sunrise → configure → init → consume_args → sunset`) split across the
   `Boot`, `Lifecycle`, and `Configuration` traits.
 - `Query` accepts a definition or query vars via one constructor argument
   (discriminated by a schema signature); structural query vars are canonicalized
@@ -43,9 +43,10 @@ Notable changes to BerlinDB are documented here.
 
 ### 3.1.0 Upgrade Notes
 
-- The `Query::sunrise()` construction hook (3.0.0) is renamed to `Query::setup()`;
-  `sunrise()` still exists but now runs *before* configuration. Rename any override
-  that derived state from the query's configuration.
+- The `Query::sunrise()` construction hook (3.0.0) is renamed to `Query::init()`,
+  which now runs after `configure()` and before `consume_args()`; `sunrise()` still
+  exists but now runs *before* configuration. Rename any override that derived state
+  from the query's configuration.
 - The `parse_args()` construction hook (`Boot`/`Query`, 3.0.0) is renamed to
   `consume_args()`; `parse_args()` is now a `wp_parse_args()`-style array helper.
   Rename any override of the leftover-args hook to `consume_args()`.

@@ -10,7 +10,7 @@ Every Kern class (`Schema`, `Table`, `Query`, `Column`, `Row`, `Index`,
 running these steps in order:
 
 ```
-__construct($args) → boot() → sunrise → configure → setup → consume_args → init → sunset
+__construct($args) → boot() → sunrise → configure → init → consume_args → sunset
 ```
 
 - **`sunrise()`** — runs first, before any configuration is applied. Empty by
@@ -18,24 +18,22 @@ __construct($args) → boot() → sunrise → configure → setup → consume_ar
 - **`configure($args)`** — applies the construct args to properties (the
   "definition"), then returns whatever it did not consume. **Do not override**
   (see below); override the hooks it consults instead.
-- **`setup()`** — runs after `configure()`, so it sees the configured identity.
-  This is where a class derives state from its config — e.g. `Query` builds its
-  schema object and query-var parsers here.
+- **`init()`** — the construction hook: runs after `configure()` (so it sees the
+  configured identity) and before `consume_args()`. This is where a class builds
+  state from its config — e.g. `Query` builds its schema object and query-var
+  parsers here. Decompose into named `set_*()` helpers (see `Query`/`Table`).
 - **`consume_args($args)`** — handles args `configure()` did not claim. No-op for
   most classes; `Query` overrides it to parse leftover query vars and run.
-- **`init()`** — the normal home for post-construction work. Decompose into named
-  `set_*()` helpers (see `Query`/`Table`).
-- **`sunset()`** — runs last, after `init()`. Empty by default; rare.
+- **`sunset()`** — runs last, after `consume_args()`. Empty by default; rare.
 
 ### Override these
 
 | Hook | Purpose |
 |---|---|
 | `sunrise()` | pre-config setup (rare) |
-| `setup()` | derive state from the applied config |
+| `init()` | build state from the applied config (the construction home) |
 | `consume_args( $args )` | handle leftover/non-config args (Query: run) |
-| `init()` | post-construction initialization |
-| `sunset()` | post-init teardown/finalize (rare) |
+| `sunset()` | post-construction teardown/finalize (rare) |
 | `is_configuration( $args ): bool` | are the construct args a definition, or something else (Query: query vars)? Default `true` |
 | `get_config_callbacks(): array` | declare accepted config keys → sanitizer callbacks |
 | `is_strict_config(): bool` | opt out of strict config (default `true`) |

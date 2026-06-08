@@ -6,7 +6,7 @@
  * Boot::__construct() -> configure()/set_vars() hydrates any kern class from an
  * array (the path `new Column([...])` uses), set_schema() accepts a Schema
  * instance, and the 2nd constructor arg ($config) lets a Query receive its
- * identity before setup() (with empty query vars, so no query fires). This is
+ * identity before init() (with empty query vars, so no query fires). This is
  * the foundation a registry/factory for presets (MetaTable, #204) builds on —
  * no eval / anonymous classes / codegen required.
  *
@@ -178,7 +178,7 @@ class ConfigConstructionTest extends TestCase {
 	 * with NO Query subclass.
 	 *
 	 * The definition carries a Schema, so Query::configure() recognizes it as
-	 * config (not query vars), assigns it to properties before setup() reads
+	 * config (not query vars), assigns it to properties before init() reads
 	 * them, and runs no query on construction. This is the #204 Phase 0a
 	 * mechanism that makes the MetaTable preset / a registry possible.
 	 *

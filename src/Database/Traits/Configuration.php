@@ -26,7 +26,7 @@ defined( 'ABSPATH' ) || exit;
  * been settled.
  *
  * Boot drives this: it calls configure() first in the construction sequence, so
- * setup()/init() see the configured identity. A class tunes the behaviour by
+ * init() sees the configured identity. A class tunes the behaviour by
  * overriding the hooks, NOT configure() itself:
  *   - is_configuration(): whether the args are a definition (default: yes).
  *   - get_config_callbacks(): per-key sanitization map for validate_args().
@@ -75,7 +75,7 @@ trait Configuration {
 	 * Accept configuration: assign config arguments to object properties.
 	 *
 	 * This is the universal construction channel — every Kern class configures
-	 * itself here, before setup()/init() derive state from those properties.
+	 * itself here, before init() derives state from those properties.
 	 * The default treats all $args as configuration and consumes them; a class
 	 * (Query) may override is_configuration() to claim only some args as config
 	 * and return the rest.

@@ -136,15 +136,6 @@ class BootTestSubject {
 	}
 
 	/**
-	 * Record setup().
-	 *
-	 * @since 3.1.0
-	 */
-	protected function setup(): void {
-		$this->events[] = 'setup';
-	}
-
-	/**
 	 * Record sunset().
 	 *
 	 * @since 3.1.0
@@ -326,7 +317,6 @@ class BootTest extends TestCase {
 			array(
 				'sunrise',
 				'configure',
-				'setup',
 				'init',
 				'sunset',
 				'finish',
@@ -362,23 +352,23 @@ class BootTest extends TestCase {
 	}
 
 	/**
-	 * sunrise() runs before configure(), and configure() runs before setup() —
-	 * so setup() (the derived-state hook) sees the configured props.
+	 * sunrise() runs before configure(), and configure() runs before init() —
+	 * so init() (the construction hook) sees the configured props.
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_configure_runs_before_setup() {
+	public function test_configure_runs_before_init() {
 		$subject = new BootTestSubject( array( 'name' => 'Berlin' ) );
 
 		$sunrise_at   = array_search( 'sunrise', $subject->events, true );
 		$configure_at = array_search( 'configure', $subject->events, true );
-		$setup_at     = array_search( 'setup', $subject->events, true );
+		$init_at      = array_search( 'init', $subject->events, true );
 
 		$this->assertNotFalse( $sunrise_at );
 		$this->assertNotFalse( $configure_at );
-		$this->assertNotFalse( $setup_at );
+		$this->assertNotFalse( $init_at );
 		$this->assertLessThan( $configure_at, $sunrise_at );
-		$this->assertLessThan( $setup_at, $configure_at );
+		$this->assertLessThan( $init_at, $configure_at );
 	}
 
 	/**

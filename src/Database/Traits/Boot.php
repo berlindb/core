@@ -24,11 +24,11 @@ defined( 'ABSPATH' ) || exit;
  *   - Lifecycle — supplies run()/start()/finish()/$current; boot() wraps the
  *     construction sequence in run() so finish() fires even on exception.
  *   - Configuration — supplies configure() (args → properties), which boot()
- *     calls after sunrise() so setup()/init() see the configured identity.
+ *     calls after sunrise() so init() sees the configured identity.
  *
  * The full lifecycle is:
  *
- *   __construct → boot → run() → start → sunrise → configure → setup → consume_args → init → sunset → finish
+ *   __construct → boot → run() → start → sunrise → configure → init → consume_args → sunset → finish
  *
  * Construction is define-once: boot() is a no-op once is_booted(); the
  * definition itself is sealed separately by Configuration's is_configured().
@@ -38,14 +38,11 @@ defined( 'ABSPATH' ) || exit;
  *   - sunrise(): runs first, before configuration is applied (the dawn bookend
  *     with sunset()). Rare — for any setup that must precede config.
  *   - configure() / is_configuration(): see Traits\Configuration.
- *   - setup(): post-config setup — derive state from the just-applied config
+ *   - init(): the construction hook — build state from the just-applied config,
  *     before consume_args() runs (e.g. Query builds its schema and parsers here).
  *   - consume_args(): handle args not consumed as configuration (Query: query
  *     vars + run). No-op default.
- *   - init(): the normal home for post-args construction. Runs after setup()
- *     and consume_args(), so it sees subclass-declared, $args, and $config values
- *     alike.
- *   - sunset(): runs last, after init() (the dusk bookend with sunrise()).
+ *   - sunset(): runs last, after consume_args() (the dusk bookend with sunrise()).
  *
  * @since 3.0.0
  */
@@ -107,19 +104,16 @@ trait Boot {
 
 				/*
 				 * Accept configuration: turn config args into properties before
-				 * setup()/init() derive state from them. Returns any args that
-				 * were NOT configuration (Query's query vars).
+				 * init() derives state from them. Returns any args that were NOT
+				 * configuration (Query's query vars).
 				 */
 				$remaining = $this->configure( $args );
 
-				// Set up state derived from the applied configuration.
-				$this->setup();
-
-				// Consume any remaining args.
-				$this->consume_args( $remaining );
-
-				// Initialize.
+				// Build state derived from the applied configuration.
 				$this->init();
+
+				// Consume any remaining args (Query-only: query vars + run).
+				$this->consume_args( $remaining );
 
 				// All done.
 				$this->sunset();
@@ -141,17 +135,6 @@ trait Boot {
 	protected function sunrise(): void {}
 
 	/**
-	 * Set up state derived from the applied configuration.
-	 *
-	 * Runs after configure() and before consume_args(), so it sees the
-	 * configured identity. Query overrides this to build its schema and
-	 * query-var parsers before any query runs.
-	 *
-	 * @since 3.1.0
-	 */
-	protected function setup(): void {}
-
-	/**
 	 * Consume any arguments not claimed as configuration.
 	 *
 	 * Default is a no-op — for most classes configure() consumes everything.
@@ -165,7 +148,12 @@ trait Boot {
 	protected function consume_args( array $args = array() ): void {}
 
 	/**
-	 * Initialize.
+	 * Build the object's state from the applied configuration.
+	 *
+	 * The construction hook: runs after configure() (so it sees the configured
+	 * identity) and before consume_args(), so anything the work needs is ready —
+	 * e.g. Query builds its schema and query-var parsers here. Decompose into
+	 * named set_*() helpers, as Query/Table do.
 	 *
 	 * @since 3.0.0
 	 */

@@ -75,25 +75,26 @@ bin/run-tests.sh -p 8.2 -w 6.7 -- --group default
 ## Construction Lifecycle (the `Boot` contract)
 
 Every Kern class is constructed through `Boot`, single-arg:
-`__construct($args)` → `sunrise → configure → setup → consume_args → init → sunset`.
+`__construct($args)` → `sunrise → configure → init → consume_args → sunset`.
 Override these hooks — **do not invent per-class lifecycle methods** (the old
-bespoke *per-class* `Schema::setup()`/`Table::setup()` are gone; `setup()` is now
-a shared Boot hook, below):
+bespoke *per-class* `Schema::setup()`/`Table::setup()` are gone; `init()` is the
+shared Boot construction hook, below):
 
 - **`sunrise()`** — runs first, before config is applied (the dawn bookend with
   `sunset()`); empty by default, rare.
 - **`configure($args): array`** — the **universal** config channel: assigns
-  config args to properties (before `setup()`/`init()` derive from them) and
-  returns whatever it did NOT consume. Default consumes everything; **define-once**
+  config args to properties (before `init()` derives from them) and returns
+  whatever it did NOT consume. Default consumes everything; **define-once**
   (no-op once `is_booted()`). Makes a class config-constructable with no subclass
   (`new Query( $definition )`).
-- **`setup()`** — post-config setup; **Query** builds its schema and query-var
-  parsers here, before `consume_args()` runs.
+- **`init()`** — the construction hook: runs after `configure()` (sees the
+  configured identity) and before `consume_args()`. **Query** builds its schema
+  and query-var parsers here, before any query runs. Decompose work into named
+  `set_*()` helpers, as `Query`/`Table` do.
 - **`consume_args($args): void`** — **Query only**: parse the leftover query vars
   and run. No-op default for everyone else.
-- **`init()`** — the normal home for post-config construction. Decompose work
-  into named `set_*()` helpers, as `Query`/`Table` do.
-- **`sunset()`** — runs last, after `init()` (the dusk bookend with `sunrise()`).
+- **`sunset()`** — runs last, after `consume_args()` (the dusk bookend with
+  `sunrise()`).
 
 `Query` is the one class whose construct args may be config OR query vars; it
 discriminates by a **schema signature** (`configure()` → `looks_like_config()`),
