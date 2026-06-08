@@ -809,8 +809,17 @@ class BaseSanitizationTest extends \PHPUnit\Framework\TestCase {
 
 		// Array over defaults — passed values win, defaults fill the rest.
 		$this->assertSame(
-			array( 'a' => 1, 'b' => 2 ),
-			$this->helper->get_parsed_args( array( 'a' => 1 ), array( 'a' => 0, 'b' => 2 ) )
+			array(
+				'a' => 1,
+				'b' => 2,
+			),
+			$this->helper->get_parsed_args(
+				array( 'a' => 1 ),
+				array(
+					'a' => 0,
+					'b' => 2,
+				)
+			)
 		);
 
 		// Array with no defaults passes through.
@@ -824,14 +833,26 @@ class BaseSanitizationTest extends \PHPUnit\Framework\TestCase {
 
 		// Query-string input is parsed with parse_str().
 		$this->assertSame(
-			array( 'a' => '1', 'b' => '2' ),
+			array(
+				'a' => '1',
+				'b' => '2',
+			),
 			$this->helper->get_parsed_args( 'a=1&b=2' )
 		);
 
 		// Query-string over defaults.
 		$this->assertSame(
-			array( 'a' => '1', 'c' => '3' ),
-			$this->helper->get_parsed_args( 'a=1', array( 'a' => '0', 'c' => '3' ) )
+			array(
+				'a' => '1',
+				'c' => '3',
+			),
+			$this->helper->get_parsed_args(
+				'a=1',
+				array(
+					'a' => '0',
+					'c' => '3',
+				)
+			)
 		);
 	}
 }

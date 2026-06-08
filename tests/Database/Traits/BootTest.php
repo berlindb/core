@@ -197,6 +197,17 @@ class BootTestSubject {
 	}
 
 	/**
+	 * Declare 'name' as this subject's config surface (for strict recognition).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return array<string, mixed>
+	 */
+	protected function get_config_callbacks(): array {
+		return array( 'name' => '' );
+	}
+
+	/**
 	 * Record init().
 	 *
 	 * @since 3.0.0

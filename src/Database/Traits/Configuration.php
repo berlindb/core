@@ -109,16 +109,17 @@ trait Configuration {
 		$this->stash_args( $args );
 
 		/*
-		 * In strict mode, set aside keys that are neither an object property nor a
-		 * declared config key (get_config_callbacks()). They are dropped now and
-		 * logged AFTER set_vars() below: set_vars() re-applies the property
-		 * snapshot (including the empty log), which would otherwise reset any
-		 * entry logged here.
+		 * In strict mode, set aside keys that are NOT a declared config key
+		 * (get_config_callbacks()). Recognizing only the declared config surface —
+		 * rather than every visible property — keeps framework-internal state
+		 * (args, booted, configured, current, logs, …) from being set via config.
+		 * Unknown keys are dropped now and logged AFTER set_vars() below, because
+		 * set_vars() re-applies the property snapshot (including the empty log),
+		 * which would otherwise reset any entry logged here.
 		 */
 		$unknown = array();
 		if ( $this->is_strict_config() ) {
-			$recognized = $this->args[ 'class' ]
-				+ array_fill_keys( array_keys( $this->get_config_callbacks() ), null );
+			$recognized = array_fill_keys( array_keys( $this->get_config_callbacks() ), null );
 			$unknown    = array_diff_key( $args, $recognized );
 
 			if ( ! empty( $unknown ) ) {
@@ -216,9 +217,9 @@ trait Configuration {
 		// Default return arguments.
 		$r = array();
 
-		// Bail if no args or callbacks; nothing to validate.
+		// Pass args through unchanged when there is nothing to validate.
 		if ( empty( $args ) || empty( $callbacks ) ) {
-			return $r;
+			return $args;
 		}
 
 		// Sanitize known keys via their callback; pass everything else through.
@@ -250,17 +251,18 @@ trait Configuration {
 	}
 
 	/**
-	 * Whether to reject configuration keys that are neither a property nor a
-	 * declared config key (get_config_callbacks()).
+	 * Whether to reject configuration keys that are not a declared config key
+	 * (get_config_callbacks()).
 	 *
-	 * Default true (opt-out): an unrecognized key is logged and dropped instead
-	 * of silently creating a junk dynamic property via set_vars(). Recognized
-	 * keys are unaffected, so classes with a fixed, declared config surface keep
-	 * working unchanged.
+	 * Default true (opt-out): a key outside the declared config surface is logged
+	 * and dropped instead of reaching set_vars() — which both catches typos and
+	 * keeps framework-internal state (args, booted, configured, current, logs)
+	 * from being set via config. A class's declared config keys are unaffected.
 	 *
 	 * Override to false on a #[\AllowDynamicProperties] class whose config
 	 * legitimately sets undeclared properties — Row, whose data columns ARE
-	 * dynamic properties — otherwise every such key would be (wrongly) dropped.
+	 * dynamic properties (and are not declared in a callback map) — otherwise
+	 * every such key would be (wrongly) dropped.
 	 *
 	 * @since 3.1.0
 	 *
