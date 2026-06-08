@@ -214,23 +214,20 @@ trait Configuration {
 		// Per-class sanitization callbacks, keyed by config arg name.
 		$callbacks = $this->get_config_callbacks();
 
-		// Default return arguments.
-		$r = array();
-
 		// Pass args through unchanged when there is nothing to validate.
 		if ( empty( $args ) || empty( $callbacks ) ) {
 			return $args;
 		}
 
-		// Sanitize known keys via their callback; pass everything else through.
+		// Sanitize each arg that has a callable callback; leave the rest as-is.
 		foreach ( $args as $key => $value ) {
-			$r[ $key ] = ( isset( $callbacks[ $key ] ) && is_callable( $callbacks[ $key ] ) )
-				? call_user_func( $callbacks[ $key ], $value )
-				: $value;
+			if ( isset( $callbacks[ $key ] ) && is_callable( $callbacks[ $key ] ) ) {
+				$args[ $key ] = call_user_func( $callbacks[ $key ], $value );
+			}
 		}
 
-		// Return the validated arguments.
-		return $r;
+		// Return the sanitized arguments.
+		return $args;
 	}
 
 	/**
