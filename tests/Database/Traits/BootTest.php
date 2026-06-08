@@ -238,6 +238,74 @@ class BootTestUnconfiguredSubject {
 }
 
 /**
+ * Test subject with strict configuration: unknown config keys are rejected.
+ *
+ * @since 3.1.0
+ */
+class BootTestStrictSubject {
+
+	use \BerlinDB\Database\Traits\Base;
+	use \BerlinDB\Database\Traits\Boot {
+		__construct as protected boot_construct;
+	}
+
+	/**
+	 * A real, known config property.
+	 *
+	 * @since 3.1.0
+	 * @var string
+	 */
+	public $name = 'default';
+
+	/**
+	 * @param array<string, mixed>|object $args Construction arguments.
+	 */
+	public function __construct( $args = array() ) {
+		$this->boot_construct( $args );
+	}
+
+	/**
+	 * Opt in to strict configuration.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return bool
+	 */
+	protected function is_strict_config(): bool {
+		return true;
+	}
+}
+
+/**
+ * Test subject with default (non-strict) configuration; tolerates extra keys.
+ *
+ * @since 3.1.0
+ */
+#[\AllowDynamicProperties]
+class BootTestLooseSubject {
+
+	use \BerlinDB\Database\Traits\Base;
+	use \BerlinDB\Database\Traits\Boot {
+		__construct as protected boot_construct;
+	}
+
+	/**
+	 * A real, known config property.
+	 *
+	 * @since 3.1.0
+	 * @var string
+	 */
+	public $name = 'default';
+
+	/**
+	 * @param array<string, mixed>|object $args Construction arguments.
+	 */
+	public function __construct( $args = array() ) {
+		$this->boot_construct( $args );
+	}
+}
+
+/**
  * Tests for the Boot trait.
  *
  * @since 3.0.0
@@ -375,5 +443,60 @@ class BootTest extends TestCase {
 		$this->assertTrue( $subject->is_configured() );
 		$this->assertTrue( $subject->is_booted() );
 		$this->assertSame( 'default', $subject->name );
+	}
+
+	/**
+	 * Strict config rejects a key that matches no property: the known arg is
+	 * applied, the unknown is dropped (no junk property) and logged loudly.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_strict_config_rejects_and_logs_unknown_args() {
+		$subject = new BootTestStrictSubject(
+			array(
+				'name'  => 'Strict',
+				'bogus' => 'nope',
+			)
+		);
+
+		// Known arg applied; unknown arg never became a property.
+		$this->assertSame( 'Strict', $subject->name );
+		$this->assertFalse( property_exists( $subject, 'bogus' ) );
+
+		// The unknown key was logged loudly.
+		$logs = $subject->get_logs( array( 'code' => 'config_unknown_arg' ) );
+		$this->assertCount( 1, $logs );
+		$this->assertSame( 'bogus', $logs[0]['context']['key'] );
+	}
+
+	/**
+	 * Strict config leaves recognized keys alone (no false positives, no log).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_strict_config_allows_known_args() {
+		$subject = new BootTestStrictSubject( array( 'name' => 'OK' ) );
+
+		$this->assertSame( 'OK', $subject->name );
+		$this->assertSame( array(), $subject->get_logs( array( 'code' => 'config_unknown_arg' ) ) );
+	}
+
+	/**
+	 * Default (non-strict) config is unchanged: an unknown key passes through and
+	 * is applied, with no rejection and no log — preserving back-compat.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_unknown_args_pass_through_when_not_strict() {
+		$subject = new BootTestLooseSubject(
+			array(
+				'name'  => 'Loose',
+				'extra' => 'kept',
+			)
+		);
+
+		$this->assertSame( 'Loose', $subject->name );
+		$this->assertSame( 'kept', $subject->extra );
+		$this->assertSame( array(), $subject->get_logs( array( 'code' => 'config_unknown_arg' ) ) );
 	}
 }

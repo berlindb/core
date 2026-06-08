@@ -312,20 +312,17 @@ class Query {
 	}
 
 	/**
-	 * Validate & sanitize Query definition (config) arguments.
+	 * Sanitization callbacks for a Query's definition (config) arguments.
 	 *
-	 * Runs only for the config path (via configure()); query vars are validated
-	 * by their parsers, not here.
+	 * Applied by validate_args() on the config path (via configure()); query vars
+	 * are validated by their parsers, not here.
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param array<string, mixed> $args Definition arguments.
-	 * @return array<string, mixed> Sanitized definition arguments.
+	 * @return array<string, mixed> Map of config key => sanitization callback.
 	 */
-	protected function validate_args( $args = array() ) {
-
-		// Sanitization callbacks for the config keys a Query accepts.
-		$callbacks = array(
+	protected function get_config_callbacks(): array {
+		return array(
 			'table_name'       => array( $this, 'sanitize_table_name' ),
 			'table_alias'      => array( $this, 'sanitize_table_alias' ),
 			'table_schema'     => '',                                      // Schema instance/class; set_schema() validates
@@ -335,18 +332,6 @@ class Query {
 			'cache_group'      => 'sanitize_key',
 			'prefix'           => 'sanitize_key',
 		);
-
-		// Default return arguments.
-		$r = array();
-
-		// Sanitize known config keys; pass everything else through.
-		foreach ( $args as $key => $value ) {
-			$r[ $key ] = ( isset( $callbacks[ $key ] ) && is_callable( $callbacks[ $key ] ) )
-				? call_user_func( $callbacks[ $key ], $value )
-				: $value;
-		}
-
-		return $r;
 	}
 
 	/**

@@ -29,15 +29,18 @@ defined( 'ABSPATH' ) || exit;
  * sunrise()/init() see the configured identity. A class tunes the behaviour by
  * overriding the hooks, NOT configure() itself:
  *   - is_configuration(): whether the args are a definition (default: yes).
+ *   - get_config_callbacks(): per-key sanitization map for validate_args().
+ *   - is_strict_config(): reject unknown config keys instead of passing them on.
  *   - special_args() / validate_args(): force/validate values before set_vars().
  *
- * Requires the host to provide set_vars() (Traits\Base). Declared via @method
- * (not an abstract method) so tooling sees the dependency without colliding with
- * Base::set_vars() when a class composes both traits.
+ * Requires the host to provide set_vars() and log() (Traits\Base, which pulls
+ * Log). Declared via @method (not abstract methods) so tooling sees the
+ * dependency without colliding with the real methods when a class composes both.
  *
  * @since 3.1.0
  *
  * @method void set_vars( array<string, mixed> $args = [] )
+ * @method void log( string $level, string $code, string $message, array<string, mixed> $context = [] )
  */
 trait Configuration {
 
@@ -103,20 +106,35 @@ trait Configuration {
 		// Stash the arguments + property snapshot (for defaults & reset).
 		$this->stash_args( $args );
 
-		// Bail if no arguments; nothing was consumed, nothing is left over.
-		if ( empty( $args ) ) {
-			return array();
+		/*
+		 * In strict mode, set aside keys that match no object property. They are
+		 * dropped now and logged AFTER set_vars() below: set_vars() re-applies the
+		 * property snapshot (including the empty log), which would otherwise reset
+		 * any entry logged here.
+		 */
+		$unknown = $this->is_strict_config()
+			? array_diff_key( $args, $this->args[ 'class' ] )
+			: array();
+		if ( ! empty( $unknown ) ) {
+			$args = array_intersect_key( $args, $this->args[ 'class' ] );
 		}
 
-		// Merge against the current property snapshot.
-		$defaults = $this->args[ 'class' ];
-		unset( $defaults[ 'args' ] );
-		$r = wp_parse_args( $args, $defaults );
+		// Apply any recognized arguments.
+		if ( ! empty( $args ) ) {
 
-		// Force special-type args, set them, then validate & set.
-		$r = $this->special_args( $r );
-		$this->set_vars( $r );
-		$this->set_vars( $this->validate_args( $r ) );
+			// Merge against the current property snapshot.
+			$defaults = $this->args[ 'class' ];
+			unset( $defaults[ 'args' ] );
+			$r = wp_parse_args( $args, $defaults );
+
+			// Force special-type args, set them, then validate & set.
+			$r = $this->special_args( $r );
+			$this->set_vars( $r );
+			$this->set_vars( $this->validate_args( $r ) );
+		}
+
+		// Log any unrecognized keys now that set_vars() is done (strict mode).
+		$this->log_unknown_config_args( $unknown );
 
 		// All arguments were configuration.
 		return array();
@@ -174,12 +192,107 @@ trait Configuration {
 	/**
 	 * Validate arguments.
 	 *
+	 * Runs each arg through the matching callback from get_config_callbacks();
+	 * args whose key has no callable callback pass through unchanged.
+	 *
 	 * @since 3.0.0
+	 * @since 3.1.0 Applies the shared get_config_callbacks() map.
+	 *
 	 * @param array<string, mixed> $args Array of arguments.
 	 * @return array<string, mixed>
 	 */
 	protected function validate_args( $args = array() ) {
-		return $args;
+
+		// Per-class sanitization callbacks, keyed by config arg name.
+		$callbacks = $this->get_config_callbacks();
+
+		// Default return arguments.
+		$r = array();
+
+		// Bail if no args or callbacks; nothing to validate.
+		if ( empty( $args ) || empty( $callbacks ) ) {
+			return $r;
+		}
+
+		// Sanitize known keys via their callback; pass everything else through.
+		foreach ( $args as $key => $value ) {
+			$r[ $key ] = ( isset( $callbacks[ $key ] ) && is_callable( $callbacks[ $key ] ) )
+				? call_user_func( $callbacks[ $key ], $value )
+				: $value;
+		}
+
+		// Return the validated arguments.
+		return $r;
+	}
+
+	/**
+	 * Sanitization callbacks for this class's configuration arguments.
+	 *
+	 * Returns a map of config-arg key => callback (a callable, or a callable
+	 * name; '' or any non-callable means "pass through"). validate_args() runs
+	 * each arg's value through its callback before set_vars(). The default is an
+	 * empty map; each Kern class overrides this to declare the config keys it
+	 * accepts and how to sanitize them.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return array<string, mixed> Map of arg key => sanitization callback.
+	 */
+	protected function get_config_callbacks(): array {
+		return array();
+	}
+
+	/**
+	 * Whether to reject configuration keys that match no object property.
+	 *
+	 * Opt-in (default false), so existing callers that pass extra keys keep
+	 * working. Override to true to harden a class's configuration surface: an
+	 * unknown key is logged and dropped instead of silently creating a junk
+	 * dynamic property via set_vars().
+	 *
+	 * IMPORTANT: only enable this on classes with a fixed, declared property set
+	 * (Query, Table, Column, Index, Relationship, Schema). Do NOT enable it on a
+	 * #[\AllowDynamicProperties] class whose config legitimately sets undeclared
+	 * properties — Row, whose data columns ARE dynamic properties — because every
+	 * such key would be (wrongly) treated as unknown and dropped.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return bool
+	 */
+	protected function is_strict_config(): bool {
+		return false;
+	}
+
+	/**
+	 * Log configuration keys that matched no object property.
+	 *
+	 * Called from configure() in strict mode, AFTER set_vars() — the unknown keys
+	 * have already been dropped; this only reports them. Logging here (not when
+	 * they are dropped) keeps the entries from being reset by set_vars(), which
+	 * re-applies the property snapshot.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string, mixed> $unknown Map of unrecognized key => value.
+	 * @return void
+	 */
+	protected function log_unknown_config_args( array $unknown ): void {
+
+		// Bail if there is nothing to report.
+		if ( empty( $unknown ) ) {
+			return;
+		}
+
+		// Log each unrecognized key.
+		foreach ( array_keys( $unknown ) as $key ) {
+			$this->log(
+				'warning',
+				'config_unknown_arg',
+				'Unrecognized configuration argument; ignored.',
+				array( 'key' => $key )
+			);
+		}
 	}
 
 	/**

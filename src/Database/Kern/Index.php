@@ -101,18 +101,16 @@ class Index {
 	/** Argument validation ***************************************************/
 
 	/**
-	 * Normalize and sanitize all arguments passed to Index.
+	 * Sanitization callbacks for an Index's configuration arguments.
 	 *
-	 * @since 3.0.0
+	 * Applied by validate_args() (Traits\Configuration) during construction.
 	 *
-	 * @param array<string, mixed> $args Array of arguments.
+	 * @since 3.1.0
 	 *
-	 * @return array<string, mixed>
+	 * @return array<string, mixed> Map of config key => sanitization callback.
 	 */
-	protected function validate_args( $args = array() ) {
-
-		// Array of callbacks for specific keys.
-		$callbacks = array(
+	protected function get_config_callbacks(): array {
+		return array(
 			'name'    => array( $this, 'sanitize_index_name' ),
 			'type'    => 'strtolower',
 			'unique'  => 'wp_validate_boolean',
@@ -121,25 +119,6 @@ class Index {
 			'using'   => 'strtoupper',
 			'columns' => array( $this, 'sanitize_columns' ),
 		);
-
-		// Default values for all keys.
-		$r = array();
-
-		// Loop through each argument, sanitize if possible.
-		foreach ( $args as $key => $value ) {
-
-			// If a callback is set for this key, use it.
-			if ( isset( $callbacks[ $key ] ) && is_callable( $callbacks[ $key ] ) ) {
-				$r[ $key ] = call_user_func( $callbacks[ $key ], $value );
-
-				// Otherwise assign the value as-is.
-			} else {
-				$r[ $key ] = $value;
-			}
-		}
-
-		// Return validated arguments.
-		return $r;
 	}
 
 	/** Public Helpers ********************************************************/

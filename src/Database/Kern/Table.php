@@ -298,16 +298,16 @@ class Table {
 	/** Argument Handlers *****************************************************/
 
 	/**
-	 * Validate arguments after they are parsed.
+	 * Sanitization callbacks for a Table's configuration arguments.
 	 *
-	 * @since 3.0.0
-	 * @param array<string, mixed> $args Default empty array.
-	 * @return array<string, mixed>
+	 * Applied by validate_args() (Traits\Configuration) during construction.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return array<string, mixed> Map of config key => sanitization callback.
 	 */
-	protected function validate_args( $args = array() ) {
-
-		// Sanitization callbacks.
-		$callbacks = array(
+	protected function get_config_callbacks(): array {
+		return array(
 
 			// Name & Description.
 			'name'              => array( $this, 'sanitize_table_name' ),
@@ -338,30 +338,6 @@ class Table {
 			'upgrades'          => '',
 			'auto_install'      => 'wp_validate_boolean',
 		);
-
-		// Default return arguments.
-		$r = array();
-
-		// Loop through and try to execute callbacks.
-		foreach ( $args as $key => $value ) {
-
-			// Callback is callable.
-			if ( isset( $callbacks[ $key ] ) && is_callable( $callbacks[ $key ] ) ) {
-				$r[ $key ] = call_user_func( $callbacks[ $key ], $value );
-
-				/**
-				 * Key has no validation method.
-				 *
-				 * Trust that the value has been validated. This may change in a
-				 * future version.
-				 */
-			} else {
-				$r[ $key ] = $value;
-			}
-		}
-
-		// Return sanitized arguments.
-		return $r;
 	}
 
 	/** Argument Sanitization *************************************************/
