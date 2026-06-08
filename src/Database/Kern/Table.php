@@ -92,7 +92,7 @@ class Table {
 	 * tables, hooks, and cache groups are namespaced to your plugin.
 	 *
 	 * Declare it as a class property in your subclass — it is read during
-	 * construction before setup() runs, so it is always available when
+	 * construction before init() runs, so it is always available when
 	 * table names are assembled.
 	 *
 	 * apply_prefix() uses this value to produce the prefixed table name

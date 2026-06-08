@@ -126,7 +126,7 @@ class Schema {
 	 * Array of database Column objects.
 	 *
 	 * May be pre-populated in a subclass as an array of Column argument arrays
-	 * for legacy compatibility. setup() will hydrate them into Column objects.
+	 * for legacy compatibility. init() will hydrate them into Column objects.
 	 *
 	 * @since 1.0.0
 	 * @var   Column[]
@@ -137,7 +137,7 @@ class Schema {
 	 * Array of database Index objects.
 	 *
 	 * May be pre-populated in a subclass as an array of Index argument arrays
-	 * for legacy compatibility. setup() will hydrate them into Index objects.
+	 * for legacy compatibility. init() will hydrate them into Index objects.
 	 *
 	 * @since 3.0.0
 	 * @var   Index[]

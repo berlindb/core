@@ -1,6 +1,6 @@
 <?php
 /**
- * Tests for Query::sunrise() property-initialisation methods.
+ * Tests for Query::setup() property-initialisation methods.
  *
  * Covers the three private setters introduced in 3.1.0 that run before
  * set_prefixes() to guarantee $table_name and $cache_group are never empty:
@@ -17,7 +17,7 @@
  * are verified by reading the protected $table_name, $table_alias, and
  * $cache_group properties via ReflectionProperty after construction.
  *
- * Constructing a Query subclass without arguments triggers sunrise() but does
+ * Constructing a Query subclass without arguments triggers setup() but does
  * NOT execute a database query — parse_args() returns early on empty input —
  * so no live table is required for these tests.
  *
@@ -38,10 +38,10 @@ use PHPUnit\Framework\TestCase;
 // ---------------------------------------------------------------------------
 
 /**
- * All three key properties are set explicitly; sunrise() must not overwrite
+ * All three key properties are set explicitly; setup() must not overwrite
  * any of them.
  */
-class SunriseExplicitQuery extends Query {
+class SetupExplicitQuery extends Query {
 	protected $prefix       = 'myapp';
 	protected $table_name   = 'orders';
 	protected $table_alias  = 'o';
@@ -53,7 +53,7 @@ class SunriseExplicitQuery extends Query {
  * Only $item_name_plural is provided; $table_name and $cache_group are empty
  * and must be derived from the plural.
  */
-class SunrisePluralDerivedQuery extends Query {
+class SetupPluralDerivedQuery extends Query {
 	protected $prefix           = 'myapp';
 	protected $table_schema     = TestSchema::class;
 	protected $item_name_plural = 'customers';
@@ -64,7 +64,7 @@ class SunrisePluralDerivedQuery extends Query {
  * $item_name_plural contains hyphens.  $table_name must convert them to
  * underscores; $cache_group must keep hyphens.
  */
-class SunriseHyphenPluralQuery extends Query {
+class SetupHyphenPluralQuery extends Query {
 	protected $prefix           = 'myapp';
 	protected $table_schema     = TestSchema::class;
 	protected $item_name_plural = 'order-items';
@@ -74,7 +74,7 @@ class SunriseHyphenPluralQuery extends Query {
  * $item_name_plural contains underscores.  $cache_group must convert them to
  * hyphens; $table_name must keep underscores.
  */
-class SunriseUnderscorePluralQuery extends Query {
+class SetupUnderscorePluralQuery extends Query {
 	protected $prefix           = 'myapp';
 	protected $table_schema     = TestSchema::class;
 	protected $item_name_plural = 'order_items';
@@ -84,18 +84,18 @@ class SunriseUnderscorePluralQuery extends Query {
  * $item_name_plural is explicitly blank AND $table_name is blank, so both
  * must be derived from the class name.
  *
- * Expected derivation path (sunrise order):
- *   set_table_name():  'BerlinDB\Tests\SunriseClassNameQuery'
- *                      → short  = 'SunriseClassNameQuery'
- *                      → strip  = 'SunriseClassName'
- *                      → snake  = 'sunrise_class_name'
+ * Expected derivation path (setup order):
+ *   set_table_name():  'BerlinDB\Tests\SetupClassNameQuery'
+ *                      → short  = 'SetupClassNameQuery'
+ *                      → strip  = 'SetupClassName'
+ *                      → snake  = 'setup_class_name'
  *   set_cache_group(): item_name_plural empty → fallback to table_name
- *                      'sunrise_class_name' → 'sunrise-class-name'
+ *                      'setup_class_name' → 'setup-class-name'
  *   set_prefixes():    prefix 'cn' applied
- *                      table_name  = 'cn_sunrise_class_name'
- *                      cache_group = 'cn-sunrise-class-name'
+ *                      table_name  = 'cn_setup_class_name'
+ *                      cache_group = 'cn-setup-class-name'
  */
-class SunriseClassNameQuery extends Query {
+class SetupClassNameQuery extends Query {
 	protected $prefix           = 'cn';
 	protected $table_schema     = TestSchema::class;
 	protected $item_name_plural = ''; // Override the default 'items'.
@@ -105,7 +105,7 @@ class SunriseClassNameQuery extends Query {
  * No $prefix set — verifies that the derivation still works and that the
  * absence of a prefix does not corrupt the derived values.
  */
-class SunriseNoPrefixQuery extends Query {
+class SetupNoPrefixQuery extends Query {
 	protected $table_schema     = TestSchema::class;
 	protected $item_name_plural = 'events';
 }
@@ -113,7 +113,7 @@ class SunriseNoPrefixQuery extends Query {
 /**
  * Pair A for the anti-collision regression test.  Same prefix as B.
  */
-class SunriseCollisionAQuery extends Query {
+class SetupCollisionAQuery extends Query {
 	protected $prefix           = 'collision';
 	protected $table_schema     = TestSchema::class;
 	protected $item_name_plural = 'orders';
@@ -122,7 +122,7 @@ class SunriseCollisionAQuery extends Query {
 /**
  * Pair B for the anti-collision regression test.  Same prefix as A.
  */
-class SunriseCollisionBQuery extends Query {
+class SetupCollisionBQuery extends Query {
 	protected $prefix           = 'collision';
 	protected $table_schema     = TestSchema::class;
 	protected $item_name_plural = 'customers';
@@ -133,11 +133,11 @@ class SunriseCollisionBQuery extends Query {
 // ---------------------------------------------------------------------------
 
 /**
- * Tests for the sunrise() property-initialisation methods introduced in 3.1.0.
+ * Tests for the setup() property-initialisation methods introduced in 3.1.0.
  *
  * @since 3.1.0
  */
-class QuerySunriseTest extends TestCase {
+class QuerySetupTest extends TestCase {
 
 	// =========================================================================
 	// Helpers.
@@ -162,13 +162,13 @@ class QuerySunriseTest extends TestCase {
 	// =========================================================================
 
 	/**
-	 * An explicitly-set $table_name must survive sunrise() unchanged (modulo
+	 * An explicitly-set $table_name must survive setup() unchanged (modulo
 	 * the prefix that set_prefixes() applies afterwards).
 	 *
 	 * @since 3.1.0
 	 */
 	public function test_explicit_table_name_is_prefixed_not_overwritten(): void {
-		$query = new SunriseExplicitQuery();
+		$query = new SetupExplicitQuery();
 
 		// 'myapp' + '_' + 'orders' — set_table_name() must not replace it.
 		$this->assertSame( 'myapp_orders', $this->prop( $query, 'table_name' ) );
@@ -181,7 +181,7 @@ class QuerySunriseTest extends TestCase {
 	 * @since 3.1.0
 	 */
 	public function test_table_name_derived_from_item_name_plural(): void {
-		$query = new SunrisePluralDerivedQuery();
+		$query = new SetupPluralDerivedQuery();
 
 		// 'myapp' + '_' + 'customers'
 		$this->assertSame( 'myapp_customers', $this->prop( $query, 'table_name' ) );
@@ -194,7 +194,7 @@ class QuerySunriseTest extends TestCase {
 	 * @since 3.1.0
 	 */
 	public function test_table_name_converts_hyphens_to_underscores(): void {
-		$query = new SunriseHyphenPluralQuery();
+		$query = new SetupHyphenPluralQuery();
 
 		// item_name_plural = 'order-items' → table fragment = 'order_items'
 		$this->assertSame( 'myapp_order_items', $this->prop( $query, 'table_name' ) );
@@ -205,15 +205,15 @@ class QuerySunriseTest extends TestCase {
 	 * must derive a snake_case name from the short class name, stripping a
 	 * trailing "Query" suffix.
 	 *
-	 * SunriseClassNameQuery  →  SunriseClassName  →  sunrise_class_name
+	 * SetupClassNameQuery  →  SetupClassName  →  setup_class_name
 	 *
 	 * @since 3.1.0
 	 */
 	public function test_table_name_derived_from_class_name_strips_query_suffix(): void {
-		$query = new SunriseClassNameQuery();
+		$query = new SetupClassNameQuery();
 
-		// prefix 'cn' + '_' + 'sunrise_class_name'
-		$this->assertSame( 'cn_sunrise_class_name', $this->prop( $query, 'table_name' ) );
+		// prefix 'cn' + '_' + 'setup_class_name'
+		$this->assertSame( 'cn_setup_class_name', $this->prop( $query, 'table_name' ) );
 
 		// Confirm the raw "Query" suffix is absent from the derived fragment.
 		$this->assertStringNotContainsStringIgnoringCase(
@@ -228,13 +228,13 @@ class QuerySunriseTest extends TestCase {
 	// =========================================================================
 
 	/**
-	 * An explicitly-set $cache_group must survive sunrise() unchanged (modulo
+	 * An explicitly-set $cache_group must survive setup() unchanged (modulo
 	 * the prefix applied by set_prefixes()).
 	 *
 	 * @since 3.1.0
 	 */
 	public function test_explicit_cache_group_is_prefixed_not_overwritten(): void {
-		$query = new SunriseExplicitQuery();
+		$query = new SetupExplicitQuery();
 
 		// 'myapp' + '-' + 'orders'
 		$this->assertSame( 'myapp-orders', $this->prop( $query, 'cache_group' ) );
@@ -247,7 +247,7 @@ class QuerySunriseTest extends TestCase {
 	 * @since 3.1.0
 	 */
 	public function test_cache_group_derived_from_item_name_plural(): void {
-		$query = new SunrisePluralDerivedQuery();
+		$query = new SetupPluralDerivedQuery();
 
 		// 'myapp' + '-' + 'customers'
 		$this->assertSame( 'myapp-customers', $this->prop( $query, 'cache_group' ) );
@@ -261,7 +261,7 @@ class QuerySunriseTest extends TestCase {
 	 * @since 3.1.0
 	 */
 	public function test_cache_group_converts_underscores_to_hyphens(): void {
-		$query = new SunriseUnderscorePluralQuery();
+		$query = new SetupUnderscorePluralQuery();
 
 		// item_name_plural = 'order_items' → cache fragment = 'order-items'
 		$this->assertSame( 'myapp-order-items', $this->prop( $query, 'cache_group' ) );
@@ -274,7 +274,7 @@ class QuerySunriseTest extends TestCase {
 	 * @since 3.1.0
 	 */
 	public function test_cache_group_keeps_hyphens_from_item_name_plural(): void {
-		$query = new SunriseHyphenPluralQuery();
+		$query = new SetupHyphenPluralQuery();
 
 		// item_name_plural = 'order-items' → cache fragment = 'order-items' (unchanged)
 		$this->assertSame( 'myapp-order-items', $this->prop( $query, 'cache_group' ) );
@@ -284,16 +284,16 @@ class QuerySunriseTest extends TestCase {
 	 * When both $cache_group and $item_name_plural are empty, set_cache_group()
 	 * must fall back to the already-resolved $table_name (underscores→hyphens).
 	 *
-	 * This path is exercised by SunriseClassNameQuery which overrides
+	 * This path is exercised by SetupClassNameQuery which overrides
 	 * $item_name_plural to '' and leaves $table_name empty.
 	 *
 	 * @since 3.1.0
 	 */
 	public function test_cache_group_falls_back_to_table_name_when_plural_empty(): void {
-		$query = new SunriseClassNameQuery();
+		$query = new SetupClassNameQuery();
 
-		// table fragment = 'sunrise_class_name' → cache fragment = 'sunrise-class-name'
-		$this->assertSame( 'cn-sunrise-class-name', $this->prop( $query, 'cache_group' ) );
+		// table fragment = 'setup_class_name' → cache fragment = 'setup-class-name'
+		$this->assertSame( 'cn-setup-class-name', $this->prop( $query, 'cache_group' ) );
 	}
 
 	/**
@@ -307,11 +307,11 @@ class QuerySunriseTest extends TestCase {
 	 */
 	public function test_cache_group_is_never_bare_prefix_with_trailing_hyphen(): void {
 		$fixtures = array(
-			new SunrisePluralDerivedQuery(),
-			new SunriseHyphenPluralQuery(),
-			new SunriseUnderscorePluralQuery(),
-			new SunriseClassNameQuery(),
-			new SunriseNoPrefixQuery(),
+			new SetupPluralDerivedQuery(),
+			new SetupHyphenPluralQuery(),
+			new SetupUnderscorePluralQuery(),
+			new SetupClassNameQuery(),
+			new SetupNoPrefixQuery(),
 		);
 
 		foreach ( $fixtures as $query ) {
@@ -330,13 +330,13 @@ class QuerySunriseTest extends TestCase {
 	/**
 	 * Two subclasses that share the same $prefix but have different
 	 * $item_name_plural values must receive different $cache_group values after
-	 * sunrise() — the anti-collision guarantee.
+	 * setup() — the anti-collision guarantee.
 	 *
 	 * @since 3.1.0
 	 */
 	public function test_different_subclasses_same_prefix_get_unique_cache_groups(): void {
-		$a = new SunriseCollisionAQuery();
-		$b = new SunriseCollisionBQuery();
+		$a = new SetupCollisionAQuery();
+		$b = new SetupCollisionBQuery();
 
 		$group_a = $this->prop( $a, 'cache_group' );
 		$group_b = $this->prop( $b, 'cache_group' );
@@ -355,13 +355,13 @@ class QuerySunriseTest extends TestCase {
 	// =========================================================================
 
 	/**
-	 * An explicitly-set $table_alias must survive sunrise() unchanged (modulo
+	 * An explicitly-set $table_alias must survive setup() unchanged (modulo
 	 * the prefix applied by set_prefixes()).
 	 *
 	 * @since 3.1.0
 	 */
 	public function test_explicit_table_alias_is_prefixed_not_overwritten(): void {
-		$query = new SunriseExplicitQuery();
+		$query = new SetupExplicitQuery();
 
 		// prefix='myapp', explicit alias='o' → 'myapp_o'
 		$this->assertSame( 'myapp_o', $this->prop( $query, 'table_alias' ) );
@@ -375,7 +375,7 @@ class QuerySunriseTest extends TestCase {
 	 * @since 3.1.0
 	 */
 	public function test_table_alias_derived_from_resolved_table_name(): void {
-		$query = new SunrisePluralDerivedQuery();
+		$query = new SetupPluralDerivedQuery();
 
 		// table_name resolved to 'customers' → first_letters() = 'c' → prefixed 'myapp_c'.
 		$this->assertSame( 'myapp_c', $this->prop( $query, 'table_alias' ) );
@@ -392,7 +392,7 @@ class QuerySunriseTest extends TestCase {
 	 * @since 3.1.0
 	 */
 	public function test_derived_values_without_prefix(): void {
-		$query = new SunriseNoPrefixQuery();
+		$query = new SetupNoPrefixQuery();
 
 		$this->assertSame( 'events', $this->prop( $query, 'table_name' ) );
 		$this->assertSame( 'events', $this->prop( $query, 'cache_group' ) );

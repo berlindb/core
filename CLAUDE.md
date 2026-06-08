@@ -75,21 +75,25 @@ bin/run-tests.sh -p 8.2 -w 6.7 -- --group default
 ## Construction Lifecycle (the `Boot` contract)
 
 Every Kern class is constructed through `Boot`, single-arg:
-`__construct($args)` → `configure → sunrise → parse_args → init`.
+`__construct($args)` → `sunrise → configure → setup → parse_args → init → sunset`.
 Override these hooks — **do not invent per-class lifecycle methods** (the old
-bespoke `Schema::setup()`/`Table::setup()` are gone):
+bespoke *per-class* `Schema::setup()`/`Table::setup()` are gone; `setup()` is now
+a shared Boot hook, below):
 
+- **`sunrise()`** — runs first, before config is applied (the dawn bookend with
+  `sunset()`); empty by default, rare.
 - **`configure($args): array`** — the **universal** config channel: assigns
-  config args to properties (before `sunrise()`/`init()` derive from them) and
+  config args to properties (before `setup()`/`init()` derive from them) and
   returns whatever it did NOT consume. Default consumes everything; **define-once**
   (no-op once `is_booted()`). Makes a class config-constructable with no subclass
   (`new Query( $definition )`).
-- **`sunrise()`** — pre-args setup; rare, **Query only** — state that must be
-  ready before `parse_args()` runs (Query builds its parsers before it queries).
+- **`setup()`** — post-config setup; **Query** builds its schema and query-var
+  parsers here, before `parse_args()` runs.
 - **`parse_args($args): void`** — **Query only**: parse the leftover query vars
   and run. No-op default for everyone else.
 - **`init()`** — the normal home for post-config construction. Decompose work
   into named `set_*()` helpers, as `Query`/`Table` do.
+- **`sunset()`** — runs last, after `init()` (the dusk bookend with `sunrise()`).
 
 `Query` is the one class whose construct args may be config OR query vars; it
 discriminates by a **schema signature** (`configure()` → `looks_like_config()`),

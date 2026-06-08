@@ -203,7 +203,7 @@ class Query {
 	 *
 	 * Each entry must be the name of a class that extends Parsers\Base and
 	 * declares its own descriptor properties ($name, $query_var, etc.).
-	 * Subclasses can override this property before sunrise() runs to replace
+	 * Subclasses can override this property before setup() runs to replace
 	 * or extend the default set of parsers.
 	 *
 	 * @since 3.0.0
@@ -235,14 +235,17 @@ class Query {
 	/** Methods ***************************************************************/
 
 	/**
-	 * Setup class attributes that rely on other properties.
+	 * Set up class attributes that rely on the configured properties.
 	 *
-	 * This method is protected to allow subclasses to override setup without
-	 * exposing it as part of the public query API.
+	 * Overrides Boot::setup(): runs after configure() so it sees the query's
+	 * identity, and before parse_args() so the schema and parsers exist before a
+	 * query runs. Protected so subclasses can extend it without exposing it as
+	 * part of the public query API.
 	 *
 	 * @since 3.0.0
+	 * @since 3.1.0 Renamed from sunrise() to setup() (Boot lifecycle).
 	 */
-	protected function sunrise(): void {
+	protected function setup(): void {
 		$this->set_table_name();
 		$this->set_table_alias();
 		$this->set_cache_group();
@@ -556,7 +559,7 @@ class Query {
 	 * Populate $query_var_parsers with the default set of Parser class names.
 	 *
 	 * Only runs when $query_var_parsers is empty, so a subclass can replace
-	 * the entire list by declaring the property before sunrise() is called.
+	 * the entire list by declaring the property before setup() is called.
 	 *
 	 * @since 3.0.0
 	 */
@@ -1168,7 +1171,7 @@ class Query {
 	 *
 	 * Returns null when the relationship names no class, the class does not
 	 * exist, or it is not a sibling Query — so callers fail closed on a
-	 * misdeclared or missing remote. Instantiation is sunrise-only (no query).
+	 * misdeclared or missing remote. Instantiation is setup-only (no query).
 	 *
 	 * @since 3.1.0
 	 *
@@ -1602,7 +1605,7 @@ class Query {
 	/**
 	 * Return the table alias for use in SQL statements.
 	 *
-	 * The alias is set during sunrise() and carries only the plugin prefix
+	 * The alias is set during setup() and carries only the plugin prefix
 	 * ($this->prefix). It is never looked up via $wpdb — aliases are
 	 * SQL-local and do not require the WordPress table prefix.
 	 *

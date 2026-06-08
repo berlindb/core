@@ -27,7 +27,7 @@ defined( 'ABSPATH' ) || exit;
  * overridden by subclasses. They are not external hooks; they are internal
  * extension points called by run() at the boundaries of each run:
  *
- *   Boot:  __construct > run() > start > sunrise/parse_args/set_vars/init > finish
+ *   Boot:  __construct > run() > start > sunrise/configure/setup/parse_args/init/sunset > finish
  *   Query: query()     > run() > start > parse_query/get_items             > finish
  *
  * run() guarantees finish() fires even if the action throws, via try/finally.

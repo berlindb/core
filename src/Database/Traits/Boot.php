@@ -24,25 +24,28 @@ defined( 'ABSPATH' ) || exit;
  *   - Lifecycle — supplies run()/start()/finish()/$current; boot() wraps the
  *     construction sequence in run() so finish() fires even on exception.
  *   - Configuration — supplies configure() (args → properties), which boot()
- *     calls first so sunrise()/init() see the configured identity.
+ *     calls after sunrise() so setup()/init() see the configured identity.
  *
  * The full lifecycle is:
  *
- *   __construct → boot → run() → start → configure → sunrise → parse_args → init → finish
+ *   __construct → boot → run() → start → sunrise → configure → setup → parse_args → init → sunset → finish
  *
  * Construction is define-once: boot() is a no-op once is_booted(); the
  * definition itself is sealed separately by Configuration's is_configured().
  *
  * Hook contract — a class overrides these as needed, and should NOT invent its
  * own per-class lifecycle methods:
+ *   - sunrise(): runs first, before configuration is applied (the dawn bookend
+ *     with sunset()). Rare — for any setup that must precede config.
  *   - configure() / is_configuration(): see Traits\Configuration.
- *   - sunrise(): pre-args setup. Rare — only when state must be ready before
- *     parse_args() runs (e.g. Query prepares its parsers before it queries).
+ *   - setup(): post-config setup — derive state from the just-applied config
+ *     before parse_args() runs (e.g. Query builds its schema and parsers here).
  *   - parse_args(): handle args not consumed as configuration (Query: query
  *     vars + run). No-op default.
- *   - init(): the normal home for post-args construction. Runs after configure()
+ *   - init(): the normal home for post-args construction. Runs after setup()
  *     and parse_args(), so it sees subclass-declared, $args, and $config values
  *     alike.
+ *   - sunset(): runs last, after init() (the dusk bookend with sunrise()).
  *
  * @since 3.0.0
  */
@@ -99,21 +102,27 @@ trait Boot {
 		$this->run(
 			function () use ( $args ) {
 
+				// Wake up (before any configuration is applied).
+				$this->sunrise();
+
 				/*
 				 * Accept configuration: turn config args into properties before
-				 * any lifecycle step (sunrise/init) derives state from them.
-				 * Returns any args that were NOT configuration (Query's query vars).
+				 * setup()/init() derive state from them. Returns any args that
+				 * were NOT configuration (Query's query vars).
 				 */
 				$remaining = $this->configure( $args );
 
-				// Wake up.
-				$this->sunrise();
+				// Set up state derived from the applied configuration.
+				$this->setup();
 
 				// Parse any remaining args (Query-only: query vars + run).
 				$this->parse_args( $remaining );
 
 				// Initialize.
 				$this->init();
+
+				// All done.
+				$this->sunset();
 			}
 		);
 
@@ -122,11 +131,25 @@ trait Boot {
 	}
 
 	/**
-	 * Called early, before arguments are parsed.
+	 * Wake up: the first lifecycle step, before configuration is applied.
+	 *
+	 * Empty by default — override only for setup that must precede config. The
+	 * dawn bookend, paired with sunset().
 	 *
 	 * @since 3.0.0
 	 */
 	protected function sunrise(): void {}
+
+	/**
+	 * Set up state derived from the applied configuration.
+	 *
+	 * Runs after configure() and before parse_args(), so it sees the configured
+	 * identity. Query overrides this to build its schema and query-var parsers
+	 * before any query runs.
+	 *
+	 * @since 3.1.0
+	 */
+	protected function setup(): void {}
 
 	/**
 	 * Parse any arguments not consumed as configuration.
@@ -146,6 +169,15 @@ trait Boot {
 	 * @since 3.0.0
 	 */
 	protected function init(): void {}
+
+	/**
+	 * Wind down: the last lifecycle step, after init().
+	 *
+	 * Empty by default. The dusk bookend, paired with sunrise().
+	 *
+	 * @since 3.1.0
+	 */
+	protected function sunset(): void {}
 
 	/**
 	 * Whether construction has completed.
