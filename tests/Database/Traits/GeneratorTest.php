@@ -61,6 +61,19 @@ class GeneratorTestSubject {
 }
 
 /**
+ * Generator subject that overrides the random_int() seam with a fixed value, to
+ * prove generate_uuid() draws its randomness through that override point.
+ *
+ * @since 3.1.0
+ */
+class GeneratorSeamTestSubject extends GeneratorTestSubject {
+
+	protected function random_int( int $min, int $max ): int {
+		return 0;
+	}
+}
+
+/**
  * Tests for the Generator trait.
  *
  * @since 3.1.0
@@ -117,6 +130,21 @@ class GeneratorTest extends TestCase {
 		$subject = $this->make_subject();
 		$values  = array_map( fn() => $subject->uuid(), range( 1, 5 ) );
 		$this->assertSame( count( $values ), count( array_unique( $values ) ) );
+	}
+
+	/**
+	 * generate_uuid() draws its randomness from the overridable random_int()
+	 * seam: a subclass that fixes it yields a deterministic (still well-formed)
+	 * v4 UUID — the override point that replaces wp_rand()'s pluggability.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_generate_uuid_routes_through_random_int_seam(): void {
+		$uuid = ( new GeneratorSeamTestSubject() )->uuid();
+
+		// The version (4) and variant (8) masks still apply over the fixed zeros.
+		$this->assertSame( 'urn:uuid:00000000-0000-4000-8000-000000000000', $uuid );
+		$this->assertMatchesRegularExpression( self::UUID_PATTERN, $uuid );
 	}
 
 	// -------------------------------------------------------------------------
