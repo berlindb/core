@@ -2,6 +2,57 @@
 
 Notable changes to BerlinDB are documented here.
 
+## 3.1.0 - Unreleased
+
+- Adds first-class `Relationship` objects (`belongs_to`/`has_many`), wired through
+  `Column` and `Schema`, with a Query-level relationship API (#193).
+- Adds relationship-filtered queries — `'in'` (subquery) and `'join'`
+  (EXISTS / NOT EXISTS) strategies in both directions, recursive nested AND/OR
+  subgroups, and an opt-in LEFT OUTER JOIN for `belongs_to`.
+- Adds relationship cache priming via `with` for `belongs_to` and `has_many`, and
+  opt-in enforced FOREIGN KEY DDL; fails closed on malformed or unresolvable specs.
+- Adds opt-in typed `CAST` in comparisons (e.g. `AS SIGNED` / `DATETIME`),
+  sanitized at the boundary and fail-closed on invalid casts.
+- Adds a per-column save-time `intercept()` hook and a `Generator` trait; UUID
+  generation moves into `intercept()` (#194).
+- Improves cache-key coherence: per-group `last_changed` salting, id-pointer
+  lookups routed through the salt, and stale `cache_key` slots invalidated on
+  update (#203).
+- Adds `$engine`, `$row_format`, and `$auto_increment` table properties with
+  `engine()`, `auto_increment()`, and `get_create_sql()`; prevents
+  auto-reinstallation after `uninstall()` via a tombstone and an `$auto_install`
+  flag.
+- Makes every Kern class config-constructable from an array — no subclass required
+  (`new Query( $definition )`) — through a normalized `Boot` lifecycle
+  (`sunrise → configure → setup → parse_args → init → sunset`) split across the
+  `Boot`, `Lifecycle`, and `Configuration` traits.
+- `Query` accepts a definition or query vars via one constructor argument
+  (discriminated by a schema signature); structural query vars are canonicalized
+  before the cache key.
+- Adds opt-out strict configuration: construction keys matching no object property
+  are dropped and logged.
+- Isolates query-var parsers from each other's clauses and fails closed on
+  unresolvable or misdeclared columns; consolidates shared parser helpers onto the
+  base.
+- Reduces WordPress coupling: reimplements `wp_validate_boolean()`, `absint()`, and
+  (filter-free) `sanitize_key()` in the `Sanitizer` trait, and uses native PHP
+  CSPRNG for UUIDs and random integers instead of `wp_rand()`.
+- Removes the internal `Parser::caller()` indirection in favor of direct,
+  type-checked calls.
+
+### Upgrade Notes
+
+- The `Query::sunrise()` construction hook (3.0.0) is renamed to `Query::setup()`;
+  `sunrise()` still exists but now runs *before* configuration. Rename any override
+  that derived state from the query's configuration.
+- Configuration is strict by default — keys matching no object property are dropped
+  and logged. Override `is_strict_config()` to opt out (as `Row` does for its
+  dynamic columns).
+- Several `Parser`/`Column`/`Query` methods introduced in 3.0.0 are now `protected`
+  rather than public.
+- Parsers now fail closed (return no rows) on unresolvable or misdeclared columns,
+  and no longer bleed clauses across parser types.
+
 ## 3.0.0 - 2026-06-01
 
 - Modernizes the project structure around adapters, interfaces, kern objects,
