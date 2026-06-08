@@ -48,6 +48,8 @@ Read only the reference needed for the task:
   BerlinDB 3.x.
 - `references/verification.md`: local checks, CI expectations, package/archive
   checks, and pre-release workflow.
+- `references/extending.md`: construction lifecycle hooks (which to override and
+  which to leave alone), config args + strict mode, and the custom-parser API.
 
 ## Canonical Object Model
 
@@ -70,20 +72,41 @@ concern, and follow the same split when naming your own helpers.
 
 ## Relationships (3.1.0, #193)
 
-Declare a relationship on the column that holds the key, via a `relationships`
-array in the Schema. Each entry needs `query` (FQCN of the remote `Query`
-class), `column` (the key on the remote side), and `type`
-(`belongs_to` | `has_many`); `name` (the accessor) is optional and derived from
-the local column otherwise.
+Declare a relationship in a column's `relationships` array in the Schema. Each
+entry needs `query` (FQCN of the remote `Query` class), `column` (the column on
+the *remote* side), and `type` (`belongs_to` | `has_many`); `name` (the accessor)
+is optional, derived from the local column otherwise.
+
+Which side declares it, and what `column` means, differs by `type`:
+
+- **`belongs_to`** — declare on the local column that *holds the foreign key*
+  (the owning / "many" side). `column` is the remote key it points at (usually
+  `'id'`).
 
 ```php
-// On the column holding the foreign key (e.g. 'order_id'):
+// On 'order_id' — this row points at one Order.
 'relationships' => array(
     array(
         'query'  => \EDD\Database\Queries\Order::class,
-        'column' => 'id',          // remote key referenced
+        'column' => 'id',           // remote key referenced
         'type'   => 'belongs_to',
-        'name'   => 'order',       // optional accessor
+        'name'   => 'order',        // optional accessor
+    ),
+),
+```
+
+- **`has_many`** — declare on the local key the children *reference back* (the
+  "one" / parent side, usually `'id'`). `column` is the remote foreign-key column
+  pointing here.
+
+```php
+// On 'id' — many Order_Items point back at this Order.
+'relationships' => array(
+    array(
+        'query'  => \EDD\Database\Queries\Order_Item::class,
+        'column' => 'order_id',     // remote FK pointing here
+        'type'   => 'has_many',
+        'name'   => 'items',        // optional accessor
     ),
 ),
 ```
