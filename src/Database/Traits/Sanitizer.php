@@ -292,4 +292,89 @@ trait Sanitizer {
 			? $reference
 			: "CAST({$reference} AS {$cast})";
 	}
+
+	/** Value Sanitizers ******************************************************/
+
+	/**
+	 * Coerce a value to a boolean.
+	 *
+	 * Mirrors WordPress's wp_validate_boolean(): the string 'false' (truthy to
+	 * PHP) is treated as false.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param mixed $value Value to coerce.
+	 * @return bool
+	 */
+	protected function sanitize_boolean( $value = false ): bool {
+
+		// Already boolean.
+		if ( is_bool( $value ) ) {
+			return $value;
+		}
+
+		// The string 'false' means false here, despite being truthy to PHP.
+		if ( is_string( $value ) && ( 'false' === strtolower( $value ) ) ) {
+			return false;
+		}
+
+		return (bool) $value;
+	}
+
+	/**
+	 * Coerce a value to a non-negative integer.
+	 *
+	 * Mirrors WordPress's absint().
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param mixed $value Value to coerce.
+	 * @return int
+	 */
+	protected function sanitize_absint( $value = 0 ): int {
+		return abs( (int) $value );
+	}
+
+	/**
+	 * Sanitize a key: lowercased, limited to a-z, 0-9, underscore and hyphen.
+	 *
+	 * Mirrors WordPress's sanitize_key() but WITHOUT its 'sanitize_key' filter,
+	 * so BerlinDB's internal identity keys are stable and dependency-free (a
+	 * global filter should not reshape them).
+	 *
+	 * Note that this method is not a general-purpose sanitizer: it is
+	 * designed specifically for sanitizing internal identity keys, so it is
+	 * not a problem if it returns an empty string for a bad input.
+	 *
+	 * The caller should not use this method for sanitizing anything that
+	 * will be exposed to users or embedded in SQL; it is only for internal
+	 * keys.
+	 *
+	 * For user-facing or SQL-embedded values, use a more appropriate
+	 * sanitizer that rejects or escapes bad input rather than stripping it,
+	 * and that does not return an empty string for bad input (because an
+	 * empty string is a valid key, albeit a degenerate one, and should not
+	 * be used as an error signal for user-facing or SQL-embedded values).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param mixed $key Key to sanitize.
+	 * @return string
+	 */
+	protected function sanitize_key( $key = '' ): string {
+
+		// Bail to empty if not a scalar.
+		if ( ! is_scalar( $key ) ) {
+			return '';
+		}
+
+		// Lowercase, then strip anything outside the safe key character set.
+		$key = strtolower( (string) $key );
+
+		/*
+		 * Return the sanitized key, which may be empty if the input was all
+		 * bad chars.
+		 */
+		return (string) preg_replace( '/[^a-z0-9_\-]/', '', $key );
+	}
 }

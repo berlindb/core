@@ -228,7 +228,7 @@ class Relationship {
 			'references' => array( $this, 'sanitize_columns' ),
 			'on_delete'  => array( $this, 'sanitize_referential_action' ),
 			'on_update'  => array( $this, 'sanitize_referential_action' ),
-			'enforce'    => 'wp_validate_boolean',
+			'enforce'    => array( $this, 'sanitize_boolean' ),
 		);
 	}
 

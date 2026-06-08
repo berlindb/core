@@ -123,6 +123,42 @@ class BaseSanitizationTestHelper {
 	public function get_cast_reference( $reference, $cast = '' ) {
 		return $this->cast_reference( $reference, $cast );
 	}
+
+	/**
+	 * Public access to protected sanitize_boolean method.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param mixed $value
+	 * @return bool
+	 */
+	public function get_sanitized_boolean( $value ) {
+		return $this->sanitize_boolean( $value );
+	}
+
+	/**
+	 * Public access to protected sanitize_absint method.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param mixed $value
+	 * @return int
+	 */
+	public function get_sanitized_absint( $value ) {
+		return $this->sanitize_absint( $value );
+	}
+
+	/**
+	 * Public access to protected sanitize_key method.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param mixed $key
+	 * @return string
+	 */
+	public function get_sanitized_key( $key ) {
+		return $this->sanitize_key( $key );
+	}
 }
 
 /**
@@ -688,5 +724,65 @@ class BaseSanitizationTest extends \PHPUnit\Framework\TestCase {
 		$this->assertSame( 'CAST(`a`.`col` AS CHAR)', $this->helper->get_cast_reference( $ref, 'CHAR' ) );
 		$this->assertSame( 'CAST(`a`.`col` AS SIGNED)', $this->helper->get_cast_reference( $ref, 'SIGNED' ) );
 		$this->assertSame( 'CAST(`a`.`col` AS DATETIME)', $this->helper->get_cast_reference( $ref, 'DATETIME' ) );
+	}
+
+	/**
+	 * sanitize_boolean() mirrors wp_validate_boolean(), incl. the 'false' string.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_sanitize_boolean() {
+
+		// Real booleans pass through.
+		$this->assertTrue( $this->helper->get_sanitized_boolean( true ) );
+		$this->assertFalse( $this->helper->get_sanitized_boolean( false ) );
+
+		// The string 'false' (any case) is false, despite being truthy to PHP.
+		$this->assertFalse( $this->helper->get_sanitized_boolean( 'false' ) );
+		$this->assertFalse( $this->helper->get_sanitized_boolean( 'FALSE' ) );
+		$this->assertTrue( $this->helper->get_sanitized_boolean( 'true' ) );
+
+		// Everything else is a normal (bool) cast.
+		$this->assertTrue( $this->helper->get_sanitized_boolean( 1 ) );
+		$this->assertTrue( $this->helper->get_sanitized_boolean( 'yes' ) );
+		$this->assertFalse( $this->helper->get_sanitized_boolean( 0 ) );
+		$this->assertFalse( $this->helper->get_sanitized_boolean( '0' ) );
+		$this->assertFalse( $this->helper->get_sanitized_boolean( '' ) );
+		$this->assertFalse( $this->helper->get_sanitized_boolean( array() ) );
+		$this->assertFalse( $this->helper->get_sanitized_boolean( null ) );
+	}
+
+	/**
+	 * sanitize_absint() mirrors absint(): a non-negative integer.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_sanitize_absint() {
+		$this->assertSame( 5, $this->helper->get_sanitized_absint( 5 ) );
+		$this->assertSame( 5, $this->helper->get_sanitized_absint( -5 ) );
+		$this->assertSame( 5, $this->helper->get_sanitized_absint( '5' ) );
+		$this->assertSame( 5, $this->helper->get_sanitized_absint( '-5' ) );
+		$this->assertSame( 5, $this->helper->get_sanitized_absint( 5.9 ) );
+		$this->assertSame( 12, $this->helper->get_sanitized_absint( '12abc' ) );
+		$this->assertSame( 0, $this->helper->get_sanitized_absint( 'abc' ) );
+		$this->assertSame( 0, $this->helper->get_sanitized_absint( '' ) );
+		$this->assertSame( 0, $this->helper->get_sanitized_absint( null ) );
+	}
+
+	/**
+	 * sanitize_key() mirrors sanitize_key() (minus the filter): lowercased and
+	 * limited to a-z, 0-9, underscore and hyphen.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_sanitize_key() {
+		$this->assertSame( 'foo_bar-1', $this->helper->get_sanitized_key( 'Foo_Bar-1' ) );
+		$this->assertSame( 'upper', $this->helper->get_sanitized_key( 'UPPER' ) );
+		$this->assertSame( 'hasspace', $this->helper->get_sanitized_key( 'Has Space!' ) );
+		$this->assertSame( 'abc', $this->helper->get_sanitized_key( 'a.b/c' ) );
+		$this->assertSame( '123', $this->helper->get_sanitized_key( 123 ) );
+
+		// Non-scalars sanitize to an empty string.
+		$this->assertSame( '', $this->helper->get_sanitized_key( array( 'x' ) ) );
 	}
 }

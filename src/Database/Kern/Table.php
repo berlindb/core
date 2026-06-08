@@ -323,11 +323,11 @@ class Table {
 			'charset_collation' => 'wp_kses_data',
 			'engine'            => array( $this, 'sanitize_engine' ),
 			'row_format'        => array( $this, 'sanitize_row_format' ),
-			'auto_increment'    => 'absint',
+			'auto_increment'    => array( $this, 'sanitize_absint' ),
 			'comment'           => array( $this, 'sanitize_table_comment' ),
 
 			// Multisite.
-			'global'            => 'wp_validate_boolean',
+			'global'            => array( $this, 'sanitize_boolean' ),
 
 			// Version.
 			'version'           => 'wp_kses_data',
@@ -336,7 +336,7 @@ class Table {
 
 			// Upgrades.
 			'upgrades'          => '',
-			'auto_install'      => 'wp_validate_boolean',
+			'auto_install'      => array( $this, 'sanitize_boolean' ),
 		);
 	}
 
@@ -1365,7 +1365,7 @@ class Table {
 		$this->db_version_key = implode(
 			'_',
 			array(
-				sanitize_key( $this->db_global ),
+				$this->sanitize_key( $this->db_global ),
 				$this->prefixed_name,
 				'version',
 			)

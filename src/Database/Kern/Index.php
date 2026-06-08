@@ -113,7 +113,7 @@ class Index {
 		return array(
 			'name'    => array( $this, 'sanitize_index_name' ),
 			'type'    => 'strtolower',
-			'unique'  => 'wp_validate_boolean',
+			'unique'  => array( $this, 'sanitize_boolean' ),
 			'method'  => 'strtoupper',
 			'comment' => array( $this, 'sanitize_comment' ),
 			'using'   => 'strtoupper',

@@ -643,10 +643,10 @@ class Column {
 			'name'          => array( $this, 'sanitize_column_name' ),
 			'type'          => 'strtoupper',
 			'length'        => 'intval',
-			'unsigned'      => 'wp_validate_boolean',
-			'zerofill'      => 'wp_validate_boolean',
-			'binary'        => 'wp_validate_boolean',
-			'allow_null'    => 'wp_validate_boolean',
+			'unsigned'      => array( $this, 'sanitize_boolean' ),
+			'zerofill'      => array( $this, 'sanitize_boolean' ),
+			'binary'        => array( $this, 'sanitize_boolean' ),
+			'allow_null'    => array( $this, 'sanitize_boolean' ),
 			'default'       => array( $this, 'sanitize_default' ),
 			'extra'         => array( $this, 'sanitize_extra' ),
 			'encoding'      => 'wp_kses_data',
@@ -654,19 +654,19 @@ class Column {
 			'comment'       => array( $this, 'sanitize_comment' ),
 
 			// Special.
-			'primary'       => 'wp_validate_boolean',
-			'created'       => 'wp_validate_boolean',
-			'modified'      => 'wp_validate_boolean',
-			'uuid'          => 'wp_validate_boolean',
+			'primary'       => array( $this, 'sanitize_boolean' ),
+			'created'       => array( $this, 'sanitize_boolean' ),
+			'modified'      => array( $this, 'sanitize_boolean' ),
+			'uuid'          => array( $this, 'sanitize_boolean' ),
 
 			// Query.
-			'searchable'    => 'wp_validate_boolean',
-			'sortable'      => 'wp_validate_boolean',
-			'date_query'    => 'wp_validate_boolean',
-			'transition'    => 'wp_validate_boolean',
-			'in'            => 'wp_validate_boolean',
-			'not_in'        => 'wp_validate_boolean',
-			'cache_key'     => 'wp_validate_boolean',
+			'searchable'    => array( $this, 'sanitize_boolean' ),
+			'sortable'      => array( $this, 'sanitize_boolean' ),
+			'date_query'    => array( $this, 'sanitize_boolean' ),
+			'transition'    => array( $this, 'sanitize_boolean' ),
+			'in'            => array( $this, 'sanitize_boolean' ),
+			'not_in'        => array( $this, 'sanitize_boolean' ),
+			'cache_key'     => array( $this, 'sanitize_boolean' ),
 
 			// Extras.
 			'pattern'       => array( $this, 'sanitize_pattern' ),
@@ -1129,7 +1129,7 @@ class Column {
 			 * the authority that validates their values.
 			 */
 			if ( isset( $relationship['enforce'] ) ) {
-				$entry['enforce'] = wp_validate_boolean( $relationship['enforce'] );
+				$entry['enforce'] = $this->sanitize_boolean( $relationship['enforce'] );
 			}
 
 			/*

@@ -326,11 +326,11 @@ class Query {
 			'table_name'       => array( $this, 'sanitize_table_name' ),
 			'table_alias'      => array( $this, 'sanitize_table_alias' ),
 			'table_schema'     => '',                                      // Schema instance/class; set_schema() validates
-			'item_name'        => 'sanitize_key',
-			'item_name_plural' => 'sanitize_key',
+			'item_name'        => array( $this, 'sanitize_key' ),
+			'item_name_plural' => array( $this, 'sanitize_key' ),
 			'item_shape'       => array( $this, 'sanitize_class_name' ),
-			'cache_group'      => 'sanitize_key',
-			'prefix'           => 'sanitize_key',
+			'cache_group'      => array( $this, 'sanitize_key' ),
+			'prefix'           => array( $this, 'sanitize_key' ),
 		);
 	}
 
@@ -2065,12 +2065,12 @@ class Query {
 		$callbacks = array(
 			'number'            => 'intval',
 			'order'             => array( $this, 'parse_order' ),
-			'explain'           => 'wp_validate_boolean',
-			'count'             => 'wp_validate_boolean',
-			'no_found_rows'     => 'wp_validate_boolean',
-			'cache_results'     => 'wp_validate_boolean',
-			'update_item_cache' => 'wp_validate_boolean',
-			'update_meta_cache' => 'wp_validate_boolean',
+			'explain'           => array( $this, 'sanitize_boolean' ),
+			'count'             => array( $this, 'sanitize_boolean' ),
+			'no_found_rows'     => array( $this, 'sanitize_boolean' ),
+			'cache_results'     => array( $this, 'sanitize_boolean' ),
+			'update_item_cache' => array( $this, 'sanitize_boolean' ),
+			'update_meta_cache' => array( $this, 'sanitize_boolean' ),
 		);
 
 		// Coerce each present structural var to its canonical type.
@@ -2782,8 +2782,8 @@ class Query {
 		$retval = '';
 
 		// No negative numbers.
-		$limit  = absint( $number );
-		$offset = absint( $offset );
+		$limit  = $this->sanitize_absint( $number );
+		$offset = $this->sanitize_absint( $offset );
 
 		// Only limit & offset if not limit empty.
 		if ( ! empty( $limit ) ) {
