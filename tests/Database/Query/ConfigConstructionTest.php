@@ -25,6 +25,59 @@ use BerlinDB\Database\Kern\Table;
 use Yoast\WPTestUtils\WPIntegration\TestCase;
 
 /**
+ * Named Schema subclass so a Query subclass can reference it by class-string —
+ * the "necessary class properties ARE pre-defined" fixture.
+ *
+ * @since 3.1.0
+ */
+class ConfigSubclassSchema extends Schema {
+
+	/** @var array<int, array<string, mixed>> */
+	public $columns = array(
+		array(
+			'name'      => 'id',
+			'type'      => 'bigint',
+			'length'    => '20',
+			'unsigned'  => true,
+			'extra'     => 'auto_increment',
+			'cache_key' => true,
+			'sortable'  => true,
+		),
+		array(
+			'name'    => 'title',
+			'type'    => 'varchar',
+			'length'  => '191',
+			'default' => '',
+		),
+	);
+}
+
+/**
+ * Query subclass whose whole definition is pre-defined as class properties (the
+ * EDD/SC pattern): it is constructed with query vars, never a config array.
+ *
+ * @since 3.1.0
+ */
+class ConfigDefinedQuery extends Query {
+	protected $prefix           = 'berlindb';
+	protected $table_name       = 'spike_test';
+	protected $table_alias      = 'sp';
+	protected $table_schema     = ConfigSubclassSchema::class;
+	protected $item_name        = 'spike';
+	protected $item_name_plural = 'spikes';
+	protected $item_shape       = Row::class;
+	protected $cache_group      = 'berlindb-spike';
+}
+
+/**
+ * Bare Query subclass with NO definition properties — the "necessary class
+ * properties are NOT pre-defined" fixture; its identity must come from args.
+ *
+ * @since 3.1.0
+ */
+class ConfigBareQuery extends Query {}
+
+/**
  * Config-only construction of a full table-set.
  *
  * @since 3.1.0
@@ -195,5 +248,82 @@ class ConfigConstructionTest extends TestCase {
 		$this->assertSame( 5, $query->query_vars['number'] );
 		$this->assertSame( 'ASC', $query->query_vars['order'] );
 		$this->assertSame( false, $query->query_vars['no_found_rows'] );
+	}
+
+	/**
+	 * Subclass case — necessary class properties ARE pre-defined: with no config
+	 * array, the definition comes entirely from the class. is_configured() is true
+	 * (settled from properties), and the class's schema/table round-trip.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_subclass_with_predefined_properties_is_configured_from_class() {
+		wp_set_current_user( 1 );
+
+		$query = new ConfigDefinedQuery();
+
+		$this->assertTrue( $query->is_booted() );
+		$this->assertTrue( $query->is_configured() );
+
+		$id   = (int) $query->add_item( array( 'title' => 'Subclass' ) );
+		$item = $query->get_item( $id );
+
+		$this->assertGreaterThan( 0, $id );
+		$this->assertSame( 'Subclass', $item->title );
+	}
+
+	/**
+	 * Subclass case — necessary class properties are NOT pre-defined: a bare
+	 * subclass must receive its identity from the construct args. is_configured()
+	 * is true (settled from args), and the supplied schema/table round-trip.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_bare_subclass_is_configured_from_definition_args() {
+		wp_set_current_user( 1 );
+
+		$query = new ConfigBareQuery(
+			array(
+				'prefix'           => 'berlindb',
+				'table_name'       => 'spike_test',
+				'table_alias'      => 'sp',
+				'table_schema'     => new Schema( self::schema_config() ),
+				'item_name'        => 'spike',
+				'item_name_plural' => 'spikes',
+				'item_shape'       => Row::class,
+				'cache_group'      => 'berlindb-spike',
+			)
+		);
+
+		$this->assertTrue( $query->is_configured() );
+
+		$id   = (int) $query->add_item( array( 'title' => 'Bare' ) );
+		$item = $query->get_item( $id );
+
+		$this->assertGreaterThan( 0, $id );
+		$this->assertSame( 'Bare', $item->title );
+	}
+
+	/**
+	 * Subclass case — a non-Schema 'table_schema' value on a subclass that ALREADY
+	 * declares its own schema is a query var, NOT a (broken) re-definition. The
+	 * class's schema is preserved, so the round-trip still works.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_subclass_schema_arg_that_is_not_a_schema_is_a_query_var() {
+		wp_set_current_user( 1 );
+
+		$query = new ConfigDefinedQuery(
+			array(
+				'table_schema' => 'definitely-not-a-schema-class',
+			)
+		);
+
+		$id   = (int) $query->add_item( array( 'title' => 'Collision' ) );
+		$item = $query->get_item( $id );
+
+		$this->assertGreaterThan( 0, $id );
+		$this->assertSame( 'Collision', $item->title );
 	}
 }
