@@ -159,6 +159,19 @@ class BaseSanitizationTestHelper {
 	public function get_sanitized_key( $key ) {
 		return $this->sanitize_key( $key );
 	}
+
+	/**
+	 * Public access to protected parse_args method.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string, mixed>|object|string $args
+	 * @param array<string, mixed>               $defaults
+	 * @return array<string, mixed>
+	 */
+	public function get_parsed_args( $args = array(), $defaults = array() ) {
+		return $this->parse_args( $args, $defaults );
+	}
 }
 
 /**
@@ -784,5 +797,41 @@ class BaseSanitizationTest extends \PHPUnit\Framework\TestCase {
 
 		// Non-scalars sanitize to an empty string.
 		$this->assertSame( '', $this->helper->get_sanitized_key( array( 'x' ) ) );
+	}
+
+	/**
+	 * parse_args() mirrors wp_parse_args(): merges an array/object/query-string
+	 * over defaults (filter-free).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_parse_args() {
+
+		// Array over defaults — passed values win, defaults fill the rest.
+		$this->assertSame(
+			array( 'a' => 1, 'b' => 2 ),
+			$this->helper->get_parsed_args( array( 'a' => 1 ), array( 'a' => 0, 'b' => 2 ) )
+		);
+
+		// Array with no defaults passes through.
+		$this->assertSame( array( 'x' => 1 ), $this->helper->get_parsed_args( array( 'x' => 1 ) ) );
+
+		// Empty args with defaults yields the defaults.
+		$this->assertSame( array( 'd' => 4 ), $this->helper->get_parsed_args( array(), array( 'd' => 4 ) ) );
+
+		// Object input is read via get_object_vars().
+		$this->assertSame( array( 'k' => 'v' ), $this->helper->get_parsed_args( (object) array( 'k' => 'v' ) ) );
+
+		// Query-string input is parsed with parse_str().
+		$this->assertSame(
+			array( 'a' => '1', 'b' => '2' ),
+			$this->helper->get_parsed_args( 'a=1&b=2' )
+		);
+
+		// Query-string over defaults.
+		$this->assertSame(
+			array( 'a' => '1', 'c' => '3' ),
+			$this->helper->get_parsed_args( 'a=1', array( 'a' => '0', 'c' => '3' ) )
+		);
 	}
 }

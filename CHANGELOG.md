@@ -24,7 +24,7 @@ Notable changes to BerlinDB are documented here.
   flag.
 - Makes every Kern class config-constructable from an array — no subclass required
   (`new Query( $definition )`) — through a normalized `Boot` lifecycle
-  (`sunrise → configure → setup → parse_args → init → sunset`) split across the
+  (`sunrise → configure → setup → consume_args → init → sunset`) split across the
   `Boot`, `Lifecycle`, and `Configuration` traits.
 - `Query` accepts a definition or query vars via one constructor argument
   (discriminated by a schema signature); structural query vars are canonicalized
@@ -35,8 +35,9 @@ Notable changes to BerlinDB are documented here.
   unresolvable or misdeclared columns; consolidates shared parser helpers onto the
   base.
 - Reduces WordPress coupling: reimplements `wp_validate_boolean()`, `absint()`, and
-  (filter-free) `sanitize_key()` in the `Sanitizer` trait, and uses native PHP
-  CSPRNG for UUIDs and random integers instead of `wp_rand()`.
+  (filter-free) `sanitize_key()` in the `Sanitizer` trait and (filter-free)
+  `wp_parse_args()` as `Base::parse_args()`, and uses native PHP CSPRNG for UUIDs
+  and random integers instead of `wp_rand()`.
 - Removes the internal `Parser::caller()` indirection in favor of direct,
   type-checked calls.
 
@@ -45,6 +46,9 @@ Notable changes to BerlinDB are documented here.
 - The `Query::sunrise()` construction hook (3.0.0) is renamed to `Query::setup()`;
   `sunrise()` still exists but now runs *before* configuration. Rename any override
   that derived state from the query's configuration.
+- The `parse_args()` construction hook (`Boot`/`Query`, 3.0.0) is renamed to
+  `consume_args()`; `parse_args()` is now a `wp_parse_args()`-style array helper.
+  Rename any override of the leftover-args hook to `consume_args()`.
 - Configuration is strict by default — keys matching no object property are dropped
   and logged. Override `is_strict_config()` to opt out (as `Row` does for its
   dynamic columns).

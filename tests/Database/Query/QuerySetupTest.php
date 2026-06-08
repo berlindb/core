@@ -18,7 +18,7 @@
  * $cache_group properties via ReflectionProperty after construction.
  *
  * Constructing a Query subclass without arguments triggers setup() but does
- * NOT execute a database query — parse_args() returns early on empty input —
+ * NOT execute a database query — consume_args() returns early on empty input —
  * so no live table is required for these tests.
  *
  * @package     BerlinDB\Tests

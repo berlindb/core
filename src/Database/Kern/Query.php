@@ -238,7 +238,7 @@ class Query {
 	 * Set up class attributes that rely on the configured properties.
 	 *
 	 * Overrides Boot::setup(): runs after configure() so it sees the query's
-	 * identity, and before parse_args() so the schema and parsers exist before a
+	 * identity, and before consume_args() so the schema and parsers exist before a
 	 * query runs. Protected so subclasses can extend it without exposing it as
 	 * part of the public query API.
 	 *
@@ -263,7 +263,7 @@ class Query {
 	 * definition (identity properties) OR query vars. Overriding this decision
 	 * hook — rather than configure() itself — lets Boot apply config through the
 	 * shared pipeline (no trait aliasing needed) and hand query vars to
-	 * parse_args() when this returns false.
+	 * consume_args() when this returns false.
 	 *
 	 * A definition carries a schema; query vars never do. So the decision keys on
 	 * `table_schema`, but it reads CONTEXT, not just the value — which lets it
@@ -338,16 +338,19 @@ class Query {
 	}
 
 	/**
-	 * Parse query vars and run the query.
+	 * Consume query args and run the query.
+	 *
+	 * Overrides Boot::consume_args().
 	 *
 	 * Receives whatever configure() did not claim as configuration. Empty when
 	 * the Query was constructed from a definition (so no query runs).
 	 *
 	 * @since 3.0.0
+	 * @since 3.1.0 Renamed from parse_args().
 	 *
 	 * @param array<string, mixed> $args Query vars.
 	 */
-	protected function parse_args( array $args = array() ): void {
+	protected function consume_args( array $args = array() ): void {
 
 		// Bail if there are no query vars (e.g. a configured-only construction).
 		if ( empty( $args ) ) {
@@ -757,7 +760,7 @@ class Query {
 		} elseif ( ! $this->get_query_var( 'no_found_rows' ) && $this->get_query_var( 'number' ) ) {
 
 			// Override a few request clauses.
-			$r = wp_parse_args(
+			$r = $this->parse_args(
 				array(
 					'fields'  => 'COUNT(*)',
 					'limits'  => '',
@@ -1998,10 +2001,10 @@ class Query {
 	private function parse_query( $query = array() ): void {
 
 		// Stash the raw query args before any defaults are merged in.
-		$this->set_current( 'query_var_originals', wp_parse_args( $query ) );
+		$this->set_current( 'query_var_originals', $this->parse_args( $query ) );
 
 		// Setup the $query_vars parsed var.
-		$this->query_vars = wp_parse_args(
+		$this->query_vars = $this->parse_args(
 			$this->get_current_array( 'query_var_originals' ),
 			$this->query_var_defaults
 		);
@@ -2107,7 +2110,7 @@ class Query {
 		}
 
 		// Parse arguments.
-		$r = wp_parse_args( $query_vars );
+		$r = $this->parse_args( $query_vars );
 
 		// Parse $query_vars.
 		$join_where = $this->parse_join_where( $r );
@@ -2145,7 +2148,7 @@ class Query {
 		}
 
 		// Parse arguments.
-		$r = wp_parse_args( $args );
+		$r = $this->parse_args( $args );
 
 		// Parse the join/where parsers.
 		$parsers = $this->parse_join_where_parsers( $r );
@@ -2737,7 +2740,7 @@ class Query {
 		}
 
 		// Default return value.
-		$retval = wp_parse_args( $clauses );
+		$retval = $this->parse_args( $clauses );
 
 		// Return array of clauses.
 		return $retval;
@@ -3706,7 +3709,7 @@ class Query {
 	private function default_item( $args = array() ) {
 
 		// Parse arguments.
-		$r = wp_parse_args( $args );
+		$r = $this->parse_args( $args );
 
 		// Get the column names and their defaults.
 		$names    = $this->get_column_names( $r );
@@ -5198,7 +5201,7 @@ class Query {
 	public function get_results( $cols = array(), $where_cols = array(), $limit = 25, $offset = null, $output = OBJECT ) {
 
 		// Parse arguments.
-		$r = wp_parse_args(
+		$r = $this->parse_args(
 			$where_cols,
 			array(
 				'fields'            => $cols,

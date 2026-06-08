@@ -75,7 +75,7 @@ bin/run-tests.sh -p 8.2 -w 6.7 -- --group default
 ## Construction Lifecycle (the `Boot` contract)
 
 Every Kern class is constructed through `Boot`, single-arg:
-`__construct($args)` → `sunrise → configure → setup → parse_args → init → sunset`.
+`__construct($args)` → `sunrise → configure → setup → consume_args → init → sunset`.
 Override these hooks — **do not invent per-class lifecycle methods** (the old
 bespoke *per-class* `Schema::setup()`/`Table::setup()` are gone; `setup()` is now
 a shared Boot hook, below):
@@ -88,8 +88,8 @@ a shared Boot hook, below):
   (no-op once `is_booted()`). Makes a class config-constructable with no subclass
   (`new Query( $definition )`).
 - **`setup()`** — post-config setup; **Query** builds its schema and query-var
-  parsers here, before `parse_args()` runs.
-- **`parse_args($args): void`** — **Query only**: parse the leftover query vars
+  parsers here, before `consume_args()` runs.
+- **`consume_args($args): void`** — **Query only**: parse the leftover query vars
   and run. No-op default for everyone else.
 - **`init()`** — the normal home for post-config construction. Decompose work
   into named `set_*()` helpers, as `Query`/`Table` do.

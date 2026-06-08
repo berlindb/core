@@ -185,4 +185,36 @@ trait Base {
 			$this->{$key} = $value;
 		}
 	}
+
+	/**
+	 * Merge an arguments value over a set of defaults.
+	 *
+	 * A dependency-free reimplementation of WordPress's wp_parse_args(): accepts
+	 * an array, an object (read via get_object_vars()), or a URL-style query
+	 * string (parsed with parse_str()), then merges the result over $defaults.
+	 * The WordPress 'wp_parse_str' filter is intentionally not applied.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string, mixed>|object|string $args     Value to parse.
+	 * @param array<string, mixed>               $defaults Defaults to merge under $args.
+	 * @return array<string, mixed>
+	 */
+	protected function parse_args( $args = array(), $defaults = array() ): array {
+
+		// Normalize $args to an array.
+		if ( is_object( $args ) ) {
+			$parsed = get_object_vars( $args );
+		} elseif ( is_array( $args ) ) {
+			$parsed = $args;
+		} else {
+			$parsed = array();
+			parse_str( (string) $args, $parsed );
+		}
+
+		// Merge over the defaults when any are provided.
+		return ! empty( $defaults )
+			? array_merge( $defaults, $parsed )
+			: $parsed;
+	}
 }

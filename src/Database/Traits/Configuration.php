@@ -33,13 +33,15 @@ defined( 'ABSPATH' ) || exit;
  *   - is_strict_config(): reject unknown config keys instead of passing them on.
  *   - special_args() / validate_args(): force/validate values before set_vars().
  *
- * Requires the host to provide set_vars() and log() (Traits\Base, which pulls
- * Log). Declared via @method (not abstract methods) so tooling sees the
- * dependency without colliding with the real methods when a class composes both.
+ * Requires the host to provide set_vars(), parse_args(), and log() (Traits\Base,
+ * which pulls Log). Declared via @method (not abstract methods) so tooling sees
+ * the dependency without colliding with the real methods when a class composes
+ * both.
  *
  * @since 3.1.0
  *
  * @method void set_vars( array<string, mixed> $args = [] )
+ * @method array<string, mixed> parse_args( array<string, mixed>|object|string $args = [], array<string, mixed> $defaults = [] )
  * @method void log( string $level, string $code, string $message, array<string, mixed> $context = [] )
  */
 trait Configuration {
@@ -130,7 +132,7 @@ trait Configuration {
 			// Merge against the current property snapshot.
 			$defaults = $this->args[ 'class' ];
 			unset( $defaults[ 'args' ] );
-			$r = wp_parse_args( $args, $defaults );
+			$r = $this->parse_args( $args, $defaults );
 
 			// Force special-type args, set them, then validate & set.
 			$r = $this->special_args( $r );
@@ -147,7 +149,7 @@ trait Configuration {
 
 	/**
 	 * Whether the given construct args are configuration (to assign as
-	 * properties), or should be handed back to parse_args() for other handling.
+	 * properties), or should be handed back to consume_args() for other handling.
 	 *
 	 * Default: yes — every class treats its construct args as configuration.
 	 *
@@ -303,7 +305,7 @@ trait Configuration {
 	 * Stash arguments and class variables.
 	 *
 	 * Captures a snapshot of the constructor arguments and the object's
-	 * current property values so parse_args() can merge against them and
+	 * current property values so configure() can merge against them and
 	 * callers can compare, reuse, or reset to a prior state.
 	 *
 	 * get_object_vars() is called from within the trait, so it captures all

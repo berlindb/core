@@ -988,7 +988,7 @@ class Column {
 	 * @return array<string, mixed>
 	 */
 	private function sanitize_capabilities( $caps = array() ) {
-		return wp_parse_args(
+		return $this->parse_args(
 			$caps,
 			array(
 				'select' => 'exist',

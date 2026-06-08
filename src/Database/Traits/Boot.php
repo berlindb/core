@@ -28,7 +28,7 @@ defined( 'ABSPATH' ) || exit;
  *
  * The full lifecycle is:
  *
- *   __construct → boot → run() → start → sunrise → configure → setup → parse_args → init → sunset → finish
+ *   __construct → boot → run() → start → sunrise → configure → setup → consume_args → init → sunset → finish
  *
  * Construction is define-once: boot() is a no-op once is_booted(); the
  * definition itself is sealed separately by Configuration's is_configured().
@@ -39,11 +39,11 @@ defined( 'ABSPATH' ) || exit;
  *     with sunset()). Rare — for any setup that must precede config.
  *   - configure() / is_configuration(): see Traits\Configuration.
  *   - setup(): post-config setup — derive state from the just-applied config
- *     before parse_args() runs (e.g. Query builds its schema and parsers here).
- *   - parse_args(): handle args not consumed as configuration (Query: query
+ *     before consume_args() runs (e.g. Query builds its schema and parsers here).
+ *   - consume_args(): handle args not consumed as configuration (Query: query
  *     vars + run). No-op default.
  *   - init(): the normal home for post-args construction. Runs after setup()
- *     and parse_args(), so it sees subclass-declared, $args, and $config values
+ *     and consume_args(), so it sees subclass-declared, $args, and $config values
  *     alike.
  *   - sunset(): runs last, after init() (the dusk bookend with sunrise()).
  *
@@ -115,8 +115,8 @@ trait Boot {
 				// Set up state derived from the applied configuration.
 				$this->setup();
 
-				// Parse any remaining args (Query-only: query vars + run).
-				$this->parse_args( $remaining );
+				// Consume any remaining args.
+				$this->consume_args( $remaining );
 
 				// Initialize.
 				$this->init();
@@ -143,25 +143,26 @@ trait Boot {
 	/**
 	 * Set up state derived from the applied configuration.
 	 *
-	 * Runs after configure() and before parse_args(), so it sees the configured
-	 * identity. Query overrides this to build its schema and query-var parsers
-	 * before any query runs.
+	 * Runs after configure() and before consume_args(), so it sees the
+	 * configured identity. Query overrides this to build its schema and
+	 * query-var parsers before any query runs.
 	 *
 	 * @since 3.1.0
 	 */
 	protected function setup(): void {}
 
 	/**
-	 * Parse any arguments not consumed as configuration.
+	 * Consume any arguments not claimed as configuration.
 	 *
 	 * Default is a no-op — for most classes configure() consumes everything.
 	 * Query overrides this to parse its query vars and run the query.
 	 *
 	 * @since 3.0.0
+	 * @since 3.1.0 Renamed from parse_args().
 	 *
 	 * @param array<string, mixed> $args Arguments left over from configure().
 	 */
-	protected function parse_args( array $args = array() ): void {}
+	protected function consume_args( array $args = array() ): void {}
 
 	/**
 	 * Initialize.

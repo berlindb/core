@@ -863,7 +863,7 @@ class ColumnTest extends TestCase {
 	/**
 	 * Test that a column with args but no type has a null cast after construction.
 	 *
-	 * When no args are passed at all, parse_args() bails early and validate_args()
+	 * When no args are passed at all, configure() bails early and validate_args()
 	 * never runs, so $cast stays as ''. With args present, sanitize_cast fires and
 	 * returns null when no type can be matched.
 	 *
