@@ -26,9 +26,11 @@ trait Generator {
 	/**
 	 * Generate a random URN UUID (v4).
 	 *
-	 * Uses wp_rand() so the value passes through WordPress's pluggable random
-	 * number source. Callers are responsible for deciding *when* to generate
-	 * (e.g. on insert only); this method just produces the value.
+	 * Uses PHP's native random_int() — a CSPRNG (the same source modern wp_rand()
+	 * wraps), guaranteed on PHP 7+ — for unpredictable values without depending on
+	 * WordPress, matching generate_random_string()'s use of random_bytes(). Callers
+	 * are responsible for deciding *when* to generate (e.g. on insert only); this
+	 * method just produces the value.
 	 *
 	 * @since 3.1.0
 	 *
@@ -41,29 +43,29 @@ trait Generator {
 			'urn:uuid:%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
 
 			// 32 bits for "time_low".
-			wp_rand( 0, 0xffff ),
-			wp_rand( 0, 0xffff ),
+			random_int( 0, 0xffff ),
+			random_int( 0, 0xffff ),
 
 			// 16 bits for "time_mid".
-			wp_rand( 0, 0xffff ),
+			random_int( 0, 0xffff ),
 
 			/*
 			 * 16 bits for "time_hi_and_version",
 			 * four most significant bits holds version number 4
 			 */
-			wp_rand( 0, 0x0fff ) | 0x4000,
+			random_int( 0, 0x0fff ) | 0x4000,
 
 			/*
 			 * 16 bits, 8 bits for "clk_seq_hi_res",
 			 * 8 bits for "clk_seq_low",
 			 * two most significant bits holds zero and one for variant DCE1.1
 			 */
-			wp_rand( 0, 0x3fff ) | 0x8000,
+			random_int( 0, 0x3fff ) | 0x8000,
 
 			// 48 bits for "node".
-			wp_rand( 0, 0xffff ),
-			wp_rand( 0, 0xffff ),
-			wp_rand( 0, 0xffff )
+			random_int( 0, 0xffff ),
+			random_int( 0, 0xffff ),
+			random_int( 0, 0xffff )
 		);
 		// phpcs:enable PEAR.Functions.FunctionCallSignature.EmptyLine
 	}

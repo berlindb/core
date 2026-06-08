@@ -97,6 +97,21 @@ applies config through the shared pipeline (`validate_args()` sanitizes it), and
 runs query vars. Structural query vars (number/order/booleans) are canonicalized
 in `validate_query_vars()` before the cache key.
 
+## Naming: sanitize vs validate
+
+The two prefixes split by **domain** (where they live), not strictly by
+coerce-vs-reject:
+
+- **`Sanitizer::sanitize_*`** — make a value structurally/SQL-safe (identifiers,
+  config args). Clean it, or reject (`false` / `''`) when unsalvageable.
+- **`Column::validate_*`** — conform a stored column value to its declared type
+  (the `$validate` callback domain), with a type-appropriate fallback.
+
+For **new** helpers, name by behavior: `sanitize_*` when it always returns a
+usable (coerced/cleaned) value; `validate_*` when it checks acceptability and may
+reject. Keep existing names as-is — many are `@since 1.0.0`/`3.0.0` and called by
+EDD/SC, so the convention guides new code, not a mass-rename.
+
 ## Roadmap Anchors
 
 - Milestone **3.1.0**: see open issues at

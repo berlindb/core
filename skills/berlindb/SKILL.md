@@ -62,6 +62,12 @@ A typical integration defines:
 In BerlinDB 3.x, `Table` and `Query` instantiate Schema objects from class names
 or accept Schema instances. Prefer `::class` constants for schema and row shape.
 
+**Sanitize vs validate (when overriding):** `sanitize_*` methods (Sanitizer
+trait) make a value structurally/SQL-safe — identifiers and config args — and may
+reject it. `validate_*` methods (Column) conform a stored value to the column's
+declared type via its `$validate` callback. Override the one matching your
+concern, and follow the same split when naming your own helpers.
+
 ## Relationships (3.1.0, #193)
 
 Declare a relationship on the column that holds the key, via a `relationships`
