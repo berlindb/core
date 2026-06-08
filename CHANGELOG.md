@@ -40,7 +40,7 @@ Notable changes to BerlinDB are documented here.
 - Removes the internal `Parser::caller()` indirection in favor of direct,
   type-checked calls.
 
-### Upgrade Notes
+### 3.1.0 Upgrade Notes
 
 - The `Query::sunrise()` construction hook (3.0.0) is renamed to `Query::setup()`;
   `sunrise()` still exists but now runs *before* configuration. Rename any override
@@ -74,7 +74,7 @@ Notable changes to BerlinDB are documented here.
 - Improves Composer package metadata and distribution contents.
 - Ships as the 300th commit from the 3.0.0 release branch.
 
-### Upgrade Notes
+### 3.0.0. Upgrade Notes
 
 - PHP 8.1 or newer is required.
 - The object model has been reorganized around `Adapters`, `Interfaces`, `Kern`,
