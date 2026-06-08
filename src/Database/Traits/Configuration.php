@@ -107,16 +107,21 @@ trait Configuration {
 		$this->stash_args( $args );
 
 		/*
-		 * In strict mode, set aside keys that match no object property. They are
-		 * dropped now and logged AFTER set_vars() below: set_vars() re-applies the
-		 * property snapshot (including the empty log), which would otherwise reset
-		 * any entry logged here.
+		 * In strict mode, set aside keys that are neither an object property nor a
+		 * declared config key (get_config_callbacks()). They are dropped now and
+		 * logged AFTER set_vars() below: set_vars() re-applies the property
+		 * snapshot (including the empty log), which would otherwise reset any
+		 * entry logged here.
 		 */
-		$unknown = $this->is_strict_config()
-			? array_diff_key( $args, $this->args[ 'class' ] )
-			: array();
-		if ( ! empty( $unknown ) ) {
-			$args = array_intersect_key( $args, $this->args[ 'class' ] );
+		$unknown = array();
+		if ( $this->is_strict_config() ) {
+			$recognized = $this->args[ 'class' ]
+				+ array_fill_keys( array_keys( $this->get_config_callbacks() ), null );
+			$unknown    = array_diff_key( $args, $recognized );
+
+			if ( ! empty( $unknown ) ) {
+				$args = array_intersect_key( $args, $recognized );
+			}
 		}
 
 		// Apply any recognized arguments.
@@ -243,25 +248,24 @@ trait Configuration {
 	}
 
 	/**
-	 * Whether to reject configuration keys that match no object property.
+	 * Whether to reject configuration keys that are neither a property nor a
+	 * declared config key (get_config_callbacks()).
 	 *
-	 * Opt-in (default false), so existing callers that pass extra keys keep
-	 * working. Override to true to harden a class's configuration surface: an
-	 * unknown key is logged and dropped instead of silently creating a junk
-	 * dynamic property via set_vars().
+	 * Default true (opt-out): an unrecognized key is logged and dropped instead
+	 * of silently creating a junk dynamic property via set_vars(). Recognized
+	 * keys are unaffected, so classes with a fixed, declared config surface keep
+	 * working unchanged.
 	 *
-	 * IMPORTANT: only enable this on classes with a fixed, declared property set
-	 * (Query, Table, Column, Index, Relationship, Schema). Do NOT enable it on a
-	 * #[\AllowDynamicProperties] class whose config legitimately sets undeclared
-	 * properties — Row, whose data columns ARE dynamic properties — because every
-	 * such key would be (wrongly) treated as unknown and dropped.
+	 * Override to false on a #[\AllowDynamicProperties] class whose config
+	 * legitimately sets undeclared properties — Row, whose data columns ARE
+	 * dynamic properties — otherwise every such key would be (wrongly) dropped.
 	 *
 	 * @since 3.1.0
 	 *
 	 * @return bool
 	 */
 	protected function is_strict_config(): bool {
-		return false;
+		return true;
 	}
 
 	/**

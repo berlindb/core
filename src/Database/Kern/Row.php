@@ -59,6 +59,21 @@ class Row {
 	/** Methods ***************************************************************/
 
 	/**
+	 * Opt out of strict configuration.
+	 *
+	 * A Row's columns are dynamic properties (this class is
+	 * #[\AllowDynamicProperties]), so its config keys are intentionally not
+	 * declared. Strict mode would treat every data column as unknown and drop it.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return bool
+	 */
+	protected function is_strict_config(): bool {
+		return false;
+	}
+
+	/**
 	 * Apply casts after properties are set.
 	 *
 	 * @since 3.0.0

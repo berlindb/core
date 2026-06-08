@@ -144,6 +144,40 @@ class Schema {
 	 */
 	protected $indexes = array();
 
+	/** Configuration *********************************************************/
+
+	/**
+	 * Sanitization callbacks for a Schema's configuration arguments.
+	 *
+	 * Applied by validate_args() (Traits\Configuration) during construction.
+	 * Each definition list is coerced to an array; the entries are validated
+	 * downstream when init() hydrates them into Column / Index objects.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return array<string, mixed> Map of config key => sanitization callback.
+	 */
+	protected function get_config_callbacks(): array {
+		return array(
+			'columns' => array( $this, 'sanitize_definition_list' ),
+			'indexes' => array( $this, 'sanitize_definition_list' ),
+		);
+	}
+
+	/**
+	 * Coerce a columns/indexes definition value to an array.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param mixed $value A definition list (expected to be an array).
+	 * @return array<int|string, mixed> The value if it is an array, else empty.
+	 */
+	protected function sanitize_definition_list( $value = array() ): array {
+		return is_array( $value )
+			? $value
+			: array();
+	}
+
 	/** Lifecycle Methods *****************************************************/
 
 	/**

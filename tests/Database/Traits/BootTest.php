@@ -238,46 +238,8 @@ class BootTestUnconfiguredSubject {
 }
 
 /**
- * Test subject with strict configuration: unknown config keys are rejected.
- *
- * @since 3.1.0
- */
-class BootTestStrictSubject {
-
-	use \BerlinDB\Database\Traits\Base;
-	use \BerlinDB\Database\Traits\Boot {
-		__construct as protected boot_construct;
-	}
-
-	/**
-	 * A real, known config property.
-	 *
-	 * @since 3.1.0
-	 * @var string
-	 */
-	public $name = 'default';
-
-	/**
-	 * @param array<string, mixed>|object $args Construction arguments.
-	 */
-	public function __construct( $args = array() ) {
-		$this->boot_construct( $args );
-	}
-
-	/**
-	 * Opt in to strict configuration.
-	 *
-	 * @since 3.1.0
-	 *
-	 * @return bool
-	 */
-	protected function is_strict_config(): bool {
-		return true;
-	}
-}
-
-/**
- * Test subject with default (non-strict) configuration; tolerates extra keys.
+ * Test subject that opts OUT of strict config (mirrors Row's dynamic columns):
+ * unknown keys pass through instead of being rejected.
  *
  * @since 3.1.0
  */
@@ -302,6 +264,17 @@ class BootTestLooseSubject {
 	 */
 	public function __construct( $args = array() ) {
 		$this->boot_construct( $args );
+	}
+
+	/**
+	 * Opt out of strict configuration.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return bool
+	 */
+	protected function is_strict_config(): bool {
+		return false;
 	}
 }
 
@@ -446,13 +419,14 @@ class BootTest extends TestCase {
 	}
 
 	/**
-	 * Strict config rejects a key that matches no property: the known arg is
-	 * applied, the unknown is dropped (no junk property) and logged loudly.
+	 * Strict config is the default: a key that is neither a property nor a
+	 * declared config key is dropped (no junk property) and logged loudly, while
+	 * the recognized key is applied.
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_strict_config_rejects_and_logs_unknown_args() {
-		$subject = new BootTestStrictSubject(
+	public function test_strict_config_is_the_default() {
+		$subject = new BootTestSubject(
 			array(
 				'name'  => 'Strict',
 				'bogus' => 'nope',
@@ -475,15 +449,15 @@ class BootTest extends TestCase {
 	 * @since 3.1.0
 	 */
 	public function test_strict_config_allows_known_args() {
-		$subject = new BootTestStrictSubject( array( 'name' => 'OK' ) );
+		$subject = new BootTestSubject( array( 'name' => 'OK' ) );
 
 		$this->assertSame( 'OK', $subject->name );
 		$this->assertSame( array(), $subject->get_logs( array( 'code' => 'config_unknown_arg' ) ) );
 	}
 
 	/**
-	 * Default (non-strict) config is unchanged: an unknown key passes through and
-	 * is applied, with no rejection and no log — preserving back-compat.
+	 * A class that opts OUT of strict config (e.g. Row, with dynamic columns)
+	 * still passes unknown keys through and applies them, with no log.
 	 *
 	 * @since 3.1.0
 	 */
