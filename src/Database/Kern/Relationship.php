@@ -276,6 +276,60 @@ class Relationship {
 	}
 
 	/**
+	 * Return validation errors for this relationship's own shape.
+	 *
+	 * Only the checks this value object can make in isolation — it has no owning
+	 * Schema, so local-column existence is validated by
+	 * Schema::get_validation_errors(), and remote resolution / remote-column
+	 * existence by Query::get_relationship_errors(). Checks here:
+	 * - Declares no local columns.
+	 * - Missing remote query class.
+	 * - Declares no remote columns (references).
+	 * - Local/remote column count mismatch (composite columns pair positionally).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return string[] Array of human-readable error strings. Empty if valid.
+	 */
+	public function get_validation_errors() {
+		$errors = array();
+
+		// A stable label for messages: the accessor name, or a placeholder.
+		$label = ( '' !== $this->name )
+			? $this->name
+			: '(unnamed)';
+
+		// Must declare at least one local column.
+		if ( empty( $this->columns ) ) {
+			$errors[] = "Relationship {$label} declares no local columns.";
+		}
+
+		// Must target a remote query class.
+		if ( '' === $this->query ) {
+			$errors[] = "Relationship {$label} is missing a remote query class.";
+		}
+
+		// Must map to at least one remote column, or it addresses nothing.
+		if ( empty( $this->references ) ) {
+			$errors[] = "Relationship {$label} declares no remote columns.";
+		}
+
+		/*
+		 * Local and remote columns pair up positionally, so a composite
+		 * relationship must list the same number of columns on each side.
+		 */
+		if (
+			! empty( $this->columns )
+			&& ! empty( $this->references )
+			&& ( count( $this->columns ) !== count( $this->references ) )
+		) {
+			$errors[] = "Relationship {$label} has mismatched local and remote column counts.";
+		}
+
+		return $errors;
+	}
+
+	/**
 	 * Get the CREATE clause for this relationship.
 	 *
 	 * Returns an empty string unless the relationship is enforced and emits a

@@ -13,6 +13,13 @@ Notable changes to BerlinDB are documented here.
   opt-in enforced FOREIGN KEY DDL; fails closed on malformed or unresolvable specs.
 - Adds opt-in typed `CAST` in comparisons (e.g. `AS SIGNED` / `DATETIME`),
   sanitized at the boundary and fail-closed on invalid casts.
+- Adds relationship-declaration validation (#206): `Schema::get_validation_errors()`
+  checks each declaration's local side (own shape, local columns, accessor
+  uniqueness, unsupported composite, a named-but-missing remote query class);
+  `Query::get_relationship_errors()` checks the remote side on demand (the class is a
+  sibling `Query`, the referenced remote columns exist); and relationship
+  declarations dropped by `Column::sanitize_relationships()` are now logged with
+  stable reason codes (`relationship_invalid_query_class`, `relationship_invalid_type`, …).
 - Adds a per-column save-time `intercept()` hook and a `Generator` trait; UUID
   generation moves into `intercept()` (#194).
 - Improves cache-key coherence: per-group `last_changed` salting, id-pointer
@@ -58,6 +65,10 @@ Notable changes to BerlinDB are documented here.
   rather than public.
 - Parsers now fail closed (return no rows) on unresolvable or misdeclared columns,
   and no longer bleed clauses across parser types.
+- Malformed relationship declarations are still dropped (fail-closed), but now log a
+  non-fatal warning identifying the column and the reason. Call
+  `Query::get_relationship_errors()` to validate the remote side of the surviving
+  relationships on demand.
 
 ## 3.0.0 - 2026-06-01
 

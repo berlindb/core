@@ -929,8 +929,17 @@ class Schema {
 	 * - Indexes referencing columns not present in the schema.
 	 * - Indexes with no columns defined.
 	 * - More than one primary key defined (across columns and indexes).
+	 * - Relationships: own-shape errors (Relationship::get_validation_errors()),
+	 *   a missing/duplicate accessor name, a local column not present in this
+	 *   schema, a named-but-missing remote query class, and composite (multi-
+	 *   column) declarations that are not supported at runtime.
+	 *
+	 * Remote-side relationship checks (the class is truly a Query, the remote
+	 * columns exist) need Query context and live in
+	 * Query::get_relationship_errors(); they are intentionally not here.
 	 *
 	 * @since 3.0.0
+	 * @since 3.1.0 Added relationship declaration checks (#193, #206).
 	 *
 	 * @return string[] Array of human-readable error strings. Empty if valid.
 	 */
@@ -1014,12 +1023,18 @@ class Schema {
 		}
 
 		/*
-		 * Relationship accessor names must be unique within the schema, since
-		 * they address related data (and become Row accessors). See #193.
+		 * Relationship checks (#193, #206). Accessor names must be unique within
+		 * the schema (they address related data and become Row accessors); the
+		 * rest validate each declaration against this schema's own columns. Remote
+		 * resolution (the class is truly a sibling Query, the remote columns
+		 * exist) needs Query context and lives in Query::get_relationship_errors().
 		 */
 		$relationship_names = array();
 
 		foreach ( $this->get_relationships() as $relationship ) {
+
+			// Fold in the relationship's own shape errors (no schema context).
+			$errors = array_merge( $errors, $relationship->get_validation_errors() );
 
 			$relationship_name = ! empty( $relationship->name )
 				? $relationship->name
@@ -1035,6 +1050,36 @@ class Schema {
 			}
 
 			$relationship_names[ $relationship_name ] = true;
+
+			// Every local column the relationship names must exist in this schema.
+			foreach ( $relationship->columns as $local_column ) {
+				$local_column = $this->sanitize_index_name( $local_column );
+
+				if ( empty( $local_column ) || ! isset( $column_names[ $local_column ] ) ) {
+					$errors[] = "Relationship {$relationship_name} references unknown local column " . ( empty( $local_column )
+						? '(invalid)'
+						: $local_column
+					) . '.';
+				}
+			}
+
+			/*
+			 * A named remote query class must at least exist. Whether it is truly
+			 * a Query is checked in Query::get_relationship_errors() (which can
+			 * instantiate it); the empty-class case is covered by the shape check.
+			 */
+			if ( ( '' !== $relationship->query ) && ! class_exists( $relationship->query ) ) {
+				$errors[] = "Relationship {$relationship_name} names a missing remote query class: {$relationship->query}.";
+			}
+
+			/*
+			 * Composite relationships (more than one local column) are not
+			 * supported at runtime (single-column only). Flag rather than let them
+			 * silently fail closed at query time.
+			 */
+			if ( 1 < count( $relationship->columns ) ) {
+				$errors[] = "Relationship {$relationship_name} is composite (multiple local columns), which is not supported at runtime.";
+			}
 		}
 
 		return array_values( array_unique( $errors ) );

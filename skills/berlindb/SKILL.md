@@ -136,6 +136,13 @@ Which side declares it, and what `column` means, differs by `type`:
 
 Notes:
 
+- **Validate your declarations.** `$schema->get_validation_errors()` catches the
+  local side (own shape, unknown local column, duplicate accessor, unsupported
+  composite, a named-but-missing remote query class); `$query->get_relationship_errors()`
+  catches the remote side on demand (the class exists but isn't a `Query`, an unknown
+  remote column) — call it from your tests or dev tooling. Malformed shorthand
+  declarations are dropped (fail-closed) and logged with a stable code (e.g.
+  `relationship_invalid_type`).
 - Runtime relationship features (`get_related`, priming, `relation` filtering)
   are **single-column only** for now — one local key referencing one remote key.
 - Relationship filters **fail closed**: a misconfigured or empty-matching filter

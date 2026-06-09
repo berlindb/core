@@ -1125,6 +1125,65 @@ class Query {
 	}
 
 	/**
+	 * Return validation errors that need this query's remote context to detect.
+	 *
+	 * The remote tier of relationship validation (see #206). Schema validates the
+	 * local, context-free declaration (Schema::get_validation_errors()); this
+	 * resolves each remote Query and checks what only it can see:
+	 * - The remote class exists but is NOT a sibling Query.
+	 * - A referenced remote column does not exist on the remote schema.
+	 *
+	 * On demand by design: call it from a plugin's tests or dev tooling. (Local
+	 * column type vs. remote type compatibility is intentionally NOT checked yet —
+	 * exact-type equality produces false positives across int/bigint/unsigned and
+	 * aliases; a family-based check is a follow-up.)
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return string[] Array of human-readable error strings. Empty if valid.
+	 */
+	public function get_relationship_errors(): array {
+		$errors = array();
+
+		// Check each declared relationship against its resolved remote query.
+		foreach ( $this->get_relationships() as $relationship ) {
+
+			// A stable label for messages: the accessor name, or a placeholder.
+			$name = ( '' !== $relationship->name )
+				? $relationship->name
+				: '(unnamed)';
+
+			// Resolve the remote query (a fresh, guarded instance; null when not).
+			$remote = $this->resolve_remote_query( $relationship );
+
+			/*
+			 * Unresolvable. A missing class is Schema's to report; the distinct
+			 * "class exists but is not a Query" case is ours — this is the tier
+			 * that instantiates and can actually tell. Either way, without a
+			 * remote query the remote-column check cannot run.
+			 */
+			if ( null === $remote ) {
+				$class = $relationship->get_query_class();
+
+				if ( ( '' !== $class ) && class_exists( $class ) ) {
+					$errors[] = "Relationship {$name} remote class {$class} is not a Query.";
+				}
+
+				continue;
+			}
+
+			// Every referenced remote column must exist on the remote schema.
+			foreach ( $relationship->references as $reference ) {
+				if ( ! ( $remote->get_column_by( array( 'name' => $reference ) ) instanceof Column ) ) {
+					$errors[] = "Relationship {$name} references unknown remote column {$reference}.";
+				}
+			}
+		}
+
+		return $errors;
+	}
+
+	/**
 	 * Get the relationships where this query's rows hold the foreign key.
 	 *
 	 * @since 3.1.0

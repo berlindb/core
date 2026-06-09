@@ -75,6 +75,28 @@ via config. A `#[\AllowDynamicProperties]` class whose config is intentionally
 open-ended — `Row`, whose keys are arbitrary table columns — overrides
 `is_strict_config()` to return `false`.
 
+## Validating relationship declarations
+
+Relationship declarations are validated in two tiers, by **where the context
+lives** (a `Relationship` is a context-free value object — it does not know its
+owning schema):
+
+- **`Schema::get_validation_errors()`** — the local, context-free side: each
+  relationship's own shape, that its local columns exist in the schema, accessor
+  uniqueness, a named-but-missing remote query class, and composite (multi-column)
+  declarations (unsupported at runtime). Runs at install time (gates
+  `get_create_table_string()`), so override `Relationship::get_validation_errors()`
+  to extend the per-relationship shape checks.
+- **`Query::get_relationship_errors()`** — the remote side, which needs Query
+  context to resolve: the class is a real sibling `Query`, and the referenced remote
+  columns exist. On demand by design — call it from your tests or dev tooling.
+
+Malformed shorthand declarations are dropped by `Column::sanitize_relationships()`
+(fail-closed) and logged with stable codes (`relationship_invalid_query_class`,
+`relationship_invalid_type`, …). Because `configure()`'s `set_vars()` would discard
+anything logged mid-configuration, the drop warnings are emitted from `init()`
+(post-configure) — the same "log after `set_vars()`" rule strict config follows.
+
 ## Custom parsers (the Parser API)
 
 A query-var parser composes `Traits\Parser`, is constructed by a `Query`, and is
