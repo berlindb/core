@@ -117,6 +117,26 @@ usable (coerced/cleaned) value; `validate_*` when it checks acceptability and ma
 reject. Keep existing names as-is — many are `@since 1.0.0`/`3.0.0` and called by
 EDD/SC, so the convention guides new code, not a mass-rename.
 
+## Auditing (vs. verifying a change)
+
+"Verify my change" is diff-scoped: confirm the edit landed and the gate is green.
+An **audit** is the opposite — a semantic **contract-vs-code** review of the whole
+surface, with no scope tied to a recent diff. When asked to audit:
+
+1. **Read what the code actually does first**, then read every doc, comment, and
+   example that *describes* it and flag each mismatch. The bug is usually a wrong
+   *claim*, not a stale keyword — grep finds words, not wrong claims.
+2. **Don't scope to your own recent change.** Searching for the keywords of the
+   edit you just made only finds that edit's residue; drift phrased in other words
+   (e.g. strict config described as "object property" when it recognizes declared
+   `get_config_callbacks()` keys) stays invisible to it.
+3. **Never self-censor a finding as "out of scope for this commit."** Surface
+   every real inaccuracy; let JJJ decide which commit it lands in.
+4. **Check examples and doc tables against source** — they are untested and drift
+   silently (a config example's bare `'sanitize_key'` vs the real
+   `array( $this, 'sanitize_key' )`; a "stable Parser API" table vs each method's
+   actual visibility).
+
 ## Roadmap Anchors
 
 - Milestone **3.1.0**: see open issues at
