@@ -61,7 +61,7 @@ A class declares its accepted config keys in `get_config_callbacks()`, a map of
 protected function get_config_callbacks(): array {
     return array(
         'table_name'  => array( $this, 'sanitize_table_name' ),
-        'cache_group' => 'sanitize_key',
+        'cache_group' => array( $this, 'sanitize_key' ),
         'table_schema' => '', // accepted, validated later by set_schema()
     );
 }

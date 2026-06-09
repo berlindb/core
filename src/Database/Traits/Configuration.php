@@ -270,7 +270,7 @@ trait Configuration {
 	}
 
 	/**
-	 * Log configuration keys that matched no object property.
+	 * Log configuration keys that fall outside the declared config surface.
 	 *
 	 * Called from configure() in strict mode, AFTER set_vars() — the unknown keys
 	 * have already been dropped; this only reports them. Logging here (not when

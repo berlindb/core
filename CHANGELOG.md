@@ -29,8 +29,8 @@ Notable changes to BerlinDB are documented here.
 - `Query` accepts a definition or query vars via one constructor argument
   (discriminated by a schema signature); structural query vars are canonicalized
   before the cache key.
-- Adds opt-out strict configuration: construction keys matching no object property
-  are dropped and logged.
+- Adds opt-out strict configuration: construction keys outside the declared config
+  surface (`get_config_callbacks()`) are dropped and logged.
 - Isolates query-var parsers from each other's clauses and fails closed on
   unresolvable or misdeclared columns; consolidates shared parser helpers onto the
   base.
@@ -50,8 +50,9 @@ Notable changes to BerlinDB are documented here.
 - The `parse_args()` construction hook (`Boot`/`Query`, 3.0.0) is renamed to
   `consume_args()`; `parse_args()` is now a `wp_parse_args()`-style array helper.
   Rename any override of the leftover-args hook to `consume_args()`.
-- Configuration is strict by default — keys matching no object property are dropped
-  and logged. Override `is_strict_config()` to opt out (as `Row` does for its
+- Configuration is strict by default — keys outside the declared config surface
+  (`get_config_callbacks()`) are dropped and logged. Override `is_strict_config()`
+  to opt out (as `Row` does for its
   dynamic columns).
 - Several `Parser`/`Column`/`Query` methods introduced in 3.0.0 are now `protected`
   rather than public.
