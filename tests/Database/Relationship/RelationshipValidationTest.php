@@ -81,6 +81,29 @@ class RelationshipValidationTest extends TestCase {
 	}
 
 	/**
+	 * A bound relationship is exempt from the missing-remote-query-class check.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_bound_relationship_exempt_from_query_check() {
+		$relationship = new Relationship(
+			array(
+				'name'       => 'meta',
+				'type'       => 'has_many',
+				'columns'    => array( 'id' ),
+				'references' => array( 'object_id' ),
+				'bound'      => true,
+			)
+		);
+
+		$this->assertTrue( $relationship->is_bound() );
+		$this->assertStringNotContainsString(
+			'missing a remote query class',
+			implode( ' ', $relationship->get_validation_errors() )
+		);
+	}
+
+	/**
 	 * A relationship with no remote columns (references) is flagged.
 	 *
 	 * @since 3.1.0

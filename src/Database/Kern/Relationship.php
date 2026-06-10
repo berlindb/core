@@ -207,6 +207,21 @@ class Relationship {
 	 */
 	protected $constraint = '';
 
+	/**
+	 * Whether the remote side is bound programmatically rather than by class name.
+	 *
+	 * Set only by internal/preset code that composes a relationship whose remote
+	 * Query is a generated instance with no resolvable FQCN (e.g. the meta preset).
+	 * A bound relationship resolves through the owning Query's internal accessor
+	 * map (Query::bind_remote_query()), not through $query, so it is exempt from the
+	 * "missing remote query class" shape check. It is NOT part of the column
+	 * shorthand vocabulary — declared relationships always carry a real $query.
+	 *
+	 * @since 3.1.0
+	 * @var   bool Default false.
+	 */
+	protected $bound = false;
+
 	/** Argument validation ***************************************************/
 
 	/**
@@ -229,6 +244,7 @@ class Relationship {
 			'on_delete'  => array( $this, 'sanitize_referential_action' ),
 			'on_update'  => array( $this, 'sanitize_referential_action' ),
 			'enforce'    => array( $this, 'sanitize_boolean' ),
+			'bound'      => array( $this, 'sanitize_boolean' ),
 		);
 	}
 
@@ -262,6 +278,17 @@ class Relationship {
 	}
 
 	/**
+	 * Return whether the remote side is bound programmatically (not by class name).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return bool
+	 */
+	public function is_bound() {
+		return ( true === $this->bound );
+	}
+
+	/**
 	 * Return the FQCN of the remote Query class.
 	 *
 	 * Consumers (cache priming, parsers, lazy Row loading) operate through this
@@ -283,7 +310,7 @@ class Relationship {
 	 * Schema::get_validation_errors(), and remote resolution / remote-column
 	 * existence by Query::get_relationship_errors(). Checks here:
 	 * - Declares no local columns.
-	 * - Missing remote query class.
+	 * - Missing remote query class (unless bound internally; see is_bound()).
 	 * - Declares no remote columns (references).
 	 * - Local/remote column count mismatch (composite columns pair positionally).
 	 *
@@ -304,8 +331,9 @@ class Relationship {
 			$errors[] = "Relationship {$label} declares no local columns.";
 		}
 
-		// Must target a remote query class.
-		if ( '' === $this->query ) {
+		// Must target a remote query class — unless the remote is bound internally
+		// (a preset-composed relationship resolves through the owning Query's map).
+		if ( ! $this->is_bound() && ( '' === $this->query ) ) {
 			$errors[] = "Relationship {$label} is missing a remote query class.";
 		}
 
