@@ -210,12 +210,14 @@ class Relationship {
 	/**
 	 * Whether the remote side is bound programmatically rather than by class name.
 	 *
-	 * Set only by internal/preset code that composes a relationship whose remote
+	 * Intended for internal/preset code that composes a relationship whose remote
 	 * Query is a generated instance with no resolvable FQCN (e.g. the meta preset).
-	 * A bound relationship resolves through the owning Query's internal accessor
-	 * map (Query::bind_remote_query()), not through $query, so it is exempt from the
-	 * "missing remote query class" shape check. It is NOT part of the column
-	 * shorthand vocabulary — declared relationships always carry a real $query.
+	 * It is constructor-configurable (a Relationship config key), but is NOT part of
+	 * the column shorthand vocabulary — Column::sanitize_relationships() never emits
+	 * it, so declared schema relationships always carry a real $query. A bound
+	 * relationship resolves through the owning Query's internal accessor map
+	 * (Query::bind_remote_query()), not through $query, so it is exempt from the
+	 * "missing remote query class" shape check.
 	 *
 	 * @since 3.1.0
 	 * @var   bool Default false.
