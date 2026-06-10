@@ -92,10 +92,11 @@ owning schema):
   columns exist. On demand by design — call it from your tests or dev tooling.
 
 Malformed shorthand declarations are dropped by `Column::sanitize_relationships()`
-(fail-closed) and logged with stable codes (`relationship_invalid_query_class`,
-`relationship_invalid_type`, …). Because `configure()`'s `set_vars()` would discard
-anything logged mid-configuration, the drop warnings are emitted from `init()`
-(post-configure) — the same "log after `set_vars()`" rule strict config follows.
+(fail-closed) and logged inline with stable codes (`relationship_invalid_query_class`,
+`relationship_invalid_type`, …) at the point of rejection. Such diagnostics survive
+construction because `configure()` excludes the reserved construction-machinery vars
+(`get_reserved_vars()` — the log store among them) from the property snapshot it
+merges over, so `set_vars()` cannot reset the log a sanitizer just wrote to.
 
 ## Custom parsers (the Parser API)
 

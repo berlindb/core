@@ -43,6 +43,9 @@ defined( 'ABSPATH' ) || exit;
  * @method void set_vars( array<string, mixed> $args = [] )
  * @method array<string, mixed> parse_args( array<string, mixed>|object|string $args = [], array<string, mixed> $defaults = [] )
  * @method void log( string $level, string $code, string $message, array<string, mixed> $context = [] )
+ * @method list<string> get_boot_reserved_vars()
+ * @method list<string> get_lifecycle_reserved_vars()
+ * @method list<string> get_log_reserved_vars()
  */
 trait Configuration {
 
@@ -109,40 +112,40 @@ trait Configuration {
 		$this->stash_args( $args );
 
 		/*
-		 * In strict mode, set aside keys that are NOT a declared config key
-		 * (get_config_callbacks()). Recognizing only the declared config surface —
-		 * rather than every visible property — keeps framework-internal state
-		 * (args, booted, configured, current, logs, …) from being set via config.
-		 * Unknown keys are dropped now and logged AFTER set_vars() below, because
-		 * set_vars() re-applies the property snapshot (including the empty log),
-		 * which would otherwise reset any entry logged here.
+		 * In strict mode, drop (and report) keys that are NOT a declared config
+		 * key (get_config_callbacks()). Recognizing only the declared config
+		 * surface — rather than every visible property — keeps framework-internal
+		 * state (booted, configured, current, logs, …) from being set via config.
 		 */
-		$unknown = array();
 		if ( $this->is_strict_config() ) {
 			$recognized = array_fill_keys( array_keys( $this->get_config_callbacks() ), null );
 			$unknown    = array_diff_key( $args, $recognized );
 
 			if ( ! empty( $unknown ) ) {
 				$args = array_intersect_key( $args, $recognized );
+				$this->log_unknown_config_args( $unknown );
 			}
 		}
 
 		// Apply any recognized arguments.
 		if ( ! empty( $args ) ) {
 
-			// Merge against the current property snapshot.
-			$defaults = $this->args[ 'class' ];
-			unset( $defaults[ 'args' ] );
-			$r = $this->parse_args( $args, $defaults );
+			/*
+			 * Merge against the current property snapshot, minus the reserved
+			 * construction-machinery vars (get_reserved_vars()). Excluding them
+			 * keeps set_vars() below from re-applying internal state — most
+			 * importantly the empty log — over anything a sanitizer in
+			 * validate_args() emitted.
+			 */
+			$reserved = array_flip( $this->get_reserved_vars() );
+			$defaults = array_diff_key( $this->args[ 'class' ], $reserved );
+			$r        = $this->parse_args( $args, $defaults );
 
 			// Force special-type args, set them, then validate & set.
 			$r = $this->special_args( $r );
 			$this->set_vars( $r );
 			$this->set_vars( $this->validate_args( $r ) );
 		}
-
-		// Log any unrecognized keys now that set_vars() is done (strict mode).
-		$this->log_unknown_config_args( $unknown );
 
 		// All arguments were configuration.
 		return array();
@@ -270,12 +273,39 @@ trait Configuration {
 	}
 
 	/**
+	 * Property names reserved by the construction machinery.
+	 *
+	 * These are framework-internal properties (the config stash, the boot/config
+	 * seals, per-run state, and the log store) that configuration must never set
+	 * or have clobbered. configure() excludes them from the snapshot it merges
+	 * over, so set_vars() cannot reset internal state — most importantly the empty
+	 * log — over anything a sanitizer emitted during validate_args().
+	 *
+	 * Each owning trait declares its own names (get_boot_reserved_vars() etc.);
+	 * this unions them with Configuration's own, so no trait hard-codes another's
+	 * internals. A trait or preset that adds internal state declares it alongside
+	 * the property.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return list<string>
+	 */
+	protected function get_reserved_vars(): array {
+		return array_merge(
+			array( 'args', 'configured' ),
+			$this->get_boot_reserved_vars(),
+			$this->get_lifecycle_reserved_vars(),
+			$this->get_log_reserved_vars()
+		);
+	}
+
+	/**
 	 * Log configuration keys that fall outside the declared config surface.
 	 *
-	 * Called from configure() in strict mode, AFTER set_vars() — the unknown keys
-	 * have already been dropped; this only reports them. Logging here (not when
-	 * they are dropped) keeps the entries from being reset by set_vars(), which
-	 * re-applies the property snapshot.
+	 * Called from configure() in strict mode for keys that were dropped (not a
+	 * declared config key); this only reports them. Reserved vars are excluded
+	 * from the config merge (get_reserved_vars()), so these warnings survive
+	 * set_vars() and can be logged where the keys are dropped.
 	 *
 	 * @since 3.1.0
 	 *

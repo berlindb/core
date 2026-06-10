@@ -38,6 +38,10 @@ Notable changes to BerlinDB are documented here.
   before the cache key.
 - Adds opt-out strict configuration: construction keys outside the declared config
   surface (`get_config_callbacks()`) are dropped and logged.
+- Reserves the construction-machinery properties (`get_reserved_vars()`, each trait
+  declaring its own) and excludes them from the config merge, so configuration can
+  no longer clobber internal state — most visibly, a diagnostic logged by a config
+  sanitizer during `validate_args()` now survives construction.
 - Isolates query-var parsers from each other's clauses and fails closed on
   unresolvable or misdeclared columns; consolidates shared parser helpers onto the
   base.

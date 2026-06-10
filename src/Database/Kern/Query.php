@@ -162,6 +162,19 @@ class Query {
 	 */
 	private $schema_object = null;
 
+	/**
+	 * Resolved remote Query instances bound to relationship accessor names.
+	 *
+	 * The internal resolver map behind bind_remote_query() — preset-composed
+	 * relationships (e.g. the meta has_many) whose remote side is a generated
+	 * base-Query instance with no resolvable class name. resolve_remote_query()
+	 * checks this by accessor name before falling back to class instantiation.
+	 *
+	 * @since 3.1.0
+	 * @var   array<string, self>
+	 */
+	private $bound_remote_queries = array();
+
 	/** Query Variables *******************************************************/
 
 	/**
@@ -1229,10 +1242,13 @@ class Query {
 	}
 
 	/**
-	 * Resolve a relationship's remote Query class to a fresh, guarded instance.
+	 * Resolve a relationship's remote Query to a guarded instance.
 	 *
-	 * Returns null when the relationship names no class, the class does not
-	 * exist, or it is not a sibling Query — so callers fail closed on a
+	 * A relationship whose accessor name has a programmatically bound remote Query
+	 * (bind_remote_query(), used by generated presets that have no resolvable FQCN)
+	 * resolves to that instance. Otherwise the relationship's class name is
+	 * instantiated. Returns null when the relationship names no class, the class
+	 * does not exist, or it is not a sibling Query — so callers fail closed on a
 	 * misdeclared or missing remote. Instantiation is setup-only (no query).
 	 *
 	 * @since 3.1.0
@@ -1241,6 +1257,12 @@ class Query {
 	 * @return self|null The remote query instance, or null when unresolvable.
 	 */
 	private function resolve_remote_query( Relationship $relationship ) {
+
+		// Prefer a bound instance for this accessor (generated/preset relationships).
+		$name = $relationship->name;
+		if ( ( '' !== $name ) && isset( $this->bound_remote_queries[ $name ] ) ) {
+			return $this->bound_remote_queries[ $name ];
+		}
 
 		// Reject a missing or non-existent class.
 		$class = $relationship->get_query_class();
@@ -1254,6 +1276,27 @@ class Query {
 		return ( $remote instanceof self )
 			? $remote
 			: null;
+	}
+
+	/**
+	 * Bind a resolved remote Query instance to a relationship accessor name.
+	 *
+	 * The narrow, INTERNAL hook for preset-composed relationships whose remote side
+	 * is a generated base-Query instance with no resolvable class name. Populated
+	 * programmatically during construction (e.g. by the Meta preset); it is never
+	 * accepted through column shorthand or any declared relationship surface, so the
+	 * public relationship vocabulary is unchanged.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $accessor Relationship accessor name (e.g. 'meta').
+	 * @param self   $query    The resolved remote Query instance.
+	 * @return void
+	 */
+	private function bind_remote_query( string $accessor, self $query ): void {
+		if ( '' !== $accessor ) {
+			$this->bound_remote_queries[ $accessor ] = $query;
+		}
 	}
 
 	/**

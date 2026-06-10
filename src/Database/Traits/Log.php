@@ -195,4 +195,19 @@ trait Log {
 	 * @param array{level: string, code: string, message: string, context: array<string, mixed>, time: float, source: string} $entry Log entry.
 	 */
 	protected function write_log( array $entry ): void {}
+
+	/**
+	 * Reserved property names owned by the Log trait.
+	 *
+	 * The in-memory log store, which configuration must never set or have
+	 * clobbered. Unioned by Configuration::get_reserved_vars(), so each trait owns
+	 * its own internal-state declaration.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return list<string>
+	 */
+	protected function get_log_reserved_vars(): array {
+		return array( 'logs' );
+	}
 }

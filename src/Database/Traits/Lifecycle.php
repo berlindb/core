@@ -178,4 +178,19 @@ trait Lifecycle {
 	protected function init_current( $state = array() ) {
 		$this->current = $state;
 	}
+
+	/**
+	 * Reserved property names owned by the Lifecycle trait.
+	 *
+	 * Per-run ephemeral state that configuration must never set or have clobbered.
+	 * Unioned by Configuration::get_reserved_vars(), so each trait owns its own
+	 * internal-state declaration.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return list<string>
+	 */
+	protected function get_lifecycle_reserved_vars(): array {
+		return array( 'current' );
+	}
 }

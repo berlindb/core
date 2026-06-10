@@ -182,4 +182,19 @@ trait Boot {
 	public function is_booted(): bool {
 		return (bool) $this->booted;
 	}
+
+	/**
+	 * Reserved property names owned by the Boot trait.
+	 *
+	 * Construction-machinery state that configuration must never set or have
+	 * clobbered. Unioned by Configuration::get_reserved_vars(), so each trait owns
+	 * its own internal-state declaration.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return list<string>
+	 */
+	protected function get_boot_reserved_vars(): array {
+		return array( 'booted' );
+	}
 }

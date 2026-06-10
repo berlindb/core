@@ -625,10 +625,6 @@ class Column {
 	 */
 	protected function init(): void {
 		$this->intercept_unset_value = $this->generate_random_string();
-
-		// Report any relationship declarations dropped during sanitization. Done
-		// here (post-configure) so the warnings survive configure()'s set_vars().
-		$this->log_dropped_relationships();
 	}
 
 	/**
@@ -1049,9 +1045,8 @@ class Column {
 	 * - 'on_update'  (string) Referential action on update.
 	 * - 'constraint' (string) Explicit SQL constraint name.
 	 *
-	 * Invalid or incomplete entries are dropped (fail-closed) and reported as
-	 * warnings by log_dropped_relationships() during init(), each with a stable
-	 * reason code.
+	 * Invalid or incomplete entries are dropped (fail-closed) and logged as a
+	 * warning with a stable reason code at the point of rejection.
 	 *
 	 * @since 1.0.0
 	 * @since 3.1.0 Structured foreign-key declarations.
@@ -1065,181 +1060,137 @@ class Column {
 		$retval = array();
 
 		/*
-		 * Keep only the entries that classify as a valid declaration. Dropped
-		 * entries are reported by log_dropped_relationships() (called from init()),
-		 * not here — a warning logged during sanitization would not survive
-		 * configure()'s set_vars(), which re-applies the empty-log snapshot.
+		 * Keep the valid entries; log a stable warning for each dropped one at the
+		 * point of rejection. The drop is fail-closed — the warning only makes the
+		 * loss visible. These logs survive construction because configure()
+		 * excludes the log store from the config snapshot it merges over.
 		 */
 		foreach ( $relationships as $relationship ) {
-			$result = $this->classify_relationship( $relationship );
 
-			if ( isset( $result['entry'] ) ) {
-				$retval[] = $result['entry'];
+			// The entry must be an array.
+			if ( ! is_array( $relationship ) ) {
+				$this->log(
+					'warning',
+					'relationship_invalid_declaration',
+					'Relationship declaration is not an array; dropped.',
+					array( 'column' => $this->name )
+				);
+				continue;
 			}
+
+			// 'query' and 'column' are both required, as non-empty strings.
+			if (
+				empty( $relationship['query'] ) || ! is_string( $relationship['query'] ) ||
+				empty( $relationship['column'] ) || ! is_string( $relationship['column'] )
+			) {
+				$this->log(
+					'warning',
+					'relationship_missing_key',
+					'Relationship declaration is missing a required "query" or "column"; dropped.',
+					array( 'column' => $this->name )
+				);
+				continue;
+			}
+
+			// 'column' must sanitize to a valid column name.
+			$column = $this->sanitize_column_name( $relationship['column'] );
+			if ( empty( $column ) ) {
+				$this->log(
+					'warning',
+					'relationship_invalid_column',
+					'Relationship declares an invalid remote column name; dropped.',
+					array(
+						'column' => $this->name,
+						'value'  => $relationship['column'],
+					)
+				);
+				continue;
+			}
+
+			/*
+			 * Validate 'query' as a PHP class reference. sanitize_class_name()
+			 * REJECTS (doesn't strip) anything invalid, returning '' — so a
+			 * malformed value like 'Order; DROP TABLE' drops the whole relationship
+			 * rather than mutating into a different, real class.
+			 */
+			$query = $this->sanitize_class_name( $relationship['query'] );
+			if ( '' === $query ) {
+				$this->log(
+					'warning',
+					'relationship_invalid_query_class',
+					'Relationship declares an invalid remote query class; dropped.',
+					array(
+						'column' => $this->name,
+						'value'  => $relationship['query'],
+					)
+				);
+				continue;
+			}
+
+			/*
+			 * Resolve optional 'type'. An OMITTED type defaults to 'belongs_to'
+			 * (the common case). A PRESENT-but-invalid type (e.g. a typo like
+			 * 'has-many') is a misconfiguration: drop the whole relationship rather
+			 * than silently coercing it to the wrong direction — the reject-not-
+			 * mutate stance taken for 'query' above.
+			 */
+			if ( ! isset( $relationship['type'] ) ) {
+				$type = 'belongs_to';
+			} elseif ( in_array( $relationship['type'], self::RELATIONSHIP_TYPES, true ) ) {
+				$type = $relationship['type'];
+			} else {
+				$this->log(
+					'warning',
+					'relationship_invalid_type',
+					'Relationship declares an unknown "type"; dropped.',
+					array(
+						'column' => $this->name,
+						'value'  => $relationship['type'],
+					)
+				);
+				continue;
+			}
+
+			// Build the sanitized entry.
+			$entry = array(
+				'query'  => $query,
+				'column' => $column,
+				'type'   => $type,
+			);
+
+			/*
+			 * Pass through an optional 'name' (accessor); omitted entries are
+			 * derived from the local column by the Relationship object.
+			 */
+			if ( ! empty( $relationship['name'] ) && is_string( $relationship['name'] ) ) {
+				$name = $this->sanitize_column_name( $relationship['name'] );
+
+				if ( is_string( $name ) && ( '' !== $name ) ) {
+					$entry['name'] = $name;
+				}
+			}
+
+			// Pass through an optional enforced-FK flag; Relationship validates it.
+			if ( isset( $relationship['enforce'] ) ) {
+				$entry['enforce'] = $this->sanitize_boolean( $relationship['enforce'] );
+			}
+
+			/*
+			 * Pass through optional DDL attributes for real FOREIGN KEYs; the
+			 * Relationship is the authority that validates their values.
+			 */
+			foreach ( array( 'on_delete', 'on_update', 'constraint' ) as $ddl_key ) {
+				if ( ! empty( $relationship[ $ddl_key ] ) && is_string( $relationship[ $ddl_key ] ) ) {
+					$entry[ $ddl_key ] = $relationship[ $ddl_key ];
+				}
+			}
+
+			// Append the sanitized entry.
+			$retval[] = $entry;
 		}
 
 		// Return the sanitized relationships.
 		return $retval;
-	}
-
-	/**
-	 * Classify one relationship declaration: a sanitized entry, or a drop reason.
-	 *
-	 * The single decision point shared by sanitize_relationships() (which keeps
-	 * the valid entries) and log_dropped_relationships() (which reports the dropped
-	 * ones with a stable code). Returns either:
-	 *   array( 'entry' => array<string, mixed> )      — a valid, sanitized entry
-	 *   array( 'code' => string, 'value' => mixed )   — dropped, with the reason
-	 *
-	 * @since 3.1.0
-	 *
-	 * @param mixed $relationship A single relationship declaration of any shape.
-	 * @return array{entry?: array{query: string, column: string, type: string, name?: string, enforce?: bool, on_delete?: string, on_update?: string, constraint?: string}, code?: string, value?: mixed}
-	 */
-	private function classify_relationship( $relationship ) {
-
-		// The entry must be an array.
-		if ( ! is_array( $relationship ) ) {
-			return array( 'code' => 'relationship_invalid_declaration' );
-		}
-
-		// 'query' and 'column' are both required, as non-empty strings.
-		if (
-			empty( $relationship['query'] ) || ! is_string( $relationship['query'] ) ||
-			empty( $relationship['column'] ) || ! is_string( $relationship['column'] )
-		) {
-			return array( 'code' => 'relationship_missing_key' );
-		}
-
-		// 'column' must sanitize to a valid column name.
-		$column = $this->sanitize_column_name( $relationship['column'] );
-		if ( empty( $column ) ) {
-			return array(
-				'code'  => 'relationship_invalid_column',
-				'value' => $relationship['column'],
-			);
-		}
-
-		/*
-		 * Validate 'query' as a PHP class reference. sanitize_class_name() REJECTS
-		 * (doesn't strip) anything invalid, returning '' — so a malformed value
-		 * like 'Order; DROP TABLE' drops the whole relationship rather than
-		 * mutating into a different, real class.
-		 */
-		$query = $this->sanitize_class_name( $relationship['query'] );
-		if ( '' === $query ) {
-			return array(
-				'code'  => 'relationship_invalid_query_class',
-				'value' => $relationship['query'],
-			);
-		}
-
-		/*
-		 * Resolve optional 'type'. An OMITTED type defaults to 'belongs_to' (the
-		 * common case). A PRESENT-but-invalid type (e.g. a typo like 'has-many') is
-		 * a misconfiguration: drop the whole relationship rather than silently
-		 * coercing it to the wrong direction — the reject-not-mutate stance taken
-		 * for 'query' above.
-		 */
-		if ( ! isset( $relationship['type'] ) ) {
-			$type = 'belongs_to';
-		} elseif ( in_array( $relationship['type'], self::RELATIONSHIP_TYPES, true ) ) {
-			$type = $relationship['type'];
-		} else {
-			return array(
-				'code'  => 'relationship_invalid_type',
-				'value' => $relationship['type'],
-			);
-		}
-
-		// Build the sanitized entry.
-		$entry = array(
-			'query'  => $query,
-			'column' => $column,
-			'type'   => $type,
-		);
-
-		/*
-		 * Pass through an optional 'name' (accessor); omitted entries are derived
-		 * from the local column by the Relationship object.
-		 */
-		if ( ! empty( $relationship['name'] ) && is_string( $relationship['name'] ) ) {
-			$name = $this->sanitize_column_name( $relationship['name'] );
-
-			if ( is_string( $name ) && ( '' !== $name ) ) {
-				$entry['name'] = $name;
-			}
-		}
-
-		// Pass through an optional enforced-FK flag; Relationship validates it.
-		if ( isset( $relationship['enforce'] ) ) {
-			$entry['enforce'] = $this->sanitize_boolean( $relationship['enforce'] );
-		}
-
-		/*
-		 * Pass through optional DDL attributes for real FOREIGN KEYs; the
-		 * Relationship is the authority that validates their values.
-		 */
-		foreach ( array( 'on_delete', 'on_update', 'constraint' ) as $ddl_key ) {
-			if ( ! empty( $relationship[ $ddl_key ] ) && is_string( $relationship[ $ddl_key ] ) ) {
-				$entry[ $ddl_key ] = $relationship[ $ddl_key ];
-			}
-		}
-
-		return array( 'entry' => $entry );
-	}
-
-	/**
-	 * Log a structured warning for each relationship declaration that was dropped.
-	 *
-	 * Called from init() — AFTER configure() — because configure() re-applies the
-	 * property snapshot (including the empty log) through set_vars(), which would
-	 * discard anything logged during sanitize_relationships(). The raw, as-declared
-	 * relationships are read back from the stashed constructor arguments and
-	 * re-classified, so the reasons reported here match exactly what was discarded.
-	 *
-	 * Dropped declarations stay dropped (fail-closed); this only makes the loss
-	 * visible during development instead of silent.
-	 *
-	 * @since 3.1.0
-	 *
-	 * @return void
-	 */
-	private function log_dropped_relationships(): void {
-
-		// The raw declarations as passed to the constructor (pre-sanitization).
-		$param    = $this->args['param'] ?? array();
-		$declared = ( is_array( $param ) && isset( $param['relationships'] ) )
-			? $param['relationships']
-			: null;
-
-		// Bail if none were declared.
-		if ( ! is_array( $declared ) ) {
-			return;
-		}
-
-		// Report each dropped declaration with its stable reason code.
-		foreach ( $declared as $relationship ) {
-			$result = $this->classify_relationship( $relationship );
-
-			// Skip declarations that survived sanitization.
-			if ( ! isset( $result['code'] ) ) {
-				continue;
-			}
-
-			// Context: the declaring column, plus the offending value when known.
-			$context = array( 'column' => $this->name );
-			if ( array_key_exists( 'value', $result ) ) {
-				$context['value'] = $result['value'];
-			}
-
-			$this->log(
-				'warning',
-				$result['code'],
-				'Relationship declaration was dropped during sanitization.',
-				$context
-			);
-		}
 	}
 
 	/**
