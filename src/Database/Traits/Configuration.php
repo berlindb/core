@@ -276,10 +276,13 @@ trait Configuration {
 	 * Property names reserved by the construction machinery.
 	 *
 	 * These are framework-internal properties (the config stash, the boot/config
-	 * seals, per-run state, and the log store) that configuration must never set
-	 * or have clobbered. configure() excludes them from the snapshot it merges
-	 * over, so set_vars() cannot reset internal state — most importantly the empty
-	 * log — over anything a sanitizer emitted during validate_args().
+	 * seals, per-run state, and the log store). configure() excludes them from the
+	 * snapshot it merges over, so set_vars() cannot **clobber** internal state with
+	 * snapshot defaults — most importantly resetting the empty log over anything a
+	 * sanitizer emitted during validate_args(). This guards the snapshot-default
+	 * path only; it does not stop an explicitly-supplied arg of the same name in a
+	 * non-strict (#[AllowDynamicProperties]) class like Row from setting these (for
+	 * strict classes such keys are already dropped as unknown).
 	 *
 	 * Each owning trait declares its own names (get_boot_reserved_vars() etc.);
 	 * this unions them with Configuration's own, so no trait hard-codes another's

@@ -189,9 +189,27 @@ class Schema {
 		return array(
 			'columns'  => array( $this, 'sanitize_definition_list' ),
 			'indexes'  => array( $this, 'sanitize_definition_list' ),
-			'type'     => array( $this, 'sanitize_key' ),
+			'type'     => array( $this, 'sanitize_type' ),
 			'supports' => array( $this, 'sanitize_supports' ),
 		);
+	}
+
+	/**
+	 * Sanitize the schema type, falling back to 'primary'.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param mixed $value The type (expected to be a string).
+	 * @return string A sanitized key, or 'primary' when empty/invalid.
+	 */
+	protected function sanitize_type( $value = 'primary' ): string {
+		$type = is_string( $value )
+			? $this->sanitize_key( $value )
+			: '';
+
+		return ( '' !== $type )
+			? $type
+			: 'primary';
 	}
 
 	/**
@@ -223,7 +241,8 @@ class Schema {
 			}
 		}
 
-		return $retval;
+		// De-duplicate; this list is a small public vocabulary.
+		return array_values( array_unique( $retval ) );
 	}
 
 	/**
@@ -299,7 +318,7 @@ class Schema {
 	 * @return bool
 	 */
 	public function supports( string $feature ): bool {
-		return in_array( $feature, $this->get_supports(), true );
+		return in_array( $this->sanitize_key( $feature ), $this->get_supports(), true );
 	}
 
 	/** Public Item Core ******************************************************/
