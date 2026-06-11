@@ -111,17 +111,6 @@ trait Base {
 	}
 
 	/**
-	 * Return this object's plugin prefix.
-	 *
-	 * @since 3.1.0
-	 *
-	 * @return string
-	 */
-	public function get_prefix(): string {
-		return (string) $this->prefix;
-	}
-
-	/**
 	 * Return the first letters of a string of words with a separator.
 	 *
 	 * Used primarily to guess at table aliases when none is manually set.

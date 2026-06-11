@@ -208,21 +208,21 @@ class Relationship {
 	protected $constraint = '';
 
 	/**
-	 * Whether the remote side is bound programmatically rather than by class name.
+	 * A resolved remote Query bound directly to this relationship.
 	 *
-	 * Intended for internal/preset code that composes a relationship whose remote
-	 * Query is a generated instance with no resolvable FQCN (e.g. the meta preset).
-	 * It is constructor-configurable (a Relationship config key), but is NOT part of
-	 * the column shorthand vocabulary — Column::sanitize_relationships() never emits
-	 * it, so declared schema relationships always carry a real $query. A bound
-	 * relationship resolves through the owning Query's internal accessor map
-	 * (Query::bind_remote_query()), not through $query, so it is exempt from the
-	 * "missing remote query class" shape check.
+	 * Set programmatically (bind()) by internal/preset code that composes a
+	 * relationship whose remote is a generated Query instance with no resolvable
+	 * FQCN (e.g. the meta preset). When present, the relationship resolves to this
+	 * instance instead of instantiating $query — so it is also exempt from the
+	 * "missing remote query class" shape check. It is NOT a config key and not part
+	 * of the column shorthand vocabulary, so declared schema relationships never
+	 * carry one and always resolve by class. Keeping the bound remote ON the
+	 * relationship makes each one self-contained (no separate accessor map).
 	 *
 	 * @since 3.1.0
-	 * @var   bool Default false.
+	 * @var   Query|null Default null.
 	 */
-	protected $bound = false;
+	protected $bound_remote = null;
 
 	/** Argument validation ***************************************************/
 
@@ -246,7 +246,6 @@ class Relationship {
 			'on_delete'  => array( $this, 'sanitize_referential_action' ),
 			'on_update'  => array( $this, 'sanitize_referential_action' ),
 			'enforce'    => array( $this, 'sanitize_boolean' ),
-			'bound'      => array( $this, 'sanitize_boolean' ),
 		);
 	}
 
@@ -280,6 +279,22 @@ class Relationship {
 	}
 
 	/**
+	 * Bind a resolved remote Query directly to this relationship.
+	 *
+	 * Programmatic only — used by preset code composing a relationship whose remote
+	 * has no resolvable class name. Once bound, the relationship resolves to this
+	 * instance rather than instantiating $query.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param Query $remote The resolved remote Query.
+	 * @return void
+	 */
+	public function bind( Query $remote ): void {
+		$this->bound_remote = $remote;
+	}
+
+	/**
 	 * Return whether the remote side is bound programmatically (not by class name).
 	 *
 	 * @since 3.1.0
@@ -287,7 +302,18 @@ class Relationship {
 	 * @return bool
 	 */
 	public function is_bound() {
-		return ( true === $this->bound );
+		return ( $this->bound_remote instanceof Query );
+	}
+
+	/**
+	 * Return the bound remote Query, or null when not bound.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return Query|null
+	 */
+	public function get_bound_remote() {
+		return $this->bound_remote;
 	}
 
 	/**

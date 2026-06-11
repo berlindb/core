@@ -45,11 +45,11 @@ defined( 'ABSPATH' ) || exit;
 class Meta {
 
 	/**
-	 * Per-primary preset registry, keyed by the primary's prefixed table name.
+	 * Per-primary preset registry, keyed by the primary's identity.
 	 *
 	 * Memoizes one preset (and therefore one generated meta sibling) per primary
-	 * table, so repeated Query construction reuses the same generated pieces rather
-	 * than rebuilding them.
+	 * identity (class|table|item), so repeated Query construction reuses the same
+	 * generated pieces rather than rebuilding them.
 	 *
 	 * @since 3.1.0
 	 * @var   array<string, self>
@@ -126,8 +126,8 @@ class Meta {
 	 * Resolve (memoized) the meta preset for a primary Query.
 	 *
 	 * Returns null when the primary has no primary-key column (nothing to relate a
-	 * meta row to). Keyed by the primary's prefixed table name, so every Query of
-	 * the same table shares one preset and one generated meta sibling.
+	 * meta row to). Keyed by the primary's identity (class|table|item), so every
+	 * Query of the same identity shares one preset and one generated meta sibling.
 	 *
 	 * @since 3.1.0
 	 *
@@ -142,8 +142,21 @@ class Meta {
 			return null;
 		}
 
-		// Memoize one preset per primary table identity.
-		$key = $primary->get_table_name();
+		/*
+		 * Memoize one preset per primary identity. The table name alone is not
+		 * enough: distinct primaries (e.g. config-constructed base Queries) could
+		 * share a table name but differ in class/item identity, and the inverse
+		 * relationship binds one specific primary instance — so fold those in.
+		 */
+		$key = implode(
+			'|',
+			array(
+				get_class( $primary ),
+				$primary->get_table_name(),
+				$primary->get_item_name(),
+			)
+		);
+
 		if ( ! isset( self::$registry[ $key ] ) ) {
 			self::$registry[ $key ] = new self(
 				$primary_key,

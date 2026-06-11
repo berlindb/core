@@ -163,25 +163,13 @@ class Query {
 	private $schema_object = null;
 
 	/**
-	 * Resolved remote Query instances, keyed by relationship accessor name.
-	 *
-	 * The internal resolver map behind bind_remote_query(): for preset-composed
-	 * relationships (e.g. the meta has_many) whose remote side is a generated
-	 * base-Query instance with no resolvable class name. Consulted by
-	 * resolve_remote_query() ONLY for relationships flagged is_bound(), so it can
-	 * never shadow a declared relationship that carries a real class.
-	 *
-	 * @since 3.1.0
-	 * @var   array<string, self>
-	 */
-	private $bound_remote_queries = array();
-
-	/**
 	 * Relationships composed programmatically, beyond those the schema declares.
 	 *
 	 * Preset-composed relationships (e.g. the meta has_many/belongs_to) added via
-	 * compose_relationship(). get_relationships() returns these alongside the
-	 * schema's. Per-instance, since each Query composes its own.
+	 * add_composed_relationship(). get_relationships() returns these alongside the
+	 * schema's. Each carries its own bound remote (Relationship::bind()), so there
+	 * is no separate accessor→instance map. Per-instance, since each Query composes
+	 * its own.
 	 *
 	 * @since 3.1.0
 	 * @var   list<Relationship>
@@ -315,35 +303,31 @@ class Query {
 		$primary_pk = $this->get_primary_column_name();
 
 		// This primary has_many its meta rows (bound to the generated meta query).
-		$this->compose_relationship(
-			new Relationship(
-				array(
-					'name'       => 'meta',
-					'type'       => 'has_many',
-					'columns'    => array( $primary_pk ),
-					'references' => array( "{$object}_id" ),
-					'bound'      => true,
-				)
-			),
-			$meta_query
+		$has_many = new Relationship(
+			array(
+				'name'       => 'meta',
+				'type'       => 'has_many',
+				'columns'    => array( $primary_pk ),
+				'references' => array( "{$object}_id" ),
+			)
 		);
+		$has_many->bind( $meta_query );
+		$this->add_composed_relationship( $has_many );
 
 		// The shared meta query belongs_to this object — composed once, bound back.
 		if ( ! $preset->is_inverse_composed() ) {
 			$preset->mark_inverse_composed();
 
-			$meta_query->compose_relationship(
-				new Relationship(
-					array(
-						'name'       => $object,
-						'type'       => 'belongs_to',
-						'columns'    => array( "{$object}_id" ),
-						'references' => array( $primary_pk ),
-						'bound'      => true,
-					)
-				),
-				$this
+			$belongs_to = new Relationship(
+				array(
+					'name'       => $object,
+					'type'       => 'belongs_to',
+					'columns'    => array( "{$object}_id" ),
+					'references' => array( $primary_pk ),
+				)
 			);
+			$belongs_to->bind( $this );
+			$meta_query->add_composed_relationship( $belongs_to );
 		}
 	}
 
@@ -1323,13 +1307,13 @@ class Query {
 	/**
 	 * Resolve a relationship's remote Query to a guarded instance.
 	 *
-	 * A relationship flagged is_bound() (preset-composed, no resolvable FQCN)
-	 * resolves through the internal accessor→instance map (bind_remote_query());
-	 * because only bound relationships consult the map, a declared relationship
-	 * that carries a real class is never shadowed by a same-named bound entry.
-	 * Otherwise the relationship's class name is instantiated. Returns null when
-	 * the remote cannot be resolved or is not a sibling Query — so callers fail
-	 * closed on a misdeclared or missing remote. Instantiation is setup-only.
+	 * A relationship that carries a bound remote (Relationship::is_bound(),
+	 * preset-composed with no resolvable FQCN) resolves to that instance directly.
+	 * Because the bound remote lives on the relationship itself — not in a separate
+	 * map keyed by accessor — a declared relationship that carries a real class can
+	 * never be shadowed. Otherwise the relationship's class name is instantiated.
+	 * Returns null when the remote cannot be resolved or is not a sibling Query —
+	 * so callers fail closed on a misdeclared or missing remote. Setup-only.
 	 *
 	 * @since 3.1.0
 	 *
@@ -1338,12 +1322,12 @@ class Query {
 	 */
 	private function resolve_remote_query( Relationship $relationship ) {
 
-		// Bound relationships resolve through the internal map, by accessor name.
+		// Bound relationships resolve to the remote carried on the relationship.
 		if ( $relationship->is_bound() ) {
-			$name = $relationship->name;
+			$bound = $relationship->get_bound_remote();
 
-			return ( ( '' !== $name ) && isset( $this->bound_remote_queries[ $name ] ) )
-				? $this->bound_remote_queries[ $name ]
+			return ( $bound instanceof self )
+				? $bound
 				: null;
 		}
 
@@ -1362,56 +1346,38 @@ class Query {
 	}
 
 	/**
-	 * Bind a resolved remote Query instance to a relationship accessor name.
+	 * Add a programmatically composed relationship, beyond the schema's.
 	 *
-	 * The narrow, INTERNAL hook for preset-composed relationships whose remote side
-	 * is a generated base-Query instance with no resolvable class name. Populated
-	 * programmatically during construction — by Query::init() (from the Meta
-	 * preset), or by a subclass that composes its own generated relationships. It is
-	 * never reachable through column shorthand or any declared relationship surface,
-	 * so the public relationship vocabulary is unchanged. Only relationships flagged
-	 * is_bound() consult this map.
+	 * The narrow, internal hook a preset uses to add a relationship the Schema
+	 * cannot declare (because it lacks table/owning-Query context). The relationship
+	 * carries its own bound remote (Relationship::bind()) when it has no resolvable
+	 * class. Skipped — and logged — when an accessor of the same name already
+	 * exists, so a composed relationship can never shadow a declared one.
 	 *
-	 * @since 3.1.0
-	 *
-	 * @param string $accessor Relationship accessor name (e.g. 'meta').
-	 * @param self   $query    The resolved remote Query instance.
-	 * @return void
-	 */
-	protected function bind_remote_query( string $accessor, self $query ): void {
-		if ( '' !== $accessor ) {
-			$this->bound_remote_queries[ $accessor ] = $query;
-		}
-	}
-
-	/**
-	 * Compose a relationship programmatically, beyond the schema's declarations.
-	 *
-	 * The internal hook a preset uses to add a relationship the Schema cannot
-	 * declare (because it lacks table/owning-Query context). When the relationship
-	 * is bound (no resolvable FQCN), pass the resolved remote Query so it is bound
-	 * under the relationship's accessor for resolve_remote_query() to find.
-	 *
-	 * Because $bound is a Query, this is callable cross-instance on a sibling Query
-	 * (same-class protected access) — letting a primary Query wire a relationship
-	 * onto its generated meta Query, and vice versa, without a public surface.
+	 * Protected so a primary Query can add a relationship onto its generated meta
+	 * Query (same-class cross-instance access), keeping the surface internal.
 	 *
 	 * @since 3.1.0
 	 *
 	 * @param Relationship $relationship The relationship to add.
-	 * @param self|null    $bound        The remote Query to bind, when the
-	 *                                   relationship is bound. Default null.
 	 * @return void
 	 */
-	protected function compose_relationship( Relationship $relationship, ?self $bound = null ): void {
+	protected function add_composed_relationship( Relationship $relationship ): void {
 
-		// Add to this query's composed relationships.
-		$this->composed_relationships[] = $relationship;
+		// Skip when an accessor of this name already exists (declared or composed).
+		$name = $relationship->name;
+		if ( ( '' !== $name ) && ( $this->get_relationship( $name ) instanceof Relationship ) ) {
+			$this->log(
+				'warning',
+				'relationship_accessor_taken',
+				'Composed relationship skipped; the accessor name is already in use.',
+				array( 'name' => $name )
+			);
 
-		// Bind the remote instance under the accessor, for bound relationships.
-		if ( ( null !== $bound ) && ( '' !== $relationship->name ) ) {
-			$this->bind_remote_query( $relationship->name, $bound );
+			return;
 		}
+
+		$this->composed_relationships[] = $relationship;
 	}
 
 	/**
@@ -1897,6 +1863,17 @@ class Query {
 	 */
 	public function get_item_name_plural() {
 		return $this->item_name_plural;
+	}
+
+	/**
+	 * Return this query's plugin prefix.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return string
+	 */
+	public function get_prefix(): string {
+		return (string) $this->prefix;
 	}
 
 	/**

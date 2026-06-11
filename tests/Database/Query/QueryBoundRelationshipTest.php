@@ -3,13 +3,13 @@
  * Bound relationship resolution (#204 Phase A crux).
  *
  * A preset-composed relationship whose remote Query is a generated instance has no
- * resolvable class name; it is flagged is_bound() and resolves through the owning
- * Query's internal accessor map (bind_remote_query()). Crucially, only bound
- * relationships consult that map, so a declared relationship carrying a real class
- * is never shadowed by a same-named bound entry.
+ * resolvable class name; it carries its resolved remote directly
+ * (Relationship::bind()) and resolves to that instance. Because the bound remote
+ * lives on the relationship — not in a separate map keyed by accessor — a declared
+ * relationship carrying a real class can never be shadowed, and composing a
+ * relationship whose accessor is already taken is skipped.
  *
- * These tests exercise resolution through the public get_relationship_errors()
- * (construction-only; no database required).
+ * Construction-only; no database required.
  *
  * @package     BerlinDB\Tests
  * @copyright   2026 - JJJ and all BerlinDB contributors
@@ -70,7 +70,7 @@ class ShadowRemoteQuery extends Query {
 // Local fixtures
 // ---------------------------------------------------------------------------
 
-/** Local primary schema (just a key). */
+/** Local primary (just a key). */
 class BoundLocalSchema extends Schema {
 	public $columns = array(
 		array(
@@ -81,100 +81,159 @@ class BoundLocalSchema extends Schema {
 	);
 }
 
-/**
- * Binds a bound has_many to 'items'; the bound remote HAS 'object_id'.
- */
+/** Composes a bound has_many 'items'; the bound remote HAS 'object_id'. */
 class BoundLocalQuery extends Query {
 	protected $prefix       = 'bnd';
 	protected $table_name   = 'local_bound';
 	protected $table_schema = BoundLocalSchema::class;
 	protected $cache_group  = 'local_bound';
 
-	public function get_relationships() {
-		return array(
-			new Relationship(
-				array(
-					'name'       => 'items',
-					'type'       => 'has_many',
-					'columns'    => array( 'id' ),
-					'references' => array( 'object_id' ),
-					'bound'      => true,
-				)
-			),
-		);
-	}
-
 	protected function init(): void {
 		parent::init();
-		$this->bind_remote_query( 'items', new BoundRemoteQuery() );
+
+		$relationship = new Relationship(
+			array(
+				'name'       => 'items',
+				'type'       => 'has_many',
+				'columns'    => array( 'id' ),
+				'references' => array( 'object_id' ),
+			)
+		);
+		$relationship->bind( new BoundRemoteQuery() );
+
+		$this->add_composed_relationship( $relationship );
 	}
 }
 
-/**
- * A DECLARED (non-bound) relationship named 'items' pointing at a class that LACKS
- * 'object_id' — while ALSO binding a same-named instance that HAS it. Resolution
- * must use the declared class (and therefore report the missing column), proving
- * the bound entry does not shadow the declaration.
- */
+/** Declares 'items' (belongs_to ShadowRemoteQuery) AND tries to compose a same-named bound one. */
+class ShadowLocalSchema extends Schema {
+	public $columns = array(
+		array(
+			'name'    => 'id',
+			'type'    => 'bigint',
+			'primary' => true,
+		),
+		array(
+			'name'          => 'remote_id',
+			'type'          => 'bigint',
+			'relationships' => array(
+				array(
+					'name'   => 'items',
+					'query'  => ShadowRemoteQuery::class,
+					'column' => 'id',
+					'type'   => 'belongs_to',
+				),
+			),
+		),
+	);
+}
 class ShadowLocalQuery extends Query {
 	protected $prefix       = 'bnd';
 	protected $table_name   = 'local_shadow';
-	protected $table_schema = BoundLocalSchema::class;
+	protected $table_schema = ShadowLocalSchema::class;
 	protected $cache_group  = 'local_shadow';
-
-	public function get_relationships() {
-		return array(
-			new Relationship(
-				array(
-					'name'       => 'items',
-					'type'       => 'has_many',
-					'columns'    => array( 'id' ),
-					'query'      => ShadowRemoteQuery::class,
-					'references' => array( 'object_id' ),
-				)
-			),
-		);
-	}
 
 	protected function init(): void {
 		parent::init();
-		$this->bind_remote_query( 'items', new BoundRemoteQuery() );
+
+		// Try to compose a bound 'items' — the accessor is already declared, so
+		// this is skipped and logged rather than shadowing the declaration.
+		$relationship = new Relationship(
+			array(
+				'name'       => 'items',
+				'type'       => 'has_many',
+				'columns'    => array( 'id' ),
+				'references' => array( 'object_id' ),
+			)
+		);
+		$relationship->bind( new BoundRemoteQuery() );
+
+		$this->add_composed_relationship( $relationship );
 	}
 }
 
 /**
- * Tests for bound relationship resolution and no-shadow behavior.
+ * Tests for bound relationship resolution and the no-shadow guarantee.
  *
  * @since 3.1.0
  */
 class QueryBoundRelationshipTest extends TestCase {
 
 	/**
-	 * A bound relationship resolves through the internal map (remote column found).
+	 * Relationship accessor names for a query.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param Query $query The query.
+	 * @return list<string>
+	 */
+	private function names( Query $query ): array {
+		$names = array();
+
+		foreach ( $query->get_relationships() as $relationship ) {
+			$names[] = $relationship->name;
+		}
+
+		return $names;
+	}
+
+	/**
+	 * A composed bound relationship resolves to its bound remote.
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_bound_relationship_resolves_via_map() {
+	public function test_bound_relationship_resolves() {
 		$query = new BoundLocalQuery();
 
+		$this->assertContains( 'items', $this->names( $query ) );
 		$this->assertSame( array(), $query->get_relationship_errors() );
 	}
 
 	/**
-	 * A declared relationship is NOT shadowed by a same-named bound entry.
+	 * Composing a relationship whose accessor is taken is skipped (no shadowing).
 	 *
-	 * The declared class (ShadowRemoteQuery) lacks 'object_id', so resolution by
-	 * class surfaces the error — proving the bound instance (which has the column)
-	 * was not used.
+	 * The declared 'items' (ShadowRemoteQuery, which lacks 'object_id') survives —
+	 * proving the bound instance (which has it) did not replace the declaration.
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_declared_relationship_not_shadowed_by_bound() {
+	public function test_composed_relationship_skips_taken_accessor() {
 		$query = new ShadowLocalQuery();
 
-		$this->assertStringContainsString(
-			'unknown remote column object_id',
-			implode( ' ', $query->get_relationship_errors() )
+		$items = array_values(
+			array_filter(
+				$query->get_relationships(),
+				static function ( $relationship ) {
+					return 'items' === $relationship->name;
+				}
+			)
+		);
+
+		$this->assertCount( 1, $items );
+		$this->assertFalse( $items[0]->is_bound() );
+		$this->assertNotEmpty( $query->get_logs( array( 'code' => 'relationship_accessor_taken' ) ) );
+	}
+
+	/**
+	 * A bound relationship is exempt from the missing-remote-query-class check.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_bound_relationship_exempt_from_query_check() {
+		$relationship = new Relationship(
+			array(
+				'name'       => 'items',
+				'type'       => 'has_many',
+				'columns'    => array( 'id' ),
+				'references' => array( 'object_id' ),
+			)
+		);
+		$relationship->bind( new BoundRemoteQuery() );
+
+		$this->assertTrue( $relationship->is_bound() );
+		$this->assertStringNotContainsString(
+			'missing a remote query class',
+			implode( ' ', $relationship->get_validation_errors() )
 		);
 	}
 }
