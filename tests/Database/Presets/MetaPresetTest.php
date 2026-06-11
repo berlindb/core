@@ -4,7 +4,9 @@
  *
  * Presets\Meta::build_meta_schema() composes the key/value EAV meta schema and
  * mirrors the primary key's storage shape into the foreign-key column — the
- * context-free, DB-free core of the preset. Registry/wiring/CRUD layer on top.
+ * context-free, DB-free core of the preset. It declares NO relationships (both
+ * sides are composed, bound, at the Query level), so the schema is installable on
+ * its own. Registry/wiring/CRUD layer on top.
  *
  * @package     BerlinDB\Tests
  * @copyright   2026 - JJJ and all BerlinDB contributors
@@ -15,7 +17,6 @@
 namespace BerlinDB\Tests;
 
 use BerlinDB\Database\Kern\Column;
-use BerlinDB\Database\Kern\Relationship;
 use BerlinDB\Database\Kern\Schema;
 use BerlinDB\Database\Presets\Meta;
 use PHPUnit\Framework\TestCase;
@@ -47,12 +48,14 @@ class MetaPresetTest extends TestCase {
 	}
 
 	/**
-	 * The generated schema has the standard EAV shape and meta type.
+	 * Build a meta schema for a bigint-keyed 'order'.
 	 *
 	 * @since 3.1.0
+	 *
+	 * @return Schema
 	 */
-	public function test_meta_schema_shape() {
-		$pk     = new Column(
+	private function order_meta_schema(): Schema {
+		$pk = new Column(
 			array(
 				'name'     => 'id',
 				'type'     => 'bigint',
@@ -62,7 +65,17 @@ class MetaPresetTest extends TestCase {
 				'extra'    => 'auto_increment',
 			)
 		);
-		$schema = Meta::build_meta_schema( $pk, 'order', 'BerlinDB\\Tests\\OrderQueryFixture' );
+
+		return Meta::build_meta_schema( $pk, 'order' );
+	}
+
+	/**
+	 * The generated schema has the standard EAV shape and meta type.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_meta_schema_shape() {
+		$schema = $this->order_meta_schema();
 
 		$this->assertSame( 'meta', $schema->get_type() );
 
@@ -84,22 +97,26 @@ class MetaPresetTest extends TestCase {
 	}
 
 	/**
+	 * The schema declares no relationships and is valid + installable on its own.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_schema_is_valid_and_installable() {
+		$schema = $this->order_meta_schema();
+
+		$this->assertSame( array(), $schema->get_relationships() );
+		$this->assertSame( array(), $schema->get_validation_errors() );
+		$this->assertTrue( $schema->is_valid() );
+		$this->assertNotSame( '', $schema->get_create_table_string() );
+	}
+
+	/**
 	 * The foreign key mirrors a bigint primary key's shape, minus its identity.
 	 *
 	 * @since 3.1.0
 	 */
 	public function test_foreign_key_mirrors_bigint_pk() {
-		$pk     = new Column(
-			array(
-				'name'     => 'id',
-				'type'     => 'bigint',
-				'length'   => '20',
-				'unsigned' => true,
-				'primary'  => true,
-				'extra'    => 'auto_increment',
-			)
-		);
-		$schema = Meta::build_meta_schema( $pk, 'order', 'BerlinDB\\Tests\\OrderQueryFixture' );
+		$schema = $this->order_meta_schema();
 
 		$fk = $this->column( $schema, 'order_id' );
 		$this->assertInstanceOf( Column::class, $fk );
@@ -109,7 +126,7 @@ class MetaPresetTest extends TestCase {
 
 		// Shape only — never the primary key's identity.
 		$this->assertFalse( (bool) $fk->primary );
-		$this->assertNotSame( 'auto_increment', $fk->extra );
+		$this->assertNotSame( 'AUTO_INCREMENT', $fk->extra );
 		$this->assertFalse( (bool) $fk->allow_null );
 	}
 
@@ -119,7 +136,7 @@ class MetaPresetTest extends TestCase {
 	 * @since 3.1.0
 	 */
 	public function test_foreign_key_mirrors_varchar_pk() {
-		$pk     = new Column(
+		$pk = new Column(
 			array(
 				'name'    => 'id',
 				'type'    => 'varchar',
@@ -127,41 +144,13 @@ class MetaPresetTest extends TestCase {
 				'primary' => true,
 			)
 		);
-		$schema = Meta::build_meta_schema( $pk, 'thing', 'BerlinDB\\Tests\\ThingQueryFixture' );
+
+		$schema = Meta::build_meta_schema( $pk, 'thing' );
 
 		$fk = $this->column( $schema, 'thing_id' );
 		$this->assertInstanceOf( Column::class, $fk );
 		$this->assertSame( 'VARCHAR', $fk->type );
 		$this->assertSame( '36', (string) $fk->length );
 		$this->assertFalse( (bool) $fk->primary );
-	}
-
-	/**
-	 * The foreign key declares a belongs_to back to the primary query.
-	 *
-	 * @since 3.1.0
-	 */
-	public function test_belongs_to_back_to_primary() {
-		$pk     = new Column(
-			array(
-				'name'     => 'id',
-				'type'     => 'bigint',
-				'length'   => '20',
-				'unsigned' => true,
-				'primary'  => true,
-			)
-		);
-		$schema = Meta::build_meta_schema( $pk, 'order', 'BerlinDB\\Tests\\OrderQueryFixture' );
-
-		$relationships = $schema->get_relationships();
-		$this->assertCount( 1, $relationships );
-
-		$rel = $relationships[0];
-		$this->assertInstanceOf( Relationship::class, $rel );
-		$this->assertSame( 'belongs_to', $rel->type );
-		$this->assertSame( 'order', $rel->name );
-		$this->assertSame( 'BerlinDB\\Tests\\OrderQueryFixture', $rel->get_query_class() );
-		$this->assertSame( array( 'order_id' ), $rel->columns );
-		$this->assertSame( array( 'id' ), $rel->references );
 	}
 }

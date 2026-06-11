@@ -32,6 +32,13 @@ defined( 'ABSPATH' ) || exit;
  * key/value EAV shape with the foreign key mirrored from the primary key). The
  * registry, the generated Table/Query/Row, and CRUD routing layer on top.
  *
+ * The schema carries NO relationships. Both sides — primary has_many meta and meta
+ * belongs_to primary — are composed at the Query level as BOUND relationships
+ * (the owning Query binds the resolved counterpart instance), because either side
+ * may be a config-constructed base Query with no resolvable class name. Keeping the
+ * generated schema relationship-free also keeps it installable: a class-name
+ * relationship would fail validation (class_exists()) for a base-instance primary.
+ *
  * @since 3.1.0
  */
 class Meta {
@@ -44,8 +51,8 @@ class Meta {
 	 *   {object}_id  the foreign key, mirroring the primary key's column shape
 	 *   meta_key     varchar(191)  (full-column index; under the utf8mb4 limit)
 	 *   meta_value   longtext, nullable
-	 * plus indexes on {object}_id and meta_key, and a belongs_to back to the
-	 * primary declared on the foreign-key column.
+	 * plus indexes on {object}_id and meta_key. Relationships are NOT declared here
+	 * (see the class docblock) — they are composed, bound, at the Query level.
 	 *
 	 * The foreign key copies the primary key's storage shape (type/length/unsigned/
 	 * etc.) so values and relationship comparisons line up for any key type
@@ -54,33 +61,27 @@ class Meta {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param Column $primary_key         The primary object's primary-key column.
-	 * @param string $object_name         The primary object's singular name (e.g. 'order').
-	 * @param string $primary_query_class FQCN of the primary object's Query class.
+	 * @param Column $primary_key The primary object's primary-key column.
+	 * @param string $object_name The primary object's singular name (e.g. 'order').
+	 *                            Expected pre-sanitized (the preset feeds item_name);
+	 *                            normalized here defensively.
 	 * @return Schema
 	 */
-	public static function build_meta_schema( Column $primary_key, string $object_name, string $primary_query_class ): Schema {
+	public static function build_meta_schema( Column $primary_key, string $object_name ): Schema {
+
+		// Normalize defensively; the preset feeds an already-sanitized item name.
+		$object_name = self::normalize_name( $object_name );
 
 		// Foreign-key column name (e.g. 'order_id').
 		$fk_name = "{$object_name}_id";
 
-		// The foreign key: the primary key's shape, plus a belongs_to back to it.
+		// The foreign key: the primary key's storage shape, under the FK name.
 		$foreign_key = array_merge(
 			self::mirror_key_shape( $primary_key ),
-			array(
-				'name'          => $fk_name,
-				'relationships' => array(
-					array(
-						'query'  => $primary_query_class,
-						'column' => $primary_key->name,
-						'type'   => 'belongs_to',
-						'name'   => $object_name,
-					),
-				),
-			)
+			array( 'name' => $fk_name )
 		);
 
-		// Compose the meta schema.
+		// Compose the meta schema (columns + indexes only; no relationships).
 		return new Schema(
 			array(
 				'type'    => 'meta',
@@ -106,8 +107,14 @@ class Meta {
 					),
 				),
 				'indexes' => array(
-					array( 'columns' => array( $fk_name ) ),
-					array( 'columns' => array( 'meta_key' ) ),
+					array(
+						'name'    => $fk_name,
+						'columns' => array( $fk_name ),
+					),
+					array(
+						'name'    => 'meta_key',
+						'columns' => array( 'meta_key' ),
+					),
 				),
 			)
 		);
@@ -138,5 +145,23 @@ class Meta {
 			'collation'  => $column->collation,
 			'allow_null' => false,
 		);
+	}
+
+	/**
+	 * Normalize an object name to a safe identifier fragment.
+	 *
+	 * Lower-cases and strips anything but a-z, 0-9, and underscore, so deriving
+	 * "{object}_id" cannot yield surprising column names. The preset feeds an
+	 * already-sanitized item name; this is a defensive backstop.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $name The object name.
+	 * @return string
+	 */
+	private static function normalize_name( string $name ): string {
+		$name = strtolower( trim( $name ) );
+
+		return (string) preg_replace( '/[^a-z0-9_]/', '', $name );
 	}
 }
