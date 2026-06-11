@@ -108,6 +108,30 @@ class MetaPresetTest extends TestCase {
 		$this->assertSame( array(), $schema->get_validation_errors() );
 		$this->assertTrue( $schema->is_valid() );
 		$this->assertNotSame( '', $schema->get_create_table_string() );
+
+		// The named indexes are part of the preset's locked-down public shape.
+		$this->assertTrue( $schema->has_index( 'order_id' ) );
+		$this->assertTrue( $schema->has_index( 'meta_key' ) );
+	}
+
+	/**
+	 * An empty object name falls back rather than deriving a bare '_id' column.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_empty_object_name_falls_back() {
+		$pk = new Column(
+			array(
+				'name'    => 'id',
+				'type'    => 'bigint',
+				'primary' => true,
+			)
+		);
+
+		$schema = Meta::build_meta_schema( $pk, '   ' );
+
+		$this->assertInstanceOf( Column::class, $this->column( $schema, 'object_id' ) );
+		$this->assertNull( $this->column( $schema, '_id' ) );
 	}
 
 	/**

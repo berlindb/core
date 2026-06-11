@@ -161,7 +161,11 @@ class Meta {
 	 */
 	private static function normalize_name( string $name ): string {
 		$name = strtolower( trim( $name ) );
+		$name = (string) preg_replace( '/[^a-z0-9_]/', '', $name );
 
-		return (string) preg_replace( '/[^a-z0-9_]/', '', $name );
+		// Fall back rather than derive a bare '_id' (which would collide with 'id').
+		return ( '' !== $name )
+			? $name
+			: 'object';
 	}
 }
