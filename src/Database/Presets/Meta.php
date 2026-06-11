@@ -14,6 +14,7 @@ declare( strict_types = 1 );
 namespace BerlinDB\Database\Presets;
 
 use BerlinDB\Database\Kern\Column;
+use BerlinDB\Database\Kern\Query;
 use BerlinDB\Database\Kern\Schema;
 
 // Exit if accessed directly.
@@ -42,6 +43,197 @@ defined( 'ABSPATH' ) || exit;
  * @since 3.1.0
  */
 class Meta {
+
+	/**
+	 * Per-primary preset registry, keyed by the primary's prefixed table name.
+	 *
+	 * Memoizes one preset (and therefore one generated meta sibling) per primary
+	 * table, so repeated Query construction reuses the same generated pieces rather
+	 * than rebuilding them.
+	 *
+	 * @since 3.1.0
+	 * @var   array<string, self>
+	 */
+	private static $registry = array();
+
+	/**
+	 * The primary's primary-key column (for FK shape + relationship references).
+	 *
+	 * @since 3.1.0
+	 * @var   Column
+	 */
+	private $primary_key;
+
+	/**
+	 * The primary's singular object name (e.g. 'order').
+	 *
+	 * @since 3.1.0
+	 * @var   string
+	 */
+	private $object_name;
+
+	/**
+	 * The primary's plugin prefix, applied to the generated meta sibling.
+	 *
+	 * @since 3.1.0
+	 * @var   string
+	 */
+	private $prefix;
+
+	/**
+	 * The generated meta Query, built once on demand.
+	 *
+	 * @since 3.1.0
+	 * @var   Query|null
+	 */
+	private $meta_query = null;
+
+	/**
+	 * Whether the meta Query is currently being built (circular-construction guard).
+	 *
+	 * @since 3.1.0
+	 * @var   bool
+	 */
+	private $building = false;
+
+	/**
+	 * Whether the meta->primary belongs_to has been composed onto the meta Query.
+	 *
+	 * The meta Query is shared across all primary instances of this table, so its
+	 * inverse relationship is composed exactly once (by the first primary to wire).
+	 *
+	 * @since 3.1.0
+	 * @var   bool
+	 */
+	private $belongs_to_composed = false;
+
+	/**
+	 * Private constructor; instances come from for_query().
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param Column $primary_key The primary key column.
+	 * @param string $object_name The primary's singular object name.
+	 * @param string $prefix      The primary's plugin prefix.
+	 */
+	private function __construct( Column $primary_key, string $object_name, string $prefix ) {
+		$this->primary_key = $primary_key;
+		$this->object_name = self::normalize_name( $object_name );
+		$this->prefix      = $prefix;
+	}
+
+	/**
+	 * Resolve (memoized) the meta preset for a primary Query.
+	 *
+	 * Returns null when the primary has no primary-key column (nothing to relate a
+	 * meta row to). Keyed by the primary's prefixed table name, so every Query of
+	 * the same table shares one preset and one generated meta sibling.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param Query $primary The primary object's Query.
+	 * @return self|null
+	 */
+	public static function for_query( Query $primary ): ?self {
+
+		// Bail without a primary key — a meta row has nothing to point at.
+		$primary_key = $primary->get_column_by( array( 'primary' => true ) );
+		if ( ! ( $primary_key instanceof Column ) ) {
+			return null;
+		}
+
+		// Memoize one preset per primary table identity.
+		$key = $primary->get_table_name();
+		if ( ! isset( self::$registry[ $key ] ) ) {
+			self::$registry[ $key ] = new self(
+				$primary_key,
+				$primary->get_item_name(),
+				$primary->get_prefix()
+			);
+		}
+
+		return self::$registry[ $key ];
+	}
+
+	/**
+	 * The singular object name this preset derives its naming from.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return string
+	 */
+	public function get_object_name(): string {
+		return $this->object_name;
+	}
+
+	/**
+	 * Build (once) and return the generated meta Query.
+	 *
+	 * The meta Query is a base Query configured from the generated meta schema, so
+	 * it has no resolvable class name — which is exactly why both relationship sides
+	 * are bound rather than class-resolved. Memoized for idempotence; the building
+	 * flag turns an unexpected re-entry into a clear error rather than a loop.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return Query
+	 */
+	public function get_meta_query(): Query {
+
+		// Return the already-built meta query.
+		if ( $this->meta_query instanceof Query ) {
+			return $this->meta_query;
+		}
+
+		// Guard against re-entry while building (should not happen: the meta schema
+		// is type 'meta' and does not support 'meta', so it does not re-trigger).
+		if ( $this->building ) {
+			throw new \LogicException( "Circular meta preset construction for '{$this->object_name}'." );
+		}
+
+		$this->building = true;
+
+		// Compose the meta schema and a base Query around it.
+		$schema = self::build_meta_schema( $this->primary_key, $this->object_name );
+		$name   = "{$this->object_name}_meta";
+
+		$this->meta_query = new Query(
+			array(
+				'table_schema'     => $schema,
+				'table_name'       => $name,
+				'item_name'        => $name,
+				'item_name_plural' => $name,
+				'cache_group'      => $name,
+				'prefix'           => $this->prefix,
+			)
+		);
+
+		$this->building = false;
+
+		return $this->meta_query;
+	}
+
+	/**
+	 * Whether the meta->primary inverse relationship has been composed yet.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return bool
+	 */
+	public function is_inverse_composed(): bool {
+		return $this->belongs_to_composed;
+	}
+
+	/**
+	 * Mark the meta->primary inverse relationship as composed (once-only).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return void
+	 */
+	public function mark_inverse_composed(): void {
+		$this->belongs_to_composed = true;
+	}
 
 	/**
 	 * Build the meta sibling Schema for a primary object.
