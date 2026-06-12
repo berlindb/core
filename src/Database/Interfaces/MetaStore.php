@@ -84,8 +84,9 @@ interface MetaStore {
 	 * @param string     $meta_key   Meta key.
 	 * @param mixed      $meta_value Only delete entries matching this value;
 	 *                               empty deletes all entries for the key.
-	 * @param bool       $delete_all Whether to ignore $meta_value and delete all
-	 *                               entries for the key.
+	 * @param bool       $delete_all Whether to ignore $object_id and delete
+	 *                               matching entries for ALL objects (the
+	 *                               delete_metadata() semantic).
 	 * @return bool True when something was deleted, false otherwise.
 	 */
 	public function delete_meta( int|string $object_id, string $meta_key, mixed $meta_value = '', bool $delete_all = false ): bool;

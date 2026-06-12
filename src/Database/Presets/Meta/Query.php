@@ -13,8 +13,10 @@ declare( strict_types = 1 );
 
 namespace BerlinDB\Database\Presets\Meta;
 
+use BerlinDB\Database\Interfaces\MetaStore;
 use BerlinDB\Database\Kern\Column;
 use BerlinDB\Database\Kern\Query as KernQuery;
+use BerlinDB\Database\Kern\Row;
 use BerlinDB\Database\Kern\Schema;
 
 // Exit if accessed directly.
@@ -52,7 +54,7 @@ defined( 'ABSPATH' ) || exit;
  *
  * @since 3.1.0
  */
-class Query extends KernQuery {
+class Query extends KernQuery implements MetaStore {
 
 	/**
 	 * FQCN of the primary object's Query class.
@@ -73,6 +75,17 @@ class Query extends KernQuery {
 	 * @var   bool
 	 */
 	private $configured_from_primary = false;
+
+	/**
+	 * Name of the foreign-key column pointing at the primary (e.g. 'order_id').
+	 *
+	 * Derived during configure_from_primary(); the MetaStore methods address
+	 * rows through it.
+	 *
+	 * @since 3.1.0
+	 * @var   string
+	 */
+	private $object_column = '';
 
 	/**
 	 * Derive identity and schema from the primary before normal setup.
@@ -173,6 +186,7 @@ class Query extends KernQuery {
 		$this->item_name        = $name;
 		$this->item_name_plural = $name;
 		$this->cache_group      = $name;
+		$this->object_column    = self::normalize_name( $object ) . '_id';
 		$this->table_schema     = static::build_schema( $primary_key, $object, $this->primary );
 
 		// Mark success; Meta-specific paths bail when this never happened.
@@ -208,6 +222,302 @@ class Query extends KernQuery {
 		return ( $this->table_schema instanceof Schema )
 			? $this->table_schema
 			: null;
+	}
+
+	/** MetaStore *************************************************************/
+
+	/**
+	 * Add a meta entry for an object.
+	 *
+	 * Mirrors add_metadata(): non-scalars are stored serialized, and $unique
+	 * refuses to add when the key already exists for the object.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param int|string $object_id  Object ID the meta belongs to.
+	 * @param string     $meta_key   Meta key.
+	 * @param mixed      $meta_value Meta value.
+	 * @param bool       $unique     Whether the key must be unique per object.
+	 * @return int|false The new meta entry ID on success, false on failure.
+	 */
+	public function add_meta( int|string $object_id, string $meta_key, mixed $meta_value, bool $unique = false ): int|false {
+
+		// Bail when misconfigured, or without an object and key to file under.
+		if ( ! $this->configured_from_primary || empty( $object_id ) || ( '' === $meta_key ) ) {
+			return false;
+		}
+
+		// Unique keys refuse to add when the key already exists for the object.
+		if ( $unique && ( array() !== $this->get_meta_rows( $object_id, $meta_key ) ) ) {
+			return false;
+		}
+
+		/*
+		 * Insert through the normal item engine (validation, caching, hooks).
+		 * meta_key/meta_value are this table's own first-class, indexed columns —
+		 * not WP_Query meta vars — so the slow-query heuristic does not apply.
+		 */
+		$added = $this->add_item(
+			array(
+				$this->object_column => $object_id,
+				'meta_key'           => $meta_key,   // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+				'meta_value'         => maybe_serialize( $meta_value ), // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+			)
+		);
+
+		return is_int( $added ) && ( $added > 0 )
+			? $added
+			: false;
+	}
+
+	/**
+	 * Get meta for an object.
+	 *
+	 * Mirrors get_metadata(): values are unserialized on read; an empty key
+	 * returns all of the object's meta grouped by key.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param int|string $object_id Object ID the meta belongs to.
+	 * @param string     $meta_key  Meta key. Empty returns all meta for the object.
+	 * @param bool       $single    Whether to return the single (first) value.
+	 * @return mixed Single value when $single; array of values otherwise.
+	 */
+	public function get_meta( int|string $object_id, string $meta_key = '', bool $single = false ): mixed {
+
+		// Bail when misconfigured or without an object to look under.
+		if ( ! $this->configured_from_primary || empty( $object_id ) ) {
+			return $single ? '' : array();
+		}
+
+		$rows = $this->get_meta_rows( $object_id, $meta_key );
+
+		// An empty key returns ALL meta for the object, grouped by key.
+		if ( '' === $meta_key ) {
+			$retval = array();
+
+			foreach ( $rows as $row ) {
+				$retval[ (string) $row->meta_key ][] = maybe_unserialize( (string) $row->meta_value );
+			}
+
+			return $retval;
+		}
+
+		// Unserialize each stored value.
+		$values = array();
+		foreach ( $rows as $row ) {
+			$values[] = maybe_unserialize( (string) $row->meta_value );
+		}
+
+		return $single
+			? ( $values[0] ?? '' )
+			: $values;
+	}
+
+	/**
+	 * Update a meta entry for an object, adding it when absent.
+	 *
+	 * Mirrors update_metadata(): adds when the key does not exist; with a
+	 * $prev_value, only matching entries update; an identical single value is a
+	 * no-op returning false.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param int|string $object_id  Object ID the meta belongs to.
+	 * @param string     $meta_key   Meta key.
+	 * @param mixed      $meta_value New meta value.
+	 * @param mixed      $prev_value Only update entries matching this value.
+	 * @return bool True when something was added or updated.
+	 */
+	public function update_meta( int|string $object_id, string $meta_key, mixed $meta_value, mixed $prev_value = '' ): bool {
+
+		// Bail when misconfigured, or without an object and key to file under.
+		if ( ! $this->configured_from_primary || empty( $object_id ) || ( '' === $meta_key ) ) {
+			return false;
+		}
+
+		// Add when the key does not exist yet (update_metadata() parity).
+		$rows = $this->get_meta_rows( $object_id, $meta_key );
+		if ( array() === $rows ) {
+			return (bool) $this->add_meta( $object_id, $meta_key, $meta_value );
+		}
+
+		$serialized = maybe_serialize( $meta_value );
+
+		/*
+		 * With a previous value, only update entries that match it. Core uses
+		 * empty() semantics here: 0, '0', false, and array() are NOT previous-
+		 * value filters (update_metadata() parity).
+		 */
+		if ( ! empty( $prev_value ) ) {
+			$previous = maybe_serialize( $prev_value );
+			$rows     = array_values(
+				array_filter(
+					$rows,
+					static function ( $row ) use ( $previous ) {
+						return (string) $row->meta_value === $previous;
+					}
+				)
+			);
+
+			// An identical single value is a no-op (update_metadata() parity).
+		} elseif ( ( 1 === count( $rows ) ) && ( (string) $rows[0]->meta_value === $serialized ) ) {
+			return false;
+		}
+
+		// Update each matching entry through the normal item engine. (meta_value
+		// is this table's own column, not a WP_Query meta var.)
+		$retval = false;
+		foreach ( $rows as $row ) {
+			if ( $this->update_item( $row->meta_id, array( 'meta_value' => $serialized ) ) ) { // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+				$retval = true;
+			}
+		}
+
+		return $retval;
+	}
+
+	/**
+	 * Delete meta for an object.
+	 *
+	 * Mirrors delete_metadata(): a truthy $meta_value only deletes matching
+	 * entries; $delete_all ignores $object_id and deletes matching entries for
+	 * ALL objects.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param int|string $object_id  Object ID the meta belongs to.
+	 * @param string     $meta_key   Meta key.
+	 * @param mixed      $meta_value Only delete entries matching this value.
+	 * @param bool       $delete_all Whether to ignore $object_id (all objects).
+	 * @return bool True when something was deleted.
+	 */
+	public function delete_meta( int|string $object_id, string $meta_key, mixed $meta_value = '', bool $delete_all = false ): bool {
+
+		// Bail when misconfigured or without a key.
+		if ( ! $this->configured_from_primary || ( '' === $meta_key ) ) {
+			return false;
+		}
+
+		// Bail without an object unless deleting across all objects.
+		if ( ! $delete_all && empty( $object_id ) ) {
+			return false;
+		}
+
+		// All entries for the key — for this object, or every object.
+		$rows = $this->get_meta_rows( $delete_all ? null : $object_id, $meta_key );
+
+		/*
+		 * A present value only deletes matching entries. Core treats only '',
+		 * null, and false as "no value filter" — 0 and '0' are real filter
+		 * values (delete_metadata() parity).
+		 */
+		$serialized = maybe_serialize( $meta_value );
+		if ( ( '' !== $serialized ) && ( null !== $serialized ) && ( false !== $serialized ) ) {
+			$rows = array_values(
+				array_filter(
+					$rows,
+					static function ( $row ) use ( $serialized ) {
+						return (string) $row->meta_value === $serialized;
+					}
+				)
+			);
+		}
+
+		// Bail if nothing matches.
+		if ( array() === $rows ) {
+			return false;
+		}
+
+		// Delete each matching entry through the normal item engine.
+		$retval = false;
+		foreach ( $rows as $row ) {
+			if ( $this->delete_item( $row->meta_id ) ) {
+				$retval = true;
+			}
+		}
+
+		return $retval;
+	}
+
+	/**
+	 * Delete ALL meta for an object (every key).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param int|string $object_id Object ID whose meta to purge.
+	 * @return bool True when something was deleted.
+	 */
+	public function delete_all_meta( int|string $object_id ): bool {
+
+		// Bail when misconfigured or without an object.
+		if ( ! $this->configured_from_primary || empty( $object_id ) ) {
+			return false;
+		}
+
+		// Every entry for the object, all keys.
+		$rows = $this->get_meta_rows( $object_id, '' );
+
+		// Bail if there is nothing to purge.
+		if ( array() === $rows ) {
+			return false;
+		}
+
+		// Delete each entry through the normal item engine.
+		$retval = false;
+		foreach ( $rows as $row ) {
+			if ( $this->delete_item( $row->meta_id ) ) {
+				$retval = true;
+			}
+		}
+
+		return $retval;
+	}
+
+	/**
+	 * Fetch meta rows for an object and/or key, ordered oldest-first.
+	 *
+	 * Uses the unambiguous `__in` query-var forms: this table has real columns
+	 * named meta_key/meta_value, but the BARE `meta_key` query var belongs to
+	 * the Meta parser's vocabulary (which would fail closed here). Value
+	 * matching is done in PHP by the callers, for exact serialized comparison.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param int|string|null $object_id Object ID, or null for all objects.
+	 * @param string          $meta_key  Meta key, or '' for all keys.
+	 * @return array<int, Row> Meta rows (possibly empty).
+	 */
+	private function get_meta_rows( int|string|null $object_id, string $meta_key ): array {
+
+		// Unlimited, oldest-first (insertion order, like the WP meta API).
+		$args = array(
+			'number'  => 0,
+			'orderby' => 'meta_id',
+			'order'   => 'asc',
+		);
+
+		// Scope to one object unless querying across all of them.
+		if ( null !== $object_id ) {
+			$args[ $this->object_column . '__in' ] = array( $object_id );
+		}
+
+		// Scope to one key unless querying all of them.
+		if ( '' !== $meta_key ) {
+			$args[ 'meta_key__in' ] = array( $meta_key );
+		}
+
+		// Run the query; keep only the shaped Row items.
+		$items  = $this->query( $args );
+		$retval = array();
+
+		foreach ( (array) $items as $item ) {
+			if ( $item instanceof Row ) {
+				$retval[] = $item;
+			}
+		}
+
+		return $retval;
 	}
 
 	/**
@@ -264,6 +574,7 @@ class Query extends KernQuery {
 						'unsigned' => true,
 						'primary'  => true,
 						'extra'    => 'auto_increment',
+						'sortable' => true,
 					),
 					$foreign_key,
 					array(

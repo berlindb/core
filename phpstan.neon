@@ -7,4 +7,8 @@ parameters:
     treatPhpDocTypesAsCertain: false
     stubFiles:
         - phpstan/stubs/wpdb.stub.php
+    # Row is #[AllowDynamicProperties] by design: its properties ARE the table's
+    # columns, unknowable statically. Declare that so property reads type-check.
+    universalObjectCratesClasses:
+        - BerlinDB\Database\Kern\Row
 
