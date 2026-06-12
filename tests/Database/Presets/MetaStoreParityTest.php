@@ -99,7 +99,7 @@ class GadgetMetaQuery extends MetaQuery {
 
 /** The meta Table stub. */
 class GadgetMetaTable extends MetaTable {
-	protected $query = GadgetMetaQuery::class;
+	protected $meta_query_class = GadgetMetaQuery::class;
 }
 
 /**

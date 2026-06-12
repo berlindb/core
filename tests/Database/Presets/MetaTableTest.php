@@ -61,7 +61,7 @@ class MetaTableWidgetMetaQuery extends MetaQuery {
 
 /** The meta Table stub. */
 class MetaTableWidgetMetaTable extends MetaTable {
-	protected $query = MetaTableWidgetMetaQuery::class;
+	protected $meta_query_class = MetaTableWidgetMetaQuery::class;
 }
 
 /** A misconfigured table stub naming no query. */
@@ -69,7 +69,7 @@ class MetaTableOrphanTable extends MetaTable {}
 
 /** A misconfigured table stub naming a class that is not a meta Query. */
 class MetaTableWrongClassTable extends MetaTable {
-	protected $query = MetaTablePrimaryQuery::class;
+	protected $meta_query_class = MetaTablePrimaryQuery::class;
 }
 
 /** A meta Query stub that itself fails to configure (no primary). */
@@ -77,7 +77,7 @@ class MetaTableBrokenMetaQuery extends MetaQuery {}
 
 /** A misconfigured table stub naming a broken meta Query. */
 class MetaTableBrokenQueryTable extends MetaTable {
-	protected $query = MetaTableBrokenMetaQuery::class;
+	protected $meta_query_class = MetaTableBrokenMetaQuery::class;
 }
 
 /**

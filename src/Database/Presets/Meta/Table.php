@@ -25,7 +25,7 @@ defined( 'ABSPATH' ) || exit;
  * Extend it with a one-line stub that names its meta Query stub:
  *
  *     class Order_Meta_Table extends \BerlinDB\Database\Presets\Meta\Table {
- *         protected $query = Order_Meta::class;
+ *         protected $meta_query_class = Order_Meta::class;
  *     }
  *
  * The base derives its name ({object}_meta), plugin prefix, and schema from that
@@ -44,7 +44,7 @@ class Table extends KernTable {
 	 * @since 3.1.0
 	 * @var   string
 	 */
-	protected $query = '';
+	protected $meta_query_class = '';
 
 	/**
 	 * Table version.
@@ -63,7 +63,7 @@ class Table extends KernTable {
 	 * @since 3.1.0
 	 */
 	protected function init(): void {
-		$this->configure_from_query();
+		$this->configure_from_meta_query();
 
 		parent::init();
 	}
@@ -75,61 +75,61 @@ class Table extends KernTable {
 	 *
 	 * @return void
 	 */
-	private function configure_from_query(): void {
+	private function configure_from_meta_query(): void {
 
 		// Bail (loudly) unless a meta Query class is named and exists.
-		if ( ( '' === $this->query ) || ! class_exists( $this->query ) ) {
+		if ( ( '' === $this->meta_query_class ) || ! class_exists( $this->meta_query_class ) ) {
 			$this->log(
 				'warning',
 				'meta_table_query_missing',
 				'Meta table names no usable meta Query class; not configured.',
-				array( 'query' => $this->query )
+				array( 'meta_query_class' => $this->meta_query_class )
 			);
 
 			return;
 		}
 
 		// Bail (loudly) unless the class is a meta Query.
-		$meta = new $this->query();
-		if ( ! ( $meta instanceof Query ) ) {
+		$meta_query = new $this->meta_query_class();
+		if ( ! ( $meta_query instanceof Query ) ) {
 			$this->log(
 				'warning',
 				'meta_table_not_meta_query',
 				'Meta table query class is not a Presets\Meta\Query; not configured.',
-				array( 'query' => $this->query )
+				array( 'meta_query_class' => $this->meta_query_class )
 			);
 
 			return;
 		}
 
 		// Bail (loudly) when the meta Query itself failed to configure.
-		if ( ! $meta->is_configured_from_primary() ) {
+		if ( ! $meta_query->is_configured_from_primary() ) {
 			$this->log(
 				'warning',
 				'meta_table_query_misconfigured',
 				'Meta table query did not configure from its primary; not configured.',
-				array( 'query' => $this->query )
+				array( 'meta_query_class' => $this->meta_query_class )
 			);
 
 			return;
 		}
 
 		// Bail (loudly) without the generated Schema instance the query uses.
-		$schema = $meta->get_schema();
+		$schema = $meta_query->get_schema();
 		if ( ! ( $schema instanceof Schema ) ) {
 			$this->log(
 				'warning',
 				'meta_table_schema_missing',
 				'Meta table query carries no generated schema; not configured.',
-				array( 'query' => $this->query )
+				array( 'meta_query_class' => $this->meta_query_class )
 			);
 
 			return;
 		}
 
 		// Same identity and the same generated Schema instance the query uses.
-		$this->name   = $meta->get_item_name();
-		$this->prefix = $meta->get_prefix();
+		$this->name   = $meta_query->get_item_name();
+		$this->prefix = $meta_query->get_prefix();
 		$this->schema = $schema;
 	}
 }
