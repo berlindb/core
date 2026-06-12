@@ -162,20 +162,6 @@ class Query {
 	 */
 	private $schema_object = null;
 
-	/**
-	 * Relationships composed programmatically, beyond those the schema declares.
-	 *
-	 * Preset-composed relationships (e.g. the meta has_many/belongs_to) added via
-	 * add_composed_relationship(). get_relationships() returns these alongside the
-	 * schema's. Each carries its own bound remote (Relationship::bind()), so there
-	 * is no separate accessor→instance map. Per-instance, since each Query composes
-	 * its own.
-	 *
-	 * @since 3.1.0
-	 * @var   list<Relationship>
-	 */
-	private $composed_relationships = array();
-
 	/** Query Variables *******************************************************/
 
 	/**
@@ -268,67 +254,6 @@ class Query {
 		$this->set_item_shape();
 		$this->set_query_var_parsers();
 		$this->set_query_var_defaults();
-		$this->maybe_compose_meta();
-	}
-
-	/**
-	 * Compose the meta relationships when this object's schema supports 'meta'.
-	 *
-	 * Both sides are bound (neither the generated meta Query nor a possibly base
-	 * primary has a resolvable class name). Runs for base and subclass primaries
-	 * alike. Because the generated meta Query is a sibling Query, this wires the
-	 * inverse relationship onto it via same-class protected access (no public
-	 * surface). The meta schema is type 'meta' and does not support 'meta', so the
-	 * meta Query's own init() does not re-enter here.
-	 *
-	 * @since 3.1.0
-	 *
-	 * @return void
-	 */
-	private function maybe_compose_meta(): void {
-
-		// Bail unless this object's schema opts into meta.
-		if ( ! ( $this->schema_object instanceof Schema ) || ! $this->schema_object->supports( 'meta' ) ) {
-			return;
-		}
-
-		// Resolve the generated meta sibling (memoized per primary table).
-		$preset = \BerlinDB\Database\Presets\Meta::for_query( $this );
-		if ( null === $preset ) {
-			return;
-		}
-
-		$meta_query = $preset->get_meta_query();
-		$object     = $preset->get_object_name();
-		$primary_pk = $this->get_primary_column_name();
-
-		// This primary has_many its meta rows (bound to the generated meta query).
-		$has_many = new Relationship(
-			array(
-				'name'       => 'meta',
-				'type'       => 'has_many',
-				'columns'    => array( $primary_pk ),
-				'references' => array( "{$object}_id" ),
-			)
-		);
-		$has_many->bind( $meta_query );
-		$this->add_composed_relationship( $has_many );
-
-		// The shared meta query belongs_to this object — composed once, bound back.
-		if ( ! $preset->is_inverse_composed() ) {
-			$preset->mark_inverse_composed();
-
-			$belongs_to = new Relationship(
-				array(
-					'name'       => $object,
-					'type'       => 'belongs_to',
-					'columns'    => array( "{$object}_id" ),
-					'references' => array( $primary_pk ),
-				)
-			);
-			$belongs_to->bind( $this );
-			$meta_query->add_composed_relationship( $belongs_to );
-		}
 	}
 
 	/**
@@ -1165,13 +1090,12 @@ class Query {
 	 */
 	public function get_relationships() {
 
-		// Schema-declared relationships, when the schema can supply them.
-		$declared = ( $this->schema_object instanceof Schema )
-			? $this->schema_object->get_relationships()
-			: array();
+		// Bail with no relationships unless the schema can supply them.
+		if ( ! ( $this->schema_object instanceof Schema ) ) {
+			return array();
+		}
 
-		// Merge any programmatically composed (e.g. preset) relationships.
-		return array_merge( $declared, $this->composed_relationships );
+		return $this->schema_object->get_relationships();
 	}
 
 	/**
@@ -1305,15 +1229,13 @@ class Query {
 	}
 
 	/**
-	 * Resolve a relationship's remote Query to a guarded instance.
+	 * Resolve a relationship's remote Query class to a fresh, guarded instance.
 	 *
-	 * A relationship that carries a bound remote (Relationship::is_bound(),
-	 * preset-composed with no resolvable FQCN) resolves to that instance directly.
-	 * Because the bound remote lives on the relationship itself — not in a separate
-	 * map keyed by accessor — a declared relationship that carries a real class can
-	 * never be shadowed. Otherwise the relationship's class name is instantiated.
-	 * Returns null when the remote cannot be resolved or is not a sibling Query —
-	 * so callers fail closed on a misdeclared or missing remote. Setup-only.
+	 * Returns null when the relationship names no class, the class does not exist,
+	 * or it is not a sibling Query — so callers fail closed on a misdeclared or
+	 * missing remote. Instantiation is setup-only (no query). Preset-composed
+	 * relationships (e.g. meta) name a real class too, so they resolve here exactly
+	 * like declared ones.
 	 *
 	 * @since 3.1.0
 	 *
@@ -1322,16 +1244,7 @@ class Query {
 	 */
 	private function resolve_remote_query( Relationship $relationship ) {
 
-		// Bound relationships resolve to the remote carried on the relationship.
-		if ( $relationship->is_bound() ) {
-			$bound = $relationship->get_bound_remote();
-
-			return ( $bound instanceof self )
-				? $bound
-				: null;
-		}
-
-		// Declared relationships resolve by class name.
+		// Reject a missing or non-existent class.
 		$class = $relationship->get_query_class();
 		if ( ( '' === $class ) || ! class_exists( $class ) ) {
 			return null;
@@ -1343,41 +1256,6 @@ class Query {
 		return ( $remote instanceof self )
 			? $remote
 			: null;
-	}
-
-	/**
-	 * Add a programmatically composed relationship, beyond the schema's.
-	 *
-	 * The narrow, internal hook a preset uses to add a relationship the Schema
-	 * cannot declare (because it lacks table/owning-Query context). The relationship
-	 * carries its own bound remote (Relationship::bind()) when it has no resolvable
-	 * class. Skipped — and logged — when an accessor of the same name already
-	 * exists, so a composed relationship can never shadow a declared one.
-	 *
-	 * Protected so a primary Query can add a relationship onto its generated meta
-	 * Query (same-class cross-instance access), keeping the surface internal.
-	 *
-	 * @since 3.1.0
-	 *
-	 * @param Relationship $relationship The relationship to add.
-	 * @return void
-	 */
-	protected function add_composed_relationship( Relationship $relationship ): void {
-
-		// Skip when an accessor of this name already exists (declared or composed).
-		$name = $relationship->name;
-		if ( ( '' !== $name ) && ( $this->get_relationship( $name ) instanceof Relationship ) ) {
-			$this->log(
-				'warning',
-				'relationship_accessor_taken',
-				'Composed relationship skipped; the accessor name is already in use.',
-				array( 'name' => $name )
-			);
-
-			return;
-		}
-
-		$this->composed_relationships[] = $relationship;
 	}
 
 	/**

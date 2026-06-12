@@ -207,23 +207,6 @@ class Relationship {
 	 */
 	protected $constraint = '';
 
-	/**
-	 * A resolved remote Query bound directly to this relationship.
-	 *
-	 * Set programmatically (bind()) by internal/preset code that composes a
-	 * relationship whose remote is a generated Query instance with no resolvable
-	 * FQCN (e.g. the meta preset). When present, the relationship resolves to this
-	 * instance instead of instantiating $query — so it is also exempt from the
-	 * "missing remote query class" shape check. It is NOT a config key and not part
-	 * of the column shorthand vocabulary, so declared schema relationships never
-	 * carry one and always resolve by class. Keeping the bound remote ON the
-	 * relationship makes each one self-contained (no separate accessor map).
-	 *
-	 * @since 3.1.0
-	 * @var   Query|null Default null.
-	 */
-	protected $bound_remote = null;
-
 	/** Argument validation ***************************************************/
 
 	/**
@@ -279,44 +262,6 @@ class Relationship {
 	}
 
 	/**
-	 * Bind a resolved remote Query directly to this relationship.
-	 *
-	 * Programmatic only — used by preset code composing a relationship whose remote
-	 * has no resolvable class name. Once bound, the relationship resolves to this
-	 * instance rather than instantiating $query.
-	 *
-	 * @since 3.1.0
-	 *
-	 * @param Query $remote The resolved remote Query.
-	 * @return void
-	 */
-	public function bind( Query $remote ): void {
-		$this->bound_remote = $remote;
-	}
-
-	/**
-	 * Return whether the remote side is bound programmatically (not by class name).
-	 *
-	 * @since 3.1.0
-	 *
-	 * @return bool
-	 */
-	public function is_bound() {
-		return ( $this->bound_remote instanceof Query );
-	}
-
-	/**
-	 * Return the bound remote Query, or null when not bound.
-	 *
-	 * @since 3.1.0
-	 *
-	 * @return Query|null
-	 */
-	public function get_bound_remote() {
-		return $this->bound_remote;
-	}
-
-	/**
 	 * Return the FQCN of the remote Query class.
 	 *
 	 * Consumers (cache priming, parsers, lazy Row loading) operate through this
@@ -338,7 +283,7 @@ class Relationship {
 	 * Schema::get_validation_errors(), and remote resolution / remote-column
 	 * existence by Query::get_relationship_errors(). Checks here:
 	 * - Declares no local columns.
-	 * - Missing remote query class (unless bound internally; see is_bound()).
+	 * - Missing remote query class.
 	 * - Declares no remote columns (references).
 	 * - Local/remote column count mismatch (composite columns pair positionally).
 	 *
@@ -359,9 +304,8 @@ class Relationship {
 			$errors[] = "Relationship {$label} declares no local columns.";
 		}
 
-		// Must target a remote query class — unless the remote is bound internally
-		// (a preset-composed relationship resolves through the owning Query's map).
-		if ( ! $this->is_bound() && ( '' === $this->query ) ) {
+		// Must target a remote query class.
+		if ( '' === $this->query ) {
 			$errors[] = "Relationship {$label} is missing a remote query class.";
 		}
 
