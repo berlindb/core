@@ -3881,9 +3881,41 @@ class Query {
 	/** Meta ******************************************************************/
 
 	/**
+	 * Resolve this object's meta store, when it has one.
+	 *
+	 * The *_item_meta() methods are routers: when this object's relationship
+	 * named 'meta' resolves to a remote implementing Interfaces\MetaStore, meta
+	 * operations delegate to that store (the custom sibling-table path);
+	 * otherwise they fall through to the legacy WordPress metadata API. Both
+	 * checks are required — the accessor name picks WHICH relationship is the
+	 * canonical meta relationship; the interface proves the remote can actually
+	 * perform meta operations.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return \BerlinDB\Database\Interfaces\MetaStore|null The store, or null.
+	 */
+	private function get_meta_store() {
+
+		// Bail unless a relationship named 'meta' is declared.
+		$relationship = $this->get_relationship( 'meta' );
+		if ( ! ( $relationship instanceof Relationship ) ) {
+			return null;
+		}
+
+		// Resolve the remote; it must prove capability via the contract.
+		$remote = $this->resolve_remote_query( $relationship );
+
+		return ( $remote instanceof \BerlinDB\Database\Interfaces\MetaStore )
+			? $remote
+			: null;
+	}
+
+	/**
 	 * Add meta data to an item.
 	 *
 	 * @since 1.0.0
+	 * @since 3.1.0 Routes to the meta store when one is declared (see get_meta_store()).
 	 *
 	 * @param int|string $item_id Item ID.
 	 * @param string     $meta_key Meta key.
@@ -3899,6 +3931,12 @@ class Query {
 		// Bail if no meta to add, or if the ID is not an integer (metadata requires integer IDs).
 		if ( ! is_int( $item_id ) || empty( $item_id ) || empty( $meta_key ) ) {
 			return false;
+		}
+
+		// Route to the meta store when one is declared.
+		$store = $this->get_meta_store();
+		if ( null !== $store ) {
+			return $store->add_meta( $item_id, $meta_key, $meta_value, (bool) $unique );
 		}
 
 		// Bail if no meta table exists.
@@ -3917,6 +3955,7 @@ class Query {
 	 * Get meta data for an item.
 	 *
 	 * @since 1.0.0
+	 * @since 3.1.0 Routes to the meta store when one is declared (see get_meta_store()).
 	 *
 	 * @param int|string $item_id Item ID.
 	 * @param string     $meta_key Meta key.
@@ -3931,6 +3970,12 @@ class Query {
 		// Bail if no meta was returned, or if the ID is not an integer (metadata requires integer IDs).
 		if ( ! is_int( $item_id ) || empty( $item_id ) || empty( $meta_key ) ) {
 			return false;
+		}
+
+		// Route to the meta store when one is declared.
+		$store = $this->get_meta_store();
+		if ( null !== $store ) {
+			return $store->get_meta( $item_id, $meta_key, (bool) $single );
 		}
 
 		// Bail if no meta table exists.
@@ -3949,6 +3994,7 @@ class Query {
 	 * Update meta data for an item.
 	 *
 	 * @since 1.0.0
+	 * @since 3.1.0 Routes to the meta store when one is declared (see get_meta_store()).
 	 *
 	 * @param int|string $item_id Item ID.
 	 * @param string     $meta_key Meta key.
@@ -3964,6 +4010,12 @@ class Query {
 		// Bail if no meta was returned, or if the ID is not an integer (metadata requires integer IDs).
 		if ( ! is_int( $item_id ) || empty( $item_id ) || empty( $meta_key ) ) {
 			return false;
+		}
+
+		// Route to the meta store when one is declared.
+		$store = $this->get_meta_store();
+		if ( null !== $store ) {
+			return $store->update_meta( $item_id, $meta_key, $meta_value, $prev_value );
 		}
 
 		// Bail if no meta table exists.
@@ -3982,6 +4034,7 @@ class Query {
 	 * Delete meta data for an item.
 	 *
 	 * @since 1.0.0
+	 * @since 3.1.0 Routes to the meta store when one is declared (see get_meta_store()).
 	 *
 	 * @param int|string $item_id Item ID.
 	 * @param string     $meta_key Meta key.
@@ -3997,6 +4050,12 @@ class Query {
 		// Bail if no meta was returned, or if the ID is not an integer (metadata requires integer IDs).
 		if ( ! is_int( $item_id ) || empty( $item_id ) || empty( $meta_key ) ) {
 			return false;
+		}
+
+		// Route to the meta store when one is declared.
+		$store = $this->get_meta_store();
+		if ( null !== $store ) {
+			return $store->delete_meta( $item_id, $meta_key, $meta_value, (bool) $delete_all );
 		}
 
 		// Bail if no meta table exists.
@@ -4073,6 +4132,7 @@ class Query {
 	 * Delete all meta data for an item.
 	 *
 	 * @since 1.0.0
+	 * @since 3.1.0 Routes to the meta store when one is declared (see get_meta_store()).
 	 *
 	 * @param int|string $item_id Item ID.
 	 */
@@ -4083,6 +4143,14 @@ class Query {
 
 		// Bail if no item ID.
 		if ( empty( $item_id ) ) {
+			return;
+		}
+
+		// Route to the meta store when one is declared.
+		$store = $this->get_meta_store();
+		if ( null !== $store ) {
+			$store->delete_all_meta( $item_id );
+
 			return;
 		}
 
