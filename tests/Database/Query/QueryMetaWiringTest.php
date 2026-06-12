@@ -3,7 +3,7 @@
  * Meta as ordinary relationships, via stub classes (#204 Phase A).
  *
  * The meta sibling is a one-line stub naming its primary
- * (protected $primary = Order::class, extending Presets\Meta\Query); the base
+ * (protected $primary_query_class = Order::class, extending Presets\Meta\Query); the base
  * derives the meta table identity and EAV schema from the primary and declares a
  * belongs_to back. The primary declares the matching has_many in its own schema —
  * an ordinary relationship like any other. Both sides are real classes resolved
@@ -55,7 +55,7 @@ class WireOrderSchema extends Schema {
 
 /** The meta sibling — a one-line stub naming its primary. */
 class WireOrderMetaQuery extends MetaQuery {
-	protected $primary = WireOrderQuery::class;
+	protected $primary_query_class = WireOrderQuery::class;
 }
 
 /** The primary. Meta is wired entirely through the schema relationship above. */
@@ -75,7 +75,7 @@ class WireNotAQuery {}
 
 /** A misconfigured stub whose primary is not a Query. */
 class WireNotAQueryMetaQuery extends MetaQuery {
-	protected $primary = WireNotAQuery::class;
+	protected $primary_query_class = WireNotAQuery::class;
 }
 
 /** A primary schema with no primary-key column. */
@@ -100,7 +100,7 @@ class WireKeylessQuery extends Query {
 
 /** A misconfigured stub whose primary has no primary-key column. */
 class WireKeylessMetaQuery extends MetaQuery {
-	protected $primary = WireKeylessQuery::class;
+	protected $primary_query_class = WireKeylessQuery::class;
 }
 
 /** A primary schema with a composite (two-column) primary key. */
@@ -137,7 +137,7 @@ class WireCompositeQuery extends Query {
 
 /** A stub whose primary's composite key is unsupported. */
 class WireCompositeMetaQuery extends MetaQuery {
-	protected $primary = WireCompositeQuery::class;
+	protected $primary_query_class = WireCompositeQuery::class;
 }
 
 /** A canonical primary schema: primary INDEX + the 'id' name, no column flag. */
@@ -171,7 +171,7 @@ class WireCanonicalQuery extends Query {
 
 /** A stub whose primary uses the canonical index-only key convention. */
 class WireCanonicalMetaQuery extends MetaQuery {
-	protected $primary = WireCanonicalQuery::class;
+	protected $primary_query_class = WireCanonicalQuery::class;
 }
 
 /**

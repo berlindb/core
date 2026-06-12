@@ -56,7 +56,7 @@ class MetaTablePrimaryQuery extends Query {
 
 /** The meta Query stub. */
 class MetaTableWidgetMetaQuery extends MetaQuery {
-	protected $primary = MetaTablePrimaryQuery::class;
+	protected $primary_query_class = MetaTablePrimaryQuery::class;
 }
 
 /** The meta Table stub. */

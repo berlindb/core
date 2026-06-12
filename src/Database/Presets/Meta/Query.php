@@ -28,7 +28,7 @@ defined( 'ABSPATH' ) || exit;
  * Extend it with a one-line stub that names its primary object's Query:
  *
  *     class Order_Meta extends \BerlinDB\Database\Presets\Meta\Query {
- *         protected $primary = Order::class;
+ *         protected $primary_query_class = Order::class;
  *     }
  *
  * The primary declares the matching has_many in its own schema, on its primary
@@ -62,7 +62,7 @@ class Query extends KernQuery implements MetaStore {
 	 * @since 3.1.0
 	 * @var   string
 	 */
-	protected $primary = '';
+	protected $primary_query_class = '';
 
 	/**
 	 * Whether configure_from_primary() succeeded.
@@ -85,7 +85,7 @@ class Query extends KernQuery implements MetaStore {
 	 * @since 3.1.0
 	 * @var   string
 	 */
-	private $object_column = '';
+	private $object_id_column_name = '';
 
 	/**
 	 * Derive identity and schema from the primary before normal setup.
@@ -112,25 +112,25 @@ class Query extends KernQuery implements MetaStore {
 	private function configure_from_primary(): void {
 
 		// Bail (loudly) unless a primary Query class is named and exists.
-		if ( ( '' === $this->primary ) || ! class_exists( $this->primary ) ) {
+		if ( ( '' === $this->primary_query_class ) || ! class_exists( $this->primary_query_class ) ) {
 			$this->log(
 				'warning',
 				'meta_primary_missing',
 				'Meta query names no usable primary Query class; not configured.',
-				array( 'primary' => $this->primary )
+				array( 'primary_query_class' => $this->primary_query_class )
 			);
 
 			return;
 		}
 
 		// Bail (loudly) unless the primary is a sibling Query.
-		$primary = new $this->primary();
-		if ( ! ( $primary instanceof KernQuery ) ) {
+		$primary_query = new $this->primary_query_class();
+		if ( ! ( $primary_query instanceof KernQuery ) ) {
 			$this->log(
 				'warning',
 				'meta_primary_not_a_query',
 				'Meta query primary class is not a Query; not configured.',
-				array( 'primary' => $this->primary )
+				array( 'primary_query_class' => $this->primary_query_class )
 			);
 
 			return;
@@ -141,13 +141,13 @@ class Query extends KernQuery implements MetaStore {
 		 * exactly one foreign-key column, so it requires exactly one key column —
 		 * composite keys are unsupported (as they are in the relationship runtime).
 		 */
-		$flagged = array_values( (array) $primary->get_columns( array( 'primary' => true ) ) );
-		if ( 1 < count( $flagged ) ) {
+		$primary_columns = array_values( (array) $primary_query->get_columns( array( 'primary' => true ) ) );
+		if ( 1 < count( $primary_columns ) ) {
 			$this->log(
 				'warning',
 				'meta_primary_key_unsupported',
 				'Meta query primary has a composite primary key; not configured.',
-				array( 'primary' => $this->primary )
+				array( 'primary_query_class' => $this->primary_query_class )
 			);
 
 			return;
@@ -160,34 +160,34 @@ class Query extends KernQuery implements MetaStore {
 		 * index-only schemas). The meta foreign key mirrors whatever column the
 		 * engine treats as primary, so the two always agree.
 		 */
-		$primary_key = ! empty( $flagged )
-			? $flagged[0]
-			: $primary->get_column_by( array( 'name' => $primary->get_primary_column_name() ) );
+		$primary_key_column = ! empty( $primary_columns )
+			? $primary_columns[0]
+			: $primary_query->get_column_by( array( 'name' => $primary_query->get_primary_column_name() ) );
 
 		// Bail (loudly) unless the primary has a key column to relate to.
-		if ( ! ( $primary_key instanceof Column ) ) {
+		if ( ! ( $primary_key_column instanceof Column ) ) {
 			$this->log(
 				'warning',
 				'meta_primary_key_missing',
 				'Meta query primary has no primary-key column; not configured.',
-				array( 'primary' => $this->primary )
+				array( 'primary_query_class' => $this->primary_query_class )
 			);
 
 			return;
 		}
 
 		// Derive identity from the primary's singular name (e.g. 'order' -> 'order_meta').
-		$object = $primary->get_item_name();
-		$name   = "{$object}_meta";
+		$object_name     = $primary_query->get_item_name();
+		$meta_table_name = "{$object_name}_meta";
 
 		// Late static binding, so a stub may override build_schema() to customize.
-		$this->prefix           = $primary->get_prefix();
-		$this->table_name       = $name;
-		$this->item_name        = $name;
-		$this->item_name_plural = $name;
-		$this->cache_group      = $name;
-		$this->object_column    = self::normalize_name( $object ) . '_id';
-		$this->table_schema     = static::build_schema( $primary_key, $object, $this->primary );
+		$this->prefix                = $primary_query->get_prefix();
+		$this->table_name            = $meta_table_name;
+		$this->item_name             = $meta_table_name;
+		$this->item_name_plural      = $meta_table_name;
+		$this->cache_group           = $meta_table_name;
+		$this->object_id_column_name = self::sanitize_object_name( $object_name ) . '_id';
+		$this->table_schema          = static::build_schema( $primary_key_column, $object_name, $this->primary_query_class );
 
 		// Mark success; Meta-specific paths bail when this never happened.
 		$this->configured_from_primary = true;
@@ -259,9 +259,9 @@ class Query extends KernQuery implements MetaStore {
 		 */
 		$added = $this->add_item(
 			array(
-				$this->object_column => $object_id,
-				'meta_key'           => $meta_key,   // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
-				'meta_value'         => maybe_serialize( $meta_value ), // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+				$this->object_id_column_name => $object_id,
+				'meta_key'                   => $meta_key,   // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+				'meta_value'                 => maybe_serialize( $meta_value ), // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
 			)
 		);
 
@@ -499,7 +499,7 @@ class Query extends KernQuery implements MetaStore {
 
 		// Scope to one object unless querying across all of them.
 		if ( null !== $object_id ) {
-			$args[ $this->object_column . '__in' ] = array( $object_id );
+			$args[ $this->object_id_column_name . '__in' ] = array( $object_id );
 		}
 
 		// Scope to one key unless querying all of them.
@@ -537,26 +537,26 @@ class Query extends KernQuery implements MetaStore {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param Column $primary_key         The primary object's primary-key column.
+	 * @param Column $primary_key_column  The primary object's primary-key column.
 	 * @param string $object_name         The primary object's singular name (e.g. 'order').
 	 * @param string $primary_query_class FQCN of the primary object's Query class.
 	 * @return Schema
 	 */
-	public static function build_schema( Column $primary_key, string $object_name, string $primary_query_class ): Schema {
+	public static function build_schema( Column $primary_key_column, string $object_name, string $primary_query_class ): Schema {
 
 		// Normalize defensively; the primary feeds an already-sanitized item name.
-		$object_name = self::normalize_name( $object_name );
+		$object_name = self::sanitize_object_name( $object_name );
 		$fk_name     = "{$object_name}_id";
 
 		// The foreign key: the primary key's shape + a belongs_to back to it.
 		$foreign_key = array_merge(
-			self::mirror_key_shape( $primary_key ),
+			self::mirror_key_shape( $primary_key_column ),
 			array(
 				'name'          => $fk_name,
 				'relationships' => array(
 					array(
 						'query'  => $primary_query_class,
-						'column' => $primary_key->name,
+						'column' => $primary_key_column->name,
 						'type'   => 'belongs_to',
 						'name'   => $object_name,
 					),
@@ -630,14 +630,14 @@ class Query extends KernQuery implements MetaStore {
 	}
 
 	/**
-	 * Normalize an object name to a safe identifier fragment.
+	 * Sanitize an object name to a safe identifier fragment.
 	 *
 	 * @since 3.1.0
 	 *
 	 * @param string $name The object name.
 	 * @return string
 	 */
-	private static function normalize_name( string $name ): string {
+	private static function sanitize_object_name( string $name ): string {
 		$name = strtolower( trim( $name ) );
 		$name = (string) preg_replace( '/[^a-z0-9_]/', '', $name );
 

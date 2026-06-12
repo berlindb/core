@@ -209,7 +209,7 @@ class Order_Table extends Table {
 }
 
 class Order_Meta_Query extends MetaQuery {
-    protected $primary = Order_Query::class;
+    protected $primary_query_class = Order_Query::class;
 }
 
 class Order_Meta_Table extends MetaTable {
