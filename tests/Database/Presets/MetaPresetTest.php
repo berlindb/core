@@ -88,14 +88,12 @@ class MetaPresetTest extends TestCase {
 	}
 
 	/**
-	 * The generated schema has the standard EAV shape and meta type.
+	 * The generated schema has the standard EAV shape.
 	 *
 	 * @since 3.1.0
 	 */
 	public function test_meta_schema_shape() {
 		$schema = $this->thing_meta_schema();
-
-		$this->assertSame( 'meta', $schema->get_type() );
 
 		$meta_id = $this->column( $schema, 'meta_id' );
 		$this->assertInstanceOf( Column::class, $meta_id );

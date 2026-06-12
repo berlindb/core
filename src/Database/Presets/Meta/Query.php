@@ -159,7 +159,6 @@ class Query extends KernQuery {
 
 		return new Schema(
 			array(
-				'type'    => 'meta',
 				'columns' => array(
 					array(
 						'name'     => 'meta_id',

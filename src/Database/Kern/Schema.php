@@ -144,34 +144,6 @@ class Schema {
 	 */
 	protected $indexes = array();
 
-	/** Definition ************************************************************/
-
-	/**
-	 * The role this schema plays.
-	 *
-	 * 'primary' (default) for an object's own table; presets generate sibling
-	 * schemas with other types (e.g. 'meta'). Lets callers and presets reason about
-	 * a schema's role without inspecting its columns.
-	 *
-	 * @since 3.1.0
-	 * @var   string
-	 */
-	protected $type = 'primary';
-
-	/**
-	 * Optional features this schema opts into (WordPress post-type-supports style).
-	 *
-	 * A list of feature keys a preset reads to layer behaviour on — e.g.
-	 * array( 'meta' ) provisions a key/value meta sibling table and wires the
-	 * relationships. Empty by default. This is a declaration only: the Schema does
-	 * not act on it (it lacks table/prefix/owning-Query context); the owning Query
-	 * and the relevant Preset compose the feature when they have full context.
-	 *
-	 * @since 3.1.0
-	 * @var   list<string>
-	 */
-	protected $supports = array();
-
 	/** Configuration *********************************************************/
 
 	/**
@@ -187,62 +159,9 @@ class Schema {
 	 */
 	protected function get_config_callbacks(): array {
 		return array(
-			'columns'  => array( $this, 'sanitize_definition_list' ),
-			'indexes'  => array( $this, 'sanitize_definition_list' ),
-			'type'     => array( $this, 'sanitize_type' ),
-			'supports' => array( $this, 'sanitize_supports' ),
+			'columns' => array( $this, 'sanitize_definition_list' ),
+			'indexes' => array( $this, 'sanitize_definition_list' ),
 		);
-	}
-
-	/**
-	 * Sanitize the schema type, falling back to 'primary'.
-	 *
-	 * @since 3.1.0
-	 *
-	 * @param mixed $value The type (expected to be a string).
-	 * @return string A sanitized key, or 'primary' when empty/invalid.
-	 */
-	protected function sanitize_type( $value = 'primary' ): string {
-		$type = is_string( $value )
-			? $this->sanitize_key( $value )
-			: '';
-
-		return ( '' !== $type )
-			? $type
-			: 'primary';
-	}
-
-	/**
-	 * Sanitize the supports list to a list of feature keys.
-	 *
-	 * @since 3.1.0
-	 *
-	 * @param mixed $value A list of feature keys (expected to be an array).
-	 * @return list<string>
-	 */
-	protected function sanitize_supports( $value = array() ): array {
-
-		// Bail with an empty list if not an array.
-		if ( ! is_array( $value ) ) {
-			return array();
-		}
-
-		// Default return value.
-		$retval = array();
-
-		// Sanitize each feature as a key; keep only the non-empty ones.
-		foreach ( $value as $feature ) {
-			if ( is_string( $feature ) ) {
-				$key = $this->sanitize_key( $feature );
-
-				if ( '' !== $key ) {
-					$retval[] = $key;
-				}
-			}
-		}
-
-		// De-duplicate; this list is a small public vocabulary.
-		return array_values( array_unique( $retval ) );
 	}
 
 	/**
@@ -283,42 +202,6 @@ class Schema {
 		if ( ! empty( $this->indexes ) && is_array( $this->indexes ) ) {
 			$this->setup_items( 'indexes', $this->indexes );
 		}
-	}
-
-	/** Public Definition *****************************************************/
-
-	/**
-	 * Return the role this schema plays ('primary' by default).
-	 *
-	 * @since 3.1.0
-	 *
-	 * @return string
-	 */
-	public function get_type(): string {
-		return (string) $this->type;
-	}
-
-	/**
-	 * Return the list of features this schema opts into.
-	 *
-	 * @since 3.1.0
-	 *
-	 * @return list<string>
-	 */
-	public function get_supports(): array {
-		return (array) $this->supports;
-	}
-
-	/**
-	 * Return whether this schema opts into a given feature.
-	 *
-	 * @since 3.1.0
-	 *
-	 * @param string $feature Feature key (e.g. 'meta').
-	 * @return bool
-	 */
-	public function supports( string $feature ): bool {
-		return in_array( $this->sanitize_key( $feature ), $this->get_supports(), true );
 	}
 
 	/** Public Item Core ******************************************************/
