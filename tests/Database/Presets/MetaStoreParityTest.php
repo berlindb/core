@@ -386,6 +386,84 @@ class MetaStoreParityTest extends TestCase {
 	}
 
 	/**
+	 * Bulk meta — extra non-column keys in add_item() — routes to the store.
+	 *
+	 * The WordPress registered-meta-keys gate is intentionally skipped when a
+	 * store is declared: the 'meta' relationship IS the registration.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_bulk_meta_on_add_item_routes_to_store() {
+		$gadgets = new GadgetQuery();
+		$store   = new GadgetMetaQuery();
+
+		// 'color' is not a gadget column, so it flows to save_extra_item_meta().
+		$gadget_id = $gadgets->add_item(
+			array(
+				'label' => 'widget',
+				'color' => 'blue',
+			)
+		);
+
+		$this->assertIsInt( $gadget_id );
+		$this->assertSame( 'blue', $store->get_meta( $gadget_id, 'color', true ) );
+	}
+
+	/**
+	 * Bulk meta on update_item() updates values and deletes empty ones.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_bulk_meta_on_update_item_routes_to_store() {
+		$gadgets = new GadgetQuery();
+		$store   = new GadgetMetaQuery();
+
+		$gadget_id = $gadgets->add_item(
+			array(
+				'label' => 'widget',
+				'color' => 'blue',
+				'tag'   => 'first',
+			)
+		);
+
+		// Non-empty values update; empty values delete (legacy bulk semantics).
+		$gadgets->update_item(
+			$gadget_id,
+			array(
+				'label' => 'gizmo',
+				'color' => 'red',
+				'tag'   => '',
+			)
+		);
+
+		$this->assertSame( 'red', $store->get_meta( $gadget_id, 'color', true ) );
+		$this->assertSame( array(), $store->get_meta( $gadget_id, 'tag' ) );
+	}
+
+	/**
+	 * Deleting an item purges all of its meta through the store.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_delete_item_purges_meta_through_store() {
+		$gadgets = new GadgetQuery();
+		$store   = new GadgetMetaQuery();
+
+		$gadget_id = $gadgets->add_item( array( 'label' => 'doomed' ) );
+		$keeper_id = $gadgets->add_item( array( 'label' => 'keeper' ) );
+
+		$store->add_meta( $gadget_id, 'color', 'blue' );
+		$store->add_meta( $gadget_id, 'tag', 'first' );
+		$store->add_meta( $keeper_id, 'color', 'green' );
+
+		$this->assertTrue( $gadgets->delete_item( $gadget_id ) );
+
+		// The deleted item's meta is purged; the survivor's is intact.
+		$this->assertSame( array(), $store->get_meta( $gadget_id ) );
+		$this->assertSame( array( 'green' ), $store->get_meta( $keeper_id, 'color' ) );
+	}
+
+	/**
 	 * get_related() resolves both directions over real rows.
 	 *
 	 * @since 3.1.0

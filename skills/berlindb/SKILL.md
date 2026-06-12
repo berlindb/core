@@ -229,11 +229,15 @@ the relationship named `meta` resolves to a `MetaStore`; otherwise they fall bac
 to the legacy WordPress metadata API. Expose those protected helpers from your
 own Query subclass if your plugin needs public item-meta methods.
 
+Bulk meta works too: extra non-column keys passed to `add_item()` /
+`update_item()` save through the store (non-empty values update, empty values
+delete), and `delete_item()` purges the item's meta. When a store is declared,
+the WordPress `register_meta()` key gate is intentionally skipped — the `meta`
+relationship IS the registration.
+
 Current limitations:
 
 - The `meta_query` parser still targets WordPress metadata tables.
-- Bulk `meta` arrays passed to `add_item()` / `update_item()` are not yet routed
-  through `MetaStore`.
 - Runtime relationship features remain single-column only, so Meta preset
   primaries should use a single primary key column.
 

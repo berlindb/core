@@ -4092,6 +4092,7 @@ class Query {
 	 * Maybe update meta values on item update/save.
 	 *
 	 * @since 1.0.0
+	 * @since 3.1.0 Routes to the meta store when one is declared (see get_meta_store()).
 	 *
 	 * @param int|string           $item_id Item ID.
 	 * @param array<string, mixed> $meta Array of meta key/value pairs.
@@ -4106,21 +4107,31 @@ class Query {
 			return;
 		}
 
-		// Bail if no meta table exists.
-		if ( false === $this->get_meta_table_name() ) {
-			return;
+		/*
+		 * The legacy WordPress path applies two gates: a registered {type}meta
+		 * table must exist, and only register_meta()'d keys are saved. When a
+		 * meta store is declared, both are intentionally skipped — the WP
+		 * registry is a WP-core-types concept, and for a custom sibling table
+		 * the declared 'meta' relationship IS the registration.
+		 */
+		if ( null === $this->get_meta_store() ) {
+
+			// Bail if no meta table exists.
+			if ( false === $this->get_meta_table_name() ) {
+				return;
+			}
+
+			// Only save registered keys.
+			$keys = $this->get_registered_meta_keys();
+			$meta = array_intersect_key( $meta, $keys );
+
+			// Bail if no registered meta keys.
+			if ( empty( $meta ) ) {
+				return;
+			}
 		}
 
-		// Only save registered keys.
-		$keys = $this->get_registered_meta_keys();
-		$meta = array_intersect_key( $meta, $keys );
-
-		// Bail if no registered meta keys.
-		if ( empty( $meta ) ) {
-			return;
-		}
-
-		// Save or delete meta data.
+		// Save or delete meta data (each call routes per-key when a store exists).
 		foreach ( $meta as $key => $value ) {
 			! empty( $value )
 				? $this->update_item_meta( $item_id, $key, $value )

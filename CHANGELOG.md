@@ -23,9 +23,12 @@ Notable changes to BerlinDB are documented here.
   presets. `Presets\Meta\Query` implements the new `Interfaces\MetaStore`
   contract, and `Query`'s protected `*_item_meta()` methods route through a
   declared `meta` relationship when the remote query implements that contract,
-  falling back to the legacy WordPress metadata API otherwise. Bulk `meta` arrays
-  passed to `add_item()` / `update_item()` and `meta_query` parser translation
-  remain follow-up work.
+  falling back to the legacy WordPress metadata API otherwise. Bulk meta (extra
+  non-column keys passed to `add_item()` / `update_item()`) and the delete-item
+  purge route through the store as well; with a store declared, the WordPress
+  `register_meta()` key gate is intentionally skipped — the `meta` relationship
+  is the registration. `meta_query` parser translation remains follow-up work
+  (Phase B).
 - Schema validation now reconciles primary-key declarations: a column flagged
   `primary` that is covered by the `primary` index counts as ONE key (the flag is
   the semantic marker queries/parsers read; the index emits the DDL), so schemas
