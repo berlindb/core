@@ -151,6 +151,92 @@ Notes:
   `constraint`) is **declarable but not yet emitted as DDL** — relationships are
   enforced at the application layer (WordPress avoids real foreign keys).
 
+## Custom Meta Tables (3.1.0, #204)
+
+Use the Meta preset when a table needs WordPress-style key/value metadata in a
+custom sibling table instead of a core `{type}meta` table. The recipe is explicit:
+the primary schema declares the `has_many meta` relationship, and thin query/table
+stubs opt into the generated meta table shape.
+
+```php
+use BerlinDB\Database\Kern\Query;
+use BerlinDB\Database\Kern\Schema;
+use BerlinDB\Database\Kern\Table;
+use BerlinDB\Database\Presets\Meta\Query as MetaQuery;
+use BerlinDB\Database\Presets\Meta\Table as MetaTable;
+
+class Order_Schema extends Schema {
+    public $columns = array(
+        array(
+            'name'          => 'id',
+            'type'          => 'bigint',
+            'length'        => '20',
+            'unsigned'      => true,
+            'primary'       => true,
+            'extra'         => 'auto_increment',
+            'relationships' => array(
+                array(
+                    'query'  => Order_Meta_Query::class,
+                    'column' => 'order_id',
+                    'type'   => 'has_many',
+                    'name'   => 'meta',
+                ),
+            ),
+        ),
+    );
+
+    public $indexes = array(
+        array(
+            'type'    => 'primary',
+            'columns' => array( 'id' ),
+        ),
+    );
+}
+
+class Order_Query extends Query {
+    protected $prefix       = 'acme';
+    protected $table_name   = 'orders';
+    protected $table_schema = Order_Schema::class;
+    protected $item_name    = 'order';
+    protected $cache_group  = 'orders';
+}
+
+class Order_Table extends Table {
+    protected $prefix  = 'acme';
+    protected $name    = 'orders';
+    protected $version = '1.0.0';
+    protected $schema  = Order_Schema::class;
+}
+
+class Order_Meta_Query extends MetaQuery {
+    protected $primary = Order_Query::class;
+}
+
+class Order_Meta_Table extends MetaTable {
+    protected $query = Order_Meta_Query::class;
+}
+```
+
+Instantiate/install the primary table and meta table alongside each other. The
+meta query derives its table name (`order_meta`), foreign key (`order_id`), EAV
+columns (`meta_id`, `meta_key`, `meta_value`), and `belongs_to order`
+relationship from the primary.
+
+`Presets\Meta\Query` implements `Interfaces\MetaStore`. A primary query's
+protected `add_item_meta()`, `get_item_meta()`, `update_item_meta()`,
+`delete_item_meta()`, and delete-item purge path route to the custom store when
+the relationship named `meta` resolves to a `MetaStore`; otherwise they fall back
+to the legacy WordPress metadata API. Expose those protected helpers from your
+own Query subclass if your plugin needs public item-meta methods.
+
+Current limitations:
+
+- The `meta_query` parser still targets WordPress metadata tables.
+- Bulk `meta` arrays passed to `add_item()` / `update_item()` are not yet routed
+  through `MetaStore`.
+- Runtime relationship features remain single-column only, so Meta preset
+  primaries should use a single primary key column.
+
 ## High-Risk Gotchas
 
 - Nullable columns use `'allow_null' => true`, not `'null' => true`.

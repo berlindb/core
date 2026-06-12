@@ -13,14 +13,19 @@ Notable changes to BerlinDB are documented here.
   opt-in enforced FOREIGN KEY DDL; fails closed on malformed or unresolvable specs.
 - Adds opt-in typed `CAST` in comparisons (e.g. `AS SIGNED` / `DATETIME`),
   sanitized at the boundary and fail-closed on invalid casts.
-- Adds the Meta preset (#204, in progress): `Presets\Meta\Query` is a base class a
-  plugin extends with a one-line stub naming its primary
-  (`protected $primary = Order::class;`). The stub derives its `{object}_meta`
+- Adds the Meta preset (#204, in progress): `Presets\Meta\Query` and
+  `Presets\Meta\Table` are base classes a plugin extends with thin stubs naming
+  their primary/query counterparts. The query stub derives its `{object}_meta`
   identity and key/value EAV schema from the primary — the foreign key mirrors the
   primary key's storage shape, so UUID/varchar keys work — and declares a
   `belongs_to` back; the primary declares the matching `has_many` in its own schema.
   Both resolve through the ordinary relationship engine; no Kern class references
-  presets. Table provisioning and `*_item_meta()` routing land next.
+  presets. `Presets\Meta\Query` implements the new `Interfaces\MetaStore`
+  contract, and `Query`'s protected `*_item_meta()` methods route through a
+  declared `meta` relationship when the remote query implements that contract,
+  falling back to the legacy WordPress metadata API otherwise. Bulk `meta` arrays
+  passed to `add_item()` / `update_item()` and `meta_query` parser translation
+  remain follow-up work.
 - Schema validation now reconciles primary-key declarations: a column flagged
   `primary` that is covered by the `primary` index counts as ONE key (the flag is
   the semantic marker queries/parsers read; the index emits the DDL), so schemas

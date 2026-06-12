@@ -27,7 +27,6 @@
 		<exclude-pattern>*</exclude-pattern>
 	</rule>
 
-
 	<!--
 		PHPDoc uses generic types like list<string> and array<K,V> for PHPStan-level
 		type analysis. PHP runtime type hints can only express 'array', so PHPCS
