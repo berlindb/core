@@ -103,6 +103,77 @@ class WireKeylessMetaQuery extends MetaQuery {
 	protected $primary = WireKeylessQuery::class;
 }
 
+/** A primary schema with a composite (two-column) primary key. */
+class WireCompositeSchema extends Schema {
+	public $columns = array(
+		array(
+			'name'    => 'a',
+			'type'    => 'bigint',
+			'primary' => true,
+		),
+		array(
+			'name'    => 'b',
+			'type'    => 'bigint',
+			'primary' => true,
+		),
+	);
+
+	public $indexes = array(
+		array(
+			'type'    => 'primary',
+			'columns' => array( 'a', 'b' ),
+		),
+	);
+}
+
+/** A primary Query with a composite primary key. */
+class WireCompositeQuery extends Query {
+	protected $prefix       = 'wire';
+	protected $table_name   = 'composites';
+	protected $table_schema = WireCompositeSchema::class;
+	protected $item_name    = 'composite';
+	protected $cache_group  = 'composites';
+}
+
+/** A stub whose primary's composite key is unsupported. */
+class WireCompositeMetaQuery extends MetaQuery {
+	protected $primary = WireCompositeQuery::class;
+}
+
+/** A canonical primary schema: primary INDEX + the 'id' name, no column flag. */
+class WireCanonicalSchema extends Schema {
+	public $columns = array(
+		array(
+			'name'     => 'id',
+			'type'     => 'bigint',
+			'length'   => '20',
+			'unsigned' => true,
+			'extra'    => 'auto_increment',
+		),
+	);
+
+	public $indexes = array(
+		array(
+			'type'    => 'primary',
+			'columns' => array( 'id' ),
+		),
+	);
+}
+
+/** A canonical primary Query (index-only key, engine 'id' convention). */
+class WireCanonicalQuery extends Query {
+	protected $prefix       = 'wire';
+	protected $table_name   = 'canonicals';
+	protected $table_schema = WireCanonicalSchema::class;
+	protected $item_name    = 'canonical';
+	protected $cache_group  = 'canonicals';
+}
+
+/** A stub whose primary uses the canonical index-only key convention. */
+class WireCanonicalMetaQuery extends MetaQuery {
+	protected $primary = WireCanonicalQuery::class;
+}
+
 /**
  * Tests for stub-based meta relationships.
  *
@@ -220,5 +291,34 @@ class QueryMetaWiringTest extends TestCase {
 
 		$this->assertNotEmpty( $meta->get_logs( array( 'code' => 'meta_primary_key_missing' ) ) );
 		$this->assertFalse( $meta->is_configured_from_primary() );
+	}
+
+	/**
+	 * A composite primary key is unsupported and fails loudly.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_composite_primary_key_logs_warning() {
+		$meta = new WireCompositeMetaQuery();
+
+		$this->assertNotEmpty( $meta->get_logs( array( 'code' => 'meta_primary_key_unsupported' ) ) );
+		$this->assertFalse( $meta->is_configured_from_primary() );
+	}
+
+	/**
+	 * A canonical primary (index-only key, 'id' name convention) configures.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_canonical_index_only_primary_configures() {
+		$meta = new WireCanonicalMetaQuery();
+
+		$this->assertTrue( $meta->is_configured_from_primary() );
+		$this->assertSame( 'canonical_meta', $meta->get_item_name() );
+
+		// The foreign key mirrors the canonical 'id' column's shape.
+		$fk = $meta->get_column_by( array( 'name' => 'canonical_id' ) );
+		$this->assertInstanceOf( Column::class, $fk );
+		$this->assertSame( 'BIGINT', $fk->type );
 	}
 }

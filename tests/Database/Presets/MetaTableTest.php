@@ -67,6 +67,19 @@ class MetaTableWidgetMetaTable extends MetaTable {
 /** A misconfigured table stub naming no query. */
 class MetaTableOrphanTable extends MetaTable {}
 
+/** A misconfigured table stub naming a class that is not a meta Query. */
+class MetaTableWrongClassTable extends MetaTable {
+	protected $query = MetaTablePrimaryQuery::class;
+}
+
+/** A meta Query stub that itself fails to configure (no primary). */
+class MetaTableBrokenMetaQuery extends MetaQuery {}
+
+/** A misconfigured table stub naming a broken meta Query. */
+class MetaTableBrokenQueryTable extends MetaTable {
+	protected $query = MetaTableBrokenMetaQuery::class;
+}
+
 /**
  * Tests for Presets\Meta\Table.
  *
@@ -107,11 +120,15 @@ class MetaTableTest extends TestCase {
 	}
 
 	/**
-	 * The table derives identity + schema from the stub and installs.
+	 * The table derives identity + schema from the stub and is installed.
+	 *
+	 * (Installed by setUpBeforeClass — and Table::init() also auto-upgrades when
+	 * testing, so this proves "installed after construction + setup", not the
+	 * install() call path in isolation.)
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_meta_table_installs() {
+	public function test_meta_table_is_installed() {
 		$this->assertTrue( self::$table->exists() );
 
 		// The physical columns match the generated EAV schema.
@@ -152,5 +169,27 @@ class MetaTableTest extends TestCase {
 		$table = new MetaTableOrphanTable();
 
 		$this->assertNotEmpty( $table->get_logs( array( 'code' => 'meta_table_query_missing' ) ) );
+	}
+
+	/**
+	 * A table stub naming a non-meta Query class fails loudly.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_wrong_class_logs_warning() {
+		$table = new MetaTableWrongClassTable();
+
+		$this->assertNotEmpty( $table->get_logs( array( 'code' => 'meta_table_not_meta_query' ) ) );
+	}
+
+	/**
+	 * A table stub naming a misconfigured meta Query fails loudly.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_misconfigured_query_logs_warning() {
+		$table = new MetaTableBrokenQueryTable();
+
+		$this->assertNotEmpty( $table->get_logs( array( 'code' => 'meta_table_query_misconfigured' ) ) );
 	}
 }

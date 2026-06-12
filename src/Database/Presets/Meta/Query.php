@@ -124,15 +124,32 @@ class Query extends KernQuery {
 		}
 
 		/*
-		 * Resolve the primary's key column. Prefer the primary-flagged column;
-		 * fall back to the name get_primary_column_name() reports, which covers
-		 * canonical schemas that declare the key via a primary index (and rely on
-		 * the 'id' name convention) without flagging the column.
+		 * Bail (loudly) when the primary key is composite. This preset generates
+		 * exactly one foreign-key column, so it requires exactly one key column —
+		 * composite keys are unsupported (as they are in the relationship runtime).
 		 */
-		$primary_key = $primary->get_column_by( array( 'primary' => true ) );
-		if ( ! ( $primary_key instanceof Column ) ) {
-			$primary_key = $primary->get_column_by( array( 'name' => $primary->get_primary_column_name() ) );
+		$flagged = array_values( (array) $primary->get_columns( array( 'primary' => true ) ) );
+		if ( 1 < count( $flagged ) ) {
+			$this->log(
+				'warning',
+				'meta_primary_key_unsupported',
+				'Meta query primary has a composite primary key; not configured.',
+				array( 'primary' => $this->primary )
+			);
+
+			return;
 		}
+
+		/*
+		 * Resolve the single key column: the primary-flagged column when there is
+		 * exactly one; otherwise the column the Query engine itself keys items by
+		 * (get_primary_column_name(), the canonical 'id' convention used by
+		 * index-only schemas). The meta foreign key mirrors whatever column the
+		 * engine treats as primary, so the two always agree.
+		 */
+		$primary_key = ! empty( $flagged )
+			? $flagged[0]
+			: $primary->get_column_by( array( 'name' => $primary->get_primary_column_name() ) );
 
 		// Bail (loudly) unless the primary has a key column to relate to.
 		if ( ! ( $primary_key instanceof Column ) ) {
