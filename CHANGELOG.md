@@ -21,6 +21,12 @@ Notable changes to BerlinDB are documented here.
   `belongs_to` back; the primary declares the matching `has_many` in its own schema.
   Both resolve through the ordinary relationship engine; no Kern class references
   presets. Table provisioning and `*_item_meta()` routing land next.
+- Schema validation now reconciles primary-key declarations: a column flagged
+  `primary` that is covered by the `primary` index counts as ONE key (the flag is
+  the semantic marker queries/parsers read; the index emits the DDL), so schemas
+  may declare both. Real conflicts — multiple primary indexes, multiple flagged
+  columns without a covering composite index, or a flagged column outside the
+  primary index — still fail validation.
 - Adds relationship-declaration validation (#206): `Schema::get_validation_errors()`
   checks each declaration's local side (own shape, local columns, accessor
   uniqueness, unsupported composite, a named-but-missing remote query class);

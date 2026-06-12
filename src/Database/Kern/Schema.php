@@ -928,7 +928,11 @@ class Schema {
 	 * - Duplicate index names.
 	 * - Indexes referencing columns not present in the schema.
 	 * - Indexes with no columns defined.
-	 * - More than one primary key defined (across columns and indexes).
+	 * - Conflicting primary keys: multiple primary indexes, multiple primary-
+	 *   flagged columns with no covering composite primary index, or a primary-
+	 *   flagged column the primary index does not cover. (A flagged column
+	 *   covered by the primary index is ONE key — the flag is the semantic
+	 *   marker; the index emits the DDL.)
 	 * - Relationships: own-shape errors (Relationship::get_validation_errors()),
 	 *   a missing/duplicate accessor name, a local column not present in this
 	 *   schema, a named-but-missing remote query class, and composite (multi-
@@ -948,9 +952,11 @@ class Schema {
 		$columns = $this->get_columns();
 		$indexes = $this->get_indexes();
 
-		$column_names  = array();
-		$index_names   = array();
-		$primary_count = 0;
+		$column_names          = array();
+		$index_names           = array();
+		$primary_columns       = array();
+		$primary_index_columns = array();
+		$primary_index_count   = 0;
 
 		foreach ( $columns as $column ) {
 
@@ -970,7 +976,7 @@ class Schema {
 			$column_names[ $column_name ] = true;
 
 			if ( ! empty( $column->primary ) ) {
-				++$primary_count;
+				$primary_columns[] = $column_name;
 			}
 		}
 
@@ -993,13 +999,14 @@ class Schema {
 
 			$index_names[ $index_name ] = true;
 
-			if ( true === $is_primary ) {
-				++$primary_count;
-			}
-
 			$index_columns = ! empty( $index->columns )
 				? (array) $index->columns
 				: array();
+
+			if ( true === $is_primary ) {
+				++$primary_index_count;
+				$primary_index_columns = array_map( array( $this, 'sanitize_index_name' ), $index_columns );
+			}
 
 			if ( empty( $index_columns ) ) {
 				$errors[] = "Index {$index_name} does not include any columns.";
@@ -1018,7 +1025,23 @@ class Schema {
 			}
 		}
 
-		if ( 1 < $primary_count ) {
+		/*
+		 * Reconcile primary-key declarations. A column flagged primary AND a
+		 * primary index covering that same column describe ONE primary key — the
+		 * flag is the semantic marker queries and parsers read; the index emits
+		 * the DDL — not a conflict. Real conflicts: multiple primary indexes,
+		 * multiple flagged columns without a covering composite primary index, or
+		 * a flagged column the primary index does not cover.
+		 */
+		if ( 1 < $primary_index_count ) {
+			$errors[] = 'Schema defines multiple primary keys.';
+		} elseif ( 1 === $primary_index_count ) {
+			foreach ( $primary_columns as $primary_column ) {
+				if ( ! in_array( $primary_column, $primary_index_columns, true ) ) {
+					$errors[] = "Primary column {$primary_column} is not covered by the primary key index.";
+				}
+			}
+		} elseif ( 1 < count( $primary_columns ) ) {
 			$errors[] = 'Schema defines multiple primary keys.';
 		}
 
