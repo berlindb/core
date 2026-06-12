@@ -62,11 +62,14 @@ bin/run-tests.sh -p 8.2 -w 6.7 -- --group default
 ## Layout (where things live)
 
 - `src/Database/Kern/` — user-facing classes: `Schema`, `Table`, `Query`,
-  `Column`, `Row`, `Index`.
+  `Column`, `Row`, `Index`, `Relationship`.
 - `src/Database/Traits/` — composable behavior (`Parser`, `Sanitizer`, `Cast`,
-  `Lifecycle`, `Log`, `Boot`, `Magic`, `Generator`, `Operator`, `Environment`,
-  `Error`, `Base`).
+  `Lifecycle`, `Log`, `Boot`, `Configuration`, `Magic`, `Generator`, `Operator`,
+  `Environment`, `Error`, `Base`).
 - `src/Database/Parsers/` + `Operators/` — reusable SQL clause builders.
+- `src/Database/Presets/` — recipe base classes (e.g. `Presets\Meta\Query`), one
+  directory per recipe. Plain classes a plugin extends with thin stubs; Kern
+  classes never reference presets.
 - `src/Database/Adapters/` + `Interfaces/` — `Connection` + `Wpdb` /
   `NullConnection`.
 - `tests/` — PHPUnit, mirrors `src/` layout. Tests use the aliased

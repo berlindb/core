@@ -13,6 +13,14 @@ Notable changes to BerlinDB are documented here.
   opt-in enforced FOREIGN KEY DDL; fails closed on malformed or unresolvable specs.
 - Adds opt-in typed `CAST` in comparisons (e.g. `AS SIGNED` / `DATETIME`),
   sanitized at the boundary and fail-closed on invalid casts.
+- Adds the Meta preset (#204, in progress): `Presets\Meta\Query` is a base class a
+  plugin extends with a one-line stub naming its primary
+  (`protected $primary = Order::class;`). The stub derives its `{object}_meta`
+  identity and key/value EAV schema from the primary — the foreign key mirrors the
+  primary key's storage shape, so UUID/varchar keys work — and declares a
+  `belongs_to` back; the primary declares the matching `has_many` in its own schema.
+  Both resolve through the ordinary relationship engine; no Kern class references
+  presets. Table provisioning and `*_item_meta()` routing land next.
 - Adds relationship-declaration validation (#206): `Schema::get_validation_errors()`
   checks each declaration's local side (own shape, local columns, accessor
   uniqueness, unsupported composite, a named-but-missing remote query class);
