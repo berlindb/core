@@ -70,6 +70,39 @@ class WireOrderQuery extends Query {
 /** A misconfigured stub naming no primary at all. */
 class WireOrphanMetaQuery extends MetaQuery {}
 
+/** A class that exists but is NOT a Query. */
+class WireNotAQuery {}
+
+/** A misconfigured stub whose primary is not a Query. */
+class WireNotAQueryMetaQuery extends MetaQuery {
+	protected $primary = WireNotAQuery::class;
+}
+
+/** A primary schema with no primary-key column. */
+class WireKeylessSchema extends Schema {
+	public $columns = array(
+		array(
+			'name'   => 'label',
+			'type'   => 'varchar',
+			'length' => '20',
+		),
+	);
+}
+
+/** A primary Query with no primary key. */
+class WireKeylessQuery extends Query {
+	protected $prefix       = 'wire';
+	protected $table_name   = 'keyless';
+	protected $table_schema = WireKeylessSchema::class;
+	protected $item_name    = 'keyless';
+	protected $cache_group  = 'keyless';
+}
+
+/** A misconfigured stub whose primary has no primary-key column. */
+class WireKeylessMetaQuery extends MetaQuery {
+	protected $primary = WireKeylessQuery::class;
+}
+
 /**
  * Tests for stub-based meta relationships.
  *
@@ -143,6 +176,17 @@ class QueryMetaWiringTest extends TestCase {
 	}
 
 	/**
+	 * A correctly-configured stub reports success.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_configured_stub_reports_success() {
+		$meta = new WireOrderMetaQuery();
+
+		$this->assertTrue( $meta->is_configured_from_primary() );
+	}
+
+	/**
 	 * A stub naming no primary fails loudly (a structured warning, not silence).
 	 *
 	 * @since 3.1.0
@@ -151,5 +195,30 @@ class QueryMetaWiringTest extends TestCase {
 		$meta = new WireOrphanMetaQuery();
 
 		$this->assertNotEmpty( $meta->get_logs( array( 'code' => 'meta_primary_missing' ) ) );
+		$this->assertFalse( $meta->is_configured_from_primary() );
+	}
+
+	/**
+	 * A stub whose primary is not a Query fails loudly.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_primary_not_a_query_logs_warning() {
+		$meta = new WireNotAQueryMetaQuery();
+
+		$this->assertNotEmpty( $meta->get_logs( array( 'code' => 'meta_primary_not_a_query' ) ) );
+		$this->assertFalse( $meta->is_configured_from_primary() );
+	}
+
+	/**
+	 * A stub whose primary has no primary-key column fails loudly.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_primary_key_missing_logs_warning() {
+		$meta = new WireKeylessMetaQuery();
+
+		$this->assertNotEmpty( $meta->get_logs( array( 'code' => 'meta_primary_key_missing' ) ) );
+		$this->assertFalse( $meta->is_configured_from_primary() );
 	}
 }

@@ -63,6 +63,18 @@ class Query extends KernQuery {
 	protected $primary = '';
 
 	/**
+	 * Whether configure_from_primary() succeeded.
+	 *
+	 * A misconfigured stub logs a warning and constructs as an inert base Query;
+	 * Meta-specific paths (table provisioning, CRUD routing) consult this and bail
+	 * rather than operate on a default identity.
+	 *
+	 * @since 3.1.0
+	 * @var   bool
+	 */
+	private $configured_from_primary = false;
+
+	/**
 	 * Derive identity and schema from the primary before normal setup.
 	 *
 	 * @since 3.1.0
@@ -111,8 +123,18 @@ class Query extends KernQuery {
 			return;
 		}
 
-		// Bail (loudly) unless the primary has a primary-key column to relate to.
+		/*
+		 * Resolve the primary's key column. Prefer the primary-flagged column;
+		 * fall back to the name get_primary_column_name() reports, which covers
+		 * canonical schemas that declare the key via a primary index (and rely on
+		 * the 'id' name convention) without flagging the column.
+		 */
 		$primary_key = $primary->get_column_by( array( 'primary' => true ) );
+		if ( ! ( $primary_key instanceof Column ) ) {
+			$primary_key = $primary->get_column_by( array( 'name' => $primary->get_primary_column_name() ) );
+		}
+
+		// Bail (loudly) unless the primary has a key column to relate to.
 		if ( ! ( $primary_key instanceof Column ) ) {
 			$this->log(
 				'warning',
@@ -135,6 +157,40 @@ class Query extends KernQuery {
 		$this->item_name_plural = $name;
 		$this->cache_group      = $name;
 		$this->table_schema     = static::build_schema( $primary_key, $object, $this->primary );
+
+		// Mark success; Meta-specific paths bail when this never happened.
+		$this->configured_from_primary = true;
+	}
+
+	/**
+	 * Return whether this meta query successfully configured from its primary.
+	 *
+	 * False means the stub is misconfigured (see the meta_primary_* warnings) and
+	 * carries only inert default identity — callers building on the meta sibling
+	 * (table provisioning, CRUD routing) should bail.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return bool
+	 */
+	public function is_configured_from_primary(): bool {
+		return $this->configured_from_primary;
+	}
+
+	/**
+	 * Return the generated meta Schema, or null when misconfigured.
+	 *
+	 * Presets\Meta\Table consumes this to install the sibling table from the
+	 * exact same Schema instance this query runs against.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return Schema|null
+	 */
+	public function get_schema(): ?Schema {
+		return ( $this->table_schema instanceof Schema )
+			? $this->table_schema
+			: null;
 	}
 
 	/**
@@ -205,6 +261,10 @@ class Query extends KernQuery {
 					),
 				),
 				'indexes' => array(
+					array(
+						'type'    => 'primary',
+						'columns' => array( 'meta_id' ),
+					),
 					array(
 						'name'    => $fk_name,
 						'columns' => array( $fk_name ),
