@@ -67,6 +67,9 @@ class WireOrderQuery extends Query {
 	protected $cache_group  = 'orders';
 }
 
+/** A misconfigured stub naming no primary at all. */
+class WireOrphanMetaQuery extends MetaQuery {}
+
 /**
  * Tests for stub-based meta relationships.
  *
@@ -137,5 +140,16 @@ class QueryMetaWiringTest extends TestCase {
 		$this->assertInstanceOf( Column::class, $meta->get_column_by( array( 'name' => 'meta_id' ) ) );
 		$this->assertInstanceOf( Column::class, $meta->get_column_by( array( 'name' => 'meta_key' ) ) );
 		$this->assertInstanceOf( Column::class, $meta->get_column_by( array( 'name' => 'meta_value' ) ) );
+	}
+
+	/**
+	 * A stub naming no primary fails loudly (a structured warning, not silence).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_missing_primary_logs_warning() {
+		$meta = new WireOrphanMetaQuery();
+
+		$this->assertNotEmpty( $meta->get_logs( array( 'code' => 'meta_primary_missing' ) ) );
 	}
 }

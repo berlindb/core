@@ -86,18 +86,41 @@ class Query extends KernQuery {
 	 */
 	private function configure_from_primary(): void {
 
-		// Bail unless the primary resolves to a sibling Query with a primary key.
+		// Bail (loudly) unless a primary Query class is named and exists.
 		if ( ( '' === $this->primary ) || ! class_exists( $this->primary ) ) {
+			$this->log(
+				'warning',
+				'meta_primary_missing',
+				'Meta query names no usable primary Query class; not configured.',
+				array( 'primary' => $this->primary )
+			);
+
 			return;
 		}
 
+		// Bail (loudly) unless the primary is a sibling Query.
 		$primary = new $this->primary();
 		if ( ! ( $primary instanceof KernQuery ) ) {
+			$this->log(
+				'warning',
+				'meta_primary_not_a_query',
+				'Meta query primary class is not a Query; not configured.',
+				array( 'primary' => $this->primary )
+			);
+
 			return;
 		}
 
+		// Bail (loudly) unless the primary has a primary-key column to relate to.
 		$primary_key = $primary->get_column_by( array( 'primary' => true ) );
 		if ( ! ( $primary_key instanceof Column ) ) {
+			$this->log(
+				'warning',
+				'meta_primary_key_missing',
+				'Meta query primary has no primary-key column; not configured.',
+				array( 'primary' => $this->primary )
+			);
+
 			return;
 		}
 
@@ -105,12 +128,13 @@ class Query extends KernQuery {
 		$object = $primary->get_item_name();
 		$name   = "{$object}_meta";
 
+		// Late static binding, so a stub may override build_schema() to customize.
 		$this->prefix           = $primary->get_prefix();
 		$this->table_name       = $name;
 		$this->item_name        = $name;
 		$this->item_name_plural = $name;
 		$this->cache_group      = $name;
-		$this->table_schema     = self::build_schema( $primary_key, $object, $this->primary );
+		$this->table_schema     = static::build_schema( $primary_key, $object, $this->primary );
 	}
 
 	/**
