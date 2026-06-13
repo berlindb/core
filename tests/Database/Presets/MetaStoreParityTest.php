@@ -441,6 +441,25 @@ class MetaStoreParityTest extends TestCase {
 	}
 
 	/**
+	 * A meta-only update_item() reports success when the store write succeeds.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_meta_only_update_item_returns_true() {
+		$gadgets = new GadgetQuery();
+		$store   = new GadgetMetaQuery();
+
+		$gadget_id = $gadgets->add_item( array( 'label' => 'widget' ) );
+
+		// Only an extra (meta) key — no columns change.
+		$this->assertTrue( $gadgets->update_item( $gadget_id, array( 'color' => 'red' ) ) );
+		$this->assertSame( 'red', $store->get_meta( $gadget_id, 'color', true ) );
+
+		// An identical meta-only value changes nothing, so it reports false.
+		$this->assertFalse( $gadgets->update_item( $gadget_id, array( 'color' => 'red' ) ) );
+	}
+
+	/**
 	 * Deleting an item purges all of its meta through the store.
 	 *
 	 * @since 3.1.0

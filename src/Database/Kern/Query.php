@@ -3511,13 +3511,13 @@ class Query {
 		$save = array_intersect_key( $data, $columns );
 
 		// Maybe save meta keys.
-		if ( ! empty( $meta ) ) {
-			$this->save_extra_item_meta( $item_id, $meta );
-		}
+		$meta_saved = ! empty( $meta )
+			? $this->save_extra_item_meta( $item_id, $meta )
+			: false;
 
-		// Bail if nothing to save.
+		// Bail if no columns to save — but report a successful meta-only save.
 		if ( empty( $save ) ) {
-			return false;
+			return $meta_saved;
 		}
 
 		// Reduce (caps), let columns intercept generated values, then validate.
@@ -4092,19 +4092,21 @@ class Query {
 	 * Maybe update meta values on item update/save.
 	 *
 	 * @since 1.0.0
-	 * @since 3.1.0 Routes to the meta store when one is declared (see get_meta_store()).
+	 * @since 3.1.0 Routes to the meta store when one is declared (see
+	 *              get_meta_store()), and returns whether any write succeeded.
 	 *
 	 * @param int|string           $item_id Item ID.
 	 * @param array<string, mixed> $meta Array of meta key/value pairs.
+	 * @return bool True when any per-key write (update or delete) succeeded.
 	 */
-	private function save_extra_item_meta( $item_id = 0, $meta = array() ): void {
+	private function save_extra_item_meta( $item_id = 0, $meta = array() ): bool {
 
 		// Shape the item ID.
 		$item_id = $this->shape_item_id( $item_id );
 
 		// Bail if there is no bulk meta to save.
 		if ( empty( $item_id ) || empty( $meta ) ) {
-			return;
+			return false;
 		}
 
 		/*
@@ -4114,11 +4116,12 @@ class Query {
 		 * registry is a WP-core-types concept, and for a custom sibling table
 		 * the declared 'meta' relationship IS the registration.
 		 */
-		if ( null === $this->get_meta_store() ) {
+		$store = $this->get_meta_store();
+		if ( null === $store ) {
 
 			// Bail if no meta table exists.
 			if ( false === $this->get_meta_table_name() ) {
-				return;
+				return false;
 			}
 
 			// Only save registered keys.
@@ -4127,16 +4130,35 @@ class Query {
 
 			// Bail if no registered meta keys.
 			if ( empty( $meta ) ) {
-				return;
+				return false;
 			}
 		}
 
-		// Save or delete meta data (each call routes per-key when a store exists).
+		// Default return value.
+		$retval = false;
+
+		/*
+		 * Save or delete meta data — directly on the store when one is declared
+		 * (resolved once above), else through the legacy WordPress helpers.
+		 */
 		foreach ( $meta as $key => $value ) {
-			! empty( $value )
-				? $this->update_item_meta( $item_id, $key, $value )
-				: $this->delete_item_meta( $item_id, $key );
+
+			if ( null !== $store ) {
+				$saved = ! empty( $value )
+					? $store->update_meta( $item_id, $key, $value )
+					: $store->delete_meta( $item_id, $key );
+			} else {
+				$saved = ! empty( $value )
+					? $this->update_item_meta( $item_id, $key, $value )
+					: $this->delete_item_meta( $item_id, $key );
+			}
+
+			if ( ! empty( $saved ) ) {
+				$retval = true;
+			}
 		}
+
+		return $retval;
 	}
 
 	/**

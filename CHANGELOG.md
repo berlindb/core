@@ -91,6 +91,10 @@ Notable changes to BerlinDB are documented here.
   rather than public.
 - Parsers now fail closed (return no rows) on unresolvable or misdeclared columns,
   and no longer bleed clauses across parser types.
+- `update_item()` now returns `true` for a meta-only update whose bulk meta saved
+  successfully (previously it wrote the meta but reported `false`). An identical-
+  value meta-only update still reports `false` (nothing changed), consistent with
+  column diffing.
 - Malformed relationship declarations are still dropped (fail-closed), but now log a
   non-fatal warning identifying the column and the reason. Call
   `Query::get_relationship_errors()` to validate the remote side of the surviving

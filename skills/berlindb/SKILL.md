@@ -249,9 +249,10 @@ Current limitations:
   constructor handles them.
 - `add_item()` returns the new database insert ID (`int`) or `false` on
   failure.
-- `update_item()` returns `true` when a table-column update is written, but can
-  also return `false` when nothing in table columns needs saving after diffing
-  and capability reduction.
+- `update_item()` returns `true` when a table-column update is written — or
+  (3.1.0) when a meta-only update saves bulk meta successfully — but returns
+  `false` when nothing needs saving after diffing and capability reduction
+  (including a meta-only update to an identical value).
 - `delete_item()` returns `true` or `false`.
 - `update_item()` and `delete_item()` expect the primary-key value, not a slug
   or other business key.
