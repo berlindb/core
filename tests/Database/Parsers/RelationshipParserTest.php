@@ -668,6 +668,78 @@ class RelationshipParserTest extends TestCase {
 	}
 
 	/**
+	 * A nested OR group composes (ANDs) with a sibling spec at the root.
+	 *
+	 * This is the shape the meta_query mapper emits when meta_query relation=OR is
+	 * combined with another, AND-ed relationship filter: the OR group stays
+	 * isolated in its own parentheses, AND-ed with the sibling EXISTS.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_nested_or_group_ands_with_sibling_spec() {
+		$result = $this->parse(
+			array(
+				array(
+					'name'  => 'items',
+					'where' => array( 'status' => 'shipped' ),
+				),
+				array(
+					'relation' => 'OR',
+					array(
+						'name'  => 'items',
+						'where' => array( 'status' => 'active' ),
+					),
+					array(
+						'name'  => 'items',
+						'where' => array(
+							'total' => array(
+								'compare' => '>',
+								'value'   => 1000,
+							),
+						),
+					),
+				),
+			),
+			array(
+				'items' => $this->relationship( 'items', 'has_many', array( 'id' ), array( 'order_id' ) ),
+			)
+		);
+
+		// Sibling EXISTS AND ( EXISTS OR EXISTS ): three distinct aliases, both keywords.
+		$this->assertSame( '', $result['join'] );
+		$this->assertStringContainsString( ' AND ', $result['where'] );
+		$this->assertStringContainsString( ' OR ', $result['where'] );
+		$this->assertStringContainsString( 'AS `bdb_rel_items`', $result['where'] );
+		$this->assertStringContainsString( 'AS `bdb_rel_items_2`', $result['where'] );
+		$this->assertStringContainsString( 'AS `bdb_rel_items_3`', $result['where'] );
+	}
+
+	/**
+	 * A JOIN clause inside a nested group fails closed.
+	 *
+	 * JOINs are only expressible at the root AND context; a belongs_to inside any
+	 * nested group cannot be composed safely, so the group fails closed.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_join_inside_nested_group_fails_closed() {
+		$result = $this->parse(
+			array(
+				array(
+					'relation' => 'AND',
+					array( 'name' => 'parent' ),
+				),
+			),
+			array(
+				'parent' => $this->relationship( 'parent', 'belongs_to', array( 'parent_id' ) ),
+			)
+		);
+
+		$this->assertSame( '1 = 0', $result['where'] );
+		$this->assertSame( '', $result['join'] );
+	}
+
+	/**
 	 * Test that a composite (multi-column) relationship fails closed.
 	 *
 	 * @since 3.1.0

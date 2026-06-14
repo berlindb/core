@@ -112,12 +112,63 @@ class Relationship extends Base {
 		}
 
 		/*
-		 * Extract an optional boolean relation for the spec GROUP ('AND' default,
-		 * or 'OR'), mirroring build_conditions()'s convention for column groups. OR
-		 * lets a caller express EXISTS(a) OR EXISTS(b) where each clause may match a
-		 * DIFFERENT related row — the shape meta_query's relation=OR needs. A single
-		 * spec was wrapped above, so its inner 'where' relation is untouched.
+		 * Shared across the whole (possibly nested) spec tree: the duplicate-spec
+		 * fingerprint set, per-relationship-name alias counters (so a repeated name
+		 * gets DISTINCT aliases at any depth), and the collected JOIN fragments
+		 * (which only ever come from the root AND context — see build_spec_group()).
 		 */
+		$seen         = array();
+		$alias_counts = array();
+		$joins        = array();
+
+		// Build the root group; false === fail closed (a malformed/unresolvable spec).
+		$where = $this->build_spec_group( $specs, $seen, $alias_counts, $joins, true );
+
+		if ( false === $where ) {
+			$retval[ 'where' ] = '1 = 0';
+
+			return $retval;
+		}
+
+		$retval[ 'join' ]  = implode( ' ', array_unique( $joins ) );
+		$retval[ 'where' ] = $where;
+
+		return $retval;
+	}
+
+	/**
+	 * Recursively build the WHERE fragment for a relationship spec group.
+	 *
+	 * A group is a list whose members are either specs ({ name, where, ... }) or
+	 * NESTED groups (a member that is itself such a list). 'relation' => 'OR'
+	 * combines the members with OR; AND is the default — mirroring
+	 * build_conditions()'s convention for column groups. This lets a caller
+	 * express EXISTS(a) OR EXISTS(b) (each matching a DIFFERENT related row) and
+	 * compose that group with other, AND-ed filters — the shape meta_query's
+	 * relation=OR needs.
+	 *
+	 * Fail-closed: ANY malformed or unresolvable member fails the WHOLE tree
+	 * (returns false), so the caller emits "1 = 0". Under OR a per-branch "1 = 0"
+	 * would otherwise leave "( EXISTS(good) OR 1 = 0 )", which still returns rows.
+	 *
+	 * JOINs are honored ONLY at the root AND context: a belongs_to INNER JOIN
+	 * filters unconditionally, so it cannot live inside an OR (or a nested group
+	 * that an OR ancestor might short-circuit) — a JOIN anywhere but the root AND
+	 * fails the group closed. The meta mapper only ever emits EXISTS, so this
+	 * costs it nothing.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<int|string, mixed> $specs        The spec group (members + optional 'relation').
+	 * @param array<string, bool>      $seen         Shared duplicate-spec fingerprints (by reference).
+	 * @param array<string, int>       $alias_counts Shared per-name alias counters (by reference).
+	 * @param list<string>             $joins        Shared collected JOIN fragments (by reference).
+	 * @param bool                     $is_root      Whether this is the outermost group.
+	 * @return string|false The combined WHERE fragment ('' when empty), or false (fail closed).
+	 */
+	private function build_spec_group( array $specs, array &$seen, array &$alias_counts, array &$joins, bool $is_root = false ) {
+
+		// Extract the boolean relation for this group ('AND' default, or 'OR').
 		$relation = ( isset( $specs[ 'relation' ] ) && is_string( $specs[ 'relation' ] ) && ( 'OR' === strtoupper( $specs[ 'relation' ] ) ) )
 			? 'OR'
 			: 'AND';
@@ -125,32 +176,36 @@ class Relationship extends Base {
 		// 'relation' is a group directive, not a spec.
 		unset( $specs[ 'relation' ] );
 
-		// Collected fragments.
-		$joins  = array();
+		// JOINs are only expressible at the root AND context (see the method doc).
+		$allow_joins = ( true === $is_root ) && ( 'AND' === $relation );
+
 		$wheres = array();
-		$failed = false;
 
-		/*
-		 * Drop exact-duplicate specs, and count how many times each relationship
-		 * name is used so repeats get DISTINCT table aliases. Two specs naming the
-		 * same belongs_to with different join modes (e.g. INNER and LEFT) would
-		 * otherwise both emit `AS bdb_rel_{name}` and collide ("not unique alias").
-		 */
-		$seen         = array();
-		$alias_counts = array();
-
-		// Build each relationship clause.
 		foreach ( $specs as $spec ) {
 
-			/*
-			 * Fail closed on a malformed spec. An entry under relation_query is
-			 * explicitly a relationship filter, so a missing/invalid 'name' (e.g.
-			 * a 'relationship' => 'parent' typo for 'name') is a misconfiguration
-			 * that must match no rows — never silently widen to all rows.
-			 */
-			if ( ! is_array( $spec ) || empty( $spec[ 'name' ] ) || ! is_string( $spec[ 'name' ] ) ) {
-				$failed = true;
+			// Every member must be an array (a spec or a nested group).
+			if ( ! is_array( $spec ) ) {
+				return false;
+			}
+
+			// A member without a 'name' is a nested group: recurse.
+			if ( ! isset( $spec[ 'name' ] ) ) {
+				$sub = $this->build_spec_group( $spec, $seen, $alias_counts, $joins, false );
+
+				if ( false === $sub ) {
+					return false;
+				}
+
+				if ( '' !== $sub ) {
+					$wheres[] = $sub;
+				}
+
 				continue;
+			}
+
+			// A named spec with an invalid name fails closed.
+			if ( empty( $spec[ 'name' ] ) || ! is_string( $spec[ 'name' ] ) ) {
+				return false;
 			}
 
 			/*
@@ -177,12 +232,15 @@ class Relationship extends Base {
 
 			// Fail closed: an unresolvable spec must not widen the result set.
 			if ( false === $clause ) {
-				$failed = true;
-				continue;
+				return false;
 			}
 
-			// Collect the JOIN fragment.
+			// A JOIN clause is only valid at the root AND context (see method doc).
 			if ( '' !== $clause[ 'join' ] ) {
+				if ( ! $allow_joins ) {
+					return false;
+				}
+
 				$joins[] = $clause[ 'join' ];
 			}
 
@@ -192,47 +250,15 @@ class Relationship extends Base {
 			}
 		}
 
-		/*
-		 * Fail closed: ANY malformed or unresolvable spec poisons the WHOLE group,
-		 * for both AND and OR. Under AND this was already true ("X AND 1 = 0"), but
-		 * under OR a per-branch "1 = 0" would leave "( EXISTS(good) OR 1 = 0 )",
-		 * which still returns rows — the misconfigured filter must match none. The
-		 * join is dropped too, so the SQL matches the intent.
-		 */
-		if ( true === $failed ) {
-			$retval[ 'where' ] = '1 = 0';
-
-			return $retval;
+		// No conditions.
+		if ( empty( $wheres ) ) {
+			return '';
 		}
 
-		// Combine the WHERE fragments with the group's boolean relation.
-		if ( 'OR' === $relation ) {
-
-			/*
-			 * OR groups combine the per-clause WHERE fragments with OR. A clause
-			 * that emits a JOIN (e.g. a belongs_to INNER JOIN) cannot participate in
-			 * OR semantics — its JOIN already filters unconditionally — so an OR
-			 * group containing one fails closed (join dropped) rather than silently
-			 * AND-ing it in.
-			 */
-			if ( ! empty( $joins ) ) {
-				$retval[ 'where' ] = '1 = 0';
-
-				return $retval;
-			}
-
-			$retval[ 'where' ] = ( count( $wheres ) > 1 )
-				? '( ' . implode( ' OR ', $wheres ) . ' )'
-				: implode( ' OR ', $wheres );
-
-			return $retval;
-		}
-
-		// AND group: de-duplicate identical JOINs, AND the WHERE fragments.
-		$retval[ 'join' ]  = implode( ' ', array_unique( $joins ) );
-		$retval[ 'where' ] = implode( ' AND ', $wheres );
-
-		return $retval;
+		// A single condition needs no grouping; otherwise wrap with the relation.
+		return ( 1 === count( $wheres ) )
+			? $wheres[0]
+			: '( ' . implode( " {$relation} ", $wheres ) . ' )';
 	}
 
 	/**
