@@ -50,8 +50,9 @@ Read only the reference needed for the task:
   checks, and pre-release workflow.
 - `references/extending.md`: construction lifecycle hooks (which to override and
   which to leave alone), config args + strict mode, validating relationship
-  declarations, authoring presets (the Meta recipe + `MetaStore` contract), and
-  the custom-parser API.
+  declarations, authoring presets (the Meta recipe + `MetaStore` contract),
+  query-var normalization (early all-vars vs later var-local), and the
+  custom-parser API.
 
 ## Canonical Object Model
 

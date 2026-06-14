@@ -1765,8 +1765,8 @@ class Query {
 		}
 
 		/*
-		 * A relationship filter resolved to no possible matches: return nothing
-		 * without caching (an empty resolved set must never widen to all rows).
+		 * A normalized query directive resolved to no possible matches: return
+		 * nothing without caching (an empty resolved set must never widen to all rows).
 		 */
 		if ( true === $this->get_current( 'query_filter_short_circuit', false ) ) {
 			$this->set_found_items( array() );

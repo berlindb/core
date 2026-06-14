@@ -151,6 +151,35 @@ legacy WordPress metadata path unchanged. `MetaStore` is an ordinary interface:
 implement it on any class (e.g. a WP-core-backed adapter) and the same router will
 delegate to it.
 
+## Query-var normalization (two points)
+
+A parser participates in query-var handling at **two distinct points**, and the
+difference matters:
+
+- **`normalize_query_vars( array $query_vars, Query $caller ): array`** — runs
+  EARLY, once, before the `parse_{$items}_query` action, and sees **all** of the
+  query vars. It may rewrite cross-parser vars — translating a high-level directive
+  into another parser's canonical var. The `Query` iterates its registered parser
+  descriptors and threads the vars through each one's `normalize_query_vars()`, so
+  the action and the SQL parsers all see the canonical, normalized vars. Default is
+  a no-op. Examples in core: `Parsers\Relationship` turns the `relation` directive
+  into `relation_query` / `{fk}__in`; `Parsers\Meta` turns a store-backed
+  `meta_query` into `relation_query`.
+- **`parse_query_vars( $query_vars )`** — runs LATER, at SQL-build time, and is
+  **isolated to this parser's own var** (the engine narrows it and strips siblings).
+  Use it for shorthand/structure local to your var, never to touch another parser's.
+
+The lifecycle is therefore: raw args → merge defaults / `validate_query_vars()`
+(canonicalize structural types) → `normalize_query_vars()` (all-var rewrites) →
+`parse_{$items}_query` action → SQL parser isolation/build.
+
+**Fail-closed from a normalizer.** A normalizer cannot reach Query's private
+short-circuit helper, so to force a query to match no rows it returns a
+`query_filter_short_circuit` query var — `array{ source: string, reason: string }`
+(an empty `reason` is a legitimate empty match and is not logged). The `Query`
+consumes and removes it. This is how a misconfigured `relation` / `meta_query`
+fails closed instead of silently widening to every row.
+
 ## Custom parsers (the Parser API)
 
 A query-var parser composes `Traits\Parser`, is constructed by a `Query`, and is

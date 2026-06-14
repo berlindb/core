@@ -10,7 +10,7 @@ Notable changes to BerlinDB are documented here.
   (EXISTS / NOT EXISTS) strategies in both directions, recursive nested AND/OR
   subgroups, and an opt-in LEFT OUTER JOIN for `belongs_to`.
 - Adds relationship cache priming via `with` for `belongs_to` and `has_many`, and
-  opt-in enforced FOREIGN KEY DDL; fails closed on malformed or unresolvable specs.
+  opt-in enforced FOREIGN KEY DDL; fails closed on malformed or unresolvable clauses.
 - Adds opt-in typed `CAST` in comparisons (e.g. `AS SIGNED` / `DATETIME`),
   sanitized at the boundary and fail-closed on invalid casts.
 - Adds the Meta preset (#204, in progress): `Presets\Meta\Query` and
@@ -73,6 +73,12 @@ Notable changes to BerlinDB are documented here.
 - Isolates query-var parsers from each other's clauses and fails closed on
   unresolvable or misdeclared columns; consolidates shared parser helpers onto the
   base.
+- Adds an early, all-vars query-var normalization step: parsers may implement
+  `normalize_query_vars( $query_vars, $caller )` to rewrite high-level directives
+  into canonical query vars before the `parse_{items}_query` action (distinct from
+  the later, var-local `parse_query_vars()`). The `relation` and store-backed
+  `meta_query` translations run here, so `Query` no longer special-cases them;
+  a normalizer fails closed by returning a `query_filter_short_circuit` directive.
 - Reduces WordPress coupling: reimplements `wp_validate_boolean()`, `absint()`, and
   (filter-free) `sanitize_key()` in the `Sanitizer` trait and (filter-free)
   `wp_parse_args()` as `Base::parse_args()`, and uses native PHP CSPRNG for UUIDs

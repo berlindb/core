@@ -861,12 +861,12 @@ class QueryRelationshipPrimingTest extends TestCase {
 	}
 
 	/**
-	 * Test that a malformed relation spec (missing 'name', e.g. a 'relationship'
+	 * Test that a malformed relation clause (missing 'name', e.g. a 'relationship'
 	 * => 'parent' typo) FAILS CLOSED — returns no rows, never every row.
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_relation_malformed_spec_fails_closed() {
+	public function test_relation_malformed_clause_fails_closed() {
 		$results = self::$query->query(
 			array(
 				'relation' => array(
@@ -1004,7 +1004,7 @@ class QueryRelationshipPrimingTest extends TestCase {
 
 	/**
 	 * Test that two different 'join'-strategy filters resolve to distinct cache
-	 * keys. The 'join' strategy routes specs into the 'relation_query' parser var,
+	 * keys. The 'join' strategy routes clauses into the 'relation_query' parser var,
 	 * which is registered and so segments the cache key per filter.
 	 *
 	 * @since 3.1.0
