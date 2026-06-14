@@ -1395,26 +1395,32 @@ class Query {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @return void
+	 * @param array<string, mixed> $query_vars The validated query vars.
+	 * @return array<string, mixed> The normalized query vars.
 	 */
-	private function normalize_query_vars(): void {
+	private function normalize_query_vars( array $query_vars = array() ): array {
 
 		// One per-run reset for every normalizer below.
 		$this->set_current( 'query_filter_short_circuit', false );
 
-		// Each registered parser descriptor may rewrite the full query vars.
-		foreach ( $this->parsers as $descriptor ) {
-			$this->query_vars = $descriptor->normalize_query_vars( $this->query_vars, $this );
+		// Counting overrides the other structural vars (count was canonicalized to
+		// a boolean by validate_query_vars()).
+		if ( ! empty( $query_vars[ 'count' ] ) ) {
+			$query_vars[ 'number' ]            = false;
+			$query_vars[ 'fields' ]            = '';
+			$query_vars[ 'orderby' ]           = '';
+			$query_vars[ 'no_found_rows' ]     = true;
+			$query_vars[ 'update_item_cache' ] = false;
+			$query_vars[ 'update_meta_cache' ] = false;
 		}
 
-		/*
-		 * INTERIM (B.5 stage 2 moves this into Parsers\Relationship): resolve the
-		 * 'relation' convenience directive into relation_query / {fk}__in.
-		 */
-		$this->resolve_relationship_filters();
+		// Each registered parser descriptor may rewrite the full query vars.
+		foreach ( $this->parsers as $descriptor ) {
+			$query_vars = $descriptor->normalize_query_vars( $query_vars, $this );
+		}
 
 		// Apply any fail-closed sentinel a descriptor returned.
-		$this->consume_query_filter_sentinel();
+		return $this->consume_query_filter_sentinel( $query_vars );
 	}
 
 	/**
@@ -1426,24 +1432,27 @@ class Query {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @return void
+	 * @param array<string, mixed> $query_vars The normalized query vars.
+	 * @return array<string, mixed> The query vars without the sentinel.
 	 */
-	private function consume_query_filter_sentinel(): void {
+	private function consume_query_filter_sentinel( array $query_vars ): array {
 
-		$sentinel = $this->query_vars[ 'query_filter_short_circuit' ] ?? null;
+		$sentinel = $query_vars[ 'query_filter_short_circuit' ] ?? null;
 
 		// Nothing to consume.
 		if ( empty( $sentinel ) ) {
-			return;
+			return $query_vars;
 		}
 
 		// Remove it so it never reaches the cache key or the SQL parsers.
-		unset( $this->query_vars[ 'query_filter_short_circuit' ] );
+		unset( $query_vars[ 'query_filter_short_circuit' ] );
 
 		$source = is_array( $sentinel ) ? (string) ( $sentinel[ 'source' ] ?? 'query_filter' ) : 'query_filter';
 		$reason = is_array( $sentinel ) ? (string) ( $sentinel[ 'reason' ] ?? '' ) : '';
 
 		$this->short_circuit_query_filter( $source, $reason );
+
+		return $query_vars;
 	}
 
 	/**
@@ -2152,22 +2161,18 @@ class Query {
 		 */
 		$this->query_vars = $this->validate_query_vars( $this->query_vars );
 
-		// If counting, override some other $query_vars.
-		if ( $this->get_query_var( 'count' ) ) {
-			$this->query_vars[ 'number' ]            = false;
-			$this->query_vars[ 'fields' ]            = '';
-			$this->query_vars[ 'orderby' ]           = '';
-			$this->query_vars[ 'no_found_rows' ]     = true;
-			$this->query_vars[ 'update_item_cache' ] = false;
-			$this->query_vars[ 'update_meta_cache' ] = false;
-		}
+		/*
+		 * Normalize the query vars BEFORE the action (count overrides + high-level
+		 * directive translation), so hooks and the SQL parsers see canonical vars
+		 * rather than raw directive state.
+		 */
+		$this->query_vars = $this->normalize_query_vars( $this->query_vars );
 
 		/*
-		 * Normalize high-level directives (relation, meta_query) into canonical
-		 * query vars BEFORE the action, so hooks and the SQL parsers see the
-		 * normalized vars rather than raw directive state.
+		 * INTERIM (B.5 stage 2 moves this into Parsers\Relationship): resolve the
+		 * 'relation' convenience directive into relation_query / {fk}__in.
 		 */
-		$this->normalize_query_vars();
+		$this->resolve_relationship_filters();
 
 		// Generate action name based on the plural item name.
 		$action_name = $this->apply_prefix( 'parse_' . $this->get_item_name_plural() . '_query' );
