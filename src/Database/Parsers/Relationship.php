@@ -138,6 +138,239 @@ class Relationship extends Base {
 	}
 
 	/**
+	 * Translate the high-level 'relation' directive into canonical query vars.
+	 *
+	 * The early, all-vars normalizer (run before parsing). Reads the 'relation'
+	 * convenience var — a single clause or a list, each { name, where, strategy } —
+	 * and rewrites each into native query vars: the 'in' strategy runs a subquery
+	 * and constrains the local foreign key via {fk}__in; the 'join' strategy hands
+	 * the clause to this parser's own relation_query (consumed at build time). The
+	 * 'relation' var is then removed. Any unresolvable or empty-matching filter
+	 * fails closed via the 'query_filter_short_circuit' sentinel the Query consumes
+	 * — never widening to all rows. See berlindb/core #193.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string, mixed>          $query_vars All of the caller's query vars.
+	 * @param Query                         $caller     The Query being normalized.
+	 * @return array<string, mixed> The (possibly modified) query vars.
+	 */
+	public function normalize_query_vars( array $query_vars, Query $caller ): array {
+
+		$relation = $query_vars[ 'relation' ] ?? null;
+
+		// Nothing to do without a relation directive.
+		if ( empty( $relation ) ) {
+			return $query_vars;
+		}
+
+		/*
+		 * A non-empty but non-array relation (e.g. relation => 'parent') is a
+		 * misconfiguration: an explicit filter the pipeline can't act on. Fail
+		 * closed rather than ignoring it and widening to all rows.
+		 */
+		if ( ! is_array( $relation ) ) {
+			unset( $query_vars[ 'relation' ] );
+
+			return $this->short_circuit( $query_vars, 'relation must be an array clause (or a list of clauses)' );
+		}
+
+		// Normalize a single clause to a list of clauses.
+		$clauses = isset( $relation[ 'name' ] )
+			? array( $relation )
+			: $relation;
+
+		// Resolve each clause by its strategy.
+		foreach ( $clauses as $clause_args ) {
+
+			/*
+			 * Fail closed on a malformed clause (missing/invalid 'name'), then stop:
+			 * an explicit but unactionable filter must match no rows.
+			 */
+			if ( ! is_array( $clause_args ) || empty( $clause_args[ 'name' ] ) || ! is_string( $clause_args[ 'name' ] ) ) {
+				$query_vars = $this->short_circuit( $query_vars, 'malformed relation clause (missing or invalid "name")' );
+				break;
+			}
+
+			// Default to the subquery strategy; 'join' is handled separately.
+			$strategy = ( isset( $clause_args[ 'strategy' ] ) && ( 'join' === $clause_args[ 'strategy' ] ) )
+				? 'join'
+				: 'in';
+
+			if ( 'in' === $strategy ) {
+				$query_vars = $this->resolve_in_filter( $clause_args, $query_vars, $caller );
+			} else {
+
+				// 'join' strategy: append the clause to this parser's relation_query.
+				$existing = $query_vars[ 'relation_query' ] ?? null;
+				$list     = is_array( $existing ) ? $existing : array();
+
+				// Normalize an existing single clause to a list before appending.
+				if ( isset( $list[ 'name' ] ) ) {
+					$list = array( $list );
+				}
+
+				$list[]                         = $clause_args;
+				$query_vars[ 'relation_query' ] = $list;
+			}
+		}
+
+		// The 'relation' var is consumed; remove it so column parsers never see it.
+		unset( $query_vars[ 'relation' ] );
+
+		return $query_vars;
+	}
+
+	/**
+	 * Resolve a single 'in'-strategy relationship filter to a {fk}__in query var.
+	 *
+	 * Runs a subquery against the remote query for the clause's 'where' vars, then
+	 * constrains this query's local foreign key to the matching remote primary IDs.
+	 * Single-column belongs_to only, and the local foreign key must declare
+	 * 'in' => true. Fail-closed conditions return the query vars with a sentinel.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string, mixed> $clause_args The relation clause ({ name, where }).
+	 * @param array<string, mixed> $query_vars  All of the caller's query vars.
+	 * @param Query                $caller      The Query being normalized.
+	 * @return array<string, mixed> The (possibly modified) query vars.
+	 */
+	private function resolve_in_filter( array $clause_args, array $query_vars, Query $caller ): array {
+
+		$name  = (string) $clause_args[ 'name' ];
+		$where = ( isset( $clause_args[ 'where' ] ) && is_array( $clause_args[ 'where' ] ) )
+			? $clause_args[ 'where' ]
+			: array();
+
+		// The relationship must be declared.
+		$relationship = $caller->get_relationship( $name );
+
+		if ( ! ( $relationship instanceof RelationshipObject ) ) {
+			return $this->short_circuit( $query_vars, "unknown relationship: {$name}" );
+		}
+
+		// Only single-column belongs_to is supported by the 'in' strategy.
+		$columns    = $relationship->columns;
+		$references = $relationship->references;
+
+		if ( ( 'belongs_to' !== $relationship->type ) || ( count( $columns ) !== 1 ) || ( count( $references ) !== 1 ) ) {
+			return $this->short_circuit( $query_vars, "relation strategy 'in' supports single-column belongs_to only: {$name}" );
+		}
+
+		// The local foreign-key column must support __in.
+		$local_fk = $columns[0];
+
+		if ( empty( $caller->get_column_field( array( 'name' => $local_fk ), 'in', false ) ) ) {
+			return $this->short_circuit( $query_vars, "column '{$local_fk}' must declare 'in' => true for relation strategy 'in'" );
+		}
+
+		// Resolve the remote query instance (null when unresolvable).
+		$remote = $this->resolve_remote_query( $relationship );
+
+		if ( null === $remote ) {
+			return $this->short_circuit( $query_vars, "remote query class not resolved for relation: {$name}" );
+		}
+
+		// Must reference the remote primary key, so the IDs match the local FK.
+		$primary = $remote->get_primary_column_name();
+
+		if ( $references[0] !== $primary ) {
+			return $this->short_circuit( $query_vars, "relation strategy 'in' requires referencing the remote primary key: {$name}" );
+		}
+
+		/*
+		 * Resolve every matching remote row (number => 0 means no limit). Full rows
+		 * are fetched so primary IDs read with correct typing; this also warms the
+		 * remote item cache for any later related access.
+		 */
+		$remote_rows = $remote->query(
+			array_merge(
+				$where,
+				array( 'number' => 0 )
+			)
+		);
+
+		$remote_ids = array();
+
+		if ( is_array( $remote_rows ) ) {
+			foreach ( $remote_rows as $row ) {
+				if ( is_object( $row ) && isset( $row->{$primary} ) && is_scalar( $row->{$primary} ) ) {
+					$remote_ids[] = $row->{$primary};
+				}
+			}
+		}
+
+		// No matches: the local result must be empty (legitimate, no log).
+		if ( empty( $remote_ids ) ) {
+			return $this->short_circuit( $query_vars, '' );
+		}
+
+		// Combine with any existing __in on the same column (AND semantics).
+		$var      = "{$local_fk}__in";
+		$existing = $query_vars[ $var ] ?? null;
+
+		if ( is_array( $existing ) && ! empty( $existing ) ) {
+			$remote_ids = array_values( array_intersect( $existing, $remote_ids ) );
+
+			if ( empty( $remote_ids ) ) {
+				return $this->short_circuit( $query_vars, '' );
+			}
+		}
+
+		// Apply as a native {fk}__in filter for this run.
+		$query_vars[ $var ] = $remote_ids;
+
+		return $query_vars;
+	}
+
+	/**
+	 * Set the fail-closed sentinel (consumed by the Query) and return the vars.
+	 *
+	 * A parser descriptor cannot reach Query's private short-circuit helper, so it
+	 * signals fail-closed by returning a 'query_filter_short_circuit' query var. An
+	 * empty $reason marks a legitimate empty match (no log).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string, mixed> $query_vars All of the caller's query vars.
+	 * @param string               $reason     Why the filter could not be applied.
+	 * @return array<string, mixed> The query vars carrying the sentinel.
+	 */
+	private function short_circuit( array $query_vars, string $reason ): array {
+
+		$query_vars[ 'query_filter_short_circuit' ] = array(
+			'source' => 'relation_filter',
+			'reason' => $reason,
+		);
+
+		return $query_vars;
+	}
+
+	/**
+	 * Resolve a relationship's remote Query class to a usable instance.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param RelationshipObject $relationship The relationship to resolve.
+	 * @return Query|null The remote Query instance, or null when unresolvable.
+	 */
+	private function resolve_remote_query( RelationshipObject $relationship ): ?Query {
+
+		$class = $relationship->get_query_class();
+
+		if ( ( '' === $class ) || ! class_exists( $class ) ) {
+			return null;
+		}
+
+		$remote = new $class();
+
+		return ( $remote instanceof Query )
+			? $remote
+			: null;
+	}
+
+	/**
 	 * Recursively build the WHERE fragment for a relationship clause group.
 	 *
 	 * A group is a list whose members are either clauses ({ name, where, ... }) or
@@ -303,16 +536,10 @@ class Relationship extends Base {
 			return false;
 		}
 
-		// Resolve the remote query class.
-		$class = $relationship->get_query_class();
+		// Resolve the remote query instance (null when unresolvable).
+		$remote = $this->resolve_remote_query( $relationship );
 
-		if ( ( '' === $class ) || ! class_exists( $class ) ) {
-			return false;
-		}
-
-		$remote = new $class();
-
-		if ( ! ( $remote instanceof Query ) ) {
+		if ( null === $remote ) {
 			return false;
 		}
 
