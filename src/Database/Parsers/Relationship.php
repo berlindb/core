@@ -111,6 +111,20 @@ class Relationship extends Base {
 			$specs = array( $specs );
 		}
 
+		/*
+		 * Extract an optional boolean relation for the spec GROUP ('AND' default,
+		 * or 'OR'), mirroring build_conditions()'s convention for column groups. OR
+		 * lets a caller express EXISTS(a) OR EXISTS(b) where each clause may match a
+		 * DIFFERENT related row — the shape meta_query's relation=OR needs. A single
+		 * spec was wrapped above, so its inner 'where' relation is untouched.
+		 */
+		$relation = ( isset( $specs[ 'relation' ] ) && is_string( $specs[ 'relation' ] ) && ( 'OR' === strtoupper( $specs[ 'relation' ] ) ) )
+			? 'OR'
+			: 'AND';
+
+		// 'relation' is a group directive, not a spec.
+		unset( $specs[ 'relation' ] );
+
 		// Collected fragments.
 		$joins  = array();
 		$wheres = array();
@@ -173,9 +187,27 @@ class Relationship extends Base {
 			}
 		}
 
-		// Combine fragments (de-duplicating identical JOINs).
-		$retval[ 'join' ]  = implode( ' ', array_unique( $joins ) );
-		$retval[ 'where' ] = implode( ' AND ', $wheres );
+		// De-duplicate identical JOINs.
+		$retval[ 'join' ] = implode( ' ', array_unique( $joins ) );
+
+		// Combine the WHERE fragments with the group's boolean relation.
+		if ( 'OR' === $relation ) {
+
+			/*
+			 * OR groups combine the per-clause WHERE fragments with OR. A clause
+			 * that emits a JOIN (e.g. a belongs_to INNER JOIN) cannot participate in
+			 * OR semantics — its JOIN already filters unconditionally — so an OR
+			 * group containing one fails closed rather than silently AND-ing it in.
+			 */
+			$retval[ 'where' ] = ! empty( $joins )
+				? '1 = 0'
+				: ( ( count( $wheres ) > 1 )
+					? '( ' . implode( ' OR ', $wheres ) . ' )'
+					: implode( ' OR ', $wheres ) );
+
+		} else {
+			$retval[ 'where' ] = implode( ' AND ', $wheres );
+		}
 
 		return $retval;
 	}

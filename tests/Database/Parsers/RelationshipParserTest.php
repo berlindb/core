@@ -547,6 +547,96 @@ class RelationshipParserTest extends TestCase {
 	}
 
 	/**
+	 * A spec group with relation=OR combines EXISTS clauses with OR.
+	 *
+	 * This is the shape meta_query's relation=OR needs: EXISTS(a) OR EXISTS(b),
+	 * where each EXISTS may match a DIFFERENT related row. The same has_many is
+	 * named twice with different conditions, so the second gets a distinct alias.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_or_spec_group_combines_exists_with_or() {
+		$result = $this->parse(
+			array(
+				'relation' => 'OR',
+				array(
+					'name'  => 'items',
+					'where' => array( 'status' => 'active' ),
+				),
+				array(
+					'name'  => 'items',
+					'where' => array(
+						'total' => array(
+							'compare' => '>',
+							'value'   => 1000,
+						),
+					),
+				),
+			),
+			array(
+				'items' => $this->relationship( 'items', 'has_many', array( 'id' ), array( 'order_id' ) ),
+			)
+		);
+
+		// No JOIN (both clauses are correlated EXISTS), combined with OR in WHERE.
+		$this->assertSame( '', $result['join'] );
+		$this->assertStringContainsString( ' OR ', $result['where'] );
+		$this->assertStringStartsWith( '( ', $result['where'] );
+		$this->assertStringContainsString( 'AS `bdb_rel_items`', $result['where'] );
+		$this->assertStringContainsString( 'AS `bdb_rel_items_2`', $result['where'] );
+	}
+
+	/**
+	 * A relation=OR group with a single clause emits no OR and no wrapping parens.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_or_spec_group_single_clause_has_no_or() {
+		$result = $this->parse(
+			array(
+				'relation' => 'OR',
+				array(
+					'name'  => 'items',
+					'where' => array( 'status' => 'active' ),
+				),
+			),
+			array(
+				'items' => $this->relationship( 'items', 'has_many', array( 'id' ), array( 'order_id' ) ),
+			)
+		);
+
+		$this->assertStringContainsString( 'EXISTS ( SELECT 1 FROM', $result['where'] );
+		$this->assertStringNotContainsString( ' OR ', $result['where'] );
+	}
+
+	/**
+	 * A relation=OR group containing a JOIN clause fails closed.
+	 *
+	 * A belongs_to INNER JOIN filters unconditionally, so it cannot participate in
+	 * OR semantics; the group must match no rows rather than silently AND it in.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_or_spec_group_with_join_clause_fails_closed() {
+		$result = $this->parse(
+			array(
+				'relation' => 'OR',
+				array(
+					'name'  => 'items',
+					'where' => array( 'status' => 'active' ),
+				),
+				array( 'name' => 'parent' ),
+			),
+			array(
+				'items'  => $this->relationship( 'items', 'has_many', array( 'id' ), array( 'order_id' ) ),
+				'parent' => $this->relationship( 'parent', 'belongs_to', array( 'parent_id' ) ),
+			)
+		);
+
+		$this->assertSame( '1 = 0', $result['where'] );
+	}
+
+	/**
 	 * Test that a composite (multi-column) relationship fails closed.
 	 *
 	 * @since 3.1.0
