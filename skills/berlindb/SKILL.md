@@ -49,7 +49,9 @@ Read only the reference needed for the task:
 - `references/verification.md`: local checks, CI expectations, package/archive
   checks, and pre-release workflow.
 - `references/extending.md`: construction lifecycle hooks (which to override and
-  which to leave alone), config args + strict mode, and the custom-parser API.
+  which to leave alone), config args + strict mode, validating relationship
+  declarations, authoring presets (the Meta recipe + `MetaStore` contract), and
+  the custom-parser API.
 
 ## Canonical Object Model
 

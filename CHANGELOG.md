@@ -95,6 +95,10 @@ Notable changes to BerlinDB are documented here.
   successfully (previously it wrote the meta but reported `false`). An identical-
   value meta-only update still reports `false` (nothing changed), consistent with
   column diffing.
+- `get_item_meta()` with an empty meta key now returns ALL meta for the item
+  (matching `get_metadata()` and `MetaStore::get_meta()`); previously the empty key
+  was rejected and it returned `false`. Applies to both the meta-store and legacy
+  WordPress paths.
 - Malformed relationship declarations are still dropped (fail-closed), but now log a
   non-fatal warning identifying the column and the reason. Call
   `Query::get_relationship_errors()` to validate the remote side of the surviving

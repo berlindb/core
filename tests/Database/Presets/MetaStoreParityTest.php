@@ -102,6 +102,52 @@ class GadgetMetaTable extends MetaTable {
 	protected $meta_query_class = GadgetMetaQuery::class;
 }
 
+/** A minimal schema with NO meta relationship (forces the legacy WP path). */
+class LegacyGadgetSchema extends Schema {
+	public $columns = array(
+		array(
+			'name'     => 'id',
+			'type'     => 'bigint',
+			'length'   => '20',
+			'unsigned' => true,
+			'primary'  => true,
+			'extra'    => 'auto_increment',
+		),
+	);
+
+	public $indexes = array(
+		array(
+			'type'    => 'primary',
+			'columns' => array( 'id' ),
+		),
+	);
+}
+
+/**
+ * A Query with no meta store; its meta type resolves to the real wp_postmeta
+ * table, so the legacy WordPress metadata path can be exercised in tests.
+ */
+class LegacyGadgetQuery extends Query {
+	protected $prefix       = 'mps';
+	protected $table_name   = 'legacy_gadgets';
+	protected $table_schema = LegacyGadgetSchema::class;
+	protected $item_name    = 'legacy_gadget';
+	protected $cache_group  = 'legacy_gadgets';
+
+	/** Resolve get_meta_table_name() to wp_postmeta (present in every WP test). */
+	public function get_meta_type() {
+		return 'post';
+	}
+
+	public function expose_add_meta( $id, $key, $value, $unique = false ) {
+		return $this->add_item_meta( $id, $key, $value, $unique );
+	}
+
+	public function expose_get_meta( $id, $key, $single = false ) {
+		return $this->get_item_meta( $id, $key, $single );
+	}
+}
+
 /**
  * Tests for MetaStore parity.
  *
@@ -510,5 +556,56 @@ class MetaStoreParityTest extends TestCase {
 		$parent = $store->get_related( $meta_rows[0], 'gadget' );
 		$this->assertInstanceOf( Row::class, $parent );
 		$this->assertEquals( $gadget_id, $parent->id );
+	}
+
+	/**
+	 * get_item_meta() with an empty key reads ALL meta through the store router.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_routed_all_meta_read_with_empty_key() {
+		$gadgets   = new GadgetQuery();
+		$gadget_id = $gadgets->add_item( array( 'label' => 'widget' ) );
+
+		$gadgets->expose_add_meta( $gadget_id, 'color', 'blue' );
+		$gadgets->expose_add_meta( $gadget_id, 'size', 'large' );
+
+		// Empty key is no longer rejected: it returns all meta, grouped by key.
+		$all = $gadgets->expose_get_meta( $gadget_id, '' );
+
+		$this->assertIsArray( $all );
+		$this->assertSame( array( 'blue' ), $all['color'] );
+		$this->assertSame( array( 'large' ), $all['size'] );
+	}
+
+	/**
+	 * get_item_meta() with an empty key reads ALL meta through the legacy WP path.
+	 *
+	 * Uses a query whose meta type resolves to the real wp_postmeta table (no meta
+	 * store declared), proving the empty-key guard removal serves both paths.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_legacy_all_meta_read_with_empty_key() {
+		global $wpdb;
+
+		$legacy = new LegacyGadgetQuery();
+		$id     = 4242;
+
+		// Clean any lingering rows from a previous run, then seed two keys.
+		$wpdb->query( "DELETE FROM {$wpdb->postmeta} WHERE post_id = {$id}" ); // phpcs:ignore WordPress.DB
+
+		$legacy->expose_add_meta( $id, 'berlindb_legacy_color', 'blue' );
+		$legacy->expose_add_meta( $id, 'berlindb_legacy_size', 'large' );
+
+		// Empty key reaches get_metadata(), which returns all meta grouped by key.
+		$all = $legacy->expose_get_meta( $id, '' );
+
+		$this->assertIsArray( $all );
+		$this->assertArrayHasKey( 'berlindb_legacy_color', $all );
+		$this->assertArrayHasKey( 'berlindb_legacy_size', $all );
+
+		// Clean up: postmeta DDL bypasses the per-test transaction rollback.
+		$wpdb->query( "DELETE FROM {$wpdb->postmeta} WHERE post_id = {$id}" ); // phpcs:ignore WordPress.DB
 	}
 }

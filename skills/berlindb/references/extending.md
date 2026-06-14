@@ -98,6 +98,59 @@ construction because `configure()` excludes the reserved construction-machinery 
 (`get_reserved_vars()` — the log store among them) from the property snapshot it
 merges over, so `set_vars()` cannot reset the log a sanitizer just wrote to.
 
+## Presets
+
+A preset is a **recipe base class a plugin extends with a thin stub** — it lives
+in `src/Database/Presets/{Recipe}/` (one directory per recipe) and is built
+entirely from the public Kern surface. **No Kern class references a preset**: a
+preset is just a conventional way to assemble ordinary Schemas, Tables, Queries,
+and relationships, so Kern stays preset-agnostic and any number of recipes can
+exist. (For *using* the Meta preset, see the recipe in `SKILL.md`; this section is
+about the extension points if you author or extend one.)
+
+The Meta preset is the reference recipe. Its two base classes derive everything
+from one named counterpart, in `init()` (the Boot construction hook), and **fail
+loudly rather than construct something broken**:
+
+- **`Presets\Meta\Query`** — a stub sets `$primary_query_class`; the base derives
+  its `{object}_meta` identity, prefix, and an EAV schema (`meta_id` PK,
+  `{object}_id` FK mirroring the primary key's storage shape, `meta_key`,
+  `meta_value`) plus a `belongs_to` back to the primary. A misconfigured stub logs
+  a structured `warning` with a stable code (`meta_primary_missing`,
+  `meta_primary_not_a_query`, `meta_primary_key_missing`,
+  `meta_primary_key_unsupported`) and leaves `is_configured_from_primary()` false
+  instead of producing a default-identity object.
+- **`Presets\Meta\Table`** — a stub sets `$meta_query_class`; the base derives its
+  name and prefix from that query and installs **the exact same `Schema` instance**
+  the query runs against (`get_schema()`). It consults
+  `is_configured_from_primary()` and logs its own codes
+  (`meta_table_query_missing`, `meta_table_not_meta_query`,
+  `meta_table_query_misconfigured`, `meta_table_schema_missing`) before
+  provisioning.
+
+**Override point — `static::build_schema()`.** The generated EAV schema comes from
+a `public static` method so a stub can override it (late static binding):
+
+```php
+public static function build_schema( Column $primary_key_column, string $object_name, string $primary_query_class ): Schema
+```
+
+Override it to add columns or indexes to the meta table; keep the `meta_id` /
+`{object}_id` / `meta_key` / `meta_value` shape and the `belongs_to` so routing and
+`get_related()` still resolve. Bump the Table stub's `$version` when you do, so the
+upgrade path detects the change.
+
+**The `MetaStore` contract.** `Presets\Meta\Query` implements
+`Interfaces\MetaStore` (`add_meta` / `get_meta` / `update_meta` / `delete_meta` /
+`delete_all_meta`), whose semantics mirror the WordPress metadata API. `Kern\Query`
+routes its protected `*_item_meta()` methods (and bulk meta and the delete-item
+purge) to a store **only when both hold**: the query declares a relationship named
+`meta`, and the resolved remote `instanceof MetaStore` — the name picks *which*
+relationship, the interface proves capability. Otherwise it falls back to the
+legacy WordPress metadata path unchanged. `MetaStore` is an ordinary interface:
+implement it on any class (e.g. a WP-core-backed adapter) and the same router will
+delegate to it.
+
 ## Custom parsers (the Parser API)
 
 A query-var parser composes `Traits\Parser`, is constructed by a `Query`, and is

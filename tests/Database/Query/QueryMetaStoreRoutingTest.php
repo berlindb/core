@@ -66,8 +66,22 @@ class RouteMemoryStoreQuery extends Query implements MetaStore {
 	}
 
 	public function get_meta( int|string $object_id, string $meta_key = '', bool $single = false ): mixed {
-		$slot   = "{$object_id}:{$meta_key}";
-		$values = self::$data[ $slot ] ?? array();
+
+		// An empty key returns ALL meta for the object, grouped by key.
+		if ( '' === $meta_key ) {
+			$all = array();
+
+			foreach ( self::$data as $slot => $values ) {
+				if ( 0 === strpos( $slot, "{$object_id}:" ) ) {
+					$key         = substr( $slot, strlen( "{$object_id}:" ) );
+					$all[ $key ] = $values;
+				}
+			}
+
+			return $all;
+		}
+
+		$values = self::$data[ "{$object_id}:{$meta_key}" ] ?? array();
 
 		return $single
 			? ( $values[0] ?? '' )
@@ -271,6 +285,25 @@ class QueryMetaStoreRoutingTest extends TestCase {
 
 		$this->assertTrue( $query->expose_delete( 1, 'color' ) );
 		$this->assertSame( array(), $query->expose_get( 1, 'color' ) );
+	}
+
+	/**
+	 * An empty meta key reads ALL meta through the router (no early bail).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_empty_key_reads_all_meta_through_store() {
+		$query = new RouteThingQuery();
+
+		$query->expose_add( 1, 'color', 'blue' );
+		$query->expose_add( 1, 'size', 'large' );
+
+		// Empty key is forwarded to the store, not rejected by the guard.
+		$all = $query->expose_get( 1, '' );
+
+		$this->assertIsArray( $all );
+		$this->assertArrayHasKey( 'color', $all );
+		$this->assertArrayHasKey( 'size', $all );
 	}
 
 	/**

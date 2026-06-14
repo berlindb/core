@@ -3967,8 +3967,10 @@ class Query {
 		// Shape the item ID.
 		$item_id = $this->shape_item_id( $item_id );
 
-		// Bail if no meta was returned, or if the ID is not an integer (metadata requires integer IDs).
-		if ( ! is_int( $item_id ) || empty( $item_id ) || empty( $meta_key ) ) {
+		// Bail if the ID is not a usable integer (metadata requires integer IDs).
+		// An empty meta key is allowed here: it reads ALL meta for the item, the
+		// shape both the meta store and WordPress get_metadata() support.
+		if ( ! is_int( $item_id ) || empty( $item_id ) ) {
 			return false;
 		}
 
