@@ -365,8 +365,10 @@ class Query extends KernQuery implements MetaStore {
 			return false;
 		}
 
-		// Update each matching entry through the normal item engine. (meta_value
-		// is this table's own column, not a WP_Query meta var.)
+		/*
+		 * Update each matching entry through the normal item engine. (meta_value
+		 * is this table's own column, not a WP_Query meta var.)
+		 */
 		$retval = false;
 		foreach ( $rows as $row ) {
 			if ( $this->update_item( $row->meta_id, array( 'meta_value' => $serialized ) ) ) { // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
