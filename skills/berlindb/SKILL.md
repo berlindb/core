@@ -237,9 +237,17 @@ delete), and `delete_item()` purges the item's meta. When a store is declared,
 the WordPress `register_meta()` key gate is intentionally skipped — the `meta`
 relationship IS the registration.
 
+`meta_query` / `meta_key` / `meta_value` work too: for a store-backed object they
+are translated into relationship `EXISTS` filters against the sibling table (so the
+existing WordPress-shaped query surface keeps working), with `compare`, `type`
+casts, and `relation` AND/OR all honored. A negative `compare_key` (e.g. `NOT LIKE`
+on the key) is not yet translated and fails closed. WordPress-core objects keep the
+bespoke meta parser unchanged.
+
 Current limitations:
 
-- The `meta_query` parser still targets WordPress metadata tables.
+- Negative `compare_key` on a meta key is not yet translated for store-backed
+  objects (it fails closed rather than mistranslating).
 - Runtime relationship features remain single-column only, so Meta preset
   primaries should use a single primary key column.
 

@@ -3,7 +3,7 @@
  * Unit tests for the Relationship query parser (berlindb/core #193).
  *
  * These exercise Parsers\Relationship in isolation: a lightweight fake caller
- * supplies the relationship specs and resolved Relationship objects, and a
+ * supplies the relationship clauses and resolved Relationship objects, and a
  * no-database remote Query fixture supplies the joined schema. No table is
  * installed and no query is executed — the tests assert the JOIN/WHERE SQL the
  * parser generates (and its fail-closed behaviour) directly.
@@ -85,17 +85,17 @@ class RelationshipParserRemoteQuery extends Query {
 class RelationshipParserCaller {
 
 	/** @var mixed */
-	public $specs;
+	public $clauses;
 
 	/** @var array<string, mixed> */
 	public $relationships;
 
 	/**
-	 * @param mixed                 $specs         The relation_query value to return.
+	 * @param mixed                 $clauses         The relation_query value to return.
 	 * @param array<string, mixed>  $relationships Map of name => Relationship|false.
 	 */
-	public function __construct( $specs = null, array $relationships = array() ) {
-		$this->specs         = $specs;
+	public function __construct( $clauses = null, array $relationships = array() ) {
+		$this->clauses       = $clauses;
 		$this->relationships = $relationships;
 	}
 
@@ -105,7 +105,7 @@ class RelationshipParserCaller {
 	 */
 	public function get_query_var( $key = '' ) {
 		return ( 'relation_query' === $key )
-			? $this->specs
+			? $this->clauses
 			: null;
 	}
 
@@ -189,14 +189,14 @@ class RelationshipParserTest extends TestCase {
 	}
 
 	/**
-	 * Run the parser with given specs + a relationship map, return join/where.
+	 * Run the parser with given clauses + a relationship map, return join/where.
 	 *
-	 * @param mixed                $specs
+	 * @param mixed                $clauses
 	 * @param array<string, mixed> $relationships
 	 * @return array{join: string, where: string}
 	 */
-	private function parse( $specs, array $relationships = array() ) {
-		$caller = new RelationshipParserCaller( $specs, $relationships );
+	private function parse( $clauses, array $relationships = array() ) {
+		$caller = new RelationshipParserCaller( $clauses, $relationships );
 		$parser = new RelationshipParser( array(), $caller );
 
 		return $parser->get_join_where_clauses();
@@ -228,7 +228,7 @@ class RelationshipParserTest extends TestCase {
 
 	/**
 	 * Test that a null query var bails with empty clauses, even when the caller
-	 * holds otherwise-valid specs and a resolvable relationship.
+	 * holds otherwise-valid clauses and a resolvable relationship.
 	 *
 	 * @since 3.1.0
 	 */
@@ -249,7 +249,7 @@ class RelationshipParserTest extends TestCase {
 	}
 
 	/**
-	 * Test that a single belongs_to spec emits an INNER JOIN with a sane alias.
+	 * Test that a single belongs_to clause emits an INNER JOIN with a sane alias.
 	 *
 	 * @since 3.1.0
 	 */
@@ -429,11 +429,11 @@ class RelationshipParserTest extends TestCase {
 	}
 
 	/**
-	 * Test that a single (unwrapped) spec is normalized to a list.
+	 * Test that a single (unwrapped) clause is normalized to a list.
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_single_spec_is_normalized() {
+	public function test_single_clause_is_normalized() {
 		$result = $this->parse(
 			array( 'name' => 'parent' ),
 			array( 'parent' => $this->relationship() )
@@ -443,11 +443,11 @@ class RelationshipParserTest extends TestCase {
 	}
 
 	/**
-	 * Test that multiple specs emit multiple JOINs.
+	 * Test that multiple clauses emit multiple JOINs.
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_multiple_specs_emit_multiple_joins() {
+	public function test_multiple_clauses_emit_multiple_joins() {
 		$result = $this->parse(
 			array(
 				array( 'name' => 'parent' ),
@@ -464,7 +464,7 @@ class RelationshipParserTest extends TestCase {
 	}
 
 	/**
-	 * Test that a spec with only a join (no where) emits the JOIN and no WHERE.
+	 * Test that a clause with only a join (no where) emits the JOIN and no WHERE.
 	 *
 	 * @since 3.1.0
 	 */
@@ -547,7 +547,7 @@ class RelationshipParserTest extends TestCase {
 	}
 
 	/**
-	 * A spec group with relation=OR combines EXISTS clauses with OR.
+	 * A clause group with relation=OR combines EXISTS clauses with OR.
 	 *
 	 * This is the shape meta_query's relation=OR needs: EXISTS(a) OR EXISTS(b),
 	 * where each EXISTS may match a DIFFERENT related row. The same has_many is
@@ -555,7 +555,7 @@ class RelationshipParserTest extends TestCase {
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_or_spec_group_combines_exists_with_or() {
+	public function test_or_clause_group_combines_exists_with_or() {
 		$result = $this->parse(
 			array(
 				'relation' => 'OR',
@@ -591,7 +591,7 @@ class RelationshipParserTest extends TestCase {
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_or_spec_group_single_clause_has_no_or() {
+	public function test_or_clause_group_single_clause_has_no_or() {
 		$result = $this->parse(
 			array(
 				'relation' => 'OR',
@@ -617,7 +617,7 @@ class RelationshipParserTest extends TestCase {
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_or_spec_group_with_join_clause_fails_closed() {
+	public function test_or_clause_group_with_join_clause_fails_closed() {
 		$result = $this->parse(
 			array(
 				'relation' => 'OR',
@@ -640,14 +640,14 @@ class RelationshipParserTest extends TestCase {
 	}
 
 	/**
-	 * An unresolvable spec poisons the WHOLE OR group, not just its own branch.
+	 * An unresolvable clause poisons the WHOLE OR group, not just its own branch.
 	 *
 	 * "( EXISTS(good) OR 1 = 0 )" would still return rows; a misconfigured filter
 	 * must match none, so the entire group fails closed.
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_or_spec_group_unresolvable_spec_fails_whole_group() {
+	public function test_or_clause_group_unresolvable_clause_fails_whole_group() {
 		$result = $this->parse(
 			array(
 				'relation' => 'OR',
@@ -668,7 +668,7 @@ class RelationshipParserTest extends TestCase {
 	}
 
 	/**
-	 * A nested OR group composes (ANDs) with a sibling spec at the root.
+	 * A nested OR group composes (ANDs) with a sibling clause at the root.
 	 *
 	 * This is the shape the meta_query mapper emits when meta_query relation=OR is
 	 * combined with another, AND-ed relationship filter: the OR group stays
@@ -676,7 +676,7 @@ class RelationshipParserTest extends TestCase {
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_nested_or_group_ands_with_sibling_spec() {
+	public function test_nested_or_group_ands_with_sibling_clause() {
 		$result = $this->parse(
 			array(
 				array(
@@ -723,7 +723,7 @@ class RelationshipParserTest extends TestCase {
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_duplicate_spec_across_groups_is_preserved() {
+	public function test_duplicate_clause_across_groups_is_preserved() {
 		$a = array(
 			'name'  => 'items',
 			'where' => array( 'status' => 'active' ),
@@ -814,13 +814,13 @@ class RelationshipParserTest extends TestCase {
 	}
 
 	/**
-	 * Test that a malformed spec (no name) FAILS CLOSED rather than being
+	 * Test that a malformed clause (no name) FAILS CLOSED rather than being
 	 * silently skipped — an explicit-but-misconfigured relationship filter must
 	 * match no rows, not all rows.
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_malformed_spec_fails_closed() {
+	public function test_malformed_clause_fails_closed() {
 		$result = $this->parse(
 			array(
 				array( 'where' => array( 'status' => 'active' ) ), // no 'name'
@@ -833,7 +833,7 @@ class RelationshipParserTest extends TestCase {
 	}
 
 	/**
-	 * Test that a belongs_to spec with exists => false emits a NOT EXISTS (anti
+	 * Test that a belongs_to clause with exists => false emits a NOT EXISTS (anti
 	 * join) instead of an INNER JOIN.
 	 *
 	 * @since 3.1.0
@@ -855,7 +855,7 @@ class RelationshipParserTest extends TestCase {
 	}
 
 	/**
-	 * Test that a has_many spec with exists => false emits a NOT EXISTS.
+	 * Test that a has_many clause with exists => false emits a NOT EXISTS.
 	 *
 	 * @since 3.1.0
 	 */
@@ -929,7 +929,7 @@ class RelationshipParserTest extends TestCase {
 	}
 
 	/**
-	 * Test that a belongs_to spec with join => 'left' emits a LEFT JOIN.
+	 * Test that a belongs_to clause with join => 'left' emits a LEFT JOIN.
 	 *
 	 * @since 3.1.0
 	 */
@@ -1071,7 +1071,7 @@ class RelationshipParserTest extends TestCase {
 	}
 
 	/**
-	 * Test that two specs naming the SAME belongs_to relationship with different
+	 * Test that two clauses naming the SAME belongs_to relationship with different
 	 * join modes get DISTINCT aliases, instead of emitting `AS bdb_rel_parent`
 	 * twice (which MySQL rejects as a duplicate alias).
 	 *
@@ -1103,12 +1103,12 @@ class RelationshipParserTest extends TestCase {
 	}
 
 	/**
-	 * Test that two exact-duplicate specs collapse to a single JOIN (no redundant
+	 * Test that two exact-duplicate clauses collapse to a single JOIN (no redundant
 	 * second join and no spurious disambiguation suffix).
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_identical_relationship_specs_are_deduped() {
+	public function test_identical_relationship_clauses_are_deduped() {
 		$result = $this->parse(
 			array(
 				array( 'name' => 'parent' ),

@@ -1,0 +1,472 @@
+<?php
+/**
+ * meta_query translation for store-backed objects (#204 Phase B).
+ *
+ * A query whose 'meta' relationship resolves to a MetaStore has its
+ * meta_query / meta_key / meta_value vars translated into relationship EXISTS
+ * filters against the custom sibling table (Query::resolve_meta_query_filters()).
+ * These tests prove behavioral parity with the WordPress meta_query surface by
+ * asserting the rows returned against a real installed sibling table — the SQL is
+ * relationship EXISTS rather than the bespoke JOIN engine, so results, not SQL,
+ * are what must match.
+ *
+ * Tables are uninstalled after the class (DDL bypasses the per-test rollback).
+ *
+ * @package     BerlinDB\Tests
+ * @copyright   2026 - JJJ and all BerlinDB contributors
+ * @license     https://opensource.org/licenses/MIT MIT
+ * @since       3.1.0
+ */
+
+namespace BerlinDB\Tests;
+
+use BerlinDB\Database\Kern\Query;
+use BerlinDB\Database\Kern\Schema;
+use BerlinDB\Database\Kern\Table;
+use BerlinDB\Database\Presets\Meta\Query as MetaQuery;
+use BerlinDB\Database\Presets\Meta\Table as MetaTable;
+use Yoast\WPTestUtils\WPIntegration\TestCase;
+
+// ---------------------------------------------------------------------------
+// Fixtures: a store-backed primary + meta sibling.
+// ---------------------------------------------------------------------------
+
+/** Primary schema declaring the has_many to its meta sibling. */
+class MqThingSchema extends Schema {
+	public $columns = array(
+		array(
+			'name'          => 'id',
+			'type'          => 'bigint',
+			'length'        => '20',
+			'unsigned'      => true,
+			'primary'       => true,
+			'extra'         => 'auto_increment',
+			'relationships' => array(
+				array(
+					'query'  => MqThingMetaQuery::class,
+					'column' => 'thing_id',
+					'type'   => 'has_many',
+					'name'   => 'meta',
+				),
+			),
+		),
+		array(
+			'name'   => 'label',
+			'type'   => 'varchar',
+			'length' => '50',
+		),
+	);
+
+	public $indexes = array(
+		array(
+			'type'    => 'primary',
+			'columns' => array( 'id' ),
+		),
+	);
+}
+
+/** Primary Query (store-backed: it declares a 'meta' has_many). */
+class MqThingQuery extends Query {
+	protected $prefix       = 'mqt';
+	protected $table_name   = 'things';
+	protected $table_schema = MqThingSchema::class;
+	protected $item_name    = 'thing';
+	protected $cache_group  = 'mqt_things';
+}
+
+/** Primary Table. */
+class MqThingTable extends Table {
+	protected $prefix  = 'mqt';
+	protected $name    = 'things';
+	protected $version = '1.0.0';
+	protected $schema  = MqThingSchema::class;
+}
+
+/** Meta Query + Table stubs. */
+class MqThingMetaQuery extends MetaQuery {
+	protected $primary_query_class = MqThingQuery::class;
+}
+class MqThingMetaTable extends MetaTable {
+	protected $meta_query_class = MqThingMetaQuery::class;
+}
+
+/** A schema/query with NO meta relationship (the legacy, no-store path). */
+class MqNoStoreSchema extends Schema {
+	public $columns = array(
+		array(
+			'name'     => 'id',
+			'type'     => 'bigint',
+			'length'   => '20',
+			'unsigned' => true,
+			'primary'  => true,
+			'extra'    => 'auto_increment',
+		),
+	);
+
+	public $indexes = array(
+		array(
+			'type'    => 'primary',
+			'columns' => array( 'id' ),
+		),
+	);
+}
+class MqNoStoreQuery extends Query {
+	protected $prefix       = 'mqt';
+	protected $table_name   = 'nostore';
+	protected $table_schema = MqNoStoreSchema::class;
+	protected $item_name    = 'nostore';
+	protected $cache_group  = 'mqt_nostore';
+
+	/** Expose a query var after construction for the no-store assertion. */
+	public function peek_query_var( $key ) {
+		return $this->get_query_var( $key );
+	}
+}
+
+/**
+ * Tests for meta_query translation.
+ *
+ * @since 3.1.0
+ */
+class MetaQueryTranslationTest extends TestCase {
+
+	/** @var MqThingTable */
+	private static $table;
+
+	/** @var MqThingMetaTable */
+	private static $meta_table;
+
+	/** @var array<string, int> label => thing ID for the current test. */
+	private $ids = array();
+
+	/**
+	 * Install both tables once.
+	 *
+	 * @since 3.1.0
+	 */
+	public static function setUpBeforeClass(): void {
+		parent::setUpBeforeClass();
+
+		self::$table      = new MqThingTable();
+		self::$meta_table = new MqThingMetaTable();
+
+		if ( ! self::$table->exists() ) {
+			self::$table->install();
+		}
+
+		if ( ! self::$meta_table->exists() ) {
+			self::$meta_table->install();
+		}
+	}
+
+	/**
+	 * Uninstall both tables after the class.
+	 *
+	 * @since 3.1.0
+	 */
+	public static function tearDownAfterClass(): void {
+		self::$meta_table->uninstall();
+		self::$table->uninstall();
+		parent::tearDownAfterClass();
+	}
+
+	/**
+	 * Seed three things with meta before each test.
+	 *
+	 * A: color=blue, size=large, score=10
+	 * B: color=red,  size=large, score=100
+	 * C: (no color), size=small, score=9
+	 *
+	 * @since 3.1.0
+	 */
+	public function setUp(): void {
+		parent::setUp();
+
+		wp_set_current_user( 1 );
+		self::$table->delete_all();
+		self::$meta_table->delete_all();
+		wp_cache_flush();
+
+		$things = new MqThingQuery();
+		$store  = new MqThingMetaQuery();
+
+		foreach ( array( 'A', 'B', 'C' ) as $label ) {
+			$this->ids[ $label ] = (int) $things->add_item( array( 'label' => $label ) );
+		}
+
+		$store->add_meta( $this->ids['A'], 'color', 'blue' );
+		$store->add_meta( $this->ids['A'], 'size', 'large' );
+		$store->add_meta( $this->ids['A'], 'score', '10' );
+
+		$store->add_meta( $this->ids['B'], 'color', 'red' );
+		$store->add_meta( $this->ids['B'], 'size', 'large' );
+		$store->add_meta( $this->ids['B'], 'score', '100' );
+
+		$store->add_meta( $this->ids['C'], 'size', 'small' );
+		$store->add_meta( $this->ids['C'], 'score', '9' );
+
+		wp_cache_flush();
+	}
+
+	/**
+	 * Run a query and return the matched labels, sorted.
+	 *
+	 * @param array<string, mixed> $args Query vars.
+	 * @return list<string>
+	 */
+	private function labels( array $args ): array {
+		$results = ( new MqThingQuery() )->query( $args );
+		$labels  = array();
+
+		foreach ( (array) $results as $row ) {
+			$labels[] = $row->label;
+		}
+
+		sort( $labels );
+
+		return $labels;
+	}
+
+	/**
+	 * A first-order associative meta_query is treated as one clause (not widened).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_first_order_associative_meta_query() {
+		$this->assertSame(
+			array( 'A' ),
+			$this->labels(
+				array(
+					'meta_query' => array(
+						'key'   => 'color',
+						'value' => 'blue',
+					),
+				)
+			)
+		);
+	}
+
+	/**
+	 * Shorthand meta_key / meta_value filters.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_shorthand_key_value() {
+		$this->assertSame(
+			array( 'B' ),
+			$this->labels(
+				array(
+					'meta_key'   => 'color',
+					'meta_value' => 'red',
+				)
+			)
+		);
+	}
+
+	/**
+	 * Shorthand combined with an explicit meta_query (AND).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_shorthand_plus_explicit_meta_query() {
+		$this->assertSame(
+			array( 'B' ),
+			$this->labels(
+				array(
+					'meta_key'   => 'size',
+					'meta_value' => 'large',
+					'meta_query' => array(
+						array(
+							'key'   => 'color',
+							'value' => 'red',
+						),
+					),
+				)
+			)
+		);
+	}
+
+	/**
+	 * An OR group matches a different related row per branch.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_or_group() {
+		$this->assertSame(
+			array( 'A', 'C' ),
+			$this->labels(
+				array(
+					'meta_query' => array(
+						'relation' => 'OR',
+						array(
+							'key'   => 'color',
+							'value' => 'blue',
+						),
+						array(
+							'key'   => 'size',
+							'value' => 'small',
+						),
+					),
+				)
+			)
+		);
+	}
+
+	/**
+	 * EXISTS / NOT EXISTS on a key.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_exists_and_not_exists() {
+		$this->assertSame(
+			array( 'A', 'B' ),
+			$this->labels(
+				array(
+					'meta_query' => array(
+						array(
+							'key'     => 'color',
+							'compare' => 'EXISTS',
+						),
+					),
+				)
+			)
+		);
+
+		$this->assertSame(
+			array( 'C' ),
+			$this->labels(
+				array(
+					'meta_query' => array(
+						array(
+							'key'     => 'color',
+							'compare' => 'NOT EXISTS',
+						),
+					),
+				)
+			)
+		);
+	}
+
+	/**
+	 * A numeric type casts the value column, distinguishing lexical from numeric.
+	 *
+	 * score >= 10 numeric matches 10 and 100 but NOT 9; lexically '9' >= '10' is
+	 * true, so a passing result proves the CAST was applied.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_numeric_type_casts_value() {
+		$this->assertSame(
+			array( 'A', 'B' ),
+			$this->labels(
+				array(
+					'meta_query' => array(
+						array(
+							'key'     => 'score',
+							'value'   => 10,
+							'compare' => '>=',
+							'type'    => 'NUMERIC',
+						),
+					),
+				)
+			)
+		);
+	}
+
+	/**
+	 * LIKE and IN value comparisons (reusing the shared Operators).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_like_and_in_value() {
+		$this->assertSame(
+			array( 'A' ),
+			$this->labels(
+				array(
+					'meta_query' => array(
+						array(
+							'key'     => 'color',
+							'value'   => 'lu',
+							'compare' => 'LIKE',
+						),
+					),
+				)
+			)
+		);
+
+		$this->assertSame(
+			array( 'A', 'B' ),
+			$this->labels(
+				array(
+					'meta_query' => array(
+						array(
+							'key'     => 'color',
+							'value'   => array( 'blue', 'red' ),
+							'compare' => 'IN',
+						),
+					),
+				)
+			)
+		);
+	}
+
+	/**
+	 * A malformed meta_query member fails closed (no rows), not widened.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_malformed_member_fails_closed() {
+		$this->assertSame(
+			array(),
+			$this->labels(
+				array(
+					'meta_query' => array(
+						'relation' => 'AND',
+						'not-an-array-member',
+					),
+				)
+			)
+		);
+	}
+
+	/**
+	 * An unsupported negative compare_key fails closed and logs under meta_query.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_unsupported_compare_key_fails_closed() {
+		$query = new MqThingQuery();
+
+		$results = $query->query(
+			array(
+				'meta_query' => array(
+					array(
+						'key'         => 'color',
+						'compare_key' => 'NOT LIKE',
+					),
+				),
+			)
+		);
+
+		$this->assertSame( array(), (array) $results );
+		$this->assertNotEmpty( $query->get_logs( array( 'code' => 'meta_query' ) ) );
+	}
+
+	/**
+	 * A query with no meta store does NOT have its meta vars translated/stripped.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_no_store_path_is_untouched() {
+		$query = new MqNoStoreQuery(
+			array(
+				'meta_key'   => 'color',
+				'meta_value' => 'blue',
+			)
+		);
+
+		// The mapper bailed (no store), so the meta vars survive for the Meta parser.
+		$this->assertSame( 'color', $query->peek_query_var( 'meta_key' ) );
+		$this->assertSame( 'blue', $query->peek_query_var( 'meta_value' ) );
+	}
+}

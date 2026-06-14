@@ -22,7 +22,7 @@ defined( 'ABSPATH' ) || exit;
 /**
  * Parser for the 'join' relationship-filter strategy (berlindb/core #193).
  *
- * Consumes the `relation_query` query var — one spec, or a list of specs, each
+ * Consumes the `relation_query` query var — one clause, or a list of clauses, each
  * shaped:
  *
  *     array(
@@ -32,26 +32,26 @@ defined( 'ABSPATH' ) || exit;
  *         'join'   => 'inner',                         // optional; 'inner' (default) or 'left'
  *     )
  *
- * For each spec it resolves the relationship to its remote Query, emits an
+ * For each clause it resolves the relationship to its remote Query, emits an
  * INNER JOIN against the remote table, and builds the WHERE conditions on the
  * joined columns by delegating to the shared Operator classes (so '=', 'IN',
  * 'BETWEEN', '>', 'LIKE', etc. all work). The joined table is sourced from a
  * Relationship instead of a meta table, but the shape mirrors the Meta parser.
  *
  * Because `relation_query` is a registered parser query var, it segments the
- * result cache automatically. Any unresolvable spec (unknown relationship,
+ * result cache automatically. Any unresolvable clause (unknown relationship,
  * unsupported type, unknown remote column) fails closed by emitting a
  * "1 = 0" condition, so a misconfigured filter never widens to all rows.
  *
  * Single-column relationships. A positive belongs_to filter uses an INNER JOIN
- * (or a LEFT JOIN when the spec sets 'join' => 'left'). NOTE: LEFT keeps
+ * (or a LEFT JOIN when the clause sets 'join' => 'left'). NOTE: LEFT keeps
  * unmatched local rows ONLY when the relationship carries no 'where' conditions
  * — conditions are emitted into the outer WHERE (not the ON clause), so any
  * condition on the joined columns excludes the NULL-joined unmatched rows, and
  * LEFT then behaves like INNER. Use a conditionless 'join' => 'left' to keep
  * unmatched rows. A positive has_many filter uses a correlated WHERE EXISTS (semi
  * join), which keeps each local row once instead of duplicating it per matching
- * child. When a spec sets 'exists' => false, either direction becomes a WHERE
+ * child. When a clause sets 'exists' => false, either direction becomes a WHERE
  * NOT EXISTS (anti join) — rows that have no matching related row.
  *
  * RIGHT and FULL OUTER joins are intentionally unsupported: a RIGHT join would
@@ -98,32 +98,32 @@ class Relationship extends Base {
 			return $retval;
 		}
 
-		// Read the relationship filter spec(s) from the calling query.
-		$specs = $this->caller?->get_query_var( $this->query_var );
+		// Read the relationship filter clause(s) from the calling query.
+		$clauses = $this->caller?->get_query_var( $this->query_var );
 
-		// Bail unless a non-empty array of specs was provided.
-		if ( ! is_array( $specs ) || empty( $specs ) ) {
+		// Bail unless a non-empty array of clauses was provided.
+		if ( ! is_array( $clauses ) || empty( $clauses ) ) {
 			return $retval;
 		}
 
-		// Normalize a single spec to a list of specs.
-		if ( isset( $specs[ 'name' ] ) ) {
-			$specs = array( $specs );
+		// Normalize a single clause to a list of clauses.
+		if ( isset( $clauses[ 'name' ] ) ) {
+			$clauses = array( $clauses );
 		}
 
 		/*
-		 * Shared across the whole (possibly nested) spec tree: per-relationship-name
+		 * Shared across the whole (possibly nested) clause tree: per-relationship-name
 		 * alias counters (so a repeated name gets DISTINCT aliases at any depth) and
 		 * the collected JOIN fragments (which only ever come from the root AND
-		 * context — see build_spec_group()). Duplicate-spec suppression is NOT
-		 * shared — it is local to each sibling group, so an identical spec in a
+		 * context — see build_clause_group()). Duplicate-clause suppression is NOT
+		 * shared — it is local to each sibling group, so an identical clause in a
 		 * different boolean group (e.g. the A in "A AND ( A OR B )") is preserved.
 		 */
 		$alias_counts = array();
 		$joins        = array();
 
-		// Build the root group; false === fail closed (a malformed/unresolvable spec).
-		$where = $this->build_spec_group( $specs, $alias_counts, $joins, true );
+		// Build the root group; false === fail closed (a malformed/unresolvable clause).
+		$where = $this->build_clause_group( $clauses, $alias_counts, $joins, true );
 
 		if ( false === $where ) {
 			$retval[ 'where' ] = '1 = 0';
@@ -138,9 +138,9 @@ class Relationship extends Base {
 	}
 
 	/**
-	 * Recursively build the WHERE fragment for a relationship spec group.
+	 * Recursively build the WHERE fragment for a relationship clause group.
 	 *
-	 * A group is a list whose members are either specs ({ name, where, ... }) or
+	 * A group is a list whose members are either clauses ({ name, where, ... }) or
 	 * NESTED groups (a member that is itself such a list). 'relation' => 'OR'
 	 * combines the members with OR; AND is the default — mirroring
 	 * build_conditions()'s convention for column groups. This lets a caller
@@ -160,28 +160,28 @@ class Relationship extends Base {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param array<int|string, mixed> $specs        The spec group (members + optional 'relation').
+	 * @param array<int|string, mixed> $clauses        The clause group (members + optional 'relation').
 	 * @param array<string, int>       $alias_counts Shared per-name alias counters (by reference).
 	 * @param list<string>             $joins        Shared collected JOIN fragments (by reference).
 	 * @param bool                     $is_root      Whether this is the outermost group.
 	 * @return string|false The combined WHERE fragment ('' when empty), or false (fail closed).
 	 */
-	private function build_spec_group( array $specs, array &$alias_counts, array &$joins, bool $is_root = false ) {
+	private function build_clause_group( array $clauses, array &$alias_counts, array &$joins, bool $is_root = false ) {
 
 		// Extract the boolean relation for this group ('AND' default, or 'OR').
-		$relation = ( isset( $specs[ 'relation' ] ) && is_string( $specs[ 'relation' ] ) && ( 'OR' === strtoupper( $specs[ 'relation' ] ) ) )
+		$relation = ( isset( $clauses[ 'relation' ] ) && is_string( $clauses[ 'relation' ] ) && ( 'OR' === strtoupper( $clauses[ 'relation' ] ) ) )
 			? 'OR'
 			: 'AND';
 
-		// 'relation' is a group directive, not a spec.
-		unset( $specs[ 'relation' ] );
+		// 'relation' is a group directive, not a clause.
+		unset( $clauses[ 'relation' ] );
 
 		// JOINs are only expressible at the root AND context (see the method doc).
 		$allow_joins = ( true === $is_root ) && ( 'AND' === $relation );
 
 		/*
-		 * Duplicate-spec suppression is LOCAL to this sibling group: an identical
-		 * spec in a different boolean group is semantically distinct (the A in
+		 * Duplicate-clause suppression is LOCAL to this sibling group: an identical
+		 * clause in a different boolean group is semantically distinct (the A in
 		 * "A AND ( A OR B )") and must be preserved, so $seen is not shared down
 		 * the recursion. The alias counter IS shared, so the preserved duplicate
 		 * still gets its own table alias.
@@ -189,16 +189,16 @@ class Relationship extends Base {
 		$seen   = array();
 		$wheres = array();
 
-		foreach ( $specs as $spec ) {
+		foreach ( $clauses as $clause_args ) {
 
-			// Every member must be an array (a spec or a nested group).
-			if ( ! is_array( $spec ) ) {
+			// Every member must be an array (a clause or a nested group).
+			if ( ! is_array( $clause_args ) ) {
 				return false;
 			}
 
 			// A member without a 'name' is a nested group: recurse.
-			if ( ! isset( $spec[ 'name' ] ) ) {
-				$sub = $this->build_spec_group( $spec, $alias_counts, $joins, false );
+			if ( ! isset( $clause_args[ 'name' ] ) ) {
+				$sub = $this->build_clause_group( $clause_args, $alias_counts, $joins, false );
 
 				if ( false === $sub ) {
 					return false;
@@ -211,17 +211,17 @@ class Relationship extends Base {
 				continue;
 			}
 
-			// A named spec with an invalid name fails closed.
-			if ( empty( $spec[ 'name' ] ) || ! is_string( $spec[ 'name' ] ) ) {
+			// A named clause with an invalid name fails closed.
+			if ( empty( $clause_args[ 'name' ] ) || ! is_string( $clause_args[ 'name' ] ) ) {
 				return false;
 			}
 
 			/*
-			 * Skip exact-duplicate specs (same filter and same join mode). serialize()
+			 * Skip exact-duplicate clauses (same filter and same join mode). serialize()
 			 * is native (no WP coupling) and never returns false on a non-UTF-8 value
 			 * the way wp_json_encode() can; md5() keeps the array key fixed-length.
 			 */
-			$fingerprint = md5( serialize( $spec ) );
+			$fingerprint = md5( serialize( $clause_args ) );
 
 			if ( isset( $seen[ $fingerprint ] ) ) {
 				continue;
@@ -230,15 +230,15 @@ class Relationship extends Base {
 			$seen[ $fingerprint ] = true;
 
 			// Disambiguate the alias when the same relationship name repeats.
-			$name         = (string) $spec[ 'name' ];
+			$name         = (string) $clause_args[ 'name' ];
 			$occurrence   = ( $alias_counts[ $name ] = ( $alias_counts[ $name ] ?? 0 ) + 1 );
 			$alias_suffix = ( $occurrence > 1 )
 				? '_' . (string) $occurrence
 				: '';
 
-			$clause = $this->build_clause( $spec, $alias_suffix );
+			$clause = $this->build_clause( $clause_args, $alias_suffix );
 
-			// Fail closed: an unresolvable spec must not widen the result set.
+			// Fail closed: an unresolvable clause must not widen the result set.
 			if ( false === $clause ) {
 				return false;
 			}
@@ -270,21 +270,21 @@ class Relationship extends Base {
 	}
 
 	/**
-	 * Build the JOIN and WHERE fragments for a single relationship spec.
+	 * Build the JOIN and WHERE fragments for a single relationship clause.
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param array<string, mixed> $spec         Relationship filter spec ({ name, where }).
+	 * @param array<string, mixed> $clause_args         Relationship filter clause ({ name, where }).
 	 * @param string               $alias_suffix Optional suffix appended to the remote
 	 *                                           table alias to keep repeated relationship
 	 *                                           names distinct (e.g. '_2'). Default ''.
 	 * @return array{join: string, where: list<string>}|false False if unresolvable.
 	 */
-	private function build_clause( array $spec, $alias_suffix = '' ) {
+	private function build_clause( array $clause_args, $alias_suffix = '' ) {
 
-		$name  = (string) $spec[ 'name' ];
-		$conds = ( isset( $spec[ 'where' ] ) && is_array( $spec[ 'where' ] ) )
-			? $spec[ 'where' ]
+		$name  = (string) $clause_args[ 'name' ];
+		$conds = ( isset( $clause_args[ 'where' ] ) && is_array( $clause_args[ 'where' ] ) )
+			? $clause_args[ 'where' ]
 			: array();
 
 		// Resolve the relationship via the calling query.
@@ -328,7 +328,7 @@ class Relationship extends Base {
 		 * Deterministic, sanitized alias for this relationship's remote table.
 		 * sanitize_table_alias() applies the canonical identifier rules (and
 		 * normalizes/trims underscores); the 'bdb_rel_' prefix plus the caller's
-		 * suffix (when a name repeats) keep it unique across specs.
+		 * suffix (when a name repeats) keep it unique across clauses.
 		 */
 		$alias = 'bdb_rel_' . (string) $this->sanitize_table_alias( $name ) . $alias_suffix;
 
@@ -351,7 +351,7 @@ class Relationship extends Base {
 		 * Whether to match rows that HAVE a matching relation (default) or, when
 		 * 'exists' is explicitly false, rows that do NOT (anti / NOT EXISTS).
 		 */
-		$exists_positive = ! array_key_exists( 'exists', $spec ) || (bool) $spec[ 'exists' ];
+		$exists_positive = ! array_key_exists( 'exists', $clause_args ) || (bool) $clause_args[ 'exists' ];
 
 		// Pre-quote the shared identifiers.
 		$local      = (string) $this->caller->get_quoted_column_name_aliased( $columns[0] );
@@ -369,7 +369,7 @@ class Relationship extends Base {
 		 * then behaves like INNER).
 		 */
 		if ( ( 'belongs_to' === $type ) && ( true === $exists_positive ) ) {
-			$keyword = ( isset( $spec[ 'join' ] ) && is_string( $spec[ 'join' ] ) && ( 'left' === strtolower( $spec[ 'join' ] ) ) )
+			$keyword = ( isset( $clause_args[ 'join' ] ) && is_string( $clause_args[ 'join' ] ) && ( 'left' === strtolower( $clause_args[ 'join' ] ) ) )
 				? 'LEFT JOIN'
 				: 'INNER JOIN';
 
@@ -391,7 +391,7 @@ class Relationship extends Base {
 			$condition_list
 		);
 
-		// EXISTS or NOT EXISTS, depending on the 'exists' spec key.
+		// EXISTS or NOT EXISTS, depending on the 'exists' clause key.
 		$keyword = ( true === $exists_positive )
 			? 'EXISTS'
 			: 'NOT EXISTS';

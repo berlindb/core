@@ -1382,9 +1382,33 @@ class Query {
 	}
 
 	/**
+	 * Convert high-level query directives into parser/query vars.
+	 *
+	 * The pre-parser phase: translators for the high-level filter directives
+	 * (relationship 'relation' filters, and meta_query for store-backed objects)
+	 * rewrite themselves into native query vars before parsing. Owns the single
+	 * per-run fail-closed reset both translators share.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return void
+	 */
+	private function resolve_filter_directives(): void {
+
+		// One per-run reset for every filter translator below.
+		$this->set_current( 'query_filter_short_circuit', false );
+
+		// Relationship 'relation' filters → {fk}__in / relation_query.
+		$this->resolve_relationship_filters();
+
+		// meta_query → relation_query, for store-backed objects only.
+		$this->resolve_meta_query_filters();
+	}
+
+	/**
 	 * Resolve declared relationship filters into concrete query vars.
 	 *
-	 * Reads the 'relation' query var — a single spec or a list of specs, each
+	 * Reads the 'relation' query var — a single clause or a list of clauses, each
 	 * shaped { name, where, strategy } — and rewrites it into native query vars
 	 * so the rest of the pipeline (and the cache key) handle it normally.
 	 *
@@ -1396,9 +1420,6 @@ class Query {
 	 * @since 3.1.0
 	 */
 	private function resolve_relationship_filters(): void {
-
-		// Reset the per-run short-circuit flag.
-		$this->set_current( 'relation_short_circuit', false );
 
 		// Read the relation filter(s).
 		$relation = $this->get_query_var( 'relation' );
@@ -1414,51 +1435,51 @@ class Query {
 		 * closed rather than ignoring it and widening to all rows.
 		 */
 		if ( ! is_array( $relation ) ) {
-			$this->short_circuit_relation( 'relation must be an array spec (or a list of specs)' );
+			$this->short_circuit_query_filter( 'relation_filter', 'relation must be an array clause (or a list of clauses)' );
 			return;
 		}
 
-		// Normalize a single spec to a list of specs.
-		$specs = isset( $relation['name'] )
+		// Normalize a single clause to a list of clauses.
+		$clauses = isset( $relation['name'] )
 			? array( $relation )
 			: $relation;
 
-		// Resolve each spec by its strategy.
-		foreach ( $specs as $spec ) {
+		// Resolve each clause by its strategy.
+		foreach ( $clauses as $clause_args ) {
 
 			/*
-			 * Fail closed on a malformed spec. The 'relation' var is explicitly a
+			 * Fail closed on a malformed clause. The 'relation' var is explicitly a
 			 * relationship filter, so a missing/invalid 'name' (e.g. a
 			 * 'relationship' => 'parent' typo for 'name') is a misconfiguration:
 			 * short-circuit the whole query to zero rows rather than widen to all.
 			 * break (not return) so the 'relation' cleanup below still runs.
 			 */
-			if ( ! is_array( $spec ) || empty( $spec['name'] ) || ! is_string( $spec['name'] ) ) {
-				$this->short_circuit_relation( 'malformed relation spec (missing or invalid "name")' );
+			if ( ! is_array( $clause_args ) || empty( $clause_args['name'] ) || ! is_string( $clause_args['name'] ) ) {
+				$this->short_circuit_query_filter( 'relation_filter', 'malformed relation clause (missing or invalid "name")' );
 				break;
 			}
 
 			// Default to the subquery strategy; 'join' is handled separately.
-			$strategy = ( isset( $spec['strategy'] ) && ( 'join' === $spec['strategy'] ) )
+			$strategy = ( isset( $clause_args['strategy'] ) && ( 'join' === $clause_args['strategy'] ) )
 				? 'join'
 				: 'in';
 
 			if ( 'in' === $strategy ) {
-				$this->resolve_relationship_in_filter( $spec );
+				$this->resolve_relationship_in_filter( $clause_args );
 			} else {
 				/*
-				 * 'join' strategy: hand the spec to the Relationship parser via
+				 * 'join' strategy: hand the clause to the Relationship parser via
 				 * its own query var (which segments the cache key on its own).
 				 */
 				$existing = $this->get_query_var( 'relation_query' );
 				$list     = is_array( $existing ) ? $existing : array();
 
-				// Normalize an existing single spec to a list before appending.
+				// Normalize an existing single clause to a list before appending.
 				if ( isset( $list[ 'name' ] ) ) {
 					$list = array( $list );
 				}
 
-				$list[]                               = $spec;
+				$list[]                               = $clause_args;
 				$this->query_vars[ 'relation_query' ] = $list;
 			}
 		}
@@ -1473,27 +1494,27 @@ class Query {
 	/**
 	 * Resolve a single 'in'-strategy relationship filter to a {fk}__in query var.
 	 *
-	 * Runs a subquery against the remote query for the spec's 'where' vars, then
+	 * Runs a subquery against the remote query for the clause's 'where' vars, then
 	 * constrains this query's local foreign key to the matching remote primary
 	 * IDs. Single-column belongs_to only, and the local foreign key must declare
 	 * 'in' => true.
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param array<string, mixed> $spec Relationship filter spec ({ name, where }).
+	 * @param array<string, mixed> $clause_args Relationship filter clause ({ name, where }).
 	 */
-	private function resolve_relationship_in_filter( array $spec ): void {
+	private function resolve_relationship_in_filter( array $clause_args ): void {
 
-		$name  = (string) $spec['name'];
-		$where = ( isset( $spec['where'] ) && is_array( $spec['where'] ) )
-			? $spec['where']
+		$name  = (string) $clause_args['name'];
+		$where = ( isset( $clause_args['where'] ) && is_array( $clause_args['where'] ) )
+			? $clause_args['where']
 			: array();
 
 		// The relationship must be declared.
 		$relationship = $this->get_relationship( $name );
 
 		if ( ! ( $relationship instanceof Relationship ) ) {
-			$this->short_circuit_relation( "unknown relationship: {$name}" );
+			$this->short_circuit_query_filter( 'relation_filter', "unknown relationship: {$name}" );
 			return;
 		}
 
@@ -1502,7 +1523,7 @@ class Query {
 		$references = $relationship->references;
 
 		if ( ( 'belongs_to' !== $relationship->type ) || ( count( $columns ) !== 1 ) || ( count( $references ) !== 1 ) ) {
-			$this->short_circuit_relation( "relation strategy 'in' supports single-column belongs_to only: {$name}" );
+			$this->short_circuit_query_filter( 'relation_filter', "relation strategy 'in' supports single-column belongs_to only: {$name}" );
 			return;
 		}
 
@@ -1510,7 +1531,7 @@ class Query {
 		$local_fk = $columns[0];
 
 		if ( empty( $this->get_column_field( array( 'name' => $local_fk ), 'in', false ) ) ) {
-			$this->short_circuit_relation( "column '{$local_fk}' must declare 'in' => true for relation strategy 'in'" );
+			$this->short_circuit_query_filter( 'relation_filter', "column '{$local_fk}' must declare 'in' => true for relation strategy 'in'" );
 			return;
 		}
 
@@ -1518,7 +1539,7 @@ class Query {
 		$remote = $this->resolve_remote_query( $relationship );
 
 		if ( null === $remote ) {
-			$this->short_circuit_relation( "remote query class not resolved for relation: {$name}" );
+			$this->short_circuit_query_filter( 'relation_filter', "remote query class not resolved for relation: {$name}" );
 			return;
 		}
 
@@ -1527,7 +1548,7 @@ class Query {
 		 * the local foreign key matches against.
 		 */
 		if ( $references[0] !== $remote->get_primary_column_name() ) {
-			$this->short_circuit_relation( "relation strategy 'in' requires referencing the remote primary key: {$name}" );
+			$this->short_circuit_query_filter( 'relation_filter', "relation strategy 'in' requires referencing the remote primary key: {$name}" );
 			return;
 		}
 
@@ -1556,7 +1577,7 @@ class Query {
 
 		// No matches: the local result must be empty.
 		if ( empty( $remote_ids ) ) {
-			$this->short_circuit_relation( '' );
+			$this->short_circuit_query_filter( 'relation_filter', '' );
 			return;
 		}
 
@@ -1568,7 +1589,7 @@ class Query {
 			$remote_ids = array_values( array_intersect( $existing, $remote_ids ) );
 
 			if ( empty( $remote_ids ) ) {
-				$this->short_circuit_relation( '' );
+				$this->short_circuit_query_filter( 'relation_filter', '' );
 				return;
 			}
 		}
@@ -1582,25 +1603,382 @@ class Query {
 	}
 
 	/**
-	 * Flag the current run to return no rows (fail-closed relationship filter).
+	 * Flag the current run to return no rows (fail-closed query filter).
 	 *
-	 * An empty $reason marks a legitimate empty match (no log); a non-empty
-	 * $reason marks a misconfigured filter and is logged as a warning.
+	 * Shared by the high-level query-filter translators (relationship filters and
+	 * meta_query translation). An empty $reason marks a legitimate empty match (no
+	 * log); a non-empty $reason marks a misconfigured filter and is logged as a
+	 * warning under the $source channel so the failure is attributable.
 	 *
 	 * @since 3.1.0
 	 *
+	 * @param string               $source  Log channel/code (e.g. 'relation_filter', 'meta_query').
 	 * @param string               $reason  Why the filter could not be applied.
 	 * @param array<string, mixed> $context Optional log context.
 	 */
-	private function short_circuit_relation( $reason = '', $context = array() ): void {
+	private function short_circuit_query_filter( string $source, string $reason = '', array $context = array() ): void {
 
 		// Flag the current run to return no rows.
-		$this->set_current( 'relation_short_circuit', true );
+		$this->set_current( 'query_filter_short_circuit', true );
 
 		// Log misconfigured filters; an empty reason is a legitimate no-match.
 		if ( '' !== $reason ) {
-			$this->log( 'warning', 'relation_filter', $reason, $context );
+			$this->log( 'warning', $source, $reason, $context );
 		}
+	}
+
+	/**
+	 * Translate meta_query / meta_key / meta_value into relationship filters.
+	 *
+	 * For a query backed by a custom meta store (a relationship named 'meta' whose
+	 * remote implements MetaStore), the WordPress-shaped meta vars are translated
+	 * into relationship 'relation_query' clauses against that sibling table — each
+	 * clause becomes an EXISTS (or NOT EXISTS) over the meta relationship — and the
+	 * meta vars are removed so the bespoke Meta parser does not also run. Queries
+	 * WITHOUT a meta store are untouched: the bespoke Meta parser remains the
+	 * WordPress-metadata compatibility engine.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return void
+	 */
+	private function resolve_meta_query_filters(): void {
+
+		// Only translate for store-backed queries; WP-core types keep the Meta parser.
+		if ( null === $this->get_meta_store() ) {
+			return;
+		}
+
+		// Normalize shorthand + meta_query into a single clause tree.
+		$meta_query = $this->normalize_meta_query_vars();
+
+		// Remove the meta vars so the bespoke Meta parser no-ops for store queries.
+		$this->strip_meta_query_vars();
+
+		// Bail if there was nothing to translate.
+		if ( empty( $meta_query ) ) {
+			return;
+		}
+
+		// Translate the clause tree into a single relationship clause group.
+		$group = $this->translate_meta_query_group( $meta_query );
+
+		/*
+		 * Fail closed if any clause could not be faithfully translated (e.g. a
+		 * negative compare_key, which the bespoke parser expresses with nested
+		 * NOT EXISTS subqueries — a Phase B follow-up). Matching no rows is safer
+		 * than silently returning the wrong ones.
+		 */
+		if ( null === $group ) {
+			$this->short_circuit_query_filter( 'meta_query', 'unsupported meta_query clause for a custom meta store' );
+
+			return;
+		}
+
+		// Append the meta group to relation_query (ANDs with any existing filters).
+		$existing = $this->get_query_var( 'relation_query' );
+		$list     = is_array( $existing )
+			? ( isset( $existing[ 'name' ] ) ? array( $existing ) : $existing )
+			: array();
+
+		$list[]                               = $group;
+		$this->query_vars[ 'relation_query' ] = $list;
+	}
+
+	/**
+	 * Normalize the meta shorthand vars and meta_query into one clause tree.
+	 *
+	 * Mirrors Parsers\Meta::parse_query_vars(): the simple meta_key/meta_value/…
+	 * vars become a single clause, combined with any explicit meta_query via AND.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return array<int|string, mixed> The combined meta_query clause tree (possibly empty).
+	 */
+	private function normalize_meta_query_vars(): array {
+
+		$qv = $this->query_vars;
+
+		// An explicit meta_query tree, if present.
+		$meta_query = ( isset( $qv[ 'meta_query' ] ) && is_array( $qv[ 'meta_query' ] ) )
+			? $qv[ 'meta_query' ]
+			: array();
+
+		// The simple shorthand vars become a single clause.
+		$simple = array();
+
+		foreach ( array( 'key', 'compare', 'type', 'compare_key', 'type_key' ) as $key ) {
+			if ( ! empty( $qv[ "meta_{$key}" ] ) ) {
+				$simple[ $key ] = $qv[ "meta_{$key}" ];
+			}
+		}
+
+		// meta_value joins the clause unless it is the default empty string.
+		if ( isset( $qv[ 'meta_value' ] ) && ( '' !== $qv[ 'meta_value' ] ) && ( ! is_array( $qv[ 'meta_value' ] ) || $qv[ 'meta_value' ] ) ) {
+			$simple[ 'value' ] = $qv[ 'meta_value' ];
+		}
+
+		// Combine the shorthand clause with any explicit meta_query, via AND.
+		if ( ! empty( $simple ) && ! empty( $meta_query ) ) {
+			return array(
+				'relation' => 'AND',
+				$simple,
+				$meta_query,
+			);
+		}
+
+		if ( ! empty( $simple ) ) {
+			return array( $simple );
+		}
+
+		/*
+		 * A bare first-order associative meta_query (key/value/compare/… at the top
+		 * level) is a single clause, not a list — wrap it so the translator treats
+		 * it as one clause rather than iterating its keys as members. (Combined and
+		 * list-shaped meta_query trees already nest correctly.)
+		 */
+		if ( ! empty( $meta_query ) && $this->is_first_order_meta_clause( $meta_query ) ) {
+			return array( $meta_query );
+		}
+
+		return $meta_query;
+	}
+
+	/**
+	 * Whether a meta_query node is a first-order clause (vs a group/list).
+	 *
+	 * A first-order clause carries clause keys (key/value/compare/…); a group
+	 * carries a 'relation' and/or numerically-indexed members.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<int|string, mixed> $node A meta_query node.
+	 * @return bool
+	 */
+	private function is_first_order_meta_clause( array $node ): bool {
+
+		foreach ( array( 'key', 'value', 'compare', 'type', 'compare_key', 'type_key' ) as $field ) {
+			if ( array_key_exists( $field, $node ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Remove the WordPress meta vars after translation.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return void
+	 */
+	private function strip_meta_query_vars(): void {
+		unset(
+			$this->query_vars[ 'meta_query' ],
+			$this->query_vars[ 'meta_key' ],
+			$this->query_vars[ 'meta_value' ],
+			$this->query_vars[ 'meta_compare' ],
+			$this->query_vars[ 'meta_compare_key' ],
+			$this->query_vars[ 'meta_type' ],
+			$this->query_vars[ 'meta_type_key' ]
+		);
+	}
+
+	/**
+	 * Translate a meta_query group into a relationship clause group.
+	 *
+	 * Recursive, mirroring the meta_query tree: a member with a nested 'relation'
+	 * or a numeric first element is a subgroup; any other array is a leaf clause.
+	 * The result is a relation_query group ({ relation, ...clauses }) the
+	 * Relationship parser composes via build_clause_group().
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<int|string, mixed> $meta_query The meta_query (sub)tree.
+	 * @return array<int|string, mixed>|null The clause group, or null if a clause is unsupported.
+	 */
+	private function translate_meta_query_group( array $meta_query ) {
+
+		// Boolean relation for this group ('AND' default, or 'OR').
+		$relation = ( isset( $meta_query[ 'relation' ] ) && is_string( $meta_query[ 'relation' ] ) && ( 'OR' === strtoupper( $meta_query[ 'relation' ] ) ) )
+			? 'OR'
+			: 'AND';
+
+		unset( $meta_query[ 'relation' ] );
+
+		$group = array( 'relation' => $relation );
+
+		foreach ( $meta_query as $member ) {
+
+			/*
+			 * A clause/subgroup is always an array. A non-array member is malformed;
+			 * fail closed (match no rows) rather than silently ignoring it, matching
+			 * the rest of the relationship/filter API's contract.
+			 */
+			if ( ! is_array( $member ) ) {
+				return null;
+			}
+
+			// A nested 'relation' or numeric first element marks a subgroup: recurse.
+			$translated = ( isset( $member[ 'relation' ] ) || isset( $member[0] ) )
+				? $this->translate_meta_query_group( $member )
+				: $this->translate_meta_clause( $member );
+
+			// Any unsupported clause fails the whole translation closed.
+			if ( null === $translated ) {
+				return null;
+			}
+
+			$group[] = $translated;
+		}
+
+		return $group;
+	}
+
+	/**
+	 * Translate a single meta_query leaf clause into a relationship clause.
+	 *
+	 * The clause becomes an EXISTS (or NOT EXISTS) over the 'meta' relationship,
+	 * with meta_key and meta_value conditions on the sibling table. Value
+	 * comparisons reuse the shared Operators (so LIKE/IN/BETWEEN/REGEXP/negation
+	 * behave exactly as in the bespoke parser); the legacy `type` maps to an
+	 * opt-in CAST on the value side.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string, mixed> $meta_clause The meta_query leaf clause.
+	 * @return array<string, mixed>|null The relationship clause, or null if unsupported.
+	 */
+	private function translate_meta_clause( array $meta_clause ) {
+
+		$clause_args = array( 'name' => 'meta' );
+		$where       = array();
+
+		// The value comparison; defaults to IN for array values, otherwise '='.
+		$compare = isset( $meta_clause[ 'compare' ] )
+			? strtoupper( (string) $meta_clause[ 'compare' ] )
+			: ( ( isset( $meta_clause[ 'value' ] ) && is_array( $meta_clause[ 'value' ] ) ) ? 'IN' : '=' );
+
+		// The meta_key condition.
+		if ( array_key_exists( 'key', $meta_clause ) ) {
+			$key_condition = $this->meta_key_condition( $meta_clause );
+
+			// A negative/unsupported compare_key cannot be faithfully translated.
+			if ( null === $key_condition ) {
+				return null;
+			}
+
+			$where = array_merge( $where, $key_condition );
+		}
+
+		// The value side: EXISTS/NOT EXISTS are key-only; otherwise compare the value.
+		if ( 'NOT EXISTS' === $compare ) {
+			$clause_args[ 'exists' ] = false;
+
+		} elseif ( ( 'EXISTS' !== $compare ) && array_key_exists( 'value', $meta_clause ) ) {
+			$value_condition = array(
+				'compare' => $compare,
+				'value'   => $meta_clause[ 'value' ],
+			);
+
+			// Map the legacy meta `type` to an opt-in CAST on the value column.
+			$cast = $this->meta_cast_for_type( $meta_clause[ 'type' ] ?? '' );
+
+			if ( '' !== $cast ) {
+				$value_condition[ 'cast' ] = $cast;
+			}
+
+			$where[ 'meta_value' ] = $value_condition; // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+		}
+
+		$clause_args[ 'where' ] = $where;
+
+		return $clause_args;
+	}
+
+	/**
+	 * Build the meta_key condition for a clause's compare_key.
+	 *
+	 * Positive comparisons map directly to the shared Operators. Negative
+	 * comparisons (NOT LIKE / NOT IN / != / NOT EXISTS / NOT REGEXP on the KEY)
+	 * are not yet supported here — the bespoke parser expresses them with nested
+	 * NOT EXISTS subqueries to avoid cross-key contamination — so they return null
+	 * to fail the translation closed (a Phase B follow-up).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string, mixed> $meta_clause The meta_query leaf clause.
+	 * @return array<string, mixed>|null The meta_key condition, or null if unsupported.
+	 */
+	private function meta_key_condition( array $meta_clause ) {
+
+		$key = $meta_clause[ 'key' ];
+
+		// The key comparison; defaults to IN for array keys, otherwise '='.
+		$compare_key = isset( $meta_clause[ 'compare_key' ] )
+			? strtoupper( (string) $meta_clause[ 'compare_key' ] )
+			: ( is_array( $key ) ? 'IN' : '=' );
+
+		/*
+		 * 'meta_key' below is the sibling table's own indexed column name (a
+		 * relationship where-condition key), not a WP_Query meta var, so the
+		 * slow-query heuristic does not apply.
+		 */
+		switch ( $compare_key ) {
+			case '=':
+			case 'EXISTS':
+				return array( 'meta_key' => $key ); // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+
+			case 'IN':
+				return array( 'meta_key' => (array) $key ); // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+
+			case 'LIKE':
+			case 'REGEXP':
+			case 'RLIKE':
+				return array(
+					'meta_key' => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+						'compare' => $compare_key,
+						'value'   => $key,
+					),
+				);
+
+			default:
+				return null;
+		}
+	}
+
+	/**
+	 * Map the legacy meta `type` to an opt-in SQL CAST target.
+	 *
+	 * Mirrors Parsers\Meta::get_cast_for_type()'s vocabulary, but returns '' for
+	 * the "no cast" cases (an empty/unknown type, or the CHAR native-string
+	 * sentinel) since the relationship value condition only casts when given a
+	 * non-empty target.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param mixed $type The legacy meta type (e.g. 'NUMERIC', 'DATETIME').
+	 * @return string The CAST target, or '' for no cast.
+	 */
+	private function meta_cast_for_type( $type ): string {
+
+		// No type, no cast.
+		if ( empty( $type ) ) {
+			return '';
+		}
+
+		$upper = strtoupper( (string) $type );
+
+		// Unknown type, or the CHAR native-string sentinel: no cast.
+		if ( ( 'CHAR' === $upper ) || ! preg_match( '/^(?:BINARY|CHAR|DATE|DATETIME|SIGNED|UNSIGNED|TIME|NUMERIC(?:\(\d+(?:,\s?\d+)?\))?|DECIMAL(?:\(\d+(?:,\s?\d+)?\))?)$/', $upper ) ) {
+			return '';
+		}
+
+		// Legacy 'NUMERIC' maps to SIGNED.
+		return ( 'NUMERIC' === $upper )
+			? 'SIGNED'
+			: $upper;
 	}
 
 	/** Public Parsers ********************************************************/
@@ -1891,7 +2269,7 @@ class Query {
 		 * A relationship filter resolved to no possible matches: return nothing
 		 * without caching (an empty resolved set must never widen to all rows).
 		 */
-		if ( true === $this->get_current( 'relation_short_circuit', false ) ) {
+		if ( true === $this->get_current( 'query_filter_short_circuit', false ) ) {
 			$this->set_found_items( array() );
 
 			// Mirror get_items()'s count/non-count return shapes for empty.
@@ -2116,8 +2494,8 @@ class Query {
 			);
 		}
 
-		// Resolve any relationship filters into concrete query vars.
-		$this->resolve_relationship_filters();
+		// Convert high-level filter directives (relation, meta_query) into query vars.
+		$this->resolve_filter_directives();
 	}
 
 	/**

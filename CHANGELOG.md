@@ -27,8 +27,14 @@ Notable changes to BerlinDB are documented here.
   non-column keys passed to `add_item()` / `update_item()`) and the delete-item
   purge route through the store as well; with a store declared, the WordPress
   `register_meta()` key gate is intentionally skipped — the `meta` relationship
-  is the registration. `meta_query` parser translation remains follow-up work
-  (Phase B).
+  is the registration. For a store-backed object, `meta_query` / `meta_key` /
+  `meta_value` are now translated into relationship `EXISTS` filters against the
+  sibling table (honoring `compare`, `type` casts, and `relation` AND/OR, with
+  nesting); WordPress-core objects keep the bespoke meta parser. A negative
+  `compare_key` is not yet translated and fails closed.
+- Relationship `relation_query` clauses may be combined into nested AND/OR groups
+  (`'relation' => 'OR'` over a clause group), composing `EXISTS(a) OR EXISTS(b)`;
+  malformed or unresolvable clauses fail the whole group closed.
 - Schema validation now reconciles primary-key declarations: a column flagged
   `primary` that is covered by the `primary` index counts as ONE key (the flag is
   the semantic marker queries/parsers read; the index emits the DDL), so schemas
