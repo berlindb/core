@@ -811,4 +811,359 @@ class Meta extends Base {
 		// Return uppercase type.
 		return $upper_type;
 	}
+
+	/** meta_query → relationship translation (store-backed objects, #204 Phase B) */
+
+	/**
+	 * Translate a store-backed meta_query into relationship filters (early, before parsing).
+	 *
+	 * For a caller whose 'meta' relationship resolves to an Interfaces\MetaStore,
+	 * the WordPress-shaped meta vars (meta_query / meta_key / meta_value / …) are
+	 * rewritten into relationship EXISTS clauses on relation_query against the
+	 * custom sibling table, and the meta vars are stripped so this parser does not
+	 * also run at build time. Callers WITHOUT a meta store are left untouched — the
+	 * bespoke engine above remains the WordPress-metadata path.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string, mixed>          $query_vars All of the caller's query vars.
+	 * @param \BerlinDB\Database\Kern\Query $caller     The Query being normalized.
+	 * @return array<string, mixed> The (possibly modified) query vars.
+	 */
+	public function normalize_query_vars( array $query_vars, \BerlinDB\Database\Kern\Query $caller ): array {
+
+		// Combine shorthand + meta_query into one clause tree; nothing to do if empty.
+		$meta_query = $this->combine_meta_query_clauses( $query_vars );
+
+		if ( empty( $meta_query ) ) {
+			return $query_vars;
+		}
+
+		// Only translate for store-backed callers; others keep the bespoke engine.
+		if ( ! $this->caller_has_meta_store( $caller ) ) {
+			return $query_vars;
+		}
+
+		// Remove the meta vars so the bespoke engine no-ops for store queries.
+		$query_vars = $this->strip_meta_query_vars( $query_vars );
+
+		// Translate the clause tree into a single relationship clause group.
+		$group = $this->translate_meta_query_group( $meta_query );
+
+		/*
+		 * Fail closed if any clause could not be faithfully translated (e.g. a
+		 * negative compare_key). Signal via a sentinel the Query consumes, so this
+		 * parser needs no access to a private short-circuit helper.
+		 */
+		if ( null === $group ) {
+			$query_vars[ 'query_filter_short_circuit' ] = array(
+				'source' => 'meta_query',
+				'reason' => 'unsupported meta_query clause for a custom meta store',
+			);
+
+			return $query_vars;
+		}
+
+		// Append the meta group to relation_query (ANDs with any existing filters).
+		$existing = $query_vars[ 'relation_query' ] ?? null;
+		$list     = is_array( $existing )
+			? ( isset( $existing[ 'name' ] ) ? array( $existing ) : $existing )
+			: array();
+
+		$list[]                         = $group;
+		$query_vars[ 'relation_query' ] = $list;
+
+		return $query_vars;
+	}
+
+	/**
+	 * Whether the caller's 'meta' relationship resolves to a MetaStore.
+	 *
+	 * Uses only the public Parser API (get_relationship); Query's get_meta_store()
+	 * stays private to the CRUD routers.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param \BerlinDB\Database\Kern\Query $caller The Query being normalized.
+	 * @return bool
+	 */
+	private function caller_has_meta_store( \BerlinDB\Database\Kern\Query $caller ): bool {
+
+		$relationship = $caller->get_relationship( 'meta' );
+
+		if ( ! ( $relationship instanceof \BerlinDB\Database\Kern\Relationship ) ) {
+			return false;
+		}
+
+		$class = $relationship->get_query_class();
+
+		if ( ( '' === $class ) || ! class_exists( $class ) ) {
+			return false;
+		}
+
+		return ( new $class() ) instanceof \BerlinDB\Database\Interfaces\MetaStore;
+	}
+
+	/**
+	 * Combine the meta shorthand vars and meta_query into one clause tree.
+	 *
+	 * Mirrors parse_query_vars()'s shorthand handling but reads from the FULL query
+	 * vars (this early normalization sees everything) and wraps a bare first-order
+	 * meta_query so the translator treats it as one clause.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string, mixed> $query_vars All of the caller's query vars.
+	 * @return array<int|string, mixed> The combined clause tree (possibly empty).
+	 */
+	private function combine_meta_query_clauses( array $query_vars ): array {
+
+		// An explicit meta_query tree, if present.
+		$meta_query = ( isset( $query_vars[ 'meta_query' ] ) && is_array( $query_vars[ 'meta_query' ] ) )
+			? $query_vars[ 'meta_query' ]
+			: array();
+
+		// The simple shorthand vars become a single clause.
+		$simple = array();
+
+		foreach ( array( 'key', 'compare', 'type', 'compare_key', 'type_key' ) as $key ) {
+			if ( ! empty( $query_vars[ "meta_{$key}" ] ) ) {
+				$simple[ $key ] = $query_vars[ "meta_{$key}" ];
+			}
+		}
+
+		// meta_value joins the clause unless it is the default empty string.
+		if ( isset( $query_vars[ 'meta_value' ] ) && ( '' !== $query_vars[ 'meta_value' ] ) && ( ! is_array( $query_vars[ 'meta_value' ] ) || $query_vars[ 'meta_value' ] ) ) {
+			$simple[ 'value' ] = $query_vars[ 'meta_value' ];
+		}
+
+		// Combine the shorthand clause with any explicit meta_query, via AND.
+		if ( ! empty( $simple ) && ! empty( $meta_query ) ) {
+			return array(
+				'relation' => 'AND',
+				$simple,
+				$meta_query,
+			);
+		}
+
+		if ( ! empty( $simple ) ) {
+			return array( $simple );
+		}
+
+		/*
+		 * A bare first-order associative meta_query (key/value/compare/… at the top
+		 * level) is a single clause, not a list — wrap it so the translator treats
+		 * it as one clause rather than iterating its keys as members.
+		 */
+		if ( ! empty( $meta_query ) && $this->is_first_order_meta_clause( $meta_query ) ) {
+			return array( $meta_query );
+		}
+
+		return $meta_query;
+	}
+
+	/**
+	 * Whether a meta_query node is a first-order clause (vs a group/list).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<int|string, mixed> $node A meta_query node.
+	 * @return bool
+	 */
+	private function is_first_order_meta_clause( array $node ): bool {
+
+		foreach ( array( 'key', 'value', 'compare', 'type', 'compare_key', 'type_key' ) as $field ) {
+			if ( array_key_exists( $field, $node ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Remove the WordPress meta vars after translation.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string, mixed> $query_vars All of the caller's query vars.
+	 * @return array<string, mixed> The query vars without the meta directive vars.
+	 */
+	private function strip_meta_query_vars( array $query_vars ): array {
+
+		unset(
+			$query_vars[ 'meta_query' ],
+			$query_vars[ 'meta_key' ],
+			$query_vars[ 'meta_value' ],
+			$query_vars[ 'meta_compare' ],
+			$query_vars[ 'meta_compare_key' ],
+			$query_vars[ 'meta_type' ],
+			$query_vars[ 'meta_type_key' ]
+		);
+
+		return $query_vars;
+	}
+
+	/**
+	 * Translate a meta_query group into a relationship clause group.
+	 *
+	 * Recursive, mirroring the meta_query tree: a member with a nested 'relation'
+	 * or a numeric first element is a subgroup; any other array is a leaf clause.
+	 * The result is a relation_query group ({ relation, ...clauses }) the
+	 * Relationship parser composes via build_clause_group().
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<int|string, mixed> $meta_query The meta_query (sub)tree.
+	 * @return array<int|string, mixed>|null The clause group, or null if a clause is unsupported.
+	 */
+	private function translate_meta_query_group( array $meta_query ) {
+
+		// Boolean relation for this group ('AND' default, or 'OR').
+		$relation = ( isset( $meta_query[ 'relation' ] ) && is_string( $meta_query[ 'relation' ] ) && ( 'OR' === strtoupper( $meta_query[ 'relation' ] ) ) )
+			? 'OR'
+			: 'AND';
+
+		unset( $meta_query[ 'relation' ] );
+
+		$group = array( 'relation' => $relation );
+
+		foreach ( $meta_query as $member ) {
+
+			/*
+			 * A clause/subgroup is always an array. A non-array member is malformed;
+			 * fail closed (match no rows) rather than silently ignoring it, matching
+			 * the rest of the relationship/filter API's contract.
+			 */
+			if ( ! is_array( $member ) ) {
+				return null;
+			}
+
+			// A nested 'relation' or numeric first element marks a subgroup: recurse.
+			$translated = ( isset( $member[ 'relation' ] ) || isset( $member[0] ) )
+				? $this->translate_meta_query_group( $member )
+				: $this->translate_meta_clause( $member );
+
+			// Any unsupported clause fails the whole translation closed.
+			if ( null === $translated ) {
+				return null;
+			}
+
+			$group[] = $translated;
+		}
+
+		return $group;
+	}
+
+	/**
+	 * Translate a single meta_query leaf clause into a relationship clause.
+	 *
+	 * The clause becomes an EXISTS (or NOT EXISTS) over the 'meta' relationship,
+	 * with meta_key and meta_value conditions on the sibling table. Value
+	 * comparisons reuse the shared Operators (so LIKE/IN/BETWEEN/REGEXP/negation
+	 * behave exactly as in the bespoke engine); the legacy `type` maps to an
+	 * opt-in CAST on the value side via get_cast_for_type() (CHAR = no cast).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string, mixed> $meta_clause The meta_query leaf clause.
+	 * @return array<string, mixed>|null The relationship clause, or null if unsupported.
+	 */
+	private function translate_meta_clause( array $meta_clause ) {
+
+		$clause_args = array( 'name' => 'meta' );
+		$where       = array();
+
+		// The value comparison; defaults to IN for array values, otherwise '='.
+		$compare = isset( $meta_clause[ 'compare' ] )
+			? strtoupper( (string) $meta_clause[ 'compare' ] )
+			: ( ( isset( $meta_clause[ 'value' ] ) && is_array( $meta_clause[ 'value' ] ) ) ? 'IN' : '=' );
+
+		// The meta_key condition.
+		if ( array_key_exists( 'key', $meta_clause ) ) {
+			$key_condition = $this->meta_key_condition( $meta_clause );
+
+			// A negative/unsupported compare_key cannot be faithfully translated.
+			if ( null === $key_condition ) {
+				return null;
+			}
+
+			$where = array_merge( $where, $key_condition );
+		}
+
+		// The value side: EXISTS/NOT EXISTS are key-only; otherwise compare the value.
+		if ( 'NOT EXISTS' === $compare ) {
+			$clause_args[ 'exists' ] = false;
+
+		} elseif ( ( 'EXISTS' !== $compare ) && array_key_exists( 'value', $meta_clause ) ) {
+			$value_condition = array(
+				'compare' => $compare,
+				'value'   => $meta_clause[ 'value' ],
+			);
+
+			// Map the legacy meta `type` to an opt-in CAST ('CHAR' is the no-cast sentinel).
+			$cast = $this->get_cast_for_type( $meta_clause[ 'type' ] ?? '' );
+
+			if ( 'CHAR' !== $cast ) {
+				$value_condition[ 'cast' ] = $cast;
+			}
+
+			$where[ 'meta_value' ] = $value_condition; // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+		}
+
+		$clause_args[ 'where' ] = $where;
+
+		return $clause_args;
+	}
+
+	/**
+	 * Build the meta_key condition for a clause's compare_key.
+	 *
+	 * Positive comparisons map directly to the shared Operators. Negative
+	 * comparisons (NOT LIKE / NOT IN / != / NOT EXISTS / NOT REGEXP on the KEY)
+	 * are not yet supported here — the bespoke engine expresses them with nested
+	 * NOT EXISTS subqueries to avoid cross-key contamination — so they return null
+	 * to fail the translation closed (a Phase B follow-up).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string, mixed> $meta_clause The meta_query leaf clause.
+	 * @return array<string, mixed>|null The meta_key condition, or null if unsupported.
+	 */
+	private function meta_key_condition( array $meta_clause ) {
+
+		$key = $meta_clause[ 'key' ];
+
+		// The key comparison; defaults to IN for array keys, otherwise '='.
+		$compare_key = isset( $meta_clause[ 'compare_key' ] )
+			? strtoupper( (string) $meta_clause[ 'compare_key' ] )
+			: ( is_array( $key ) ? 'IN' : '=' );
+
+		/*
+		 * 'meta_key' below is the sibling table's own indexed column name (a
+		 * relationship where-condition key), not a WP_Query meta var, so the
+		 * slow-query heuristic does not apply.
+		 */
+		switch ( $compare_key ) {
+			case '=':
+			case 'EXISTS':
+				return array( 'meta_key' => $key ); // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+
+			case 'IN':
+				return array( 'meta_key' => (array) $key ); // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+
+			case 'LIKE':
+			case 'REGEXP':
+			case 'RLIKE':
+				return array(
+					'meta_key' => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+						'compare' => $compare_key,
+						'value'   => $key,
+					),
+				);
+
+			default:
+				return null;
+		}
+	}
 }

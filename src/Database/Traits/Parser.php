@@ -240,6 +240,30 @@ trait Parser {
 	}
 
 	/**
+	 * Normalize the caller's FULL query vars early, before parsing.
+	 *
+	 * Distinct from parse_query_vars(): that runs later, isolated to this parser's
+	 * own var; THIS runs early, sees ALL query vars, and may rewrite cross-parser
+	 * vars (e.g. translate a high-level directive into another parser's canonical
+	 * var). The Query iterates its registered parser descriptors and threads the
+	 * vars through each one's normalizer before the parse_{items}_query action, so
+	 * the action and the SQL parsers see canonical vars. The default is a no-op.
+	 *
+	 * Implementations are pure: return the (possibly modified) query vars. To
+	 * fail a query closed, return a 'query_filter_short_circuit' entry
+	 * (array{source: string, reason: string}); the Query consumes and applies it.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string, mixed>          $query_vars All of the caller's query vars.
+	 * @param \BerlinDB\Database\Kern\Query $caller     The Query being normalized.
+	 * @return array<string, mixed> The (possibly modified) query vars.
+	 */
+	public function normalize_query_vars( array $query_vars, \BerlinDB\Database\Kern\Query $caller ): array {
+		return $query_vars;
+	}
+
+	/**
 	 * Sets the caller.
 	 *
 	 * @since 3.0.0
