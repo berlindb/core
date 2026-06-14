@@ -153,9 +153,11 @@ class Relationship extends Base {
 				continue;
 			}
 
-			// Skip exact-duplicate specs (same filter and same join mode). serialize()
-			// is native (no WP coupling) and never returns false on a non-UTF-8 value
-			// the way wp_json_encode() can; md5() keeps the array key fixed-length.
+			/*
+			 * Skip exact-duplicate specs (same filter and same join mode). serialize()
+			 * is native (no WP coupling) and never returns false on a non-UTF-8 value
+			 * the way wp_json_encode() can; md5() keeps the array key fixed-length.
+			 */
 			$fingerprint = md5( serialize( $spec ) );
 
 			if ( isset( $seen[ $fingerprint ] ) ) {
