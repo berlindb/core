@@ -2080,21 +2080,13 @@ class Query {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string, mixed> $args Query vars.
+	 * @param array<string, mixed> $query_vars Already-parsed query vars (from parse_query_vars()).
 	 * @return array{join: list<string>, where: list<string>} Array of 'join' and 'where' clauses.
 	 */
-	private function parse_join_where( $args = array() ) {
+	private function parse_join_where( array $query_vars = array() ) {
 
-		// Maybe fallback to $query_vars.
-		if ( empty( $args ) && ! empty( $this->query_vars ) ) {
-			$args = $this->query_vars;
-		}
-
-		// Parse arguments.
-		$r = $this->parse_args( $args );
-
-		// Parse the join/where parsers.
-		$parsers = $this->parse_join_where_parsers( $r );
+		// Parse the join/where parsers (the sole caller passes already-parsed vars).
+		$parsers = $this->parse_join_where_parsers( $query_vars );
 
 		// Default return value.
 		$retval = array(
