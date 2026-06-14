@@ -715,6 +715,47 @@ class RelationshipParserTest extends TestCase {
 	}
 
 	/**
+	 * Duplicate suppression is local to each group: "A AND ( A OR B )" keeps the
+	 * nested A (a distinct boolean context), with its own alias.
+	 *
+	 * Sharing the dedup set across groups would skip the nested A and collapse the
+	 * query to the narrower "A AND B".
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_duplicate_spec_across_groups_is_preserved() {
+		$a = array(
+			'name'  => 'items',
+			'where' => array( 'status' => 'active' ),
+		);
+
+		$result = $this->parse(
+			array(
+				$a, // A
+				array(
+					'relation' => 'OR',
+					$a, // A again, in a DIFFERENT group — must not be suppressed.
+					array(
+						'name'  => 'items',
+						'where' => array( 'total' => 100 ), // B
+					),
+				),
+			),
+			array(
+				'items' => $this->relationship( 'items', 'has_many', array( 'id' ), array( 'order_id' ) ),
+			)
+		);
+
+		// Three clauses built (root A, nested A, nested B) → three distinct aliases.
+		$this->assertStringContainsString( 'AS `bdb_rel_items`', $result['where'] );
+		$this->assertStringContainsString( 'AS `bdb_rel_items_2`', $result['where'] );
+		$this->assertStringContainsString( 'AS `bdb_rel_items_3`', $result['where'] );
+
+		// The duplicated A condition appears twice (root + nested), not collapsed.
+		$this->assertSame( 2, substr_count( $result['where'], "`status` = 'active'" ) );
+	}
+
+	/**
 	 * A JOIN clause inside a nested group fails closed.
 	 *
 	 * JOINs are only expressible at the root AND context; a belongs_to inside any

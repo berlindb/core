@@ -112,17 +112,18 @@ class Relationship extends Base {
 		}
 
 		/*
-		 * Shared across the whole (possibly nested) spec tree: the duplicate-spec
-		 * fingerprint set, per-relationship-name alias counters (so a repeated name
-		 * gets DISTINCT aliases at any depth), and the collected JOIN fragments
-		 * (which only ever come from the root AND context — see build_spec_group()).
+		 * Shared across the whole (possibly nested) spec tree: per-relationship-name
+		 * alias counters (so a repeated name gets DISTINCT aliases at any depth) and
+		 * the collected JOIN fragments (which only ever come from the root AND
+		 * context — see build_spec_group()). Duplicate-spec suppression is NOT
+		 * shared — it is local to each sibling group, so an identical spec in a
+		 * different boolean group (e.g. the A in "A AND ( A OR B )") is preserved.
 		 */
-		$seen         = array();
 		$alias_counts = array();
 		$joins        = array();
 
 		// Build the root group; false === fail closed (a malformed/unresolvable spec).
-		$where = $this->build_spec_group( $specs, $seen, $alias_counts, $joins, true );
+		$where = $this->build_spec_group( $specs, $alias_counts, $joins, true );
 
 		if ( false === $where ) {
 			$retval[ 'where' ] = '1 = 0';
@@ -160,13 +161,12 @@ class Relationship extends Base {
 	 * @since 3.1.0
 	 *
 	 * @param array<int|string, mixed> $specs        The spec group (members + optional 'relation').
-	 * @param array<string, bool>      $seen         Shared duplicate-spec fingerprints (by reference).
 	 * @param array<string, int>       $alias_counts Shared per-name alias counters (by reference).
 	 * @param list<string>             $joins        Shared collected JOIN fragments (by reference).
 	 * @param bool                     $is_root      Whether this is the outermost group.
 	 * @return string|false The combined WHERE fragment ('' when empty), or false (fail closed).
 	 */
-	private function build_spec_group( array $specs, array &$seen, array &$alias_counts, array &$joins, bool $is_root = false ) {
+	private function build_spec_group( array $specs, array &$alias_counts, array &$joins, bool $is_root = false ) {
 
 		// Extract the boolean relation for this group ('AND' default, or 'OR').
 		$relation = ( isset( $specs[ 'relation' ] ) && is_string( $specs[ 'relation' ] ) && ( 'OR' === strtoupper( $specs[ 'relation' ] ) ) )
@@ -179,6 +179,14 @@ class Relationship extends Base {
 		// JOINs are only expressible at the root AND context (see the method doc).
 		$allow_joins = ( true === $is_root ) && ( 'AND' === $relation );
 
+		/*
+		 * Duplicate-spec suppression is LOCAL to this sibling group: an identical
+		 * spec in a different boolean group is semantically distinct (the A in
+		 * "A AND ( A OR B )") and must be preserved, so $seen is not shared down
+		 * the recursion. The alias counter IS shared, so the preserved duplicate
+		 * still gets its own table alias.
+		 */
+		$seen   = array();
 		$wheres = array();
 
 		foreach ( $specs as $spec ) {
@@ -190,7 +198,7 @@ class Relationship extends Base {
 
 			// A member without a 'name' is a nested group: recurse.
 			if ( ! isset( $spec[ 'name' ] ) ) {
-				$sub = $this->build_spec_group( $spec, $seen, $alias_counts, $joins, false );
+				$sub = $this->build_spec_group( $spec, $alias_counts, $joins, false );
 
 				if ( false === $sub ) {
 					return false;
