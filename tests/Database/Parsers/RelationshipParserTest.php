@@ -634,6 +634,37 @@ class RelationshipParserTest extends TestCase {
 		);
 
 		$this->assertSame( '1 = 0', $result['where'] );
+
+		// The pointless JOIN is dropped when failing closed.
+		$this->assertSame( '', $result['join'] );
+	}
+
+	/**
+	 * An unresolvable spec poisons the WHOLE OR group, not just its own branch.
+	 *
+	 * "( EXISTS(good) OR 1 = 0 )" would still return rows; a misconfigured filter
+	 * must match none, so the entire group fails closed.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_or_spec_group_unresolvable_spec_fails_whole_group() {
+		$result = $this->parse(
+			array(
+				'relation' => 'OR',
+				array(
+					'name'  => 'items',
+					'where' => array( 'status' => 'active' ),
+				),
+				array( 'name' => 'missing' ),
+			),
+			array(
+				'items' => $this->relationship( 'items', 'has_many', array( 'id' ), array( 'order_id' ) ),
+				// 'missing' does not resolve.
+			)
+		);
+
+		$this->assertSame( '1 = 0', $result['where'] );
+		$this->assertSame( '', $result['join'] );
 	}
 
 	/**

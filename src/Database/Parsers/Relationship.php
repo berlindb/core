@@ -128,6 +128,7 @@ class Relationship extends Base {
 		// Collected fragments.
 		$joins  = array();
 		$wheres = array();
+		$failed = false;
 
 		/*
 		 * Drop exact-duplicate specs, and count how many times each relationship
@@ -148,7 +149,7 @@ class Relationship extends Base {
 			 * that must match no rows — never silently widen to all rows.
 			 */
 			if ( ! is_array( $spec ) || empty( $spec[ 'name' ] ) || ! is_string( $spec[ 'name' ] ) ) {
-				$wheres[] = '1 = 0';
+				$failed = true;
 				continue;
 			}
 
@@ -172,7 +173,7 @@ class Relationship extends Base {
 
 			// Fail closed: an unresolvable spec must not widen the result set.
 			if ( false === $clause ) {
-				$wheres[] = '1 = 0';
+				$failed = true;
 				continue;
 			}
 
@@ -187,8 +188,18 @@ class Relationship extends Base {
 			}
 		}
 
-		// De-duplicate identical JOINs.
-		$retval[ 'join' ] = implode( ' ', array_unique( $joins ) );
+		/*
+		 * Fail closed: ANY malformed or unresolvable spec poisons the WHOLE group,
+		 * for both AND and OR. Under AND this was already true ("X AND 1 = 0"), but
+		 * under OR a per-branch "1 = 0" would leave "( EXISTS(good) OR 1 = 0 )",
+		 * which still returns rows — the misconfigured filter must match none. The
+		 * join is dropped too, so the SQL matches the intent.
+		 */
+		if ( true === $failed ) {
+			$retval[ 'where' ] = '1 = 0';
+
+			return $retval;
+		}
 
 		// Combine the WHERE fragments with the group's boolean relation.
 		if ( 'OR' === $relation ) {
@@ -197,17 +208,25 @@ class Relationship extends Base {
 			 * OR groups combine the per-clause WHERE fragments with OR. A clause
 			 * that emits a JOIN (e.g. a belongs_to INNER JOIN) cannot participate in
 			 * OR semantics — its JOIN already filters unconditionally — so an OR
-			 * group containing one fails closed rather than silently AND-ing it in.
+			 * group containing one fails closed (join dropped) rather than silently
+			 * AND-ing it in.
 			 */
-			$retval[ 'where' ] = ! empty( $joins )
-				? '1 = 0'
-				: ( ( count( $wheres ) > 1 )
-					? '( ' . implode( ' OR ', $wheres ) . ' )'
-					: implode( ' OR ', $wheres ) );
+			if ( ! empty( $joins ) ) {
+				$retval[ 'where' ] = '1 = 0';
 
-		} else {
-			$retval[ 'where' ] = implode( ' AND ', $wheres );
+				return $retval;
+			}
+
+			$retval[ 'where' ] = ( count( $wheres ) > 1 )
+				? '( ' . implode( ' OR ', $wheres ) . ' )'
+				: implode( ' OR ', $wheres );
+
+			return $retval;
 		}
+
+		// AND group: de-duplicate identical JOINs, AND the WHERE fragments.
+		$retval[ 'join' ]  = implode( ' ', array_unique( $joins ) );
+		$retval[ 'where' ] = implode( ' AND ', $wheres );
 
 		return $retval;
 	}
