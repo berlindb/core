@@ -123,6 +123,14 @@ class MqNoStoreQuery extends Query {
 	}
 }
 
+/** Table for the no-store query, so constructing it does not hit a missing table. */
+class MqNoStoreTable extends Table {
+	protected $prefix  = 'mqt';
+	protected $name    = 'nostore';
+	protected $version = '1.0.0';
+	protected $schema  = MqNoStoreSchema::class;
+}
+
 /**
  * Tests for meta_query translation.
  *
@@ -136,19 +144,23 @@ class MetaQueryTranslationTest extends TestCase {
 	/** @var MqThingMetaTable */
 	private static $meta_table;
 
+	/** @var MqNoStoreTable */
+	private static $no_store_table;
+
 	/** @var array<string, int> label => thing ID for the current test. */
 	private $ids = array();
 
 	/**
-	 * Install both tables once.
+	 * Install the tables once.
 	 *
 	 * @since 3.1.0
 	 */
 	public static function setUpBeforeClass(): void {
 		parent::setUpBeforeClass();
 
-		self::$table      = new MqThingTable();
-		self::$meta_table = new MqThingMetaTable();
+		self::$table          = new MqThingTable();
+		self::$meta_table     = new MqThingMetaTable();
+		self::$no_store_table = new MqNoStoreTable();
 
 		if ( ! self::$table->exists() ) {
 			self::$table->install();
@@ -157,14 +169,20 @@ class MetaQueryTranslationTest extends TestCase {
 		if ( ! self::$meta_table->exists() ) {
 			self::$meta_table->install();
 		}
+
+		// Installed so the no-store query has a real table to construct against.
+		if ( ! self::$no_store_table->exists() ) {
+			self::$no_store_table->install();
+		}
 	}
 
 	/**
-	 * Uninstall both tables after the class.
+	 * Uninstall the tables after the class.
 	 *
 	 * @since 3.1.0
 	 */
 	public static function tearDownAfterClass(): void {
+		self::$no_store_table->uninstall();
 		self::$meta_table->uninstall();
 		self::$table->uninstall();
 		parent::tearDownAfterClass();
