@@ -348,6 +348,52 @@ class MetaQueryTranslationTest extends TestCase {
 	}
 
 	/**
+	 * A translated meta_query ANDs with an existing OR relation_query, not OR.
+	 *
+	 * The pre-existing relation_query is a top-level OR group (has 'color' OR
+	 * size='small' → A, B, C). The meta_query (size='large' → A, B) must AND with
+	 * that whole group, giving (A,B,C) AND (A,B) = A, B. The earlier bug appended
+	 * the meta clause INTO the OR list, widening the result to A, B, C
+	 * (color OR small OR large).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_meta_query_ands_with_existing_or_relation_query() {
+		$this->assertSame(
+			array( 'A', 'B' ),
+			$this->labels(
+				array(
+					'relation_query' => array(
+						'relation' => 'OR',
+						array(
+							'name'  => 'meta',
+							'where' => array(
+								'meta_key' => 'color',
+							),
+						),
+						array(
+							'name'  => 'meta',
+							'where' => array(
+								'meta_key'   => 'size',
+								'meta_value' => array(
+									'compare' => '=',
+									'value'   => 'small',
+								),
+							),
+						),
+					),
+					'meta_query'     => array(
+						array(
+							'key'   => 'size',
+							'value' => 'large',
+						),
+					),
+				)
+			)
+		);
+	}
+
+	/**
 	 * EXISTS / NOT EXISTS on a key.
 	 *
 	 * @since 3.1.0
