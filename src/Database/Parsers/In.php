@@ -201,7 +201,6 @@ class In extends Base {
 
 		// Maybe alias the column name.
 		$aliased = $this->caller->get_quoted_column_name_aliased( $column_name, $alias );
-		$item_in = (string) $item_in;
 
 		// Return the FIELD() expression.
 		return "FIELD( {$aliased}, {$item_in} )";

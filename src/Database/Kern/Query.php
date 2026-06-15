@@ -925,7 +925,7 @@ class Query {
 	 *                                       instead of the entire object. Default false.
 	 * @return Column[]|list<mixed> Array of Column objects, or field values if $field is set.
 	 */
-	public function get_columns( $args = array(), $operator = 'and', $field = false ) {
+	public function get_columns( $args = array(), $operator = 'and', $field = false ): array {
 
 		// Default columns.
 		$columns = array();
@@ -1616,8 +1616,8 @@ class Query {
 	 *
 	 * @return string
 	 */
-	public function get_item_name_plural() {
-		return $this->item_name_plural;
+	public function get_item_name_plural(): string {
+		return (string) $this->item_name_plural;
 	}
 
 	/**
@@ -1902,7 +1902,7 @@ class Query {
 	 *
 	 * @return string Escaped/prepared SQL, possibly wrapped in parenthesis.
 	 */
-	public function get_in_sql( $column_name = '', $values = array(), $wrap = true, $pattern = '' ) {
+	public function get_in_sql( $column_name = '', $values = array(), $wrap = true, $pattern = '' ): string {
 
 		// Bail if no values or invalid column.
 		if ( empty( $values ) || ! $this->is_valid_column( $column_name ) ) {

@@ -550,7 +550,7 @@ class MetaQueryTranslationTest extends TestCase {
 	 * The store meta-orderby directive is cache-safe BECAUSE relation_query carries
 	 * the ordered key.
 	 *
-	 * The build-time `meta_value_orderby` directive is unregistered (not in the
+	 * The build-time `meta_orderby` directive is unregistered (not in the
 	 * cache key). It is safe anyway: ordering by different keys produces different
 	 * `relation_query` (the EXISTS filter, which IS registered and cache-keyed), so
 	 * the two queries never collide. meta_key itself is stripped during translation.

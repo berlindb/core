@@ -141,7 +141,7 @@ class Query extends KernQuery implements MetaStore {
 		 * exactly one foreign-key column, so it requires exactly one key column —
 		 * composite keys are unsupported (as they are in the relationship runtime).
 		 */
-		$primary_columns = array_values( (array) $primary_query->get_columns( array( 'primary' => true ) ) );
+		$primary_columns = array_values( $primary_query->get_columns( array( 'primary' => true ) ) );
 		if ( 1 < count( $primary_columns ) ) {
 			$this->log(
 				'warning',

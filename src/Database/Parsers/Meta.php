@@ -887,14 +887,18 @@ class Meta extends Base {
 			return $query_vars;
 		}
 
-		// Append the meta group to relation_query (ANDs with any existing filters).
+		/*
+		 * AND the translated meta group with any existing relationship filter.
+		 * Nest the existing query as a subgroup so its own relation — including a
+		 * top-level 'relation' => 'OR' — is preserved, rather than absorbing the
+		 * meta group into that OR list (which would wrongly OR-combine them). The
+		 * root group is an implicit AND, so the two sit side by side under it.
+		 */
 		$existing = $query_vars[ 'relation_query' ] ?? null;
-		$list     = is_array( $existing )
-			? ( isset( $existing[ 'name' ] ) ? array( $existing ) : $existing )
-			: array();
 
-		$list[]                         = $group;
-		$query_vars[ 'relation_query' ] = $list;
+		$query_vars[ 'relation_query' ] = is_array( $existing )
+			? array( $existing, $group )
+			: array( $group );
 
 		return $query_vars;
 	}
