@@ -72,6 +72,11 @@ class MqThingQuery extends Query {
 	protected $table_schema = MqThingSchema::class;
 	protected $item_name    = 'thing';
 	protected $cache_group  = 'mqt_things';
+
+	/** Expose a (post-normalization) query var for the cache-safety assertion. */
+	public function peek_query_var( $key ) {
+		return $this->get_query_var( $key );
+	}
 }
 
 /** Primary Table. */
@@ -233,14 +238,26 @@ class MetaQueryTranslationTest extends TestCase {
 	 * @return list<string>
 	 */
 	private function labels( array $args ): array {
+		$ordered = $this->ordered_labels( $args );
+
+		sort( $ordered );
+
+		return $ordered;
+	}
+
+	/**
+	 * Run a query and return the matched labels in RESULT ORDER (for orderby).
+	 *
+	 * @param array<string, mixed> $args Query vars.
+	 * @return list<string>
+	 */
+	private function ordered_labels( array $args ): array {
 		$results = ( new MqThingQuery() )->query( $args );
 		$labels  = array();
 
 		foreach ( (array) $results as $row ) {
 			$labels[] = $row->label;
 		}
-
-		sort( $labels );
 
 		return $labels;
 	}
@@ -486,5 +503,82 @@ class MetaQueryTranslationTest extends TestCase {
 		// The mapper bailed (no store), so the meta vars survive for the Meta parser.
 		$this->assertSame( 'color', $query->peek_query_var( 'meta_key' ) );
 		$this->assertSame( 'blue', $query->peek_query_var( 'meta_value' ) );
+	}
+
+	/**
+	 * orderby => 'meta_value' sorts store-backed rows LEXICALLY by the key's value.
+	 *
+	 * scores '10','100','9' sort lexically as 10 < 100 < 9 → A, B, C ascending.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_store_orderby_meta_value_lexical() {
+		$args = array(
+			'meta_key' => 'score',
+			'orderby'  => 'meta_value',
+			'order'    => 'ASC',
+		);
+
+		$this->assertSame( array( 'A', 'B', 'C' ), $this->ordered_labels( $args ) );
+
+		$args[ 'order' ] = 'DESC';
+		$this->assertSame( array( 'C', 'B', 'A' ), $this->ordered_labels( $args ) );
+	}
+
+	/**
+	 * orderby => 'meta_value_num' sorts NUMERICALLY (CAST … AS SIGNED).
+	 *
+	 * scores 9,10,100 sort numerically → C, A, B ascending — distinct from the
+	 * lexical order above, proving the SIGNED cast is applied.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_store_orderby_meta_value_num_numeric() {
+		$args = array(
+			'meta_key' => 'score',
+			'orderby'  => 'meta_value_num',
+			'order'    => 'ASC',
+		);
+
+		$this->assertSame( array( 'C', 'A', 'B' ), $this->ordered_labels( $args ) );
+
+		$args[ 'order' ] = 'DESC';
+		$this->assertSame( array( 'B', 'A', 'C' ), $this->ordered_labels( $args ) );
+	}
+
+	/**
+	 * The store meta-orderby directive is cache-safe BECAUSE relation_query carries
+	 * the ordered key.
+	 *
+	 * The build-time `meta_value_orderby` directive is unregistered (not in the
+	 * cache key). It is safe anyway: ordering by different keys produces different
+	 * `relation_query` (the EXISTS filter, which IS registered and cache-keyed), so
+	 * the two queries never collide. meta_key itself is stripped during translation.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_store_meta_orderby_key_is_cache_safe_because_relation_query_carries_key() {
+		$by_color = new MqThingQuery(
+			array(
+				'meta_key' => 'color',
+				'orderby'  => 'meta_value',
+				'fields'   => 'ids',
+			)
+		);
+
+		$by_size = new MqThingQuery(
+			array(
+				'meta_key' => 'size',
+				'orderby'  => 'meta_value',
+				'fields'   => 'ids',
+			)
+		);
+
+		// meta_key was stripped; the registered, cache-keyed relation_query differs.
+		$this->assertNull( $by_color->peek_query_var( 'meta_key' ) );
+		$this->assertNotEquals(
+			$by_color->peek_query_var( 'relation_query' ),
+			$by_size->peek_query_var( 'relation_query' )
+		);
 	}
 }

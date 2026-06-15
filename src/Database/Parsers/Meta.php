@@ -740,6 +740,20 @@ class Meta extends Base {
 			return '';
 		}
 
+		/*
+		 * Store-backed path: the meta_query was translated to relation_query EXISTS,
+		 * so there is no JOIN alias to order on — order by a correlated subquery
+		 * against the sibling table for the key normalize_query_vars() preserved.
+		 * Falls through to the bespoke WP-table clause path when not store-backed.
+		 */
+		if ( ( 'meta_value' === $orderby ) || ( 'meta_value_num' === $orderby ) ) {
+			$store_sql = $this->get_store_meta_orderby_sql( $orderby );
+
+			if ( '' !== $store_sql ) {
+				return $store_sql;
+			}
+		}
+
 		// Named clause key: look it up directly.
 		$clause = $this->clauses[ $orderby ] ?? null;
 
@@ -842,6 +856,25 @@ class Meta extends Base {
 		// Only translate for store-backed callers; others keep the bespoke engine.
 		if ( ! $this->caller_has_meta_store( $caller ) ) {
 			return $query_vars;
+		}
+
+		/*
+		 * Preserve the ordered key/cast for a store-backed `orderby => meta_value`
+		 * (Phase C): the meta vars are about to be stripped, but get_orderby_sql()
+		 * still needs the key to build a correlated subquery against the sibling.
+		 * This directive is an unregistered build-time pointer — it does NOT need to
+		 * be cache-keyed, because the SAME key already rides in relation_query (the
+		 * EXISTS filter, which IS registered/cache-keyed) and meta_value vs
+		 * meta_value_num rides in the registered `orderby` var.
+		 */
+		$orderby = $query_vars[ 'orderby' ] ?? '';
+
+		if ( is_string( $orderby ) && ( ( 'meta_value' === $orderby ) || ( 'meta_value_num' === $orderby ) ) ) {
+			$directive = $this->first_meta_orderby_key( $meta_query );
+
+			if ( null !== $directive ) {
+				$query_vars[ 'meta_value_orderby' ] = $directive;
+			}
 		}
 
 		// Remove the meta vars so the bespoke engine no-ops for store queries.
@@ -979,6 +1012,140 @@ class Meta extends Base {
 		}
 
 		return false;
+	}
+
+	/**
+	 * Find the first leaf clause's scalar key + cast (for a meta_value orderby).
+	 *
+	 * WordPress orders `meta_value` by the simple / first clause; mirror that by
+	 * descending to the first leaf clause that carries a scalar `key`. The cast is
+	 * mapped from the clause's `type` ('CHAR' → '' no-cast sentinel).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<int|string, mixed> $meta_query The combined meta_query tree.
+	 * @return array{key: string, cast: string}|null The ordered key + cast, or null.
+	 */
+	private function first_meta_orderby_key( array $meta_query ) {
+
+		foreach ( $meta_query as $member ) {
+
+			if ( ! is_array( $member ) ) {
+				continue;
+			}
+
+			// A nested group: descend into its first usable leaf.
+			if ( isset( $member[ 'relation' ] ) || isset( $member[0] ) ) {
+				$found = $this->first_meta_orderby_key( $member );
+
+				if ( null !== $found ) {
+					return $found;
+				}
+
+				continue;
+			}
+
+			// A leaf clause with a scalar key is orderable.
+			if ( array_key_exists( 'key', $member ) && is_scalar( $member[ 'key' ] ) ) {
+				$cast = $this->get_cast_for_type( $member[ 'type' ] ?? '' );
+
+				return array(
+					'key'  => (string) $member[ 'key' ],
+					'cast' => ( 'CHAR' === $cast ) ? '' : $cast,
+				);
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * Build a store-backed `meta_value` / `meta_value_num` ORDER BY fragment.
+	 *
+	 * For a store-backed query the meta_query was translated to relation_query
+	 * EXISTS, so there is no JOIN alias to order on. Order by a scalar correlated
+	 * subquery against the sibling table, for the key normalize_query_vars()
+	 * preserved in the `meta_value_orderby` directive. The sibling, its foreign
+	 * key, and the local key are resolved from the caller's `'meta'` relationship.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $orderby 'meta_value' or 'meta_value_num'.
+	 * @return string The ORDER BY expression, or '' when not a store-backed order.
+	 */
+	private function get_store_meta_orderby_sql( string $orderby ): string {
+
+		$caller = $this->caller;
+
+		if ( ! ( $caller instanceof \BerlinDB\Database\Kern\Query ) ) {
+			return '';
+		}
+
+		// The ordered key/cast preserved by normalize_query_vars().
+		$directive = $caller->get_query_var( 'meta_value_orderby' );
+
+		if ( ! is_array( $directive ) || ! isset( $directive[ 'key' ] ) || ! is_scalar( $directive[ 'key' ] ) ) {
+			return '';
+		}
+
+		// Resolve the sibling via the declared 'meta' relationship.
+		$relationship = $caller->get_relationship( 'meta' );
+
+		if ( ! ( $relationship instanceof \BerlinDB\Database\Kern\Relationship ) ) {
+			return '';
+		}
+
+		$class = $relationship->get_query_class();
+
+		if ( ( '' === $class ) || ! class_exists( $class ) ) {
+			return '';
+		}
+
+		$remote = new $class();
+
+		if ( ! ( $remote instanceof \BerlinDB\Database\Kern\Query ) ) {
+			return '';
+		}
+
+		// has_many: references[0] is the sibling FK; columns[0] is the local key.
+		$references = $relationship->references;
+		$columns    = $relationship->columns;
+
+		if ( ( count( $references ) !== 1 ) || ( count( $columns ) !== 1 ) ) {
+			return '';
+		}
+
+		// Pre-quote identifiers (a subquery-local alias avoids any outer collision).
+		$qt_sibling = $this->quote_identifier( $remote->get_table_name() );
+		$qt_sub     = $this->quote_identifier( 'bdb_meta_ob' );
+		$qt_fk      = $this->quote_identifier( (string) $references[0] );
+		$qt_value   = $this->quote_identifier( 'meta_value' ); // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+		$qt_key     = $this->quote_identifier( 'meta_key' );   // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+		$local_ref  = (string) $caller->get_quoted_column_name_aliased( (string) $columns[0] );
+
+		// Correlated subquery for the ordered key's value (one row; LIMIT 1).
+		$prepared_key = (string) $this->db()->prepare( '%s', (string) $directive[ 'key' ] );
+
+		/*
+		 * Determinism when an object has multiple values for the key: take the
+		 * oldest row by meta_id (the preset's PK) — WP-ish "first value". Guarded
+		 * on the column existing, since a MetaStore need not be the preset; without
+		 * it the subquery falls back to the database's arbitrary first-row pick.
+		 */
+		$order_by = ! empty( $remote->get_columns( array( 'name' => 'meta_id' ) ) )
+			? ' ORDER BY ' . $qt_sub . '.' . $this->quote_identifier( 'meta_id' ) . ' ASC'
+			: '';
+
+		$subquery = "( SELECT {$qt_sub}.{$qt_value} FROM {$qt_sibling} AS {$qt_sub}"
+			. " WHERE {$qt_sub}.{$qt_fk} = {$local_ref}"
+			. " AND {$qt_sub}.{$qt_key} = {$prepared_key}{$order_by} LIMIT 1 )";
+
+		// Numeric ordering casts to SIGNED; otherwise use the recorded cast.
+		$cast = ( 'meta_value_num' === $orderby )
+			? 'SIGNED'
+			: ( is_scalar( $directive[ 'cast' ] ?? '' ) ? (string) $directive[ 'cast' ] : '' );
+
+		return $this->cast_reference( $subquery, $cast );
 	}
 
 	/**
