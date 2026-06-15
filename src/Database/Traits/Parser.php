@@ -1090,21 +1090,8 @@ trait Parser {
 	 */
 	protected function validate_values( $query = array() ) {
 
-		// Bail if empty.
-		if ( empty( $query ) ) {
-			return false;
-		}
-
-		// Default valid.
-		$valid = true;
-
-		// Values are passthroughs.
-		if ( array_key_exists( 'value', $query ) ) {
-			$valid = true;
-		}
-
-		// Return if valid or not.
-		return $valid;
+		// A non-empty query is valid by default; subclasses (e.g. Date) tighten this.
+		return ! empty( $query );
 	}
 
 	/** Builders **************************************************************/
