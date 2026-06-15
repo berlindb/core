@@ -581,7 +581,7 @@ class Relationship extends Base {
 		$exists_positive = ! array_key_exists( 'exists', $clause_args ) || (bool) $clause_args[ 'exists' ];
 
 		// Pre-quote the shared identifiers.
-		$local      = (string) $this->caller->get_quoted_column_name_aliased( $columns[0] );
+		$local      = $this->caller->get_quoted_column_name_aliased( $columns[0] );
 		$alias_sql  = $this->quote_identifier( $alias );
 		$remote_sql = $this->quote_identifier( $remote_table );
 		$ref_sql    = $alias_sql . '.' . $this->quote_identifier( $remote_ref );

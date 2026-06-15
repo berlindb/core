@@ -743,15 +743,14 @@ class Meta extends Base {
 		/*
 		 * Store-backed path: the meta_query was translated to relation_query EXISTS,
 		 * so there is no JOIN alias to order on — order by a correlated subquery
-		 * against the sibling table for the key normalize_query_vars() preserved.
-		 * Falls through to the bespoke WP-table clause path when not store-backed.
+		 * against the sibling for the key normalize_query_vars() recorded (under
+		 * 'meta_value' / 'meta_value_num' or a named clause). Returns '' when this
+		 * token isn't a recorded store order, falling through to the WP clause path.
 		 */
-		if ( ( 'meta_value' === $orderby ) || ( 'meta_value_num' === $orderby ) ) {
-			$store_sql = $this->get_store_meta_orderby_sql( $orderby );
+		$store_sql = $this->get_store_meta_orderby_sql( (string) $orderby );
 
-			if ( '' !== $store_sql ) {
-				return $store_sql;
-			}
+		if ( '' !== $store_sql ) {
+			return $store_sql;
 		}
 
 		// Named clause key: look it up directly.
@@ -859,23 +858,14 @@ class Meta extends Base {
 		}
 
 		/*
-		 * Preserve the ordered key/cast for a store-backed `orderby => meta_value`
-		 * (Phase C): the meta vars are about to be stripped, but get_orderby_sql()
-		 * still needs the key to build a correlated subquery against the sibling.
-		 * This directive is an unregistered build-time pointer — it does NOT need to
-		 * be cache-keyed, because the SAME key already rides in relation_query (the
-		 * EXISTS filter, which IS registered/cache-keyed) and meta_value vs
-		 * meta_value_num rides in the registered `orderby` var.
+		 * Preserve the ordered key(s)/cast(s) the query's orderby asks for, before
+		 * the meta vars are stripped (Phase C): get_orderby_sql() still needs them
+		 * to build a correlated subquery against the sibling. This directive is an
+		 * unregistered build-time pointer — it does NOT need to be cache-keyed,
+		 * because the ordered keys already ride in relation_query (the EXISTS
+		 * filter, registered/cache-keyed) and in the registered `orderby` var.
 		 */
-		$orderby = $query_vars[ 'orderby' ] ?? '';
-
-		if ( is_string( $orderby ) && ( ( 'meta_value' === $orderby ) || ( 'meta_value_num' === $orderby ) ) ) {
-			$directive = $this->first_meta_orderby_key( $meta_query );
-
-			if ( null !== $directive ) {
-				$query_vars[ 'meta_value_orderby' ] = $directive;
-			}
-		}
+		$query_vars = $this->stash_meta_orderby_directive( $query_vars, $meta_query );
 
 		// Remove the meta vars so the bespoke engine no-ops for store queries.
 		$query_vars = $this->strip_meta_query_vars( $query_vars );
@@ -1047,16 +1037,140 @@ class Meta extends Base {
 
 			// A leaf clause with a scalar key is orderable.
 			if ( array_key_exists( 'key', $member ) && is_scalar( $member[ 'key' ] ) ) {
-				$cast = $this->get_cast_for_type( $member[ 'type' ] ?? '' );
-
-				return array(
-					'key'  => (string) $member[ 'key' ],
-					'cast' => ( 'CHAR' === $cast ) ? '' : $cast,
-				);
+				return $this->orderby_entry_for_clause( $member );
 			}
 		}
 
 		return null;
+	}
+
+	/**
+	 * Build the { key, cast } orderby entry for a single leaf clause.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string, mixed> $clause A leaf clause with a scalar 'key'.
+	 * @return array{key: string, cast: string} The ordered key + cast ('CHAR' → '').
+	 */
+	private function orderby_entry_for_clause( array $clause ): array {
+
+		$cast = $this->get_cast_for_type( $clause[ 'type' ] ?? '' );
+
+		return array(
+			'key'  => (string) $clause[ 'key' ],
+			'cast' => ( 'CHAR' === $cast ) ? '' : $cast,
+		);
+	}
+
+	/**
+	 * Record the ordered key(s)/cast(s) the query's orderby asks for.
+	 *
+	 * For a store-backed query, get_orderby_sql() needs each ordered key after the
+	 * meta vars are stripped. Build an unregistered `meta_orderby` directive mapping
+	 * each REQUESTED orderby token to its { key, cast }:
+	 *  - `meta_value` / `meta_value_num` → the simple / first clause (WP-parity),
+	 *  - a NAMED meta_query clause (`'rating' => array( 'key' => 'rating', … )`) →
+	 *    that clause, claimable by `orderby => 'rating'`.
+	 * Only tokens the orderby actually uses are recorded, so non-meta orders add
+	 * nothing.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string, mixed>     $query_vars All of the caller's query vars.
+	 * @param array<int|string, mixed> $meta_query The combined meta_query tree.
+	 * @return array<string, mixed> The query vars, possibly with a 'meta_orderby' directive.
+	 */
+	private function stash_meta_orderby_directive( array $query_vars, array $meta_query ): array {
+
+		// The orderby tokens this query asks for (scalar string or array keys).
+		$requested = $this->requested_orderby_tokens( $query_vars[ 'orderby' ] ?? '' );
+
+		if ( empty( $requested ) ) {
+			return $query_vars;
+		}
+
+		// The orderable tokens this meta_query can satisfy.
+		$available = array();
+
+		$first = $this->first_meta_orderby_key( $meta_query );
+
+		if ( null !== $first ) {
+			$available[ 'meta_value' ]     = $first; // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+			$available[ 'meta_value_num' ] = $first;
+		}
+
+		$this->collect_named_meta_orderby_keys( $meta_query, $available );
+
+		// Record only the requested tokens we can satisfy.
+		$directive = array();
+
+		foreach ( $requested as $token ) {
+			if ( isset( $available[ $token ] ) ) {
+				$directive[ $token ] = $available[ $token ];
+			}
+		}
+
+		if ( ! empty( $directive ) ) {
+			$query_vars[ 'meta_orderby' ] = $directive;
+		}
+
+		return $query_vars;
+	}
+
+	/**
+	 * The orderby tokens a query requests (from a scalar string or an array).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param mixed $orderby The 'orderby' query var.
+	 * @return list<string> The requested orderby field tokens.
+	 */
+	private function requested_orderby_tokens( $orderby ): array {
+
+		if ( is_string( $orderby ) && ( '' !== $orderby ) ) {
+			return array( $orderby );
+		}
+
+		// An orderby array is keyed by field, valued by direction.
+		if ( is_array( $orderby ) ) {
+			return array_values( array_filter( array_keys( $orderby ), 'is_string' ) );
+		}
+
+		return array();
+	}
+
+	/**
+	 * Collect each NAMED meta_query clause's orderby entry, keyed by clause name.
+	 *
+	 * A clause keyed by a STRING in the tree (other than 'relation') is a named
+	 * clause; record name → { key, cast } so `orderby => '<name>'` can claim it.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<int|string, mixed>                        $meta_query The (sub)tree.
+	 * @param array<string, array{key: string, cast: string}> $map        Accumulator (by reference).
+	 * @return void
+	 */
+	private function collect_named_meta_orderby_keys( array $meta_query, array &$map ): void {
+
+		foreach ( $meta_query as $key => $member ) {
+
+			if ( ! is_array( $member ) ) {
+				continue;
+			}
+
+			// A nested group: recurse (a named clause may live inside it).
+			if ( isset( $member[ 'relation' ] ) || isset( $member[0] ) ) {
+				$this->collect_named_meta_orderby_keys( $member, $map );
+
+				continue;
+			}
+
+			// A string-keyed leaf clause (not 'relation') is a NAMED, orderable clause.
+			if ( is_string( $key ) && ( 'relation' !== $key ) && array_key_exists( 'key', $member ) && is_scalar( $member[ 'key' ] ) ) {
+				$map[ $key ] = $this->orderby_entry_for_clause( $member );
+			}
+		}
 	}
 
 	/**
@@ -1065,12 +1179,13 @@ class Meta extends Base {
 	 * For a store-backed query the meta_query was translated to relation_query
 	 * EXISTS, so there is no JOIN alias to order on. Order by a scalar correlated
 	 * subquery against the sibling table, for the key normalize_query_vars()
-	 * preserved in the `meta_value_orderby` directive. The sibling, its foreign
-	 * key, and the local key are resolved from the caller's `'meta'` relationship.
+	 * recorded under this orderby token in the `meta_orderby` directive. The
+	 * sibling, its foreign key, and the local key are resolved from the caller's
+	 * `'meta'` relationship.
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param string $orderby 'meta_value' or 'meta_value_num'.
+	 * @param string $orderby The orderby token ('meta_value', 'meta_value_num', or a named clause).
 	 * @return string The ORDER BY expression, or '' when not a store-backed order.
 	 */
 	private function get_store_meta_orderby_sql( string $orderby ): string {
@@ -1081,10 +1196,11 @@ class Meta extends Base {
 			return '';
 		}
 
-		// The ordered key/cast preserved by normalize_query_vars().
-		$directive = $caller->get_query_var( 'meta_value_orderby' );
+		// The { key, cast } this token was recorded with by normalize_query_vars().
+		$directive = $caller->get_query_var( 'meta_orderby' );
+		$entry     = ( is_array( $directive ) && isset( $directive[ $orderby ] ) ) ? $directive[ $orderby ] : null;
 
-		if ( ! is_array( $directive ) || ! isset( $directive[ 'key' ] ) || ! is_scalar( $directive[ 'key' ] ) ) {
+		if ( ! is_array( $entry ) || ! isset( $entry[ 'key' ] ) || ! is_scalar( $entry[ 'key' ] ) ) {
 			return '';
 		}
 
@@ -1121,10 +1237,10 @@ class Meta extends Base {
 		$qt_fk      = $this->quote_identifier( (string) $references[0] );
 		$qt_value   = $this->quote_identifier( 'meta_value' ); // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
 		$qt_key     = $this->quote_identifier( 'meta_key' );   // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
-		$local_ref  = (string) $caller->get_quoted_column_name_aliased( (string) $columns[0] );
+		$local_ref  = $caller->get_quoted_column_name_aliased( (string) $columns[0] );
 
 		// Correlated subquery for the ordered key's value (one row; LIMIT 1).
-		$prepared_key = (string) $this->db()->prepare( '%s', (string) $directive[ 'key' ] );
+		$prepared_key = (string) $this->db()->prepare( '%s', (string) $entry[ 'key' ] );
 
 		/*
 		 * Determinism when an object has multiple values for the key: take the
@@ -1143,7 +1259,7 @@ class Meta extends Base {
 		// Numeric ordering casts to SIGNED; otherwise use the recorded cast.
 		$cast = ( 'meta_value_num' === $orderby )
 			? 'SIGNED'
-			: ( is_scalar( $directive[ 'cast' ] ?? '' ) ? (string) $directive[ 'cast' ] : '' );
+			: ( is_scalar( $entry[ 'cast' ] ?? '' ) ? (string) $entry[ 'cast' ] : '' );
 
 		return $this->cast_reference( $subquery, $cast );
 	}

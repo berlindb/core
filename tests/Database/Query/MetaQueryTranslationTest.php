@@ -581,4 +581,76 @@ class MetaQueryTranslationTest extends TestCase {
 			$by_size->peek_query_var( 'relation_query' )
 		);
 	}
+
+	/**
+	 * For a multi-valued key, the orderby subquery uses the OLDEST row (meta_id ASC).
+	 *
+	 * C is given a second, larger score (999) with a newer meta_id. Ordering by
+	 * meta_value_num ASC must still place C first (its older value, 9) — if the
+	 * newer row won, C (999) would sort last.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_store_orderby_uses_oldest_meta_id_for_multivalued_key() {
+		( new MqThingMetaQuery() )->add_meta( $this->ids['C'], 'score', '999' );
+
+		$this->assertSame(
+			array( 'C', 'A', 'B' ),
+			$this->ordered_labels(
+				array(
+					'meta_key' => 'score',
+					'orderby'  => 'meta_value_num',
+					'order'    => 'ASC',
+				)
+			)
+		);
+	}
+
+	/**
+	 * orderby by a NAMED meta_query clause filters and sorts by that clause's key.
+	 *
+	 * The named 'score_clause' (type NUMERIC) both filters (has score) and is the
+	 * sort key; its NUMERIC type casts to SIGNED → numeric order 9,10,100 → C,A,B.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_store_orderby_named_clause() {
+		$this->assertSame(
+			array( 'C', 'A', 'B' ),
+			$this->ordered_labels(
+				array(
+					'meta_query' => array(
+						'score_clause' => array(
+							'key'  => 'score',
+							'type' => 'NUMERIC',
+						),
+					),
+					'orderby'    => 'score_clause',
+					'order'      => 'ASC',
+				)
+			)
+		);
+	}
+
+	/**
+	 * The array orderby form ( 'clause' => 'DESC' ) resolves the named clause too.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_store_orderby_named_clause_array_form() {
+		$this->assertSame(
+			array( 'B', 'A', 'C' ),
+			$this->ordered_labels(
+				array(
+					'meta_query' => array(
+						'score_clause' => array(
+							'key'  => 'score',
+							'type' => 'NUMERIC',
+						),
+					),
+					'orderby'    => array( 'score_clause' => 'DESC' ),
+				)
+			)
+		);
+	}
 }

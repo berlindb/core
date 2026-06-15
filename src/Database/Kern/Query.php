@@ -1019,7 +1019,7 @@ class Query {
 	 * @param bool   $alias Whether to include the table alias prefix.
 	 * @return string
 	 */
-	protected function get_column_name_aliased( $column_name = '', $alias = true ) {
+	protected function get_column_name_aliased( $column_name = '', $alias = true ): string {
 
 		// Default return value.
 		$retval = $column_name;
@@ -1045,7 +1045,7 @@ class Query {
 	 * @param bool   $alias Whether to include the table alias prefix.
 	 * @return string
 	 */
-	public function get_quoted_column_name_aliased( $column_name = '', $alias = true ) {
+	public function get_quoted_column_name_aliased( $column_name = '', $alias = true ): string {
 
 		// Delegate to the Column object when one exists in the schema.
 		$column_object = $this->get_column_by( array( 'name' => $column_name ) );

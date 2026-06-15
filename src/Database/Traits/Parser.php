@@ -34,7 +34,7 @@ trait Parser {
 	 * Query class responsible for constructing this parser.
 	 *
 	 * @since 3.0.0
-	 * @var \BerlinDB\Database\Query|null
+	 * @var \BerlinDB\Database\Kern\Query|null
 	 */
 	public $caller = null;
 
