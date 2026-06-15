@@ -511,11 +511,18 @@ class MetaQueryTranslationTest extends TestCase {
 	}
 
 	/**
-	 * An unsupported negative compare_key fails closed and logs under meta_query.
+	 * Every unsupported negative compare_key fails closed (no rows) and logs.
 	 *
+	 * meta_key_condition() only translates =, EXISTS, IN, LIKE, REGEXP, RLIKE; every
+	 * other (negative) key comparison returns null so the whole translation fails
+	 * closed rather than mistranslating. Covers the breadth beyond NOT LIKE.
+	 *
+	 * @dataProvider provide_unsupported_compare_keys
 	 * @since 3.1.0
+	 *
+	 * @param string $compare_key The unsupported key comparison.
 	 */
-	public function test_unsupported_compare_key_fails_closed() {
+	public function test_unsupported_compare_key_fails_closed( string $compare_key ) {
 		$query = new MqThingQuery();
 
 		$results = $query->query(
@@ -523,14 +530,29 @@ class MetaQueryTranslationTest extends TestCase {
 				'meta_query' => array(
 					array(
 						'key'         => 'color',
-						'compare_key' => 'NOT LIKE',
+						'compare_key' => $compare_key,
 					),
 				),
 			)
 		);
 
-		$this->assertSame( array(), (array) $results );
-		$this->assertNotEmpty( $query->get_logs( array( 'code' => 'meta_query' ) ) );
+		$this->assertSame( array(), (array) $results, "{$compare_key} should fail closed" );
+		$this->assertNotEmpty( $query->get_logs( array( 'code' => 'meta_query' ) ), "{$compare_key} should log a meta_query warning" );
+	}
+
+	/**
+	 * Unsupported negative key comparisons (the meta_key_condition() default arm).
+	 *
+	 * @return array<string, array{string}>
+	 */
+	public function provide_unsupported_compare_keys(): array {
+		return array(
+			'not equal'  => array( '!=' ),
+			'not in'     => array( 'NOT IN' ),
+			'not like'   => array( 'NOT LIKE' ),
+			'not regexp' => array( 'NOT REGEXP' ),
+			'not exists' => array( 'NOT EXISTS' ),
+		);
 	}
 
 	/**
