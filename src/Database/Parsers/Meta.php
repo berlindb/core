@@ -773,12 +773,7 @@ class Meta extends Base {
 		$qt_column = $this->quote_identifier( 'meta_value' );
 		$cast_val  = $clause[ 'cast' ] ?? 'CHAR';
 		$cast_str  = is_scalar( $cast_val ) ? (string) $cast_val : 'CHAR';
-		$cast      = ( 'meta_value_num' === $orderby )
-			? 'SIGNED'
-			: $cast_str;
-
-		// Meta's 'CHAR' sentinel means no cast (native string type).
-		$cast = ( 'CHAR' === $cast ) ? '' : $cast;
+		$cast      = $this->meta_cast_to_sql( $cast_str, ( 'meta_value_num' === $orderby ) );
 
 		/*
 		 * Return the ORDER BY fragment, with casting if needed. Meta always
@@ -823,6 +818,26 @@ class Meta extends Base {
 
 		// Return uppercase type.
 		return $upper_type;
+	}
+
+	/**
+	 * Resolve a Meta cast to the form cast_reference() expects.
+	 *
+	 * Meta uses 'CHAR' (the native string type) as its "no cast" sentinel, so it
+	 * maps to '' (no SQL CAST()); any other type passes through. Numeric ordering
+	 * always casts to SIGNED, regardless of the recorded cast. Centralizes the
+	 * two rules so the orderby sites cannot drift apart.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $cast    The requested cast type ('CHAR' = none).
+	 * @param bool   $numeric Whether numeric ordering is in force (forces SIGNED).
+	 * @return string The cast for cast_reference() ('' when none).
+	 */
+	private function meta_cast_to_sql( string $cast, bool $numeric = false ): string {
+		return $numeric
+			? 'SIGNED'
+			: ( ( 'CHAR' === $cast ) ? '' : $cast );
 	}
 
 	/** meta_query → relationship translation (store-backed objects, #204 Phase B) */
@@ -1062,7 +1077,7 @@ class Meta extends Base {
 
 		return array(
 			'key'  => (string) $clause[ 'key' ],
-			'cast' => ( 'CHAR' === $cast ) ? '' : $cast,
+			'cast' => $this->meta_cast_to_sql( $cast ),
 		);
 	}
 
@@ -1260,10 +1275,10 @@ class Meta extends Base {
 			. " WHERE {$qt_sub}.{$qt_fk} = {$local_ref}"
 			. " AND {$qt_sub}.{$qt_key} = {$prepared_key}{$order_by} LIMIT 1 )";
 
-		// Numeric ordering casts to SIGNED; otherwise use the recorded cast.
-		$cast = ( 'meta_value_num' === $orderby )
-			? 'SIGNED'
-			: ( is_scalar( $entry[ 'cast' ] ?? '' ) ? (string) $entry[ 'cast' ] : '' );
+		// Numeric ordering casts to SIGNED; otherwise use the recorded cast
+		// (already CHAR-stripped when recorded, so the sentinel map is a no-op).
+		$recorded = is_scalar( $entry[ 'cast' ] ?? '' ) ? (string) $entry[ 'cast' ] : '';
+		$cast     = $this->meta_cast_to_sql( $recorded, ( 'meta_value_num' === $orderby ) );
 
 		return $this->cast_reference( $subquery, $cast );
 	}
