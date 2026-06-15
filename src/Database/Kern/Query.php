@@ -4469,28 +4469,11 @@ class Query {
 			return;
 		}
 
-		// Collect the local foreign-key values from the shaped items.
-		$local_column = $columns[0];
-		$values       = array();
+		// Warm the remote primary-key cache from this side's foreign-key values.
+		$values = $this->collect_local_key_values( $items, $columns[0] );
 
-		foreach ( $items as $item ) {
-
-			// Skip items that do not expose the local column.
-			if ( ! is_object( $item ) || ! isset( $item->{$local_column} ) ) {
-				continue;
-			}
-
-			$value = $item->{$local_column};
-
-			// Skip empty foreign keys (no relation), de-duplicate the rest.
-			if ( ! $this->is_empty_relationship_key( $value ) ) {
-				$values[ (string) $value ] = $value;
-			}
-		}
-
-		// Warm the remote item cache in a single bulk read.
 		if ( ! empty( $values ) ) {
-			$remote->prime_items( array_values( $values ) );
+			$remote->prime_items( $values );
 		}
 	}
 
@@ -4523,29 +4506,46 @@ class Query {
 			return;
 		}
 
-		// Collect this side's key values (what the remote foreign key points at).
-		$local_column = $columns[0];
-		$values       = array();
+		// Warm the child collections from this side's key values.
+		$values = $this->collect_local_key_values( $items, $columns[0] );
+
+		if ( ! empty( $values ) ) {
+			$remote->prime_has_many( $references[0], $values );
+		}
+	}
+
+	/**
+	 * Collect the distinct, non-empty local key values from a set of shaped items.
+	 *
+	 * Shared by the single-column relationship priming paths: reads $column off
+	 * each item, skips items that do not expose it, drops empty relationship keys,
+	 * and de-duplicates by string value.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<int|string, mixed> $items  Shaped result items to read keys from.
+	 * @param string                   $column The local column to read.
+	 * @return list<mixed> The distinct, non-empty key values.
+	 */
+	private function collect_local_key_values( array $items, string $column ): array {
+		$values = array();
 
 		foreach ( $items as $item ) {
 
-			// Skip items that do not expose the local key column.
-			if ( ! is_object( $item ) || ! isset( $item->{$local_column} ) ) {
+			// Skip items that do not expose the local column.
+			if ( ! is_object( $item ) || ! isset( $item->{$column} ) ) {
 				continue;
 			}
 
-			$value = $item->{$local_column};
+			$value = $item->{$column};
 
-			// Skip empty keys (no relation), de-duplicate the rest.
+			// Skip empty keys (no relation), de-duplicate the rest by string value.
 			if ( ! $this->is_empty_relationship_key( $value ) ) {
 				$values[ (string) $value ] = $value;
 			}
 		}
 
-		// Warm the child collections in a single bulk read.
-		if ( ! empty( $values ) ) {
-			$remote->prime_has_many( $references[0], array_values( $values ) );
-		}
+		return array_values( $values );
 	}
 
 	/**
