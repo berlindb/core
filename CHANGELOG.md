@@ -16,9 +16,10 @@ Notable changes to BerlinDB are documented here.
 - Adds the Meta preset (#204, in progress): `Presets\Meta\Query` and
   `Presets\Meta\Table` are base classes a plugin extends with thin stubs naming
   their primary/query counterparts. The query stub derives its `{object}_meta`
-  identity and key/value EAV schema from the primary — the foreign key mirrors the
-  primary key's storage shape, so UUID/varchar keys work — and declares a
-  `belongs_to` back; the primary declares the matching `has_many` in its own schema.
+  identity and key/value EAV schema from the primary — the generated foreign key
+  mirrors the primary key's storage shape (a non-`bigint` integer or `varchar`
+  key is mirrored faithfully in the sibling table) — and declares a `belongs_to`
+  back; the primary declares the matching `has_many` in its own schema.
   Both resolve through the ordinary relationship engine; no Kern class references
   presets. `Presets\Meta\Query` implements the new `Interfaces\MetaStore`
   contract, and `Query`'s protected `*_item_meta()` methods route through a

@@ -41,11 +41,11 @@ Do not copy old snippets that override private methods.
 
 ## Renamed Methods
 
-Two public methods were renamed. Deprecated aliases exist and will not be
-removed before a future major version, but update them when touching the code:
+Two protected helper methods were renamed. Deprecated aliases exist and will not
+be removed before a future major version, but update them when touching the code:
 
 ```php
-// Schema — was get_create_table_sql()
+// Schema — was to_string()
 $sql = $schema->get_create_table_string();
 
 // Environment trait on Query/Table — was get_db()

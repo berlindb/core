@@ -99,9 +99,11 @@ $id = $query->add_item( $data );
 var_dump( $query->get_logs() );
 ```
 
-Each entry contains a level, a code, a message, and a context array. The log
-is reset at the start of each public operation, so read it immediately after
-the call of interest.
+Each entry contains a level, a code, a message, and a context array. The log is
+cumulative — it is **not** reset between operations (nothing calls `clear_logs()`
+automatically). Call `clear_logs()` before the operation you want to inspect, or
+filter with `get_logs( array( 'code' => '…' ) )`, then read it right after the
+call of interest.
 
 ## When To Talk Before Fixing
 

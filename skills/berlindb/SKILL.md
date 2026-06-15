@@ -251,6 +251,11 @@ Current limitations:
   objects (it fails closed rather than mistranslating).
 - Runtime relationship features remain single-column only, so Meta preset
   primaries should use a single primary key column.
+- The generated meta foreign key mirrors the primary key's storage *shape*
+  (a `varchar`/non-`bigint` key is reproduced in the sibling table), but
+  item-meta routing — like the rest of `Query`'s CRUD and caching — requires an
+  **integer** primary-key value at runtime. Use an integer primary key for a
+  Meta preset primary; a UUID, if present, belongs in a separate column.
 
 ## High-Risk Gotchas
 

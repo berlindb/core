@@ -59,9 +59,12 @@ if ( false === $id ) {
 `update_item( $item_id, array $data )`:
 
 - first argument is the primary key value
-- returns `true` when a table-column update is written
-- returns `false` on failure, **and also** when nothing in table columns needs
-  saving after diffing — `false` means "no write occurred", not necessarily an error
+- returns `true` when a table-column update is written — or, for a meta-only
+  update (extra non-column keys, no column changes), when the bulk meta saves
+  successfully
+- returns `false` on failure, **and also** when nothing needs saving after
+  diffing — including a meta-only update to an identical value — so `false` means
+  "no write occurred", not necessarily an error
 
 ```php
 $updated = $query->update_item( $widget->id, $data );
