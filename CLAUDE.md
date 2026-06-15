@@ -40,7 +40,7 @@ hand-rolled queries — never more surprising.
    vendor/bin/phpcs
    ```
 5. **Don't invent APIs.** If unsure how something behaves, search `src/` and
-   `tests/` — the source and the 913-test suite are the source of truth, ahead
+   `tests/` — the source and the 914-test suite are the source of truth, ahead
    of memory or training data.
 6. **Keep changes focused and tested.** Bug fixes and new behavior ship with
    tests. No unrelated formatting or refactors in the same change.

@@ -608,4 +608,59 @@ class MetaStoreParityTest extends TestCase {
 		// Clean up: postmeta DDL bypasses the per-test transaction rollback.
 		$wpdb->query( "DELETE FROM {$wpdb->postmeta} WHERE post_id = {$id}" ); // phpcs:ignore WordPress.DB
 	}
+
+	/**
+	 * No-store bulk meta honors the register_meta() gate: only registered keys save.
+	 *
+	 * With no meta store declared, save_extra_item_meta() intersects the bulk keys
+	 * with get_registered_meta_keys() before writing — the counterpart to the
+	 * store path, which intentionally skips that gate. Drives the private no-store
+	 * path directly (no primary table needed) against the real wp_postmeta table.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_no_store_bulk_meta_honors_register_meta_gate() {
+		global $wpdb;
+
+		$legacy = new LegacyGadgetQuery();
+		$id     = 4343;
+
+		// Clean any lingering rows from a previous run.
+		$wpdb->query( "DELETE FROM {$wpdb->postmeta} WHERE post_id = {$id}" ); // phpcs:ignore WordPress.DB
+
+		// Register exactly ONE of the two bulk keys.
+		register_meta(
+			'post',
+			'berlindb_registered',
+			array(
+				'type'         => 'string',
+				'single'       => true,
+				'show_in_rest' => false,
+			)
+		);
+
+		// Drive the private no-store bulk path directly.
+		$method = new \ReflectionMethod( LegacyGadgetQuery::class, 'save_extra_item_meta' );
+		$method->setAccessible( true );
+
+		$saved = $method->invoke(
+			$legacy,
+			$id,
+			array(
+				'berlindb_registered'   => 'kept',
+				'berlindb_unregistered' => 'dropped',
+			)
+		);
+
+		// At least one write succeeded.
+		$this->assertTrue( $saved );
+
+		// The registered key persisted; the unregistered key was gated out.
+		$this->assertSame( 'kept', get_metadata( 'post', $id, 'berlindb_registered', true ) );
+		$this->assertSame( '', get_metadata( 'post', $id, 'berlindb_unregistered', true ) );
+
+		// Clean up.
+		unregister_meta_key( 'post', 'berlindb_registered' );
+		$wpdb->query( "DELETE FROM {$wpdb->postmeta} WHERE post_id = {$id}" ); // phpcs:ignore WordPress.DB
+	}
 }
