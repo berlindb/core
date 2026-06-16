@@ -37,11 +37,13 @@ class DocDriftTest extends TestCase {
 	}
 
 	/**
-	 * CLAUDE.md must cite the current test-method count ("<N>-test suite").
+	 * CLAUDE.md must cite the current test-method count ("<N> test methods").
 	 *
-	 * The "688" cited before this guard had drifted to ~900 unnoticed. Counting
-	 * `function test*()` declarations is deterministic and does not require the
-	 * suite to run.
+	 * The "688" cited before this guard had drifted to ~900 unnoticed. This counts
+	 * `function test*()` DECLARATIONS — deterministic and runner-free — which is
+	 * deliberately NOT PHPUnit's reported total (data providers expand methods into
+	 * more cases, so the runner reports a higher number). "test methods" is the
+	 * honest phrasing for what this asserts.
 	 *
 	 * @since 3.1.0
 	 */
@@ -50,9 +52,9 @@ class DocDriftTest extends TestCase {
 		$claudemd = (string) file_get_contents( $this->root() . '/CLAUDE.md' );
 
 		$this->assertStringContainsString(
-			"{$count}-test suite",
+			"{$count} test methods",
 			$claudemd,
-			"CLAUDE.md cites a stale test count. Update the '<N>-test suite' phrase to: {$count}-test suite"
+			"CLAUDE.md cites a stale test-method count. Update the '<N> test methods' phrase to: {$count} test methods"
 		);
 	}
 

@@ -1241,7 +1241,7 @@ class Query {
 	 */
 	private function resolve_remote_query( Relationship $relationship ) {
 
-		// Instantiate via the relationship; must be a sibling Query to be usable.
+		// Instantiate the relationship's declared remote class; must be a sibling Query.
 		$remote = $this->instantiate_class( $relationship->get_query_class() );
 
 		return ( $remote instanceof self )

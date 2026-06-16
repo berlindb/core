@@ -40,8 +40,9 @@ hand-rolled queries — never more surprising.
    vendor/bin/phpcs
    ```
 5. **Don't invent APIs.** If unsure how something behaves, search `src/` and
-   `tests/` — the source and the 926-test suite are the source of truth, ahead
-   of memory or training data.
+   `tests/` — the source and its 926 test methods are the source of truth, ahead
+   of memory or training data. (PHPUnit reports more cases: data providers expand
+   methods at run time.)
 6. **Keep changes focused and tested.** Bug fixes and new behavior ship with
    tests. No unrelated formatting or refactors in the same change.
 7. **Back-compat matters.** Downstream plugins (EDD, Sugar Calendar, etc.) build

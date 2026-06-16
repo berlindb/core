@@ -221,17 +221,17 @@ trait Base {
 	/**
 	 * Validate a class name and instantiate it, failing closed to null.
 	 *
-	 * The single home for the recurring "class_exists() then new" pattern, with
-	 * consistent fail-closed behavior: returns null when the class is empty,
-	 * unloadable, or throws during construction. Available on every class
-	 * composing this trait (which also composes Log), so the same guarded
+	 * The single home for the recurring "class_exists() then new" pattern: an
+	 * empty or unloadable class always fails closed to null. Available on every
+	 * class composing this trait (which also composes Log), so the same guarded
 	 * instantiation — and the same structured failure log — is one call away
 	 * across Kern, Presets, and Parsers.
 	 *
-	 * Pass $log_code to emit a `warning` on failure under the caller's own code
-	 * (preserving existing diagnostics) AND to trap a construction exception as a
-	 * fail-closed null. Leave it '' for a silent attempt whose construction errors
-	 * surface to the caller's own handling.
+	 * Construction exceptions are handled by mode: pass $log_code to emit a
+	 * `warning` on failure under the caller's own code (preserving existing
+	 * diagnostics) AND trap a construction throw as a fail-closed null; leave it
+	 * '' for a silent attempt whose constructor exceptions surface to the caller
+	 * unchanged.
 	 *
 	 * @internal Not consumer API.
 	 * @since 3.1.0
@@ -239,7 +239,8 @@ trait Base {
 	 * @param  string $class    Fully-qualified class name to instantiate.
 	 * @param  string $log_code Log code to emit on failure ('' = silent; errors surface).
 	 * @param  mixed  ...$args  Constructor arguments.
-	 * @return object|null The new instance, or null when $class is empty/unloadable/throws.
+	 * @return object|null The new instance, or null when $class is empty/unloadable
+	 *                     (or, with a log code, when construction throws).
 	 */
 	protected function instantiate_class( string $class, string $log_code = '', ...$args ): ?object {
 
