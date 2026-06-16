@@ -112,7 +112,7 @@ class In extends Base {
 		foreach ( array_keys( $ins ) as $column ) {
 
 			// Parse query var.
-			$values = $this->caller?->parse_query_var( $clause, $column );
+			$values = $this->parse_query_var_value( $clause, $column );
 
 			// Parse item for an IN clause.
 			if ( false === $values ) {
@@ -191,7 +191,7 @@ class In extends Base {
 
 		// Build the FIELD() expression.
 		$qvs     = $this->caller->get_query_vars();
-		$values  = (array) $this->caller->parse_query_var( $qvs, $orderby );
+		$values  = (array) $this->parse_query_var_value( $qvs, $orderby );
 		$item_in = $this->caller->get_in_sql( $column_name, $values, false );
 
 		// Bail if no IN values.

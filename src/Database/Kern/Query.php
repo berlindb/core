@@ -816,6 +816,23 @@ class Query {
 	}
 
 	/**
+	 * Check whether a raw query variable value strictly equals the unique default
+	 * starting value.
+	 *
+	 * Internal collaborator API for Query parsers; public so parser objects can
+	 * identify the unset sentinel without knowing its generated value.
+	 *
+	 * @since 3.1.0
+	 * @internal
+	 *
+	 * @param mixed $value Query variable value.
+	 * @return bool
+	 */
+	public function is_query_var_default_value( $value = null ): bool {
+		return ( $value === $this->query_var_default_value );
+	}
+
+	/**
 	 * Is a column valid?
 	 *
 	 * @since 3.0.0
@@ -2234,96 +2251,6 @@ class Query {
 			'join'  => $join,
 			'where' => $where,
 		);
-	}
-
-	/**
-	 * Parse a single query variable value.
-	 *
-	 * @since 3.0.0
-	 *
-	 * @param array<string, mixed> $query_vars Array of query variables.
-	 * @param string               $key Query variable key.
-	 *
-	 * @return false|array<mixed> False if not set or default. Array values
-	 *                            are returned as-is; scalar/object values are
-	 *                            wrapped; comma-separated strings are split.
-	 */
-	public function parse_query_var( $query_vars = array(), $key = '' ) {
-
-		// Bail if no query vars exist for that ID.
-		if ( ! isset( $query_vars[ $key ] ) ) {
-			return false;
-		}
-
-		// Get the value.
-		$value = $query_vars[ $key ];
-
-		// Bail if equal to the exact default random value.
-		if ( $value === $this->query_var_default_value ) {
-			return false;
-		}
-
-		/*
-		 * Arrays are already a parsed list of values for __in / __not_in style
-		 * query vars. Return them as-is so they are not wrapped into a nested
-		 * single-item array and mistaken for a scalar comparison. Empty arrays
-		 * are equivalent to no value.
-		 */
-		if ( is_array( $value ) ) {
-			return ! empty( $value )
-				? $value
-				: false;
-		}
-
-		/**
-		 * Early return objects, numerics, integers, or bools.
-		 *
-		 * These values assume the caller knew what it was doing, and are
-		 * wrapped as one parsed value without any extra handling.
-		 */
-		if ( is_object( $value ) || is_int( $value ) || is_numeric( $value ) || is_bool( $value ) ) {
-			return array( $value );
-		}
-
-		/**
-		 * Attempt to determine if a string contains a comma separated list of
-		 * values that should be split into an array of values for an __in type
-		 * of query.
-		 */
-		if ( is_string( $value ) ) {
-
-			// Bail if string is over 200s chars long.
-			if ( strlen( $value ) > 200 ) {
-				return array( $value );
-			}
-
-			// Contains comma?
-			$comma = strpos( $value, ',' );
-
-			// Bail if no comma.
-			if ( false === $comma ) {
-				return array( $value );
-			}
-
-			// Contains space?
-			$space = strpos( $value, ' ' );
-
-			// Bail if space is before comma.
-			if ( ( false !== $space ) && ( $space < $comma ) ) {
-				return array( $value );
-			}
-
-			// Bail if first comma is more than 20 letters in.
-			if ( $comma >= 20 ) {
-				return array( $value );
-			}
-
-			// Split by comma (and maybe spaces).
-			return preg_split( '#,\s*#', $value, -1, PREG_SPLIT_NO_EMPTY );
-		}
-
-		// Pass the value through.
-		return array( $value );
 	}
 
 	/**

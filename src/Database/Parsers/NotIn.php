@@ -104,7 +104,7 @@ class NotIn extends Base {
 		foreach ( array_keys( $ins ) as $column ) {
 
 			// Parse query var.
-			$values = $this->caller?->parse_query_var( $clause, $column );
+			$values = $this->parse_query_var_value( $clause, $column );
 
 			// Skip if parse fails.
 			if ( false === $values ) {

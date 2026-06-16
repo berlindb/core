@@ -25,8 +25,8 @@ use Yoast\WPTestUtils\WPIntegration\TestCase;
  *  - Delta Gadget    | inactive | priority 40
  *  - Epsilon Widget  | pending  | priority 50
  *
- * BerlinDB's parse_query_var() accepts PHP arrays and comma-separated strings
- * for __in and __not_in filters.
+ * BerlinDB accepts PHP arrays and comma-separated strings for __in and
+ * __not_in filters.
  *
  * @since 2.1.0
  */

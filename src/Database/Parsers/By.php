@@ -105,7 +105,7 @@ class By extends Base {
 		foreach ( array_keys( $ins ) as $column ) {
 
 			// Parse query var.
-			$values = $this->caller?->parse_query_var( $clause, $column );
+			$values = $this->parse_query_var_value( $clause, $column );
 
 			// Parse item for an IN clause.
 			if ( false === $values ) {
