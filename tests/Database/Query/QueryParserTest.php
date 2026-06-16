@@ -466,6 +466,64 @@ class QueryParserTest extends TestCase {
 	}
 
 	/**
+	 * A 'count' query var overrides the structural vars in normalize_query_vars().
+	 *
+	 * Counting short-circuits paging and shaping: it forces number=false, clears
+	 * fields and orderby, disables found-rows, and turns off the item/meta cache
+	 * writes — applied before any parser normalizer runs.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_count_query_var_overrides_structural_vars() {
+		$query  = new TestQuery();
+		$method = new \ReflectionMethod( BerlinQuery::class, 'normalize_query_vars' );
+
+		$result = $method->invoke(
+			$query,
+			array(
+				'count'             => true,
+				'number'            => 5,
+				'fields'            => 'ids',
+				'orderby'           => 'name',
+				'no_found_rows'     => false,
+				'update_item_cache' => true,
+				'update_meta_cache' => true,
+			)
+		);
+
+		$this->assertFalse( $result['number'] );
+		$this->assertSame( '', $result['fields'] );
+		$this->assertSame( '', $result['orderby'] );
+		$this->assertTrue( $result['no_found_rows'] );
+		$this->assertFalse( $result['update_item_cache'] );
+		$this->assertFalse( $result['update_meta_cache'] );
+	}
+
+	/**
+	 * Without 'count', normalize_query_vars() leaves the structural vars intact.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_normalize_leaves_structural_vars_without_count() {
+		$query  = new TestQuery();
+		$method = new \ReflectionMethod( BerlinQuery::class, 'normalize_query_vars' );
+
+		$result = $method->invoke(
+			$query,
+			array(
+				'count'   => false,
+				'number'  => 5,
+				'fields'  => 'ids',
+				'orderby' => 'name',
+			)
+		);
+
+		$this->assertSame( 5, $result['number'] );
+		$this->assertSame( 'ids', $result['fields'] );
+		$this->assertSame( 'name', $result['orderby'] );
+	}
+
+	/**
 	 * Ensure query parser classes can be extended through the registration hook.
 	 *
 	 * @since 3.0.0

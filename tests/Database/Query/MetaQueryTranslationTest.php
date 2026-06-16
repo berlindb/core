@@ -492,6 +492,97 @@ class MetaQueryTranslationTest extends TestCase {
 	}
 
 	/**
+	 * A BETWEEN value comparison translates through the shared Between operator.
+	 *
+	 * score BETWEEN 10 AND 100 (NUMERIC) matches A (10) and B (100) but not C (9).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_between_value_translation() {
+		$this->assertSame(
+			array( 'A', 'B' ),
+			$this->labels(
+				array(
+					'meta_query' => array(
+						array(
+							'key'     => 'score',
+							'value'   => array( 10, 100 ),
+							'compare' => 'BETWEEN',
+							'type'    => 'NUMERIC',
+						),
+					),
+				)
+			)
+		);
+	}
+
+	/**
+	 * A REGEXP value comparison translates through the shared Regexp operator.
+	 *
+	 * color REGEXP '^b' matches 'blue' (A) only.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_regexp_value_translation() {
+		$this->assertSame(
+			array( 'A' ),
+			$this->labels(
+				array(
+					'meta_query' => array(
+						array(
+							'key'     => 'color',
+							'value'   => '^b',
+							'compare' => 'REGEXP',
+						),
+					),
+				)
+			)
+		);
+	}
+
+	/**
+	 * A negative VALUE comparison translates (unlike a negative compare_KEY).
+	 *
+	 * Value-side != / NOT IN become EXISTS(... AND meta_value <negate> V): "has a
+	 * 'color' row whose value isn't blue" — A (only blue) is excluded, B (red) is
+	 * matched, C (no color) is excluded. Contrast test_unsupported_compare_key_*,
+	 * where a negative compare_KEY fails the whole translation closed instead.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_negative_value_compare_translates() {
+		$this->assertSame(
+			array( 'B' ),
+			$this->labels(
+				array(
+					'meta_query' => array(
+						array(
+							'key'     => 'color',
+							'value'   => 'blue',
+							'compare' => '!=',
+						),
+					),
+				)
+			)
+		);
+
+		$this->assertSame(
+			array( 'B' ),
+			$this->labels(
+				array(
+					'meta_query' => array(
+						array(
+							'key'     => 'color',
+							'value'   => array( 'blue', 'green' ),
+							'compare' => 'NOT IN',
+						),
+					),
+				)
+			)
+		);
+	}
+
+	/**
 	 * A malformed meta_query member fails closed (no rows), not widened.
 	 *
 	 * @since 3.1.0
