@@ -122,10 +122,14 @@ class NotIn extends Base {
 			}
 
 			// Get the pattern.
-			$pattern = (string) $this->caller?->get_column_field( array( 'name' => $name ), 'pattern', '%s' );
+			$pattern = $this->get_column_pattern( $name );
 
 			// Get the aliased column name for SQL.
-			$aliased = (string) $this->caller?->get_quoted_column_name_aliased( $name );
+			$aliased = $this->get_column_sql( $name );
+
+			if ( '' === $aliased ) {
+				continue;
+			}
 
 			// Convert single item arrays to literal column comparisons.
 			if ( 1 === count( $values ) ) {

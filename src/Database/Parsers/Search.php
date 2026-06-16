@@ -120,8 +120,13 @@ class Search extends Base {
 				continue;
 			}
 
-			$aliased       = (string) $this->caller?->get_quoted_column_name_aliased( $name );
-			$sql_columns[] = ! empty( $aliased ) ? $aliased : (string) $name;
+			$aliased = $this->get_column_sql( $name );
+
+			if ( '' === $aliased ) {
+				continue;
+			}
+
+			$sql_columns[] = $aliased;
 		}
 
 		// Add search query clause.

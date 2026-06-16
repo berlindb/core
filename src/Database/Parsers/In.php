@@ -130,10 +130,14 @@ class In extends Base {
 			}
 
 			// Get the pattern.
-			$pattern = (string) $this->caller?->get_column_field( array( 'name' => $name ), 'pattern', '%s' );
+			$pattern = $this->get_column_pattern( $name );
 
 			// Get the aliased column name for SQL.
-			$aliased = (string) $this->caller?->get_quoted_column_name_aliased( $name );
+			$aliased = $this->get_column_sql( $name );
+
+			if ( '' === $aliased ) {
+				continue;
+			}
 
 			// Convert single item arrays to literal column comparisons.
 			if ( 1 === count( $values ) ) {
@@ -162,6 +166,7 @@ class In extends Base {
 	 * FIELD() expression that preserves the order of the supplied IN list.
 	 *
 	 * @since 3.0.0
+	 * @internal Query/Parser collaborator API.
 	 *
 	 * @param string $orderby The raw orderby value.
 	 * @param bool   $alias   Whether to prefix with the table alias.
@@ -200,7 +205,11 @@ class In extends Base {
 		}
 
 		// Maybe alias the column name.
-		$aliased = $this->caller->get_quoted_column_name_aliased( $column_name, $alias );
+		$aliased = $this->get_column_sql( $column_name, array(), $alias );
+
+		if ( '' === $aliased ) {
+			return '';
+		}
 
 		// Return the FIELD() expression.
 		return "FIELD( {$aliased}, {$item_in} )";

@@ -115,8 +115,12 @@ class By extends Base {
 			$values = (array) $values;
 
 			// Get pattern and aliased name.
-			$pattern = (string) $this->caller?->get_column_field( array( 'name' => $column ), 'pattern', '%s' );
-			$aliased = (string) $this->caller?->get_quoted_column_name_aliased( $column );
+			$pattern = $this->get_column_pattern( $column );
+			$aliased = $this->get_column_sql( $column );
+
+			if ( '' === $aliased ) {
+				continue;
+			}
 
 			// Convert single item arrays to literal column comparisons.
 			if ( 1 === count( $values ) ) {

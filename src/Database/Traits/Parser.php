@@ -344,6 +344,7 @@ trait Parser {
 	 * (array{source: string, reason: string}); the Query consumes and applies it.
 	 *
 	 * @since 3.1.0
+	 * @internal Query/Parser collaborator API.
 	 *
 	 * @param array<string, mixed>          $query_vars All of the caller's query vars.
 	 * @param \BerlinDB\Database\Kern\Query $caller     The Query being normalized.
@@ -727,6 +728,23 @@ trait Parser {
 	}
 
 	/**
+	 * Resolve a schema column's prepare() pattern.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $name     Column name to look up.
+	 * @param string $fallback Optional. Pattern to use when the column has none. Default '%s'.
+	 * @return string The column pattern, or fallback.
+	 */
+	protected function get_column_pattern( string $name, string $fallback = '%s' ): string {
+		$pattern = $this->caller?->get_column_field( array( 'name' => $name ), 'pattern', $fallback );
+
+		return ( is_string( $pattern ) && ( '' !== $pattern ) )
+			? $pattern
+			: $fallback;
+	}
+
+	/**
 	 * Determines and validates which comparison operator to use.
 	 *
 	 * Compare must be in the $comparison_keys array.
@@ -864,6 +882,7 @@ trait Parser {
 	 * The default is a no-op.
 	 *
 	 * @since 3.0.0
+	 * @internal Query/Parser collaborator API.
 	 *
 	 * @param string $orderby The raw orderby value.
 	 * @param bool   $alias   Whether to prefix with the table alias.
@@ -883,6 +902,7 @@ trait Parser {
 	 * method rather than get_sql().
 	 *
 	 * @since 3.0.0
+	 * @internal Query/Parser collaborator API.
 	 *
 	 * @return array{join: string, where: string} {
 	 *     Array containing JOIN and WHERE SQL clauses to append to the main query,

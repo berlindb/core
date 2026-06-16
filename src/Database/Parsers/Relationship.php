@@ -82,6 +82,7 @@ class Relationship extends Base {
 	 * Generate the JOIN and WHERE clauses for the relationship filter.
 	 *
 	 * @since 3.1.0
+	 * @internal Query/Parser collaborator API.
 	 *
 	 * @return array{join: string, where: string}
 	 */
@@ -150,6 +151,7 @@ class Relationship extends Base {
 	 * — never widening to all rows. See berlindb/core #193.
 	 *
 	 * @since 3.1.0
+	 * @internal Query/Parser collaborator API.
 	 *
 	 * @param array<string, mixed>          $query_vars All of the caller's query vars.
 	 * @param Query                         $caller     The Query being normalized.

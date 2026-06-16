@@ -627,6 +627,7 @@ class Date extends Base {
 	 * value of that column.
 	 *
 	 * @since 3.0.0
+	 * @internal Query/Parser collaborator API.
 	 *
 	 * @param string $orderby The raw orderby value.
 	 * @param bool   $alias   Whether to prefix with the table alias.

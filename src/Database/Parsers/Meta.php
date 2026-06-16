@@ -362,6 +362,7 @@ class Meta extends Base {
 	 * Generates SQL clauses to be appended to a main query.
 	 *
 	 * @since 3.0.0
+	 * @internal Query/Parser collaborator API.
 	 *
 	 * @return array{join: string, where: string}|false Array with 'join' and 'where' SQL fragments,
 	 *                                                   or false if no meta table exists for the type.
@@ -727,6 +728,7 @@ class Meta extends Base {
 	 * established during get_sql_for_clause(), not the primary table alias.
 	 *
 	 * @since 3.0.0
+	 * @internal Query/Parser collaborator API.
 	 *
 	 * @param string $orderby The raw orderby value.
 	 * @param bool   $alias   Unused. Meta always uses its own JOIN alias.
@@ -853,6 +855,7 @@ class Meta extends Base {
 	 * bespoke engine above remains the WordPress-metadata path.
 	 *
 	 * @since 3.1.0
+	 * @internal Query/Parser collaborator API.
 	 *
 	 * @param array<string, mixed>          $query_vars All of the caller's query vars.
 	 * @param \BerlinDB\Database\Kern\Query $caller     The Query being normalized.
