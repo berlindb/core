@@ -107,7 +107,7 @@ class Index {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @return array<string, mixed> Map of config key => sanitization callback.
+	 * @return array<string,mixed> Map of config key => sanitization callback.
 	 */
 	protected function get_config_callbacks(): array {
 		return array(
@@ -209,7 +209,7 @@ class Index {
 	 * @param list<string> $columns Array of column names.
 	 * @return list<string>
 	 */
-	private function sanitize_columns( $columns = array() ) {
+	private function sanitize_columns( $columns = array() ): array {
 
 		// Bail if not an array.
 		if ( ! is_array( $columns ) ) {

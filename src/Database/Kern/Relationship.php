@@ -90,7 +90,7 @@ class Relationship {
 	 * Used by sanitize_type() to validate the relationship direction.
 	 *
 	 * @since 3.1.0
-	 * @var   array<int, string>
+	 * @var   array<int,string>
 	 */
 	private const TYPES = array( 'belongs_to', 'has_many' );
 
@@ -101,7 +101,7 @@ class Relationship {
 	 * values before they are interpolated into SQL strings.
 	 *
 	 * @since 3.1.0
-	 * @var   array<int, string>
+	 * @var   array<int,string>
 	 */
 	private const REFERENTIAL_ACTIONS = array( 'RESTRICT', 'CASCADE', 'SET NULL', 'NO ACTION', 'SET DEFAULT' );
 
@@ -216,7 +216,7 @@ class Relationship {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @return array<string, mixed> Map of config key => sanitization callback.
+	 * @return array<string,mixed> Map of config key => sanitization callback.
 	 */
 	protected function get_config_callbacks(): array {
 		return array(
@@ -415,7 +415,7 @@ class Relationship {
 	 * @param string $type Relationship type.
 	 * @return string 'belongs_to' or 'has_many'. Defaults to 'belongs_to'.
 	 */
-	private function sanitize_type( $type = '' ) {
+	private function sanitize_type( $type = '' ): string {
 		return in_array( $type, self::TYPES, true )
 			? (string) $type
 			: 'belongs_to';
@@ -432,7 +432,7 @@ class Relationship {
 	 * @param string $name Relationship name.
 	 * @return string Sanitized name, or empty string on failure.
 	 */
-	private function sanitize_name( $name = '' ) {
+	private function sanitize_name( $name = '' ): string {
 
 		// Bail if not a string.
 		if ( ! is_string( $name ) ) {
@@ -458,7 +458,7 @@ class Relationship {
 	 * @param string $column Local column name.
 	 * @return string
 	 */
-	private function derive_name( $column = '' ) {
+	private function derive_name( $column = '' ): string {
 		$base = preg_replace( '/_(id|uuid)$/', '', (string) $column );
 
 		return $this->sanitize_name( is_string( $base ) ? $base : $column );
@@ -472,7 +472,7 @@ class Relationship {
 	 * @param list<string> $columns Array of column names.
 	 * @return list<string>
 	 */
-	private function sanitize_columns( $columns = array() ) {
+	private function sanitize_columns( $columns = array() ): array {
 
 		// Bail if not an array.
 		if ( ! is_array( $columns ) ) {
@@ -510,7 +510,7 @@ class Relationship {
 	 * @param string $action Referential action.
 	 * @return string Normalized action, or empty string when unrecognized.
 	 */
-	private function sanitize_referential_action( $action = '' ) {
+	private function sanitize_referential_action( $action = '' ): string {
 
 		// Bail if not a string.
 		if ( ! is_string( $action ) ) {

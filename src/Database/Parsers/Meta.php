@@ -109,7 +109,7 @@ class Meta extends Base {
 	 * Column filter passed to get_column_names() to select relevant columns.
 	 *
 	 * @since 3.0.0
-	 * @var array<string, bool>
+	 * @var array<string,bool>
 	 */
 	protected $column_filter = array( 'primary' => true );
 
@@ -217,9 +217,9 @@ class Meta extends Base {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string, mixed> $qv The query variables.
+	 * @param array<string,mixed> $qv The query variables.
 	 *
-	 * @return array<string, mixed> The normalised meta_query array.
+	 * @return array<string,mixed> The normalised meta_query array.
 	 */
 	protected function parse_query_vars( $qv = array() ) {
 		/*
@@ -416,8 +416,8 @@ class Meta extends Base {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string, mixed> $clause       Query clause (passed by reference).
-	 * @param array<string, mixed> $parent_query Parent query array.
+	 * @param array<string,mixed> $clause       Query clause (passed by reference).
+	 * @param array<string,mixed> $parent_query Parent query array.
 	 * @param string               $clause_key   Optional. The array key used to name the clause in the original `$meta_query`
 	 *                                           parameters. If not provided, a key will be generated automatically.
 	 * @return array{join: list<string>, where: list<string>} {
@@ -857,9 +857,9 @@ class Meta extends Base {
 	 * @since 3.1.0
 	 * @internal Query/Parser collaborator API.
 	 *
-	 * @param array<string, mixed>          $query_vars All of the caller's query vars.
+	 * @param array<string,mixed>          $query_vars All of the caller's query vars.
 	 * @param \BerlinDB\Database\Kern\Query $caller     The Query being normalized.
-	 * @return array<string, mixed> The (possibly modified) query vars.
+	 * @return array<string,mixed> The (possibly modified) query vars.
 	 */
 	public function normalize_query_vars( array $query_vars, \BerlinDB\Database\Kern\Query $caller ): array {
 
@@ -954,8 +954,8 @@ class Meta extends Base {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param array<string, mixed> $query_vars All of the caller's query vars.
-	 * @return array<int|string, mixed> The combined clause tree (possibly empty).
+	 * @param array<string,mixed> $query_vars All of the caller's query vars.
+	 * @return array<int|string,mixed> The combined clause tree (possibly empty).
 	 */
 	private function combine_meta_query_clauses( array $query_vars ): array {
 
@@ -1008,7 +1008,7 @@ class Meta extends Base {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param array<int|string, mixed> $node A meta_query node.
+	 * @param array<int|string,mixed> $node A meta_query node.
 	 * @return bool
 	 */
 	private function is_first_order_meta_clause( array $node ): bool {
@@ -1031,10 +1031,10 @@ class Meta extends Base {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param array<int|string, mixed> $meta_query The combined meta_query tree.
+	 * @param array<int|string,mixed> $meta_query The combined meta_query tree.
 	 * @return array{key: string, cast: string}|null The ordered key + cast, or null.
 	 */
-	private function first_meta_orderby_key( array $meta_query ) {
+	private function first_meta_orderby_key( array $meta_query ): ?array {
 
 		foreach ( $meta_query as $member ) {
 
@@ -1067,7 +1067,7 @@ class Meta extends Base {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param array<string, mixed> $clause A leaf clause with a scalar 'key'.
+	 * @param array<string,mixed> $clause A leaf clause with a scalar 'key'.
 	 * @return array{key: string, cast: string} The ordered key + cast ('CHAR' → '').
 	 */
 	private function orderby_entry_for_clause( array $clause ): array {
@@ -1094,9 +1094,9 @@ class Meta extends Base {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param array<string, mixed>     $query_vars All of the caller's query vars.
-	 * @param array<int|string, mixed> $meta_query The combined meta_query tree.
-	 * @return array<string, mixed> The query vars, possibly with a 'meta_orderby' directive.
+	 * @param array<string,mixed>     $query_vars All of the caller's query vars.
+	 * @param array<int|string,mixed> $meta_query The combined meta_query tree.
+	 * @return array<string,mixed> The query vars, possibly with a 'meta_orderby' directive.
 	 */
 	private function stash_meta_orderby_directive( array $query_vars, array $meta_query ): array {
 
@@ -1165,8 +1165,8 @@ class Meta extends Base {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param array<int|string, mixed>                        $meta_query The (sub)tree.
-	 * @param array<string, array{key: string, cast: string}> $map        Accumulator (by reference).
+	 * @param array<int|string,mixed>                        $meta_query The (sub)tree.
+	 * @param array<string,array{key: string, cast: string}> $map        Accumulator (by reference).
 	 * @return void
 	 */
 	private function collect_named_meta_orderby_keys( array $meta_query, array &$map ): void {
@@ -1281,8 +1281,8 @@ class Meta extends Base {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param array<string, mixed> $query_vars All of the caller's query vars.
-	 * @return array<string, mixed> The query vars without the meta directive vars.
+	 * @param array<string,mixed> $query_vars All of the caller's query vars.
+	 * @return array<string,mixed> The query vars without the meta directive vars.
 	 */
 	private function strip_meta_query_vars( array $query_vars ): array {
 
@@ -1309,10 +1309,10 @@ class Meta extends Base {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param array<int|string, mixed> $meta_query The meta_query (sub)tree.
-	 * @return array<int|string, mixed>|null The clause group, or null if a clause is unsupported.
+	 * @param array<int|string,mixed> $meta_query The meta_query (sub)tree.
+	 * @return array<int|string,mixed>|null The clause group, or null if a clause is unsupported.
 	 */
-	private function translate_meta_query_group( array $meta_query ) {
+	private function translate_meta_query_group( array $meta_query ): ?array {
 
 		// Boolean relation for this group ('AND' default, or 'OR').
 		$relation = ( isset( $meta_query[ 'relation' ] ) && is_string( $meta_query[ 'relation' ] ) && ( 'OR' === strtoupper( $meta_query[ 'relation' ] ) ) )
@@ -1361,10 +1361,10 @@ class Meta extends Base {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param array<string, mixed> $meta_clause The meta_query leaf clause.
-	 * @return array<string, mixed>|null The relationship clause, or null if unsupported.
+	 * @param array<string,mixed> $meta_clause The meta_query leaf clause.
+	 * @return array<string,mixed>|null The relationship clause, or null if unsupported.
 	 */
-	private function translate_meta_clause( array $meta_clause ) {
+	private function translate_meta_clause( array $meta_clause ): ?array {
 
 		$clause_args = array( 'name' => 'meta' );
 		$where       = array();
@@ -1422,10 +1422,10 @@ class Meta extends Base {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param array<string, mixed> $meta_clause The meta_query leaf clause.
-	 * @return array<string, mixed>|null The meta_key condition, or null if unsupported.
+	 * @param array<string,mixed> $meta_clause The meta_query leaf clause.
+	 * @return array<string,mixed>|null The meta_key condition, or null if unsupported.
 	 */
-	private function meta_key_condition( array $meta_clause ) {
+	private function meta_key_condition( array $meta_clause ): ?array {
 
 		$key = $meta_clause[ 'key' ];
 

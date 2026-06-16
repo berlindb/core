@@ -75,7 +75,7 @@ class Column {
 	 * into SQL strings.
 	 *
 	 * @since 3.1.0
-	 * @var   array<int, string>
+	 * @var   array<int,string>
 	 */
 	private const EXTRAS = array(
 		'AUTO_INCREMENT',
@@ -108,7 +108,7 @@ class Column {
 	 * encapsulation convention, rather than coupling Column to Relationship.
 	 *
 	 * @since 3.1.0
-	 * @var   array<int, string>
+	 * @var   array<int,string>
 	 */
 	private const RELATIONSHIP_TYPES = array( 'belongs_to', 'has_many' );
 
@@ -498,7 +498,7 @@ class Column {
 	 * column data, typically based on roles or capabilities.
 	 *
 	 * @since 1.0.0
-	 * @var   array<string, mixed>
+	 * @var   array<string,mixed>
 	 */
 	public $caps = array();
 
@@ -554,7 +554,7 @@ class Column {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string, mixed> $row SHOW COLUMNS row.
+	 * @param array<string,mixed> $row SHOW COLUMNS row.
 	 * @return self
 	 */
 	public static function from_mysql( array $row ) {
@@ -634,7 +634,7 @@ class Column {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @return array<string, mixed> Map of config key => sanitization callback.
+	 * @return array<string,mixed> Map of config key => sanitization callback.
 	 */
 	protected function get_config_callbacks(): array {
 		return array(
@@ -685,8 +685,8 @@ class Column {
 	 *
 	 * @since 1.0.0
 	 * @since 3.0.0 Added support for SERIAL "extra" values.
-	 * @param array<string, mixed> $args Default empty array.
-	 * @return array<string, mixed>
+	 * @param array<string,mixed> $args Default empty array.
+	 * @return array<string,mixed>
 	 */
 	protected function special_args( $args = array() ) {
 
@@ -926,7 +926,7 @@ class Column {
 	 * @param string               $type  Optional type to test. Defaults to $this->type.
 	 * @return bool True if type matches.
 	 */
-	private function is_type( $types = '', $type = '' ) {
+	private function is_type( $types = '', $type = '' ): bool {
 
 		// Bail if no type passed.
 		if ( empty( $types ) ) {
@@ -945,7 +945,7 @@ class Column {
 		$type = strtolower( ! empty( $type ) ? $type : $this->type );
 
 		// Return if match.
-		return (bool) in_array( $type, $types, true );
+		return in_array( $type, $types, true );
 	}
 
 	/**
@@ -956,7 +956,7 @@ class Column {
 	 * @param string               $extra  Optional extra value to test. Defaults to $this->extra.
 	 * @return bool True if extra matches.
 	 */
-	private function is_extra( $extras = '', $extra = '' ) {
+	private function is_extra( $extras = '', $extra = '' ): bool {
 
 		// Bail if no extra passed.
 		if ( empty( $extras ) ) {
@@ -975,7 +975,7 @@ class Column {
 		$extra = strtoupper( ! empty( $extra ) ? $extra : $this->extra );
 
 		// Return if match.
-		return (bool) in_array( $extra, $extras, true );
+		return in_array( $extra, $extras, true );
 	}
 
 	/** Private Sanitizers ****************************************************/
@@ -984,10 +984,10 @@ class Column {
 	 * Sanitize capabilities array.
 	 *
 	 * @since 1.0.0
-	 * @param array<string, mixed> $caps Default empty array.
-	 * @return array<string, mixed>
+	 * @param array<string,mixed> $caps Default empty array.
+	 * @return array<string,mixed>
 	 */
-	private function sanitize_capabilities( $caps = array() ) {
+	private function sanitize_capabilities( $caps = array() ): array {
 		return $this->parse_args(
 			$caps,
 			array(
@@ -1009,7 +1009,7 @@ class Column {
 	 * @param list<string> $aliases Default empty array.
 	 * @return list<string>
 	 */
-	private function sanitize_aliases( $aliases = array() ) {
+	private function sanitize_aliases( $aliases = array() ): array {
 		$func    = array( $this, 'sanitize_column_name' );
 		$aliases = array_filter( $aliases );
 		$mapped  = array_map( $func, $aliases );
@@ -1054,7 +1054,7 @@ class Column {
 	 * @param list<mixed> $relationships Default empty array.
 	 * @return list<array{query: string, column: string, type: string, name?: string, enforce?: bool, on_delete?: string, on_update?: string, constraint?: string}>
 	 */
-	private function sanitize_relationships( $relationships = array() ) {
+	private function sanitize_relationships( $relationships = array() ): array {
 
 		// Default return value.
 		$retval = array();
@@ -1200,7 +1200,7 @@ class Column {
 	 * @param string $value The value.
 	 * @return string
 	 */
-	private function sanitize_extra( $value = '' ) {
+	private function sanitize_extra( $value = '' ): string {
 
 		// Default return value.
 		$retval = '';
@@ -1237,7 +1237,7 @@ class Column {
 	 * @param string $pattern Default '%s'. Allowed values: %s, %d, %f.
 	 * @return '%s'|'%d'|'%f' Default '%s'.
 	 */
-	private function sanitize_pattern( $pattern = '%s' ) {
+	private function sanitize_pattern( $pattern = '%s' ): string {
 
 		// Return pattern if allowed.
 		if ( in_array( $pattern, self::PATTERNS, true ) ) {
@@ -1271,7 +1271,7 @@ class Column {
 	 * @param callable|string $callback Default empty string.
 	 * @return callable|null
 	 */
-	private function sanitize_cast( $callback = '' ) {
+	private function sanitize_cast( $callback = '' ): ?callable {
 
 		// Return callback if it's callable.
 		if ( is_callable( $callback ) ) {
@@ -1318,9 +1318,9 @@ class Column {
 	 * @since 3.0.0 Explicit support for decimal, int, and numeric types.
 	 * @param callable|string $callback Default empty string. A callable or
 	 *                                  the name of a callable function.
-	 * @return callable|string The most appropriate callback for the value.
+	 * @return callable The most appropriate callback for the value.
 	 */
-	private function sanitize_validation( $callback = '' ) {
+	private function sanitize_validation( $callback = '' ): callable {
 
 		// Return callback if it's callable.
 		if ( is_callable( $callback ) ) {
@@ -1784,7 +1784,7 @@ class Column {
 	 * @since 3.0.0
 	 * @return string
 	 */
-	private function get_type_sql() {
+	private function get_type_sql(): string {
 
 		// Bail if no type.
 		if ( empty( $this->type ) ) {
@@ -1840,7 +1840,7 @@ class Column {
 	 * @since 3.0.0
 	 * @return string
 	 */
-	private function get_default_sql() {
+	private function get_default_sql(): string {
 		/*
 		 * Literal false: suppress the default clause entirely.
 		 *

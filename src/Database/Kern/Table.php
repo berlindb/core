@@ -52,7 +52,7 @@ class Table {
 	 * are interpolated into SQL strings.
 	 *
 	 * @since 3.1.0
-	 * @var   array<int, string>
+	 * @var   array<int,string>
 	 */
 	private const ENGINES = array( 'INNODB', 'MYISAM', 'MEMORY', 'ARCHIVE', 'CSV', 'BLACKHOLE', 'MERGE', 'ARIA' );
 
@@ -63,7 +63,7 @@ class Table {
 	 * interpolated into SQL strings.
 	 *
 	 * @since 3.1.0
-	 * @var   array<int, string>
+	 * @var   array<int,string>
 	 */
 	private const ROW_FORMATS = array( 'DEFAULT', 'DYNAMIC', 'FIXED', 'COMPACT', 'COMPRESSED', 'REDUNDANT' );
 
@@ -234,7 +234,7 @@ class Table {
 	 * Key => value array of versions => methods.
 	 *
 	 * @since 1.0.0
-	 * @var   array<string, callable|string>
+	 * @var   array<string,callable|string>
 	 */
 	protected $upgrades = array();
 
@@ -304,7 +304,7 @@ class Table {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @return array<string, mixed> Map of config key => sanitization callback.
+	 * @return array<string,mixed> Map of config key => sanitization callback.
 	 */
 	protected function get_config_callbacks(): array {
 		return array(
@@ -700,7 +700,7 @@ class Table {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string, mixed>|Index $args Index arguments or an Index object.
+	 * @param array<string,mixed>|Index $args Index arguments or an Index object.
 	 *
 	 * @return bool
 	 */
@@ -1254,7 +1254,7 @@ class Table {
 	 *
 	 * @since 1.1.0
 	 *
-	 * @return array<string, mixed> Array of upgrade callbacks, keyed by their db version.
+	 * @return array<string,mixed> Array of upgrade callbacks, keyed by their db version.
 	 */
 	public function get_pending_upgrades() {
 
@@ -1485,7 +1485,7 @@ class Table {
 	 *
 	 * @return bool True if the lock was created, false if a lock already exists.
 	 */
-	private function lock_upgrades() {
+	private function lock_upgrades(): bool {
 
 		// Generate a unique lock key for this table.
 		$lock_key = $this->db_version_key . '_upgrade_lock';
@@ -1519,7 +1519,7 @@ class Table {
 	 *
 	 * @return bool True if the lock was released, false otherwise.
 	 */
-	private function unlock_upgrades() {
+	private function unlock_upgrades(): bool {
 
 		// Generate the same lock key used in lock_upgrades().
 		$lock_key = $this->db_version_key . '_upgrade_lock';
@@ -1638,7 +1638,7 @@ class Table {
 	 *
 	 * @return bool
 	 */
-	private function is_global() {
+	private function is_global(): bool {
 		return $this->global;
 	}
 
@@ -1652,7 +1652,7 @@ class Table {
 	 *
 	 * @return callable|false Resolved callable, or false if not callable.
 	 */
-	private function get_callable( $callback = '' ) {
+	private function get_callable( $callback = '' ): callable|false {
 
 		// Default return value.
 		$callable = $callback;

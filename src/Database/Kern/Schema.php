@@ -155,7 +155,7 @@ class Schema {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @return array<string, mixed> Map of config key => sanitization callback.
+	 * @return array<string,mixed> Map of config key => sanitization callback.
 	 */
 	protected function get_config_callbacks(): array {
 		return array(
@@ -170,7 +170,7 @@ class Schema {
 	 * @since 3.1.0
 	 *
 	 * @param mixed $value A definition list (expected to be an array).
-	 * @return array<int|string, mixed> The value if it is an array, else empty.
+	 * @return array<int|string,mixed> The value if it is an array, else empty.
 	 */
 	protected function sanitize_definition_list( $value = array() ): array {
 		return is_array( $value )
@@ -248,9 +248,9 @@ class Schema {
 	 * @param string                                   $type          Item collection type. Accepts
 	 *                                                                'columns' or 'indexes' (and
 	 *                                                                their singular aliases).
-	 * @param string|array<string, mixed>|Column|Index $class_or_data Class name (legacy signature)
+	 * @param string|array<string,mixed>|Column|Index $class_or_data Class name (legacy signature)
 	 *                                                                or item data (current signature).
-	 * @param array<string, mixed>|Column|Index        $data          Optional item data when using
+	 * @param array<string,mixed>|Column|Index        $data          Optional item data when using
 	 *                                                                the legacy signature.
 	 *
 	 * @return Column|Index|false The added item object, or false on failure.
@@ -448,7 +448,7 @@ class Schema {
 	 *
 	 * @param string                                      $type  Item collection type. Accepts 'columns'
 	 *                                                           or 'indexes' (and their singular aliases).
-	 * @param list<array<string, mixed>>|Column[]|Index[] $items Array of argument arrays or item objects.
+	 * @param list<array<string,mixed>>|Column[]|Index[] $items Array of argument arrays or item objects.
 	 *
 	 * @return Column[]|Index[]
 	 */
@@ -468,11 +468,11 @@ class Schema {
 	 *
 	 * @param string                                      $type   Item collection type. Accepts 'columns'
 	 *                                                            or 'indexes' (and their singular aliases).
-	 * @param list<array<string, mixed>>|Column[]|Index[] $values Array of argument arrays or item objects.
+	 * @param list<array<string,mixed>>|Column[]|Index[] $values Array of argument arrays or item objects.
 	 *
 	 * @return Column[]|Index[] The newly built collection.
 	 */
-	private function setup_items( $type = 'columns', $values = array() ) {
+	private function setup_items( $type = 'columns', $values = array() ): array {
 
 		// Normalize and validate item type.
 		$type = $this->validate_item_type( $type );
@@ -521,7 +521,7 @@ class Schema {
 	 *
 	 * @return string|false Fully-qualified class name string, or false on failure.
 	 */
-	private function get_item_class( $type = 'columns' ) {
+	private function get_item_class( $type = 'columns' ): string|false {
 
 		// Validate the item type.
 		$type = $this->validate_item_type( $type );
@@ -545,11 +545,11 @@ class Schema {
 	 * @since 3.0.0
 	 *
 	 * @param string                            $class_name Fully-qualified class name to instantiate.
-	 * @param array<string, mixed>|Column|Index $data       Argument array or existing item object.
+	 * @param array<string,mixed>|Column|Index $data       Argument array or existing item object.
 	 *
 	 * @return Column|Index|false The item object, or false on failure.
 	 */
-	private function create_item( $class_name = '', $data = array() ) {
+	private function create_item( $class_name = '', $data = array() ): Column|Index|false {
 
 		// Bail if class cannot be instantiated.
 		if ( empty( $class_name ) || ! class_exists( $class_name ) ) {
@@ -593,7 +593,7 @@ class Schema {
 	 * @return string Comma-and-newline-separated SQL clause fragments, or empty
 	 *               string if the collection is empty or the type is invalid.
 	 */
-	private function get_items_create_string( $type = 'columns' ) {
+	private function get_items_create_string( $type = 'columns' ): string {
 
 		// Normalize and validate item type.
 		$type = $this->validate_item_type( $type );
@@ -638,7 +638,7 @@ class Schema {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string, mixed>|Column $data Argument array or existing Column object.
+	 * @param array<string,mixed>|Column $data Argument array or existing Column object.
 	 *
 	 * @return Column|false The added Column object, or false on failure.
 	 */
@@ -699,7 +699,7 @@ class Schema {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param list<array<string, mixed>>|Column[] $columns Array of argument arrays or Column objects.
+	 * @param list<array<string,mixed>>|Column[] $columns Array of argument arrays or Column objects.
 	 *
 	 * @return Column[]
 	 */
@@ -783,7 +783,7 @@ class Schema {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string, mixed>|Index $data Argument array or existing Index object.
+	 * @param array<string,mixed>|Index $data Argument array or existing Index object.
 	 *
 	 * @return Index|false The added Index object, or false on failure.
 	 */
@@ -846,7 +846,7 @@ class Schema {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param list<array<string, mixed>>|Index[] $indexes Array of argument arrays or Index objects.
+	 * @param list<array<string,mixed>>|Index[] $indexes Array of argument arrays or Index objects.
 	 *
 	 * @return Index[]
 	 */
@@ -1131,7 +1131,7 @@ class Schema {
 	 *
 	 * @return bool True if the item's type is 'primary', false otherwise.
 	 */
-	private function is_primary_index( $item ) {
+	private function is_primary_index( $item ): bool {
 		$type = strtolower( trim( $item->type ) );
 
 		return ( 'primary' === $type );
@@ -1150,7 +1150,7 @@ class Schema {
 	 *
 	 * @return string Normalized type ('columns' or 'indexes'), or empty string.
 	 */
-	private function validate_item_type( $type = '' ) {
+	private function validate_item_type( $type = '' ): string {
 
 		// Normalize into a lowercase string.
 		$type = strtolower( trim( (string) $type ) );

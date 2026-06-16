@@ -24,7 +24,7 @@ defined( 'ABSPATH' ) || exit;
  *
  * @since 1.0.0
  *
- * @property array<string, \BerlinDB\Database\Parsers\Base> $parsers
+ * @property array<string,\BerlinDB\Database\Parsers\Base> $parsers
  *
  * @param array|string $query {
  *     Optional. Array or query string of item query parameters.
@@ -171,7 +171,7 @@ class Query {
 	 * them from outside the class methods proper and inside filter functions.
 	 *
 	 * @since 1.0.0
-	 * @var   array<string, mixed>
+	 * @var   array<string,mixed>
 	 */
 	public $query_vars = array();
 
@@ -182,7 +182,7 @@ class Query {
 	 * database table this query relates to.
 	 *
 	 * @since 1.0.0
-	 * @var   array<string, mixed>
+	 * @var   array<string,mixed>
 	 */
 	protected $query_var_defaults = array();
 
@@ -218,7 +218,7 @@ class Query {
 	 * Never mutated after that — see $current[ 'parsers' ] for per-query instances.
 	 *
 	 * @since 3.0.0
-	 * @var   array<string, \BerlinDB\Database\Parsers\Base>
+	 * @var   array<string,\BerlinDB\Database\Parsers\Base>
 	 */
 	protected $parsers = array();
 
@@ -228,7 +228,7 @@ class Query {
 	 * Array of items retrieved by the SQL query.
 	 *
 	 * @since 1.0.0
-	 * @var   list<object>|array<int|string, mixed>|int
+	 * @var   list<object>|array<int|string,mixed>|int
 	 */
 	public $items = array();
 
@@ -281,7 +281,7 @@ class Query {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param array<string, mixed> $args Construction arguments.
+	 * @param array<string,mixed> $args Construction arguments.
 	 * @return bool
 	 */
 	protected function is_configuration( array $args ): bool {
@@ -322,7 +322,7 @@ class Query {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @return array<string, mixed> Map of config key => sanitization callback.
+	 * @return array<string,mixed> Map of config key => sanitization callback.
 	 */
 	protected function get_config_callbacks(): array {
 		return array(
@@ -348,7 +348,7 @@ class Query {
 	 * @since 3.0.0
 	 * @since 3.1.0 Renamed from parse_args().
 	 *
-	 * @param array<string, mixed> $args Query vars.
+	 * @param array<string,mixed> $args Query vars.
 	 */
 	protected function consume_args( array $args = array() ): void {
 
@@ -397,7 +397,7 @@ class Query {
 	 * @since 3.0.0 Uses run() to manage lifecycle, and parse_query() and
 	 *              get_items() to manage query parsing and retrieval.
 	 *
-	 * @param array<string, mixed>|string $query Array or URL query string of parameters.
+	 * @param array<string,mixed>|string $query Array or URL query string of parameters.
 	 * @return list<object>|int Array of items, or number of items when 'count' is passed as a query var.
 	 */
 	public function query( $query = array() ) {
@@ -859,7 +859,7 @@ class Query {
 	 * @since 3.0.0 Pass $args and $operator to filter names.
 	 *              No longer calls array_flip().
 	 *
-	 * @param array<string, mixed> $args     Arguments to filter columns by.
+	 * @param array<string,mixed> $args     Arguments to filter columns by.
 	 * @param string               $operator Optional. The logical operation to perform.
 	 * @return list<string>
 	 */
@@ -884,7 +884,7 @@ class Query {
 	 * @since 1.0.0
 	 *
 	 * @template TDefault
-	 * @param array<string, mixed> $args     Arguments to get a column by.
+	 * @param array<string,mixed> $args     Arguments to get a column by.
 	 * @param string               $field    Field to get from a column.
 	 * @param TDefault             $fallback Fallback to use if no field is set.
 	 * @return mixed Value of the requested field, or $fallback if not found.
@@ -906,7 +906,7 @@ class Query {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param array<string, mixed> $args Arguments to get a column by.
+	 * @param array<string,mixed> $args Arguments to get a column by.
 	 * @return \BerlinDB\Database\Kern\Column|false Column object, or false if not found.
 	 */
 	public function get_column_by( $args = array() ) {
@@ -933,7 +933,7 @@ class Query {
 	 *
 	 * @static array               $columns  Local static copy of columns, abstracted to
 	 *                                       support different storage locations.
-	 * @param array<string, mixed> $args     Arguments to filter columns by.
+	 * @param array<string,mixed> $args     Arguments to filter columns by.
 	 * @param string               $operator Optional. The logical operation to perform.
 	 * @param bool|string          $field    Optional. A field from the object to place
 	 *                                       instead of the entire object. Default false.
@@ -1227,7 +1227,7 @@ class Query {
 	 * @param string $type Relationship type ('belongs_to' or 'has_many').
 	 * @return Relationship[]
 	 */
-	private function get_relationships_by_type( $type = '' ) {
+	private function get_relationships_by_type( $type = '' ): array {
 
 		// Default return value.
 		$retval = array();
@@ -1256,7 +1256,7 @@ class Query {
 	 * @param Relationship $relationship The relationship whose remote query to build.
 	 * @return self|null The remote query instance, or null when unresolvable.
 	 */
-	private function resolve_remote_query( Relationship $relationship ) {
+	private function resolve_remote_query( Relationship $relationship ): ?self {
 
 		// Instantiate the relationship's declared remote class; must be a sibling Query.
 		$remote = $this->instantiate_class( $relationship->get_query_class() );
@@ -1403,8 +1403,8 @@ class Query {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param array<string, mixed> $query_vars The validated query vars.
-	 * @return array<string, mixed> The normalized query vars.
+	 * @param array<string,mixed> $query_vars The validated query vars.
+	 * @return array<string,mixed> The normalized query vars.
 	 */
 	private function normalize_query_vars( array $query_vars = array() ): array {
 
@@ -1440,8 +1440,8 @@ class Query {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param array<string, mixed> $query_vars The normalized query vars.
-	 * @return array<string, mixed> The query vars without the sentinel.
+	 * @param array<string,mixed> $query_vars The normalized query vars.
+	 * @return array<string,mixed> The query vars without the sentinel.
 	 */
 	private function consume_query_filter_sentinel( array $query_vars ): array {
 
@@ -1475,7 +1475,7 @@ class Query {
 	 *
 	 * @param string               $source  Log channel/code (e.g. 'relation_filter', 'meta_query').
 	 * @param string               $reason  Why the filter could not be applied.
-	 * @param array<string, mixed> $context Optional log context.
+	 * @param array<string,mixed> $context Optional log context.
 	 */
 	private function short_circuit_query_filter( string $source, string $reason = '', array $context = array() ): void {
 
@@ -1502,7 +1502,7 @@ class Query {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string, mixed> $args     Optional property => value pairs to filter by.
+	 * @param array<string,mixed> $args     Optional property => value pairs to filter by.
 	 * @param string               $operator Comparison operator: 'and' or 'or'. Default 'and'.
 	 * @param mixed                $field    Optional. Return this property from each match instead of the full object.
 	 *
@@ -1693,7 +1693,7 @@ class Query {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @return array<string, mixed> Parsed query vars for the current run.
+	 * @return array<string,mixed> Parsed query vars for the current run.
 	 */
 	public function get_query_vars(): array {
 		return $this->query_vars;
@@ -1711,7 +1711,7 @@ class Query {
 	 * @param mixed  $column_value Value to query for.
 	 * @return object|false False if empty/error, Object if successful
 	 */
-	private function get_item_raw( $column_name = '', $column_value = '' ) {
+	private function get_item_raw( $column_name = '', $column_value = '' ): object|false {
 
 		/*
 		 * Bail if value is non-scalar, boolean false, or empty string.
@@ -1749,9 +1749,9 @@ class Query {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @return array<int|string, mixed>|int Array of items, or number of items when 'count' is passed as a query var.
+	 * @return array<int|string,mixed>|int Array of items, or number of items when 'count' is passed as a query var.
 	 */
-	private function get_items() {
+	private function get_items(): array|int {
 
 		// Generate action name based on the plural item name.
 		$action_name = $this->apply_prefix( 'pre_get_' . $this->get_item_name_plural() );
@@ -1861,9 +1861,9 @@ class Query {
 	 * @since 1.0.0
 	 * @since 3.0.0 Uses wp_parse_list() instead of wp_parse_id_list()
 	 *
-	 * @return array<bool|float|int|string>|array<string, mixed>[]|int Array of item IDs for a full query, or int/rows for a count query.
+	 * @return array<bool|float|int|string>|array<string,mixed>[]|int Array of item IDs for a full query, or int/rows for a count query.
 	 */
-	private function get_item_ids() {
+	private function get_item_ids(): array|int {
 
 		// Setup the query clauses.
 		$this->set_query_clauses();
@@ -1903,7 +1903,7 @@ class Query {
 	 * @since 3.0.0
 	 *
 	 * @param string                          $column_name Column name.
-	 * @param array<array-key, mixed>|string  $values      Value(s) to escape. Arrays are
+	 * @param array<array-key,mixed>|string  $values      Value(s) to escape. Arrays are
 	 *                                                     flattened into the prepared statement.
 	 * @param bool                            $wrap        To wrap in parenthesis.
 	 * @param string                          $pattern     Pattern to prepare with.
@@ -1953,7 +1953,7 @@ class Query {
 	 * @since 1.0.0
 	 * @since 3.0.0 Forces some $query_vars if counting
 	 *
-	 * @param array<string, mixed>|string $query Query arguments array or string.
+	 * @param array<string,mixed>|string $query Query arguments array or string.
 	 */
 	private function parse_query( $query = array() ): void {
 
@@ -2013,8 +2013,8 @@ class Query {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param array<string, mixed> $query_vars The merged query vars.
-	 * @return array<string, mixed> The query vars with structural keys canonicalized.
+	 * @param array<string,mixed> $query_vars The merged query vars.
+	 * @return array<string,mixed> The query vars with structural keys canonicalized.
 	 */
 	private function validate_query_vars( array $query_vars = array() ): array {
 
@@ -2049,11 +2049,11 @@ class Query {
 	 * Calls filter_query_clauses() on the return value.
 	 *
 	 * @since 3.0.0
-	 * @param array<string, mixed> $query_vars Optional. Default empty array.
+	 * @param array<string,mixed> $query_vars Optional. Default empty array.
 	 *                                         Fallback to Query::query_vars.
-	 * @return array<string, mixed> Query clauses, parsed from Query vars.
+	 * @return array<string,mixed> Query clauses, parsed from Query vars.
 	 */
-	private function parse_query_vars( $query_vars = array() ) {
+	private function parse_query_vars( $query_vars = array() ): array {
 
 		// Maybe fallback to $query_vars.
 		if ( empty( $query_vars ) && ! empty( $this->query_vars ) ) {
@@ -2088,10 +2088,10 @@ class Query {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string, mixed> $query_vars Already-parsed query vars (from parse_query_vars()).
+	 * @param array<string,mixed> $query_vars Already-parsed query vars (from parse_query_vars()).
 	 * @return array{join: list<string>, where: list<string>} Array of 'join' and 'where' clauses.
 	 */
-	private function parse_join_where( array $query_vars = array() ) {
+	private function parse_join_where( array $query_vars = array() ): array {
 
 		// Parse the join/where parsers (the sole caller passes already-parsed vars).
 		$parsers = $this->parse_join_where_parsers( $query_vars );
@@ -2123,10 +2123,10 @@ class Query {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string, mixed> $query_vars Query vars.
-	 * @return array{join: array<string, mixed>, where: array<string, string>}
+	 * @param array<string,mixed> $query_vars Query vars.
+	 * @return array{join: array<string,mixed>, where: array<string,string>}
 	 */
-	private function parse_join_where_parsers( $query_vars = array() ) {
+	private function parse_join_where_parsers( $query_vars = array() ): array {
 
 		// Bail if no parsers.
 		if ( empty( $this->parsers ) ) {
@@ -2260,7 +2260,7 @@ class Query {
 	 * @param bool $explain Default false. True to EXPLAIN.
 	 * @return string
 	 */
-	private function parse_explain( $explain = false ) {
+	private function parse_explain( $explain = false ): string {
 
 		// Maybe fallback to $query_vars.
 		if ( empty( $explain ) ) {
@@ -2285,7 +2285,7 @@ class Query {
 	 * @since 3.0.0
 	 * @return string Default "SELECT".
 	 */
-	private function parse_select() {
+	private function parse_select(): string {
 		return 'SELECT';
 	}
 
@@ -2308,7 +2308,7 @@ class Query {
 	 * @param bool            $alias Whether to include the table alias prefix.
 	 * @return string
 	 */
-	private function parse_fields( $fields = '', $count = false, $groupby = '', $alias = true ) {
+	private function parse_fields( $fields = '', $count = false, $groupby = '', $alias = true ): string {
 
 		// Maybe fallback to $query_vars.
 		if ( empty( $count ) ) {
@@ -2356,7 +2356,7 @@ class Query {
 	 * @param bool   $alias Whether to include the table alias prefix.
 	 * @return string
 	 */
-	private function parse_count( $count = false, $groupby = '', $name = 'count', $alias = true ) {
+	private function parse_count( $count = false, $groupby = '', $name = 'count', $alias = true ): string {
 
 		// Maybe fallback to $query_vars.
 		if ( empty( $count ) ) {
@@ -2393,7 +2393,7 @@ class Query {
 	 *                      Fallback to get_table_alias().
 	 * @return string
 	 */
-	private function parse_from( $table = '', $alias = '' ) {
+	private function parse_from( $table = '', $alias = '' ): string {
 
 		// Maybe fallback to get_table_name().
 		if ( empty( $table ) ) {
@@ -2419,7 +2419,7 @@ class Query {
 	 * @param bool   $alias Whether to include the table alias prefix.
 	 * @return string
 	 */
-	private function parse_groupby( $groupby = '', $before = '', $alias = true ) {
+	private function parse_groupby( $groupby = '', $before = '', $alias = true ): string {
 
 		// Maybe fallback to $query_vars.
 		if ( empty( $groupby ) ) {
@@ -2473,7 +2473,7 @@ class Query {
 	 * @param bool   $alias Whether to include the table alias prefix.
 	 * @return string
 	 */
-	private function parse_orderby( $orderby = '', $order = '', $before = '', $alias = true ) {
+	private function parse_orderby( $orderby = '', $order = '', $before = '', $alias = true ): string {
 
 		// Maybe fallback to $query_vars.
 		if ( empty( $orderby ) ) {
@@ -2550,7 +2550,7 @@ class Query {
 	 * @param list<string> $where WHERE SQL clause fragments.
 	 * @return string A single SQL statement.
 	 */
-	private function parse_where_clause( $where = array() ) {
+	private function parse_where_clause( $where = array() ): string {
 
 		// Bail if no where.
 		if ( empty( $where ) ) {
@@ -2568,7 +2568,7 @@ class Query {
 	 * @param list<string> $join JOIN SQL clause fragments.
 	 * @return string A single SQL statement.
 	 */
-	private function parse_join_clause( $join = array() ) {
+	private function parse_join_clause( $join = array() ): string {
 
 		// Bail if no join.
 		if ( empty( $join ) ) {
@@ -2583,10 +2583,10 @@ class Query {
 	 * Parse all of the SQL query clauses.
 	 *
 	 * @since 3.0.0
-	 * @param array<string, mixed> $clauses SQL clause fragments.
-	 * @return array<string, mixed>
+	 * @param array<string,mixed> $clauses SQL clause fragments.
+	 * @return array<string,mixed>
 	 */
-	private function parse_query_clauses( $clauses = array() ) {
+	private function parse_query_clauses( $clauses = array() ): array {
 
 		// Maybe fallback to query_clauses.
 		if ( empty( $clauses ) ) {
@@ -2604,10 +2604,10 @@ class Query {
 	 * Parse all SQL $request_clauses into a single SQL query string.
 	 *
 	 * @since 3.0.0
-	 * @param array<string, mixed> $clauses SQL clause fragments.
+	 * @param array<string,mixed> $clauses SQL clause fragments.
 	 * @return string A single SQL statement.
 	 */
-	private function parse_request_clauses( $clauses = array() ) {
+	private function parse_request_clauses( $clauses = array() ): string {
 
 		// Maybe fallback to request_clauses.
 		if ( empty( $clauses ) ) {
@@ -2636,7 +2636,7 @@ class Query {
 	 * @param int $offset Number of items to skip.
 	 * @return string
 	 */
-	private function parse_limits( $number = 0, $offset = 0 ) {
+	private function parse_limits( $number = 0, $offset = 0 ): string {
 
 		// Default return value.
 		$retval = '';
@@ -2668,7 +2668,7 @@ class Query {
 	 * @param bool   $alias   Whether to append the table alias.
 	 * @return string Value to used in the ORDER BY clause.
 	 */
-	private function parse_single_orderby( $orderby = '', $alias = true ) {
+	private function parse_single_orderby( $orderby = '', $alias = true ): string {
 
 		// Fallback to primary column.
 		if ( empty( $orderby ) ) {
@@ -2711,7 +2711,7 @@ class Query {
 	 * @param string $order The 'order' query variable.
 	 * @return string The sanitized 'order' query variable.
 	 */
-	private function parse_order( $order = 'DESC' ) {
+	private function parse_order( $order = 'DESC' ): string {
 
 		// Bail if malformed.
 		if ( empty( $order ) || ! is_string( $order ) ) {
@@ -2735,7 +2735,7 @@ class Query {
 	 * @param mixed $item ID of item, or row from database.
 	 * @return object Shaped item object.
 	 */
-	private function shape_item( $item = 0 ) {
+	private function shape_item( $item = 0 ): object {
 
 		// Get the item from an ID.
 		if ( is_numeric( $item ) ) {
@@ -2804,9 +2804,9 @@ class Query {
 	 *
 	 * @param list<int|string> $items  Array of item IDs to shape.
 	 * @param list<string>     $fields Fields to get from items.
-	 * @return array<int|string, mixed>
+	 * @return array<int|string,mixed>
 	 */
-	private function shape_items( $items = array(), $fields = array() ) {
+	private function shape_items( $items = array(), $fields = array() ): array {
 
 		// Maybe fallback to $query_vars.
 		if ( empty( $fields ) ) {
@@ -2856,10 +2856,10 @@ class Query {
 	 * @since 1.0.0
 	 * @since 3.0.0 Uses validate_item_field()
 	 *
-	 * @param  array<string, mixed>|object|scalar $item The item object or array.
+	 * @param  array<string,mixed>|object|scalar $item The item object or array.
 	 * @return int|string
 	 */
-	private function shape_item_id( $item = 0 ) {
+	private function shape_item_id( $item = 0 ): int|string {
 
 		// Default return value.
 		$retval = $item;
@@ -2913,9 +2913,9 @@ class Query {
 	 *
 	 * @param list<object> $items  Array of items to get fields from.
 	 * @param list<string> $fields Fields to get from items.
-	 * @return list<object>|array<string|int, object>
+	 * @return list<object>|array<string|int,object>
 	 */
-	private function get_item_fields( $items = array(), $fields = array() ) {
+	private function get_item_fields( $items = array(), $fields = array() ): array {
 
 		// Maybe fallback to $query_vars.
 		if ( empty( $fields ) ) {
@@ -2976,7 +2976,7 @@ class Query {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param int|string|array<string, mixed>|object $item_id The ID of the item.
+	 * @param int|string|array<string,mixed>|object $item_id The ID of the item.
 	 * @return object|false False if empty/error, Object if successful.
 	 */
 	public function get_item( $item_id = 0 ) {
@@ -3079,7 +3079,7 @@ class Query {
 
 		// Reduce the item.
 		if ( is_array( $retval ) || is_object( $retval ) ) {
-			/** @var array<string, mixed>|object $reduce_target */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
+			/** @var array<string,mixed>|object $reduce_target */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
 			$reduce_target = $retval;
 			$retval        = $this->reduce_item( 'select', $reduce_target );
 		}
@@ -3093,7 +3093,7 @@ class Query {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param array<string, mixed> $data Item data.
+	 * @param array<string,mixed> $data Item data.
 	 * @return int|false Item ID if successful, false if not
 	 */
 	public function add_item( $data = array() ) {
@@ -3109,7 +3109,7 @@ class Query {
 			if ( is_object( $primary_val ) ) {
 				$item_id = $this->shape_item_id( $primary_val );
 			} elseif ( is_array( $primary_val ) ) {
-				/** @var array<string, mixed> $primary_arr */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
+				/** @var array<string,mixed> $primary_arr */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
 				$primary_arr = $primary_val;
 				$item_id     = $this->shape_item_id( $primary_arr );
 			} elseif ( is_scalar( $primary_val ) ) {
@@ -3198,7 +3198,7 @@ class Query {
 	 * @since 1.1.0
 	 *
 	 * @param int|string           $item_id Item ID.
-	 * @param array<string, mixed> $data Item data.
+	 * @param array<string,mixed> $data Item data.
 	 * @return int|false Item ID if successful, false if not
 	 */
 	public function copy_item( $item_id = 0, $data = array() ) {
@@ -3241,7 +3241,7 @@ class Query {
 	 * @since 1.0.0
 	 *
 	 * @param int|string           $item_id Item ID.
-	 * @param array<string, mixed> $data Item data.
+	 * @param array<string,mixed> $data Item data.
 	 * @return bool
 	 */
 	public function update_item( $item_id = 0, $data = array() ) {
@@ -3281,9 +3281,9 @@ class Query {
 
 		// Slice data that has columns, and cut out non-keys for meta.
 		$columns = array_flip( $this->get_column_names() );
-		/** @var array<string, string> $data_cast */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
+		/** @var array<string,string> $data_cast */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
 		$data_cast = array_map( 'strval', array_filter( $data, 'is_scalar' ) );
-		/** @var array<string, string> $item_cast */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
+		/** @var array<string,string> $item_cast */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
 		$item_cast = array_map( 'strval', array_filter( $item, 'is_scalar' ) );
 		$diff_keys = array_keys( array_diff_assoc( $data_cast, $item_cast ) );
 		foreach ( $data as $k => $v ) {
@@ -3433,8 +3433,8 @@ class Query {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param array<string, mixed> $item The item object or array.
-	 * @return array<string, mixed> Validated item array.
+	 * @param array<string,mixed> $item The item object or array.
+	 * @return array<string,mixed> Validated item array.
 	 */
 	private function validate_item( $item = array() ) {
 
@@ -3465,8 +3465,8 @@ class Query {
 	 * @since 3.1.0
 	 *
 	 * @param string               $method One of insert|update|select|delete|copy.
-	 * @param array<string, mixed> $item   Item field key/value pairs.
-	 * @return array<string, mixed>
+	 * @param array<string,mixed> $item   Item field key/value pairs.
+	 * @return array<string,mixed>
 	 */
 	private function intercept_item( $method = 'insert', $item = array() ) {
 
@@ -3508,11 +3508,11 @@ class Query {
 	 * @since 1.0.0
 	 *
 	 * @param string                      $method select|insert|update|delete.
-	 * @param object|array<string, mixed> $item   Object or array of keys/values to reduce.
+	 * @param object|array<string,mixed> $item   Object or array of keys/values to reduce.
 	 *
-	 * @return array<string, mixed> Item with capability-restricted keys removed.
+	 * @return array<string,mixed> Item with capability-restricted keys removed.
 	 */
-	private function reduce_item( $method = 'update', $item = array() ) {
+	private function reduce_item( $method = 'update', $item = array() ): array {
 
 		// Bail if item is empty.
 		if ( empty( $item ) ) {
@@ -3560,10 +3560,10 @@ class Query {
 	 * @since 1.0.0
 	 * @since 3.0.0 Uses array_combine()
 	 *
-		 * @param array<string, mixed> $args Default empty array. Parsed & used to filter columns.
-	 * @return array<string, mixed>
+		 * @param array<string,mixed> $args Default empty array. Parsed & used to filter columns.
+	 * @return array<string,mixed>
 	 */
-	private function default_item( $args = array() ) {
+	private function default_item( $args = array() ): array {
 
 		// Parse arguments.
 		$r = $this->parse_args( $args );
@@ -3590,8 +3590,8 @@ class Query {
 	 * @since 1.0.0
 	 *
 	 * @param int|string           $item_id Item ID.
-	 * @param array<string, mixed> $new_data New item data.
-	 * @param array<string, mixed> $old_data Old item data.
+	 * @param array<string,mixed> $new_data New item data.
+	 * @param array<string,mixed> $old_data Old item data.
 	 */
 	private function transition_item( $item_id = 0, $new_data = array(), $old_data = array() ): void {
 
@@ -3680,7 +3680,7 @@ class Query {
 	 *
 	 * @return \BerlinDB\Database\Interfaces\MetaStore|null The store, or null.
 	 */
-	private function get_meta_store() {
+	private function get_meta_store(): ?\BerlinDB\Database\Interfaces\MetaStore {
 
 		// Bail unless a relationship named 'meta' is declared.
 		$relationship = $this->get_relationship( 'meta' );
@@ -3866,9 +3866,9 @@ class Query {
 	 *
 	 * @param string $object_subtype The sub-type of meta keys.
 	 *
-	 * @return array<string, mixed>
+	 * @return array<string,mixed>
 	 */
-	private function get_registered_meta_keys( $object_subtype = '' ) {
+	private function get_registered_meta_keys( $object_subtype = '' ): array {
 
 		// Get the object type.
 		$object_type = $this->get_meta_type();
@@ -3885,7 +3885,7 @@ class Query {
 	 *              get_meta_store()), and returns whether any write succeeded.
 	 *
 	 * @param int|string           $item_id Item ID.
-	 * @param array<string, mixed> $meta Array of meta key/value pairs.
+	 * @param array<string,mixed> $meta Array of meta key/value pairs.
 	 * @return bool True when any per-key write (update or delete) succeeded.
 	 */
 	private function save_extra_item_meta( $item_id = 0, $meta = array() ): bool {
@@ -4017,9 +4017,9 @@ class Query {
 	 * @since 1.0.0
 	 * @since 3.0.0 Minor refactor to improve readability.
 	 *
-	 * @return bool|string Table name if exists, False if not.
+	 * @return string|false Table name if exists, false if not.
 	 */
-	private function get_meta_table_name() {
+	private function get_meta_table_name(): string|false {
 
 		// Get the meta type.
 		$type = $this->get_meta_type();
@@ -4070,7 +4070,7 @@ class Query {
 	 * @param string $group Cache group name.
 	 * @return string
 	 */
-	private function get_cache_key( $group = '' ) {
+	private function get_cache_key( $group = '' ): string {
 
 		// Default slice.
 		$slice = array();
@@ -4138,7 +4138,7 @@ class Query {
 	 * @param string $group Cache group name, or a column name.
 	 * @return string
 	 */
-	private function get_cache_group( $group = '' ) {
+	private function get_cache_group( $group = '' ): string {
 
 		// Get the primary column.
 		$primary = $this->get_primary_column_name();
@@ -4160,9 +4160,9 @@ class Query {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @return array<string, string>
+	 * @return array<string,string>
 	 */
-	private function get_cache_groups() {
+	private function get_cache_groups(): array {
 
 		// Default return value.
 		$retval = array();
@@ -4196,7 +4196,7 @@ class Query {
 	 * @param string $column_name Column name.
 	 * @return string
 	 */
-	private function get_cache_group_for_column( $column_name = '' ) {
+	private function get_cache_group_for_column( $column_name = '' ): string {
 
 		// Bail if no column name.
 		if ( empty( $column_name ) ) {
@@ -4234,7 +4234,7 @@ class Query {
 	 *
 	 * @return bool False if empty
 	 */
-	private function prime_item_caches( $item_ids = array(), $force = false ) {
+	private function prime_item_caches( $item_ids = array(), $force = false ): bool {
 
 		// Bail if no items to cache.
 		if ( empty( $item_ids ) ) {
@@ -4368,7 +4368,7 @@ class Query {
 	 * @since 3.1.0
 	 *
 	 * @param Relationship                 $relationship The relationship to prime.
-	 * @param array<int|string, mixed>     $items        Shaped result items to read foreign keys from.
+	 * @param array<int|string,mixed>     $items        Shaped result items to read foreign keys from.
 	 */
 	private function prime_belongs_to_relationship( Relationship $relationship, array $items ): void {
 
@@ -4409,7 +4409,7 @@ class Query {
 	 * @since 3.1.0
 	 *
 	 * @param Relationship             $relationship The relationship to prime.
-	 * @param array<int|string, mixed> $items        Shaped result items to read keys from.
+	 * @param array<int|string,mixed> $items        Shaped result items to read keys from.
 	 */
 	private function prime_has_many_relationship( Relationship $relationship, array $items ): void {
 
@@ -4445,7 +4445,7 @@ class Query {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param array<int|string, mixed> $items  Shaped result items to read keys from.
+	 * @param array<int|string,mixed> $items  Shaped result items to read keys from.
 	 * @param string                   $column The local column to read.
 	 * @return list<mixed> The distinct, non-empty key values.
 	 */
@@ -4558,7 +4558,7 @@ class Query {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param array<string, mixed> $query_vars Query vars to cache under.
+	 * @param array<string,mixed> $query_vars Query vars to cache under.
 	 * @param list<int|string>     $item_ids   Item IDs the query resolves to.
 	 * @return void
 	 */
@@ -4730,7 +4730,7 @@ class Query {
 	 * @param string $group Cache group. Defaults to $this->cache_group.
 	 * @return string The new last_changed value.
 	 */
-	private function set_last_changed( $group = '' ) {
+	private function set_last_changed( $group = '' ): string {
 		$last_changed = microtime();
 
 		$this->cache_set( 'last_changed', $last_changed, $group );
@@ -4748,7 +4748,7 @@ class Query {
 	 *
 	 * @return string The new last_changed value.
 	 */
-	private function update_primary_last_changed_cache() {
+	private function update_primary_last_changed_cache(): string {
 		return $this->set_last_changed();
 	}
 
@@ -4799,7 +4799,7 @@ class Query {
 	 *
 	 * @return string The last time a cache group was changed.
 	 */
-	private function get_last_changed_cache( $group = '' ) {
+	private function get_last_changed_cache( $group = '' ): string {
 
 		// Get the last changed cache value.
 		$last_changed = $this->cache_get( 'last_changed', $group );
@@ -4824,7 +4824,7 @@ class Query {
 	 *
 	 * @return list<int|string>
 	 */
-	private function get_non_cached_ids( $item_ids = array(), $group = '' ) {
+	private function get_non_cached_ids( $item_ids = array(), $group = '' ): array {
 
 		// Bail if no item IDs.
 		if ( empty( $item_ids ) ) {
@@ -4967,8 +4967,8 @@ class Query {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string, mixed> $item The item data.
-	 * @return array<string, mixed>
+	 * @param array<string,mixed> $item The item data.
+	 * @return array<string,mixed>
 	 */
 	protected function filter_item( $item = array() ) {
 
@@ -4984,7 +4984,7 @@ class Query {
 		 *
 		 * @since 1.0.0
 		 *
-		 * @param array<string, mixed>     $item  The item as an array.
+		 * @param array<string,mixed>     $item  The item as an array.
 		 * @param \BerlinDB\Database\Query $query Current query instance.
 		 */
 		return (array) apply_filters_ref_array(
@@ -5105,8 +5105,8 @@ class Query {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string, mixed> $clauses All of the SQL query clauses.
-	 * @return array<string, mixed>
+	 * @param array<string,mixed> $clauses All of the SQL query clauses.
+	 * @return array<string,mixed>
 	 */
 	protected function filter_query_clauses( $clauses = array() ) {
 
@@ -5122,7 +5122,7 @@ class Query {
 		 *
 		 * @since 1.0.0
 		 *
-		 * @param array<string, mixed>     $clauses An array of query clauses.
+		 * @param array<string,mixed>     $clauses An array of query clauses.
 		 * @param \BerlinDB\Database\Query $query   Current query instance.
 		 */
 		return (array) apply_filters_ref_array(
@@ -5143,7 +5143,7 @@ class Query {
 	 * @since 3.0.0 Uses query()
 	 *
 	 * @param list<string>         $cols       Columns for `SELECT`.
-	 * @param array<string, mixed> $where_cols Where clauses. Each key-value pair in the array
+	 * @param array<string,mixed> $where_cols Where clauses. Each key-value pair in the array
 	 *                                         represents a column and a comparison.
 	 * @param int                  $limit      Optional. LIMIT value. Default 25.
 	 * @param int|null             $offset     Optional. OFFSET value. Default null.

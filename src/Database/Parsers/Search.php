@@ -44,7 +44,7 @@ class Search extends Base {
 	 * Column filter passed to get_column_names() to select relevant columns.
 	 *
 	 * @since 3.0.0
-	 * @var array<string, bool>
+	 * @var array<string,bool>
 	 */
 	protected $column_filter = array( 'searchable' => true );
 
@@ -71,8 +71,8 @@ class Search extends Base {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string, mixed> $clause       Query clause (passed by reference).
-	 * @param array<string, mixed> $parent_query Parent query array.
+	 * @param array<string,mixed> $clause       Query clause (passed by reference).
+	 * @param array<string,mixed> $parent_query Parent query array.
 	 * @param string               $clause_key   Optional. The array key used to name the clause in the original
 	 *                                           query parameters. If not provided, a key will be generated automatically.
 	 * @return array{join: list<string>, where: list<string>} {
@@ -150,7 +150,7 @@ class Search extends Base {
 	 * @param list<string> $column_names Columns to search.
 	 * @return string Search SQL.
 	 */
-	private function get_search_sql( $search = '', $column_names = array() ) {
+	private function get_search_sql( $search = '', $column_names = array() ): string {
 
 		// Bail if malformed search term.
 		if ( empty( $search ) || ! is_scalar( $search ) ) {
