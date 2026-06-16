@@ -357,13 +357,7 @@ class Relationship extends Base {
 	 */
 	private function resolve_remote_query( RelationshipObject $relationship ): ?Query {
 
-		$class = $relationship->get_query_class();
-
-		if ( ( '' === $class ) || ! class_exists( $class ) ) {
-			return null;
-		}
-
-		$remote = new $class();
+		$remote = $relationship->instantiate_query();
 
 		return ( $remote instanceof Query )
 			? $remote

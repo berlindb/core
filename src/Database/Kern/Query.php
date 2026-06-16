@@ -1244,14 +1244,8 @@ class Query {
 	 */
 	private function resolve_remote_query( Relationship $relationship ) {
 
-		// Reject a missing or non-existent class.
-		$class = $relationship->get_query_class();
-		if ( ( '' === $class ) || ! class_exists( $class ) ) {
-			return null;
-		}
-
-		// Instantiate; must be a sibling Query to be usable.
-		$remote = new $class();
+		// Instantiate via the relationship; must be a sibling Query to be usable.
+		$remote = $relationship->instantiate_query();
 
 		return ( $remote instanceof self )
 			? $remote

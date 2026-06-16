@@ -276,6 +276,32 @@ class Relationship {
 	}
 
 	/**
+	 * Instantiate this relationship's declared remote Query class.
+	 *
+	 * The Relationship owns the query class, so it is the single home for turning
+	 * that class name into an instance — used by cache priming and by the
+	 * relationship and meta parsers. Returns null when no class is declared or it
+	 * cannot be loaded; instantiation is setup-only (no query runs). Callers apply
+	 * their own type check (a sibling Query, or a MetaStore), so this returns the
+	 * bare instance.
+	 *
+	 * @internal Not consumer API; a collaborator seam across the Kern/parser split.
+	 * @since 3.1.0
+	 *
+	 * @return object|null The instantiated remote, or null when unresolvable.
+	 */
+	public function instantiate_query(): ?object {
+
+		$class = $this->get_query_class();
+
+		if ( ( '' === $class ) || ! class_exists( $class ) ) {
+			return null;
+		}
+
+		return new $class();
+	}
+
+	/**
 	 * Return validation errors for this relationship's own shape.
 	 *
 	 * Only the checks this value object can make in isolation — it has no owning

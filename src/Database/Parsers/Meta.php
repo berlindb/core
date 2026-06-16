@@ -937,13 +937,9 @@ class Meta extends Base {
 			return false;
 		}
 
-		$class = $relationship->get_query_class();
+		$remote = $relationship->instantiate_query();
 
-		if ( ( '' === $class ) || ! class_exists( $class ) ) {
-			return false;
-		}
-
-		return ( new $class() ) instanceof \BerlinDB\Database\Interfaces\MetaStore;
+		return ( $remote instanceof \BerlinDB\Database\Interfaces\MetaStore );
 	}
 
 	/**
@@ -1230,13 +1226,7 @@ class Meta extends Base {
 			return '';
 		}
 
-		$class = $relationship->get_query_class();
-
-		if ( ( '' === $class ) || ! class_exists( $class ) ) {
-			return '';
-		}
-
-		$remote = new $class();
+		$remote = $relationship->instantiate_query();
 
 		if ( ! ( $remote instanceof \BerlinDB\Database\Kern\Query ) ) {
 			return '';
