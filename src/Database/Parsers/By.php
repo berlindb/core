@@ -74,10 +74,10 @@ class By extends Base {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string, mixed> $clause       Query clause (passed by reference).
-	 * @param array<string, mixed> $parent_query Parent query array.
-	 * @param string               $clause_key   Optional. The array key used to name the clause in the original
-	 *                                           query parameters. If not provided, a key will be generated automatically.
+	 * @param array<string,mixed> $clause       Query clause (passed by reference).
+	 * @param array<string,mixed> $parent_query Parent query array.
+	 * @param string              $clause_key   Optional. The array key used to name the clause in the original
+	 *                                          query parameters. If not provided, a key will be generated automatically.
 	 * @return array{join: list<string>, where: list<string>} {
 	 *     Array containing WHERE SQL clauses to append to a first-order query.
 	 *

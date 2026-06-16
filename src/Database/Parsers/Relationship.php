@@ -153,9 +153,9 @@ class Relationship extends Base {
 	 * @since 3.1.0
 	 * @internal Query/Parser collaborator API.
 	 *
-	 * @param array<string, mixed>          $query_vars All of the caller's query vars.
-	 * @param Query                         $caller     The Query being normalized.
-	 * @return array<string, mixed> The (possibly modified) query vars.
+	 * @param array<string,mixed> $query_vars All of the caller's query vars.
+	 * @param Query               $caller     The Query being normalized.
+	 * @return array<string,mixed> The (possibly modified) query vars.
 	 */
 	public function normalize_query_vars( array $query_vars, Query $caller ): array {
 
@@ -233,10 +233,10 @@ class Relationship extends Base {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param array<string, mixed> $clause_args The relation clause ({ name, where }).
-	 * @param array<string, mixed> $query_vars  All of the caller's query vars.
-	 * @param Query                $caller      The Query being normalized.
-	 * @return array<string, mixed> The (possibly modified) query vars.
+	 * @param array<string,mixed> $clause_args The relation clause ({ name, where }).
+	 * @param array<string,mixed> $query_vars  All of the caller's query vars.
+	 * @param Query               $caller      The Query being normalized.
+	 * @return array<string,mixed> The (possibly modified) query vars.
 	 */
 	private function resolve_in_filter( array $clause_args, array $query_vars, Query $caller ): array {
 
@@ -335,9 +335,9 @@ class Relationship extends Base {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param array<string, mixed> $query_vars All of the caller's query vars.
-	 * @param string               $reason     Why the filter could not be applied.
-	 * @return array<string, mixed> The query vars carrying the sentinel.
+	 * @param array<string,mixed> $query_vars All of the caller's query vars.
+	 * @param string              $reason     Why the filter could not be applied.
+	 * @return array<string,mixed> The query vars carrying the sentinel.
 	 */
 	private function short_circuit( array $query_vars, string $reason ): array {
 
@@ -389,10 +389,10 @@ class Relationship extends Base {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param array<int|string, mixed> $clauses        The clause group (members + optional 'relation').
-	 * @param array<string, int>       $alias_counts Shared per-name alias counters (by reference).
-	 * @param list<string>             $joins        Shared collected JOIN fragments (by reference).
-	 * @param bool                     $is_root      Whether this is the outermost group.
+	 * @param array<int|string,mixed> $clauses        The clause group (members + optional 'relation').
+	 * @param array<string, int>      $alias_counts Shared per-name alias counters (by reference).
+	 * @param list<string>            $joins        Shared collected JOIN fragments (by reference).
+	 * @param bool                    $is_root      Whether this is the outermost group.
 	 * @return string|false The combined WHERE fragment ('' when empty), or false (fail closed).
 	 */
 	private function build_clause_group( array $clauses, array &$alias_counts, array &$joins, bool $is_root = false ) {
@@ -503,10 +503,10 @@ class Relationship extends Base {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param array<string, mixed> $clause_args         Relationship filter clause ({ name, where }).
-	 * @param string               $alias_suffix Optional suffix appended to the remote
-	 *                                           table alias to keep repeated relationship
-	 *                                           names distinct (e.g. '_2'). Default ''.
+	 * @param array<string,mixed> $clause_args  Relationship filter clause ({ name, where }).
+	 * @param string              $alias_suffix Optional suffix appended to the remote
+	 *                                          table alias to keep repeated relationship
+	 *                                          names distinct (e.g. '_2'). Default ''.
 	 * @return array{join: string, where: list<string>}|false False if unresolvable.
 	 */
 	private function build_clause( array $clause_args, $alias_suffix = '' ) {
@@ -660,9 +660,9 @@ class Relationship extends Base {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param Query                $remote The remote query whose schema owns the columns.
-	 * @param string               $alias  The remote table alias.
-	 * @param array<string, mixed> $conds  Column => condition map (+ optional 'relation' and nested subgroups).
+	 * @param Query               $remote The remote query whose schema owns the columns.
+	 * @param string              $alias  The remote table alias.
+	 * @param array<string,mixed> $conds  Column => condition map (+ optional 'relation' and nested subgroups).
 	 * @return string|false The combined WHERE group (or '' if none), or false on an unknown column.
 	 */
 	private function build_conditions( Query $remote, string $alias, array $conds ) {

@@ -69,7 +69,7 @@ trait Boot {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param array<string, mixed> $args Array of arguments. Configuration for most classes;
+	 * @param array<string,mixed> $args Array of arguments. Configuration for most classes;
 	 *                                   query vars (or configuration) for Query.
 	 */
 	public function __construct( $args = array() ) {
@@ -81,7 +81,7 @@ trait Boot {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string, mixed>|object $args Array of arguments.
+	 * @param array<string,mixed>|object $args Array of arguments.
 	 */
 	protected function boot( $args = array() ): void {
 
@@ -143,7 +143,7 @@ trait Boot {
 	 * @since 3.0.0
 	 * @since 3.1.0 Renamed from parse_args().
 	 *
-	 * @param array<string, mixed> $args Arguments left over from configure().
+	 * @param array<string,mixed> $args Arguments left over from configure().
 	 */
 	protected function consume_args( array $args = array() ): void {}
 

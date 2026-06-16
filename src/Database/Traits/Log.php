@@ -31,7 +31,7 @@ trait Log {
 	 * In-memory diagnostic log entries.
 	 *
 	 * @since 3.0.0
-	 * @var   array<int, array{level: string, code: string, message: string, context: array<string, mixed>, time: float, source: string}>
+	 * @var   array<int,array{level: string, code: string, message: string, context: array<string,mixed>, time: float, source: string}>
 	 */
 	protected $logs = array();
 
@@ -40,10 +40,10 @@ trait Log {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string               $level   Log level, such as debug, info, warning, or error.
-	 * @param string               $code    Stable machine-readable event code.
-	 * @param string               $message Human-readable message.
-	 * @param array<string, mixed> $context Optional structured context. Default empty array.
+	 * @param string              $level   Log level, such as debug, info, warning, or error.
+	 * @param string              $code    Stable machine-readable event code.
+	 * @param string              $message Human-readable message.
+	 * @param array<string,mixed> $context Optional structured context. Default empty array.
 	 */
 	protected function log( string $level, string $code, string $message, array $context = array() ): void {
 
@@ -79,9 +79,9 @@ trait Log {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string, mixed> $args     Optional field/value pairs to match. Default empty array.
-	 * @param string               $operator Optional comparison operator. Accepts 'and' or 'or'. Default 'and'.
-	 * @return array<int, array{level: string, code: string, message: string, context: array<string, mixed>, time: float, source: string}>
+	 * @param array<string,mixed> $args     Optional field/value pairs to match. Default empty array.
+	 * @param string              $operator Optional comparison operator. Accepts 'and' or 'or'. Default 'and'.
+	 * @return array<int, array{level: string, code: string, message: string, context: array<string,mixed>, time: float, source: string}>
 	 */
 	public function get_logs( array $args = array(), string $operator = 'and' ) {
 
@@ -99,8 +99,8 @@ trait Log {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string, mixed> $args     Optional field/value pairs to match. Default empty array clears all logs.
-	 * @param string               $operator Optional comparison operator. Accepts 'and' or 'or'. Default 'and'.
+	 * @param array<string,mixed> $args     Optional field/value pairs to match. Default empty array clears all logs.
+	 * @param string              $operator Optional comparison operator. Accepts 'and' or 'or'. Default 'and'.
 	 */
 	public function clear_logs( array $args = array(), string $operator = 'and' ): void {
 
@@ -126,10 +126,10 @@ trait Log {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<int, array{level: string, code: string, message: string, context: array<string, mixed>, time: float, source: string}> $logs     Log entries.
-	 * @param array<string, mixed>                                                                                                        $args     Field/value pairs to match.
+	 * @param array<int, array{level: string, code: string, message: string, context: array<string,mixed>, time: float, source: string}> $logs     Log entries.
+	 * @param array<string,mixed>                                                                                                        $args     Field/value pairs to match.
 	 * @param string                                                                                                                      $operator Optional comparison operator. Accepts 'and' or 'or'. Default 'and'.
-	 * @return array<int, array{level: string, code: string, message: string, context: array<string, mixed>, time: float, source: string}>
+	 * @return array<int, array{level: string, code: string, message: string, context: array<string,mixed>, time: float, source: string}>
 	 */
 	protected function filter_logs( array $logs = array(), array $args = array(), string $operator = 'and' ): array {
 		return array_values(
@@ -147,9 +147,9 @@ trait Log {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string, mixed> $entry    Log entry.
-	 * @param array<string, mixed> $args     Field/value pairs to match.
-	 * @param string               $operator Optional comparison operator. Accepts 'and' or 'or'. Default 'and'.
+	 * @param array<string,mixed> $entry    Log entry.
+	 * @param array<string,mixed> $args     Field/value pairs to match.
+	 * @param string              $operator Optional comparison operator. Accepts 'and' or 'or'. Default 'and'.
 	 * @return bool
 	 */
 	protected function log_matches( array $entry = array(), array $args = array(), string $operator = 'and' ): bool {
@@ -192,7 +192,7 @@ trait Log {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array{level: string, code: string, message: string, context: array<string, mixed>, time: float, source: string} $entry Log entry.
+	 * @param array{level: string, code: string, message: string, context: array<string,mixed>, time: float, source: string} $entry Log entry.
 	 */
 	protected function write_log( array $entry ): void {}
 

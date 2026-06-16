@@ -2913,7 +2913,7 @@ class Query {
 	 *
 	 * @param list<object> $items  Array of items to get fields from.
 	 * @param list<string> $fields Fields to get from items.
-	 * @return list<object>|array<string|int,object>
+	 * @return list<object>|array<string|int, object>
 	 */
 	private function get_item_fields( $items = array(), $fields = array() ): array {
 

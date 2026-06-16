@@ -73,7 +73,7 @@ interface Connection {
 	 * @param string|null $query  SQL query; null re-uses the last query.
 	 * @param string      $output Output type: OBJECT, ARRAY_A, or ARRAY_N.
 	 * @param int         $y      Zero-based row index to return.
-	 * @return array<string, mixed>|object|null
+	 * @return array<string,mixed>|object|null
 	 */
 	public function get_row( string|null $query = null, string $output = 'OBJECT', int $y = 0 ): array|object|null;
 
@@ -86,7 +86,7 @@ interface Connection {
 	 *
 	 * @param string|null $query  SQL query; null re-uses the last query.
 	 * @param string      $output Output type: OBJECT, ARRAY_A, ARRAY_N, or OBJECT_K.
-	 * @return array<int, mixed>|object|null
+	 * @return array<int,mixed>|object|null
 	 */
 	public function get_results( string|null $query = null, string $output = 'OBJECT' ): array|object|null;
 
@@ -97,7 +97,7 @@ interface Connection {
 	 *
 	 * @param string|null $query         SQL query; null re-uses the last query.
 	 * @param int         $column_offset Zero-based column index to return.
-	 * @return array<int, mixed>
+	 * @return array<int,mixed>
 	 */
 	public function get_col( string|null $query = null, int $column_offset = 0 ): array;
 
@@ -106,9 +106,9 @@ interface Connection {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string                     $table  Table name.
-	 * @param array<string, mixed>       $data   Column => value pairs to insert.
-	 * @param array<string>|string|null  $format sprintf-format specifiers for $data.
+	 * @param string                    $table  Table name.
+	 * @param array<string,mixed>       $data   Column => value pairs to insert.
+	 * @param array<string>|string|null $format sprintf-format specifiers for $data.
 	 * @return int|false Number of rows inserted, or false on failure.
 	 */
 	public function insert( string $table, array $data, array|string|null $format = null ): int|false;
@@ -118,11 +118,11 @@ interface Connection {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string                     $table        Table name.
-	 * @param array<string, mixed>       $data         Column => value pairs to update.
-	 * @param array<string, mixed>       $where        Column => value WHERE conditions.
-	 * @param array<string>|string|null  $format       Format for $data values.
-	 * @param array<string>|string|null  $where_format Format for $where values.
+	 * @param string                    $table        Table name.
+	 * @param array<string,mixed>       $data         Column => value pairs to update.
+	 * @param array<string,mixed>       $where        Column => value WHERE conditions.
+	 * @param array<string>|string|null $format       Format for $data values.
+	 * @param array<string>|string|null $where_format Format for $where values.
 	 * @return int|false Number of rows updated, or false on failure.
 	 */
 	public function update( string $table, array $data, array $where, array|string|null $format = null, array|string|null $where_format = null ): int|false;
@@ -132,9 +132,9 @@ interface Connection {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string                     $table        Table name.
-	 * @param array<string, mixed>       $where        Column => value WHERE conditions.
-	 * @param array<string>|string|null  $where_format Format for $where values.
+	 * @param string                    $table        Table name.
+	 * @param array<string,mixed>       $where        Column => value WHERE conditions.
+	 * @param array<string>|string|null $where_format Format for $where values.
 	 * @return int|false Number of rows deleted, or false on failure.
 	 */
 	public function delete( string $table, array $where, array|string|null $where_format = null ): int|false;

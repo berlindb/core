@@ -72,8 +72,8 @@ class NotBetween extends Base {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<int, mixed>|string $value   Two-element array or comma/space-delimited string. Only the first two elements are used.
-	 * @param '%s'|'%d'|'%f'           $pattern Optional. A wpdb::prepare() placeholder. Default '%s'.
+	 * @param array<int,mixed>|string $value   Two-element array or comma/space-delimited string. Only the first two elements are used.
+	 * @param '%s'|'%d'|'%f'          $pattern Optional. A wpdb::prepare() placeholder. Default '%s'.
 	 *
 	 * @return string Prepared SQL fragment: `low AND high`.
 	 */

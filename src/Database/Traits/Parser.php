@@ -50,7 +50,7 @@ trait Parser {
 	 * Array of queries.
 	 *
 	 * @since 3.0.0
-	 * @var array<string|int, mixed>
+	 * @var array<string|int,mixed>
 	 */
 	public $queries = array();
 
@@ -110,7 +110,7 @@ trait Parser {
 	 * Array of clauses.
 	 *
 	 * @since 3.0.0
-	 * @var array<string, mixed>
+	 * @var array<string,mixed>
 	 */
 	public $clauses = array();
 
@@ -118,7 +118,7 @@ trait Parser {
 	 * Array of operators.
 	 *
 	 * @since 3.0.0
-	 * @var   array<string, mixed>
+	 * @var   array<string,mixed>
 	 */
 	public $operators = array();
 
@@ -154,7 +154,7 @@ trait Parser {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string, mixed>               $query_vars Array of query variables.
+	 * @param array<string,mixed>                $query_vars Array of query variables.
 	 * @param \BerlinDB\Database\Kern\Query|null $caller The parent Query instance.
 	 */
 	public function __construct( array $query_vars = array(), mixed $caller = null ) {
@@ -172,7 +172,7 @@ trait Parser {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string, mixed>               $query_vars {
+	 * @param array<string,mixed>               $query_vars {
 	 *     Array of query clauses.
 	 *
 	 *     @type array ...$0 {
@@ -231,9 +231,9 @@ trait Parser {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string, mixed> $query_vars The raw query vars.
+	 * @param array<string,mixed> $query_vars The raw query vars.
 	 *
-	 * @return array<string, mixed> The (possibly transformed) query vars.
+	 * @return array<string,mixed> The (possibly transformed) query vars.
 	 */
 	protected function parse_query_vars( $query_vars = array() ) {
 		return $query_vars;
@@ -244,8 +244,8 @@ trait Parser {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param array<string, mixed> $query_vars Array of query variables.
-	 * @param string               $key Query variable key.
+	 * @param array<string,mixed> $query_vars Array of query variables.
+	 * @param string              $key Query variable key.
 	 *
 	 * @return false|array<mixed> False if not set, default, or empty. Array values
 	 *                            are returned as-is; scalar/object values are
@@ -346,9 +346,9 @@ trait Parser {
 	 * @since 3.1.0
 	 * @internal Query/Parser collaborator API.
 	 *
-	 * @param array<string, mixed>          $query_vars All of the caller's query vars.
+	 * @param array<string,mixed>           $query_vars All of the caller's query vars.
 	 * @param \BerlinDB\Database\Kern\Query $caller     The Query being normalized.
-	 * @return array<string, mixed> The (possibly modified) query vars.
+	 * @return array<string,mixed> The (possibly modified) query vars.
 	 */
 	public function normalize_query_vars( array $query_vars, \BerlinDB\Database\Kern\Query $caller ): array {
 		return $query_vars;
@@ -396,10 +396,10 @@ trait Parser {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string|int, mixed> $queries Array of query clause arrays.
-	 * @param array<string|int, mixed> $parent_query Parent query clause array.
+	 * @param array<string|int,mixed> $queries Array of query clause arrays.
+	 * @param array<string|int,mixed> $parent_query Parent query clause array.
 	 *
-	 * @return array<string|int, mixed> Sanitized queries.
+	 * @return array<string|int,mixed> Sanitized queries.
 	 */
 	protected function sanitize_query( $queries = array(), $parent_query = array() ) {
 
@@ -518,7 +518,7 @@ trait Parser {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string, mixed> $query Query clause.
+	 * @param array<string,mixed> $query Query clause.
 	 *
 	 * @return bool True if this is a first-order clause.
 	 */
@@ -531,9 +531,9 @@ trait Parser {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string, mixed> $query Query clause.
+	 * @param array<string,mixed> $query Query clause.
 	 *
-	 * @return array<string, mixed>
+	 * @return array<string,mixed>
 	 */
 	protected function get_first_order_clauses( $query = array() ) {
 
@@ -561,11 +561,11 @@ trait Parser {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string, mixed> $filter Optional. Key => value pairs to match against each
-	 *                                     operator's properties. Default empty array.
-	 * @param bool|string          $field  Optional. A property name to pluck from each operator
-	 *                                     instead of returning the full object. Default 'compare'.
-	 * @return array<string, mixed>
+	 * @param array<string,mixed> $filter Optional. Key => value pairs to match against each
+	 *                                    operator's properties. Default empty array.
+	 * @param bool|string         $field  Optional. A property name to pluck from each operator
+	 *                                    instead of returning the full object. Default 'compare'.
+	 * @return array<string,mixed>
 	 */
 	protected function get_operators( $filter = array(), $field = 'compare' ) {
 		return wp_filter_object_list( $this->operators, $filter, 'and', $field );
@@ -579,7 +579,7 @@ trait Parser {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string, mixed> $args Key => value pairs to match against operator properties.
+	 * @param array<string,mixed> $args Key => value pairs to match against operator properties.
 	 *
 	 * @return \BerlinDB\Database\Operators\Base|false The first matching operator, or false.
 	 */
@@ -615,9 +615,9 @@ trait Parser {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string, mixed> $query A query or subquery.
+	 * @param array<string,mixed> $query A query or subquery.
 	 *
-	 * @return array<string, mixed> The comparison operator.
+	 * @return array<string,mixed> The comparison operator.
 	 */
 	protected function get_defaults( $query = array() ) {
 		return array(
@@ -637,7 +637,7 @@ trait Parser {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string, mixed> $query A query or subquery.
+	 * @param array<string,mixed> $query A query or subquery.
 	 *
 	 * @return string
 	 */
@@ -671,7 +671,7 @@ trait Parser {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string, mixed> $query A query or subquery.
+	 * @param array<string,mixed> $query A query or subquery.
 	 *
 	 * @return string The comparison operator.
 	 */
@@ -702,9 +702,9 @@ trait Parser {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string               $name   Column name to look up.
-	 * @param array<string, mixed> $filter Optional. Additional column attributes to match. Default empty.
-	 * @param bool                 $alias  Optional. Whether to prefix with the table alias. Default true.
+	 * @param string              $name   Column name to look up.
+	 * @param array<string,mixed> $filter Optional. Additional column attributes to match. Default empty.
+	 * @param bool                $alias  Optional. Whether to prefix with the table alias. Default true.
 	 *
 	 * @return string Backtick-quoted SQL reference, or empty string on failure.
 	 */
@@ -751,7 +751,7 @@ trait Parser {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string, mixed> $query A query or a subquery.
+	 * @param array<string,mixed> $query A query or a subquery.
 	 *
 	 * @return string The comparison operator.
 	 */
@@ -770,7 +770,7 @@ trait Parser {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string, mixed> $query A query or a subquery.
+	 * @param array<string,mixed> $query A query or a subquery.
 	 *
 	 * @return string The relation operator.
 	 */
@@ -787,7 +787,7 @@ trait Parser {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string, mixed> $query A date query or a date subquery.
+	 * @param array<string,mixed> $query A date query or a date subquery.
 	 *
 	 * @return int The current UNIX timestamp.
 	 */
@@ -804,7 +804,7 @@ trait Parser {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string, mixed> $query A date query or a date subquery.
+	 * @param array<string,mixed> $query A date query or a date subquery.
 	 *
 	 * @return int The start of the week.
 	 */
@@ -968,8 +968,8 @@ trait Parser {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string|int, mixed> $query Query to parse.
-	 * @param int                      $depth Optional. Number of tree levels deep we currently are. Default 0.
+	 * @param array<string|int,mixed> $query Query to parse.
+	 * @param int                     $depth Optional. Number of tree levels deep we currently are. Default 0.
 	 * @return array{join: string, where: string}
 	 */
 	protected function get_sql_for_query( &$query = array(), $depth = 0 ) {
@@ -1078,9 +1078,9 @@ trait Parser {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string, mixed>     $clause       Query clause (passed by reference).
-	 * @param array<int|string, mixed> $parent_query Parent query array.
-	 * @param int|string               $clause_key   Optional. The array key used to name the clause.
+	 * @param array<string,mixed>     $clause       Query clause (passed by reference).
+	 * @param array<int|string,mixed> $parent_query Parent query array.
+	 * @param int|string              $clause_key   Optional. The array key used to name the clause.
 	 * @return array{join: list<string>, where: list<string>}
 	 */
 	protected function get_sql_for_clause( &$clause = array(), $parent_query = array(), $clause_key = '' ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed
@@ -1194,7 +1194,7 @@ trait Parser {
 	 * Validates the given query values.
 	 *
 	 * @since 3.0.0
-	 * @param array<string, mixed> $query The query array.
+	 * @param array<string,mixed> $query The query array.
 	 * @return bool True if all values in the query are valid, false if one or
 	 *              more fail.
 	 */
@@ -1663,8 +1663,8 @@ trait Parser {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string, mixed> $clause       Query clause.
-	 * @param array<string, mixed> $parent_query Parent query of $clause.
+	 * @param array<string,mixed> $clause       Query clause.
+	 * @param array<string,mixed> $parent_query Parent query of $clause.
 	 *
 	 * @return string|false Table alias if found, otherwise false.
 	 */

@@ -31,7 +31,7 @@ trait Arguments {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @return array<string, mixed>
+	 * @return array<string,mixed>
 	 */
 	public function to_array() {
 		return get_object_vars( $this );
@@ -41,7 +41,7 @@ trait Arguments {
 	 * Set class variables from arguments.
 	 *
 	 * @since 1.0.0
-	 * @param array<string, mixed> $args Array of arguments.
+	 * @param array<string,mixed> $args Array of arguments.
 	 */
 	protected function set_vars( $args = array() ): void {
 
@@ -71,9 +71,9 @@ trait Arguments {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param array<string, mixed>|object|string $args     Value to parse.
-	 * @param array<string, mixed>               $defaults Defaults to merge under $args.
-	 * @return array<string, mixed>
+	 * @param array<string,mixed>|object|string $args     Value to parse.
+	 * @param array<string,mixed>               $defaults Defaults to merge under $args.
+	 * @return array<string,mixed>
 	 */
 	protected function parse_args( $args = array(), $defaults = array() ): array {
 

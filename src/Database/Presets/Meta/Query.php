@@ -607,7 +607,7 @@ class Query extends KernQuery implements MetaStore {
 	 * @since 3.1.0
 	 *
 	 * @param Column $column The column whose shape to copy (the primary key).
-	 * @return array<string, mixed>
+	 * @return array<string,mixed>
 	 */
 	private static function mirror_key_shape( Column $column ): array {
 		return array(

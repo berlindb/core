@@ -47,7 +47,7 @@ trait Lifecycle {
 	 * Initialized at the beginning of each action by start().
 	 *
 	 * @since 3.0.0
-	 * @var   array<string, mixed>
+	 * @var   array<string,mixed>
 	 */
 	private $current = array();
 
@@ -172,7 +172,7 @@ trait Lifecycle {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string, mixed> $state Optional. Initial state for this run. Default empty array.
+	 * @param array<string,mixed> $state Optional. Initial state for this run. Default empty array.
 	 * @return void
 	 */
 	protected function init_current( $state = array() ) {

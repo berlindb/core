@@ -40,9 +40,9 @@ defined( 'ABSPATH' ) || exit;
  *
  * @since 3.1.0
  *
- * @method void set_vars( array<string, mixed> $args = [] )
- * @method array<string, mixed> parse_args( array<string, mixed>|object|string $args = [], array<string, mixed> $defaults = [] )
- * @method void log( string $level, string $code, string $message, array<string, mixed> $context = [] )
+ * @method void set_vars( array<string,mixed> $args = [] )
+ * @method array<string,mixed> parse_args( array<string,mixed>|object|string $args = [], array<string,mixed> $defaults = [] )
+ * @method void log( string $level, string $code, string $message, array<string,mixed> $context = [] )
  * @method list<string> get_boot_reserved_vars()
  * @method list<string> get_lifecycle_reserved_vars()
  * @method list<string> get_log_reserved_vars()
@@ -57,7 +57,7 @@ trait Configuration {
 	 *   'class' — snapshot of all object properties at construction time
 	 *
 	 * @since 3.0.0
-	 * @var   array<string, mixed>
+	 * @var   array<string,mixed>
 	 */
 	protected $args = array();
 
@@ -86,8 +86,8 @@ trait Configuration {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param array<string, mixed> $args Construction arguments.
-	 * @return array<string, mixed> Arguments NOT consumed as configuration.
+	 * @param array<string,mixed> $args Construction arguments.
+	 * @return array<string,mixed> Arguments NOT consumed as configuration.
 	 */
 	protected function configure( array $args = array() ): array {
 
@@ -164,7 +164,7 @@ trait Configuration {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param array<string, mixed> $args Construction arguments.
+	 * @param array<string,mixed> $args Construction arguments.
 	 * @return bool
 	 */
 	protected function is_configuration( array $args ): bool {
@@ -193,8 +193,8 @@ trait Configuration {
 	 * Parse special arguments.
 	 *
 	 * @since 3.0.0
-	 * @param array<string, mixed> $args Array of arguments.
-	 * @return array<string, mixed>
+	 * @param array<string,mixed> $args Array of arguments.
+	 * @return array<string,mixed>
 	 */
 	protected function special_args( $args = array() ) {
 		return $args;
@@ -209,8 +209,8 @@ trait Configuration {
 	 * @since 3.0.0
 	 * @since 3.1.0 Applies the shared get_config_callbacks() map.
 	 *
-	 * @param array<string, mixed> $args Array of arguments.
-	 * @return array<string, mixed>
+	 * @param array<string,mixed> $args Array of arguments.
+	 * @return array<string,mixed>
 	 */
 	protected function validate_args( $args = array() ) {
 
@@ -244,7 +244,7 @@ trait Configuration {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @return array<string, mixed> Map of arg key => sanitization callback.
+	 * @return array<string,mixed> Map of arg key => sanitization callback.
 	 */
 	protected function get_config_callbacks(): array {
 		return array();
@@ -312,7 +312,7 @@ trait Configuration {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param array<string, mixed> $unknown Map of unrecognized key => value.
+	 * @param array<string,mixed> $unknown Map of unrecognized key => value.
 	 * @return void
 	 */
 	protected function log_unknown_config_args( array $unknown ): void {
@@ -346,7 +346,7 @@ trait Configuration {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string, mixed> $args Array of arguments.
+	 * @param array<string,mixed> $args Array of arguments.
 	 * @return void
 	 */
 	protected function stash_args( $args = array() ) {
