@@ -25,9 +25,8 @@ use Yoast\WPTestUtils\WPIntegration\TestCase;
  *  - Delta Gadget    | inactive | priority 40
  *  - Epsilon Widget  | pending  | priority 50
  *
- * BerlinDB's parse_query_var() accepts comma-separated strings for __in and
- * __not_in filters — PHP arrays must not be passed directly, as BerlinDB
- * wraps them in another array, taking the single-value code path.
+ * BerlinDB's parse_query_var() accepts PHP arrays and comma-separated strings
+ * for __in and __not_in filters.
  *
  * @since 2.1.0
  */
@@ -186,7 +185,6 @@ class QueryFilterTest extends TestCase {
 	 * @since 2.1.0
 	 */
 	public function test_filter_by_status_in_returns_correct_count() {
-		// BerlinDB parse_query_var expects comma-separated strings, not PHP arrays.
 		$items = self::$query->query(
 			array(
 				'number'     => 0,

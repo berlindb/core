@@ -2244,10 +2244,9 @@ class Query {
 	 * @param array<string, mixed> $query_vars Array of query variables.
 	 * @param string               $key Query variable key.
 	 *
-	 * @return bool|int|string|array<mixed> False if not set or default.
-	 *                                      Value if object or array.
-	 *                                      Attempts to parse a comma-separated string
-	 *                                      of possible keys or numbers.
+	 * @return false|array<mixed> False if not set or default. Array values
+	 *                            are returned as-is; scalar/object values are
+	 *                            wrapped; comma-separated strings are split.
 	 */
 	public function parse_query_var( $query_vars = array(), $key = '' ) {
 
@@ -2264,23 +2263,25 @@ class Query {
 			return false;
 		}
 
-		/**
-		 * Early return objects, arrays, numerics, integers, or bools.
-		 *
-		 * These values assume the caller knew what it was doing, and simply
-		 * pass themselves through as "parsed" without any extra handling.
+		/*
+		 * Arrays are already a parsed list of values for __in / __not_in style
+		 * query vars. Return them as-is so they are not wrapped into a nested
+		 * single-item array and mistaken for a scalar comparison. Empty arrays
+		 * are equivalent to no value.
 		 */
-		if (
-			is_object( $value )
-			||
-			is_array( $value )
-			||
-			is_int( $value )
-			||
-			is_numeric( $value )
-			||
-			is_bool( $value )
-		) {
+		if ( is_array( $value ) ) {
+			return ! empty( $value )
+				? $value
+				: false;
+		}
+
+		/**
+		 * Early return objects, numerics, integers, or bools.
+		 *
+		 * These values assume the caller knew what it was doing, and are
+		 * wrapped as one parsed value without any extra handling.
+		 */
+		if ( is_object( $value ) || is_int( $value ) || is_numeric( $value ) || is_bool( $value ) ) {
 			return array( $value );
 		}
 

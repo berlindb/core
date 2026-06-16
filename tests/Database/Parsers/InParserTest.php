@@ -24,8 +24,8 @@ use Yoast\WPTestUtils\WPIntegration\TestCase;
  *  - Delta Gadget    | inactive | priority 40
  *  - Epsilon Widget  | pending  | priority 50
  *
- * BerlinDB's parse_query_var() accepts comma-separated strings for __in
- * filters — PHP arrays must not be passed directly.
+ * BerlinDB's parse_query_var() accepts PHP arrays and comma-separated strings
+ * for __in filters.
  *
  * @since 3.0.0
  */
@@ -148,6 +148,35 @@ class InParserTest extends TestCase {
 	}
 
 	/**
+	 * Test that status__in accepts an array of values.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_multiple_values_in_filter_accepts_array() {
+
+		// Assert expected results.
+		$results = self::$query->query( array( 'status__in' => array( 'active', 'pending' ) ) );
+		$this->assertCount( 3, $results );
+
+		$names = wp_list_pluck( $results, 'name' );
+		$this->assertContains( 'Alpha Widget', $names );
+		$this->assertContains( 'Beta Widget', $names );
+		$this->assertContains( 'Epsilon Widget', $names );
+	}
+
+	/**
+	 * Test that status__in with an empty array is ignored.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_empty_array_in_filter_is_ignored() {
+
+		// Assert expected results.
+		$results = self::$query->query( array( 'status__in' => array() ) );
+		$this->assertCount( 5, $results );
+	}
+
+	/**
 	 * Test that status__in with a value that matches no rows returns empty.
 	 *
 	 * @since 3.0.0
@@ -168,6 +197,23 @@ class InParserTest extends TestCase {
 
 		// Assert expected results.
 		$results = self::$query->query( array( 'priority__in' => '10, 30, 50' ) );
+		$this->assertCount( 3, $results );
+
+		$priorities = wp_list_pluck( $results, 'priority' );
+		$this->assertContains( '10', $priorities );
+		$this->assertContains( '30', $priorities );
+		$this->assertContains( '50', $priorities );
+	}
+
+	/**
+	 * Test that priority__in accepts an array for integer column values.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_integer_column_in_filter_accepts_array() {
+
+		// Assert expected results.
+		$results = self::$query->query( array( 'priority__in' => array( 10, 30, 50 ) ) );
 		$this->assertCount( 3, $results );
 
 		$priorities = wp_list_pluck( $results, 'priority' );

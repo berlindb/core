@@ -24,8 +24,8 @@ use Yoast\WPTestUtils\WPIntegration\TestCase;
  *  - Delta Gadget    | inactive | priority 40
  *  - Epsilon Widget  | pending  | priority 50
  *
- * BerlinDB's parse_query_var() accepts comma-separated strings for __not_in
- * filters — PHP arrays must not be passed directly.
+ * BerlinDB's parse_query_var() accepts PHP arrays and comma-separated strings
+ * for __not_in filters.
  *
  * @since 3.0.0
  */
@@ -149,6 +149,34 @@ class NotInParserTest extends TestCase {
 	}
 
 	/**
+	 * Test that status__not_in accepts an array of values.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_multiple_values_not_in_filter_accepts_array() {
+
+		// Assert expected results.
+		$results = self::$query->query( array( 'status__not_in' => array( 'active', 'pending' ) ) );
+		$this->assertCount( 2, $results );
+
+		$names = wp_list_pluck( $results, 'name' );
+		$this->assertContains( 'Gamma Gadget', $names );
+		$this->assertContains( 'Delta Gadget', $names );
+	}
+
+	/**
+	 * Test that status__not_in with an empty array is ignored.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_empty_array_not_in_filter_is_ignored() {
+
+		// Assert expected results.
+		$results = self::$query->query( array( 'status__not_in' => array() ) );
+		$this->assertCount( 5, $results );
+	}
+
+	/**
 	 * Test that status__not_in with a value matching no rows returns all rows.
 	 *
 	 * @since 3.0.0
@@ -169,6 +197,19 @@ class NotInParserTest extends TestCase {
 
 		// Assert expected results.
 		$results = self::$query->query( array( 'priority__not_in' => '10, 20, 30, 40' ) );
+		$this->assertCount( 1, $results );
+		$this->assertSame( 'Epsilon Widget', $results[0]->name );
+	}
+
+	/**
+	 * Test that priority__not_in accepts an array for integer column values.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_integer_column_not_in_filter_accepts_array() {
+
+		// Assert expected results.
+		$results = self::$query->query( array( 'priority__not_in' => array( 10, 20, 30, 40 ) ) );
 		$this->assertCount( 1, $results );
 		$this->assertSame( 'Epsilon Widget', $results[0]->name );
 	}
