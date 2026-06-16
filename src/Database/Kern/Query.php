@@ -811,8 +811,8 @@ class Query {
 	 * @param string $key Query variable key.
 	 * @return bool
 	 */
-	public function is_query_var_default( $key = '' ) {
-		return (bool) ( $this->get_query_var( $key ) === $this->query_var_default_value );
+	public function is_query_var_default( $key = '' ): bool {
+		return ( $this->get_query_var( $key ) === $this->query_var_default_value );
 	}
 
 	/**
@@ -839,7 +839,7 @@ class Query {
 	 * @param string $column_name Column name.
 	 * @return bool
 	 */
-	private function is_valid_column( $column_name = '' ) {
+	private function is_valid_column( $column_name = '' ): bool {
 
 		// Bail if column name not valid string.
 		if ( empty( $column_name ) || ! is_string( $column_name ) ) {
@@ -847,7 +847,7 @@ class Query {
 		}
 
 		// Return if column exists.
-		return (bool) $this->get_column_by( array( 'name' => $column_name ) );
+		return ( $this->get_column_by( array( 'name' => $column_name ) ) instanceof Column );
 	}
 
 	/** Public Columns ********************************************************/
@@ -1695,7 +1695,7 @@ class Query {
 	 *
 	 * @return array<string, mixed> Parsed query vars for the current run.
 	 */
-	public function get_query_vars() {
+	public function get_query_vars(): array {
 		return $this->query_vars;
 	}
 
@@ -4676,7 +4676,7 @@ class Query {
 	 *
 	 * @return bool
 	 */
-	private function clean_item_cache( $items = array() ) {
+	private function clean_item_cache( $items = array() ): bool {
 
 		// Bail if no items to clean.
 		if ( empty( $items ) ) {
