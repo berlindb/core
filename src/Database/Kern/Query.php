@@ -94,9 +94,9 @@ class Query {
 	 * argument or a Schema::from_table() call.
 	 *
 	 * @since 1.0.0
-	 * @var   string|Schema
+	 * @var   class-string<Schema>|Schema
 	 */
-	protected $table_schema = __NAMESPACE__ . '\\Schema';
+	protected $table_schema = Schema::class;
 
 	/** Item ******************************************************************/
 
@@ -131,9 +131,9 @@ class Query {
 	 * are the expected class.
 	 *
 	 * @since 1.0.0
-	 * @var   string
+	 * @var   class-string<Row>|class-string
 	 */
-	protected $item_shape = __NAMESPACE__ . '\\Row';
+	protected $item_shape = Row::class;
 
 	/** Cache *****************************************************************/
 
@@ -522,11 +522,11 @@ class Query {
 			'schema' => $this->table_schema,
 		);
 
-		// Maybe invoke a new table schema class.
-		if ( ! empty( $this->table_schema ) && class_exists( $this->table_schema ) ) {
+		// Maybe invoke a new table schema class (instances were returned above).
+		if ( is_string( $this->table_schema ) && ! empty( $this->table_schema ) ) {
 			try {
-				$this->schema_object = new $this->table_schema();
-				$log_error           = false;
+				$this->schema_object = $this->instantiate_class( $this->table_schema );
+				$log_error           = ( null === $this->schema_object );
 			} catch ( \Throwable $exception ) {
 				$context['exception']         = get_class( $exception );
 				$context['exception_message'] = $exception->getMessage();
@@ -626,14 +626,11 @@ class Query {
 		// Loop through query var parsers.
 		foreach ( $this->query_var_parsers as $class ) {
 
-			// Skip if no class.
-			if ( ! class_exists( $class ) ) {
+			// Instantiate to read descriptor properties; skip a non-parser class.
+			$parser = $this->instantiate_class( $class );
+			if ( ! ( $parser instanceof \BerlinDB\Database\Parsers\Base ) ) {
 				continue;
 			}
-
-			// Instantiate to read descriptor properties.
-			/** @var \BerlinDB\Database\Parsers\Base $parser */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
-			$parser = new $class();
 
 			// Setup the parser.
 			$this->parsers[ $parser->name ] = $parser;
@@ -1245,7 +1242,7 @@ class Query {
 	private function resolve_remote_query( Relationship $relationship ) {
 
 		// Instantiate via the relationship; must be a sibling Query to be usable.
-		$remote = $relationship->instantiate_query();
+		$remote = $this->instantiate_class( $relationship->get_query_class() );
 
 		return ( $remote instanceof self )
 			? $remote
@@ -2854,8 +2851,11 @@ class Query {
 		}
 
 		// Shape the item as needed.
-		$item = ! empty( $item_shape )
-			? new $item_shape( $item )
+		$shaped = ! empty( $item_shape )
+			? $this->instantiate_class( $item_shape, '', $item )
+			: null;
+		$item   = ( null !== $shaped )
+			? $shaped
 			: (object) $item;
 
 		// Return the item object.

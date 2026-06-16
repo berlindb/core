@@ -77,20 +77,13 @@ class Table extends KernTable {
 	 */
 	private function configure_from_meta_query(): void {
 
-		// Bail (loudly) unless a meta Query class is named and exists.
-		if ( ( '' === $this->meta_query_class ) || ! class_exists( $this->meta_query_class ) ) {
-			$this->log(
-				'warning',
-				'meta_table_query_missing',
-				'Meta table names no usable meta Query class; not configured.',
-				array( 'meta_query_class' => $this->meta_query_class )
-			);
-
+		// Bail (loudly) unless a meta Query class is named, exists, and builds.
+		$meta_query = $this->instantiate_class( $this->meta_query_class, 'meta_table_query_missing' );
+		if ( null === $meta_query ) {
 			return;
 		}
 
 		// Bail (loudly) unless the class is a meta Query.
-		$meta_query = new $this->meta_query_class();
 		if ( ! ( $meta_query instanceof Query ) ) {
 			$this->log(
 				'warning',

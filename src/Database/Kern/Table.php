@@ -172,7 +172,7 @@ class Table {
 	 * argument or a Schema::from_table() call.
 	 *
 	 * @since 1.0.0
-	 * @var   string|Schema
+	 * @var   class-string<Schema>|Schema|''
 	 */
 	protected $schema = '';
 
@@ -1592,11 +1592,11 @@ class Table {
 			'schema' => $this->schema,
 		);
 
-		// Maybe invoke a new table schema class.
-		if ( ! empty( $this->schema ) && class_exists( $this->schema ) ) {
+		// Maybe invoke a new table schema class (instances were returned above).
+		if ( is_string( $this->schema ) && ! empty( $this->schema ) ) {
 			try {
-				$this->schema_object = new $this->schema();
-				$log_error           = false;
+				$this->schema_object = $this->instantiate_class( $this->schema );
+				$log_error           = ( null === $this->schema_object );
 			} catch ( \Throwable $exception ) {
 				$context['exception']         = get_class( $exception );
 				$context['exception_message'] = $exception->getMessage();

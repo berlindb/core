@@ -111,20 +111,13 @@ class Query extends KernQuery implements MetaStore {
 	 */
 	private function configure_from_primary(): void {
 
-		// Bail (loudly) unless a primary Query class is named and exists.
-		if ( ( '' === $this->primary_query_class ) || ! class_exists( $this->primary_query_class ) ) {
-			$this->log(
-				'warning',
-				'meta_primary_missing',
-				'Meta query names no usable primary Query class; not configured.',
-				array( 'primary_query_class' => $this->primary_query_class )
-			);
-
+		// Bail (loudly) unless a primary Query class is named, exists, and builds.
+		$primary_query = $this->instantiate_class( $this->primary_query_class, 'meta_primary_missing' );
+		if ( null === $primary_query ) {
 			return;
 		}
 
 		// Bail (loudly) unless the primary is a sibling Query.
-		$primary_query = new $this->primary_query_class();
 		if ( ! ( $primary_query instanceof KernQuery ) ) {
 			$this->log(
 				'warning',

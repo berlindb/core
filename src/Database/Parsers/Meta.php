@@ -937,7 +937,7 @@ class Meta extends Base {
 			return false;
 		}
 
-		$remote = $relationship->instantiate_query();
+		$remote = $this->instantiate_class( $relationship->get_query_class() );
 
 		return ( $remote instanceof \BerlinDB\Database\Interfaces\MetaStore );
 	}
@@ -1226,7 +1226,7 @@ class Meta extends Base {
 			return '';
 		}
 
-		$remote = $relationship->instantiate_query();
+		$remote = $this->instantiate_class( $relationship->get_query_class() );
 
 		if ( ! ( $remote instanceof \BerlinDB\Database\Kern\Query ) ) {
 			return '';

@@ -217,4 +217,62 @@ trait Base {
 			? array_merge( $defaults, $parsed )
 			: $parsed;
 	}
+
+	/**
+	 * Validate a class name and instantiate it, failing closed to null.
+	 *
+	 * The single home for the recurring "class_exists() then new" pattern, with
+	 * consistent fail-closed behavior: returns null when the class is empty,
+	 * unloadable, or throws during construction. Available on every class
+	 * composing this trait (which also composes Log), so the same guarded
+	 * instantiation — and the same structured failure log — is one call away
+	 * across Kern, Presets, and Parsers.
+	 *
+	 * Pass $log_code to emit a `warning` on failure under the caller's own code
+	 * (preserving existing diagnostics) AND to trap a construction exception as a
+	 * fail-closed null. Leave it '' for a silent attempt whose construction errors
+	 * surface to the caller's own handling.
+	 *
+	 * @internal Not consumer API.
+	 * @since 3.1.0
+	 *
+	 * @param  string $class    Fully-qualified class name to instantiate.
+	 * @param  string $log_code Log code to emit on failure ('' = silent; errors surface).
+	 * @param  mixed  ...$args  Constructor arguments.
+	 * @return object|null The new instance, or null when $class is empty/unloadable/throws.
+	 */
+	protected function instantiate_class( string $class, string $log_code = '', ...$args ): ?object {
+
+		// Fail closed on an empty or unloadable class.
+		if ( ( '' === $class ) || ! class_exists( $class ) ) {
+			if ( '' !== $log_code ) {
+				$this->log( 'warning', $log_code, 'Class is empty or could not be loaded.', array( 'class' => $class ) );
+			}
+
+			return null;
+		}
+
+		// Silent mode: let any construction error surface to the caller.
+		if ( '' === $log_code ) {
+			return new $class( ...$args );
+		}
+
+		// Logged mode: trap a construction failure as a fail-closed null.
+		try {
+			return new $class( ...$args );
+		} catch ( \Throwable $exception ) {
+			$this->log(
+				'warning',
+				$log_code,
+				'Class threw during construction.',
+				array(
+					'class'     => $class,
+					'exception' => get_class( $exception ),
+					'message'   => $exception->getMessage(),
+				)
+			);
+
+			return null;
+		}
+	}
 }

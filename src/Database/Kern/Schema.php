@@ -563,10 +563,10 @@ class Schema {
 
 		// Array data is passed to the item constructor.
 		if ( is_array( $data ) ) {
-			$retval = new $class_name( $data );
+			$item = $this->instantiate_class( $class_name, '', $data );
 
-			/** @var Column|Index $retval */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
-			return $retval;
+			/** @var Column|Index|null $item */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
+			return $item ?? false;
 		}
 
 		// Already-instantiated object.

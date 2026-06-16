@@ -261,11 +261,11 @@ abstract class Base {
 			$instances[ $key ] = array();
 
 			foreach ( $classes as $class ) {
-				if ( ! class_exists( $class ) ) {
-					continue;
-				}
+				$operator = $this->instantiate_class( $class );
 
-				$instances[ $key ][] = new $class();
+				if ( $operator instanceof \BerlinDB\Database\Operators\Base ) {
+					$instances[ $key ][] = $operator;
+				}
 			}
 		}
 
