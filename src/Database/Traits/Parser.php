@@ -611,6 +611,31 @@ trait Parser {
 	}
 
 	/**
+	 * Resolve an operator's logical opposite to a registered instance.
+	 *
+	 * Looks the opposite up by its $compare through the same registry as every
+	 * other operator, so the result is the live, filtered singleton — honoring
+	 * any berlindb_database_operator_classes customization — not a throwaway
+	 * default. Callers that only need the opposite's identifier should read
+	 * Operators\Base::get_opposite_compare() directly; this is for callers that
+	 * need the full object (its $sql_compare, $multi, custom behavior, etc.).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param \BerlinDB\Database\Operators\Base $operator The operator to invert.
+	 *
+	 * @return \BerlinDB\Database\Operators\Base|false The opposite operator, or
+	 *         false when the operator declares no opposite (e.g. 'RLIKE').
+	 */
+	protected function get_opposite_operator( \BerlinDB\Database\Operators\Base $operator ) {
+		$compare = $operator->get_opposite_compare();
+
+		return ( '' !== $compare )
+			? $this->get_operator( $compare )
+			: false;
+	}
+
+	/**
 	 * Determines and validates the default values for a query or subquery.
 	 *
 	 * @since 3.0.0

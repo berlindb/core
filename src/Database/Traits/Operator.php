@@ -64,6 +64,20 @@ trait Operator {
 	protected $positive = false;
 
 	/**
+	 * The $compare of this operator's logical opposite, or '' when it has none.
+	 *
+	 * Pairs each operator with its complement so callers can flip polarity
+	 * without a hardcoded map: '=' <-> '!=', 'IN' <-> 'NOT IN', '>' <-> '<=',
+	 * 'REGEXP' <-> 'NOT REGEXP', etc. Resolve the opposite instance by passing
+	 * this value back to get_operator(). 'RLIKE' has no distinct negation class
+	 * (it is a 'REGEXP' synonym), so it carries no opposite.
+	 *
+	 * @since 3.1.0
+	 * @var string
+	 */
+	protected $opposite_compare = '';
+
+	/**
 	 * Whether this operator accepts multiple values (IN, BETWEEN).
 	 *
 	 * @since 3.0.0
@@ -114,6 +128,30 @@ trait Operator {
 		return ! empty( $this->sql_compare )
 			? $this->sql_compare
 			: $this->compare;
+	}
+
+	/**
+	 * Whether this is a positive (non-negating) operator.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return bool
+	 */
+	public function is_positive(): bool {
+		return (bool) $this->positive;
+	}
+
+	/**
+	 * Get the $compare of this operator's logical opposite, or '' when it has none.
+	 *
+	 * Pass the result back to get_operator() to resolve the opposite instance.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return string
+	 */
+	public function get_opposite_compare(): string {
+		return (string) $this->opposite_compare;
 	}
 
 	/**

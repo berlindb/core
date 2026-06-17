@@ -678,4 +678,128 @@ class OperatorsTest extends TestCase {
 		$this->assertStringContainsString( '`count`', $sql );
 		$this->assertStringContainsString( '42', $sql );
 	}
+
+	// -------------------------------------------------------------------------
+	// Opposite linkage ($opposite_compare / get_opposite_compare / is_positive).
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Every operator instance, keyed by its $compare string.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return array<string, \BerlinDB\Database\Operators\Base>
+	 */
+	private function operators_by_compare(): array {
+		$instances = array(
+			new Equal(),
+			new NotEqual(),
+			new Exists(),
+			new NotExists(),
+			new In(),
+			new NotIn(),
+			new Like(),
+			new NotLike(),
+			new Regexp(),
+			new NotRegexp(),
+			new Rlike(),
+			new Between(),
+			new NotBetween(),
+			new GreaterThan(),
+			new GreaterThanOrEqual(),
+			new LessThan(),
+			new LessThanOrEqual(),
+		);
+
+		$map = array();
+
+		foreach ( $instances as $op ) {
+			$map[ $op->compare ] = $op;
+		}
+
+		return $map;
+	}
+
+	/**
+	 * Test that each operator reports its logical opposite's $compare.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_operator_opposites() {
+		$expected = array(
+			'='           => '!=',
+			'!='          => '=',
+			'EXISTS'      => 'NOT EXISTS',
+			'NOT EXISTS'  => 'EXISTS',
+			'IN'          => 'NOT IN',
+			'NOT IN'      => 'IN',
+			'LIKE'        => 'NOT LIKE',
+			'NOT LIKE'    => 'LIKE',
+			'REGEXP'      => 'NOT REGEXP',
+			'NOT REGEXP'  => 'REGEXP',
+			'BETWEEN'     => 'NOT BETWEEN',
+			'NOT BETWEEN' => 'BETWEEN',
+			'>'           => '<=',
+			'<='          => '>',
+			'<'           => '>=',
+			'>='          => '<',
+			'RLIKE'       => '',
+		);
+
+		$ops = $this->operators_by_compare();
+
+		foreach ( $expected as $compare => $opposite ) {
+			$this->assertSame( $opposite, $ops[ $compare ]->get_opposite_compare(), "opposite of {$compare}" );
+		}
+	}
+
+	/**
+	 * Test that opposites are involutive and that negatives flip to a positive.
+	 *
+	 * For every operator with a declared opposite, resolving that opposite and
+	 * asking for ITS opposite returns the original (a <-> b). And any negating
+	 * operator always flips to a positive one — the property the meta key-flip
+	 * (build_relationship_clause) relies on to express NOT EXISTS.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_opposite_is_involutive_and_flips_negatives_positive() {
+		$ops = $this->operators_by_compare();
+
+		foreach ( $ops as $compare => $op ) {
+			$opposite = $op->get_opposite_compare();
+
+			// RLIKE (a REGEXP synonym) declares no distinct opposite; skip.
+			if ( '' === $opposite ) {
+				continue;
+			}
+
+			$this->assertArrayHasKey( $opposite, $ops, "{$compare} opposite {$opposite} resolves" );
+			$this->assertSame( $compare, $ops[ $opposite ]->get_opposite_compare(), "{$compare} <-> {$opposite}" );
+
+			// A negating operator must flip to a positive one.
+			if ( ! $op->is_positive() ) {
+				$this->assertTrue( $ops[ $opposite ]->is_positive(), "{$compare} flips positive" );
+			}
+		}
+	}
+
+	/**
+	 * Test that RLIKE declares no opposite (it is a REGEXP synonym).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_rlike_has_no_opposite() {
+		$this->assertSame( '', ( new Rlike() )->get_opposite_compare() );
+	}
+
+	/**
+	 * Test that is_positive() reflects the $positive descriptor.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_is_positive_accessor_matches_descriptor() {
+		$this->assertTrue( ( new Equal() )->is_positive() );
+		$this->assertFalse( ( new NotEqual() )->is_positive() );
+	}
 }

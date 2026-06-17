@@ -827,4 +827,39 @@ class MetaParserTest extends TestCase {
 			'sql fragment' => array( 'SIGNED) UNSIGNED' ),
 		);
 	}
+
+	/**
+	 * Test that get_opposite_operator() resolves a negative operator to its
+	 * positive opposite through the shared registry.
+	 *
+	 * The resolver returns the live, registered instance (NOT a throwaway
+	 * `new In()`), so it honors any operator-class filtering.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_get_opposite_operator_resolves_through_registry() {
+		$parser  = new Meta();
+		$resolve = new \ReflectionMethod( $parser, 'get_opposite_operator' );
+		$resolve->setAccessible( true );
+
+		$opposite = $resolve->invoke( $parser, new \BerlinDB\Database\Operators\NotIn() );
+
+		$this->assertInstanceOf( \BerlinDB\Database\Operators\In::class, $opposite );
+		$this->assertSame( 'IN', $opposite->compare );
+	}
+
+	/**
+	 * Test that get_opposite_operator() returns false when no opposite exists.
+	 *
+	 * RLIKE is a REGEXP synonym with no distinct negation class.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_get_opposite_operator_returns_false_without_opposite() {
+		$parser  = new Meta();
+		$resolve = new \ReflectionMethod( $parser, 'get_opposite_operator' );
+		$resolve->setAccessible( true );
+
+		$this->assertFalse( $resolve->invoke( $parser, new \BerlinDB\Database\Operators\Rlike() ) );
+	}
 }

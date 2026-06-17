@@ -53,6 +53,14 @@ class NotExists extends Base {
 	protected $positive = false;
 
 	/**
+	 * The $compare of this operator's logical opposite.
+	 *
+	 * @since 3.1.0
+	 * @var string
+	 */
+	protected $opposite_compare = 'EXISTS';
+
+	/**
 	 * Whether this operator accepts multiple values (IN, BETWEEN).
 	 *
 	 * @since 3.0.0

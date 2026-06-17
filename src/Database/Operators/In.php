@@ -52,6 +52,14 @@ class In extends Base {
 	protected $positive = true;
 
 	/**
+	 * The $compare of this operator's logical opposite.
+	 *
+	 * @since 3.1.0
+	 * @var string
+	 */
+	protected $opposite_compare = 'NOT IN';
+
+	/**
 	 * Whether this operator accepts multiple values (IN, BETWEEN).
 	 *
 	 * @since 3.0.0

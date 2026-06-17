@@ -1,9 +1,9 @@
 <?php
 /**
- * meta_query translation for store-backed objects (#204 Phase B).
+ * meta_query → relationship clauses for store-backed objects (#204 Phase B).
  *
  * A query whose 'meta' relationship resolves to a MetaStore has its
- * meta_query / meta_key / meta_value vars translated into relationship EXISTS
+ * meta_query / meta_key / meta_value vars built into relationship EXISTS
  * filters against the custom sibling table (Query::resolve_meta_query_filters()).
  * These tests prove behavioral parity with the WordPress meta_query surface by
  * asserting the rows returned against a real installed sibling table — the SQL is
@@ -137,11 +137,11 @@ class MqNoStoreTable extends Table {
 }
 
 /**
- * Tests for meta_query translation.
+ * Tests for building relationship clauses from a meta_query.
  *
  * @since 3.1.0
  */
-class MetaQueryTranslationTest extends TestCase {
+class MetaQueryRelationshipTest extends TestCase {
 
 	/** @var MqThingTable */
 	private static $table;
@@ -348,7 +348,7 @@ class MetaQueryTranslationTest extends TestCase {
 	}
 
 	/**
-	 * A translated meta_query ANDs with an existing OR relation_query, not OR.
+	 * A built meta_query ANDs with an existing OR relation_query, not OR.
 	 *
 	 * The pre-existing relation_query is a top-level OR group (has 'color' OR
 	 * size='small' → A, B, C). The meta_query (size='large' → A, B) must AND with

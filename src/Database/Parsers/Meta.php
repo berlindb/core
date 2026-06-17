@@ -243,7 +243,7 @@ class Meta extends Base {
 		 * the rest of the meta_query).
 		 */
 
-		// The flat meta_* vars become one simple clause (shared with the store translator).
+		// The flat meta_* vars become one simple clause (shared with the store builder).
 		$simple_meta_query = $this->get_simple_meta_clause( $qv );
 
 		// Check for an existing meta_query argument.
@@ -791,7 +791,7 @@ class Meta extends Base {
 		}
 
 		/*
-		 * Store-backed path: the meta_query was translated to relation_query EXISTS,
+		 * Store-backed path: the meta_query was built into relation_query EXISTS,
 		 * so there is no JOIN alias to order on — order by a correlated subquery
 		 * against the sibling for the key normalize_query_vars() recorded (under
 		 * 'meta_value' / 'meta_value_num' or a named clause). Returns '' when this
@@ -890,10 +890,10 @@ class Meta extends Base {
 			: ( ( 'CHAR' === $cast ) ? '' : $cast );
 	}
 
-	/** meta_query → relationship translation (store-backed objects, #204 Phase B) */
+	/** meta_query → relationship clauses (store-backed objects, #204 Phase B) */
 
 	/**
-	 * Translate a store-backed meta_query into relationship filters (early, before parsing).
+	 * Build relationship filters from a store-backed meta_query (early, before parsing).
 	 *
 	 * For a caller whose 'meta' relationship resolves to an Interfaces\MetaStore,
 	 * the WordPress-shaped meta vars (meta_query / meta_key / meta_value / …) are
@@ -918,7 +918,7 @@ class Meta extends Base {
 			return $query_vars;
 		}
 
-		// Only translate for store-backed callers; others keep the bespoke engine.
+		// Only build for store-backed callers; others keep the bespoke engine.
 		if ( ! $this->caller_has_meta_store( $caller ) ) {
 			return $query_vars;
 		}
@@ -936,11 +936,11 @@ class Meta extends Base {
 		// Remove the meta vars so the bespoke engine no-ops for store queries.
 		$query_vars = $this->strip_meta_query_vars( $query_vars );
 
-		// Translate the clause tree into a single relationship clause group.
-		$group = $this->translate_meta_query_group( $meta_query );
+		// Build a single relationship clause group from the clause tree.
+		$group = $this->build_relationship_group( $meta_query );
 
 		/*
-		 * Fail closed if any clause could not be faithfully translated (e.g. a
+		 * Fail closed if any clause could not be faithfully built (e.g. a
 		 * negative compare_key). Signal via a sentinel the Query consumes, so this
 		 * parser needs no access to a private short-circuit helper.
 		 */
@@ -954,7 +954,7 @@ class Meta extends Base {
 		}
 
 		/*
-		 * AND the translated meta group with any existing relationship filter.
+		 * AND the built meta group with any existing relationship filter.
 		 * Nest the existing query as a subgroup so its own relation — including a
 		 * top-level 'relation' => 'OR' — is preserved, rather than absorbing the
 		 * meta group into that OR list (which would wrongly OR-combine them). The
@@ -997,7 +997,7 @@ class Meta extends Base {
 	 * Build a single "simple" first-order clause from the flat meta_* vars.
 	 *
 	 * Shared by parse_query_vars() (the bespoke engine, reading its narrowed vars)
-	 * and combine_meta_query_clauses() (the store translator, reading all vars):
+	 * and combine_meta_query_clauses() (the store builder, reading all vars):
 	 * meta_key / meta_compare / meta_type / meta_compare_key / meta_type_key become
 	 * a clause, plus meta_value unless it is the back-compat default empty string.
 	 * "simple" is WP's term for this flat-var clause (the one sorted first);
@@ -1032,7 +1032,7 @@ class Meta extends Base {
 	 *
 	 * Mirrors parse_query_vars()'s simple-clause handling but reads from the FULL
 	 * query vars (this early normalization sees everything) and wraps a bare
-	 * first-order meta_query so the translator treats it as one clause.
+	 * first-order meta_query so the builder treats it as one clause.
 	 *
 	 * @since 3.1.0
 	 *
@@ -1064,7 +1064,7 @@ class Meta extends Base {
 
 		/*
 		 * A bare first-order associative meta_query (key/value/compare/… at the top
-		 * level) is a single clause, not a list — wrap it so the translator treats
+		 * level) is a single clause, not a list — wrap it so the builder treats
 		 * it as one clause rather than iterating its keys as members.
 		 */
 		if ( ! empty( $meta_query ) && $this->is_first_order_meta_clause( $meta_query ) ) {
@@ -1269,7 +1269,7 @@ class Meta extends Base {
 	/**
 	 * Build a store-backed `meta_value` / `meta_value_num` ORDER BY fragment.
 	 *
-	 * For a store-backed query the meta_query was translated to relation_query
+	 * For a store-backed query the meta_query was built into relation_query
 	 * EXISTS, so there is no JOIN alias to order on. Order by a scalar correlated
 	 * subquery against the sibling table, for the key normalize_query_vars()
 	 * recorded under this orderby token in the `meta_orderby` directive. The
@@ -1352,7 +1352,7 @@ class Meta extends Base {
 	}
 
 	/**
-	 * Remove the WordPress meta vars after translation.
+	 * Remove the WordPress meta vars after the build.
 	 *
 	 * @since 3.1.0
 	 *
@@ -1375,7 +1375,7 @@ class Meta extends Base {
 	}
 
 	/**
-	 * Translate a meta_query group into a relationship clause group.
+	 * Build a relationship clause group from a meta_query group.
 	 *
 	 * Recursive, mirroring the meta_query tree: a member with a nested 'relation'
 	 * or a numeric first element is a subgroup; any other array is a leaf clause.
@@ -1387,7 +1387,7 @@ class Meta extends Base {
 	 * @param array<int|string,mixed> $meta_query The meta_query (sub)tree.
 	 * @return array<int|string,mixed>|null The clause group, or null if a clause is unsupported.
 	 */
-	private function translate_meta_query_group( array $meta_query ): ?array {
+	private function build_relationship_group( array $meta_query ): ?array {
 
 		// Boolean relation for this group ('AND' default, or 'OR').
 		$relation = $this->get_clause_relation( $meta_query );
@@ -1408,23 +1408,23 @@ class Meta extends Base {
 			}
 
 			// A nested 'relation' or numeric first element marks a subgroup: recurse.
-			$translated = ( isset( $member[ 'relation' ] ) || isset( $member[0] ) )
-				? $this->translate_meta_query_group( $member )
-				: $this->translate_meta_clause( $member );
+			$built = ( isset( $member[ 'relation' ] ) || isset( $member[0] ) )
+				? $this->build_relationship_group( $member )
+				: $this->build_relationship_clause( $member );
 
-			// Any unsupported clause fails the whole translation closed.
-			if ( null === $translated ) {
+			// Any unsupported clause fails the whole build closed.
+			if ( null === $built ) {
 				return null;
 			}
 
-			$group[] = $translated;
+			$group[] = $built;
 		}
 
 		return $group;
 	}
 
 	/**
-	 * Translate a single meta_query leaf clause into a relationship clause.
+	 * Build a relationship clause from a single meta_query leaf clause.
 	 *
 	 * The clause becomes an EXISTS (or NOT EXISTS) over the 'meta' relationship,
 	 * with meta_key and meta_value conditions on the sibling table. Value
@@ -1437,7 +1437,7 @@ class Meta extends Base {
 	 * @param array<string,mixed> $meta_clause The meta_query leaf clause.
 	 * @return array<string,mixed>|null The relationship clause, or null if unsupported.
 	 */
-	private function translate_meta_clause( array $meta_clause ): ?array {
+	private function build_relationship_clause( array $meta_clause ): ?array {
 
 		$clause_args = array( 'name' => 'meta' );
 		$where       = array();
@@ -1451,7 +1451,7 @@ class Meta extends Base {
 		if ( array_key_exists( 'key', $meta_clause ) ) {
 			$key_condition = $this->meta_key_condition( $meta_clause );
 
-			// An unsupported compare_key cannot be faithfully translated.
+			// An unsupported compare_key cannot be faithfully built.
 			if ( null === $key_condition ) {
 				return null;
 			}
@@ -1503,11 +1503,15 @@ class Meta extends Base {
 	 *
 	 * Positive comparisons map directly to the shared Operators. A NEGATIVE key
 	 * comparison (`!=` / `NOT IN` / `NOT LIKE` / `NOT REGEXP` / `NOT EXISTS`) is
-	 * flipped to its positive operator and the clause is marked to negate — the
+	 * flipped to its positive opposite and the clause is marked to negate — the
 	 * caller emits it as `NOT EXISTS`. That mirrors the bespoke engine's nested
 	 * NOT EXISTS: the semantics are "the object has NO meta row whose key matches"
 	 * (not "has some other key"), which avoids cross-key contamination. `!=` and
-	 * `NOT EXISTS` both flip to a `=` existence test.
+	 * `NOT EXISTS` both flip to a `=`/`EXISTS` existence test.
+	 *
+	 * Polarity and the opposite both come from the Operator descriptors
+	 * (Operators\*::$positive / $opposite), so there is no negation map to keep
+	 * in sync here.
 	 *
 	 * @since 3.1.0
 	 *
@@ -1524,19 +1528,16 @@ class Meta extends Base {
 			? strtoupper( (string) $meta_clause[ 'compare_key' ] )
 			: ( is_array( $key ) ? 'IN' : '=' );
 
-		// Negative key operator → flip to its positive form and negate the clause.
-		$negate_map = array(
-			'!='         => '=',
-			'NOT EXISTS' => '=',
-			'NOT IN'     => 'IN',
-			'NOT LIKE'   => 'LIKE',
-			'NOT REGEXP' => 'REGEXP',
-		);
-
-		$negate = isset( $negate_map[ $compare_key ] );
+		/*
+		 * Negative key operator → flip to its positive opposite and negate the
+		 * clause. The Operator object owns both facts: is_positive() and the
+		 * opposite's compare string (e.g. 'NOT REGEXP' → 'REGEXP', '!=' → '=').
+		 */
+		$operator = $this->get_operator( $compare_key );
+		$negate   = ( false !== $operator ) && ! $operator->is_positive();
 
 		if ( $negate ) {
-			$compare_key = $negate_map[ $compare_key ];
+			$compare_key = $operator->get_opposite_compare();
 		}
 
 		/*
