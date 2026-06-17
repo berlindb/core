@@ -162,6 +162,23 @@ class Query {
 	 */
 	private $schema_object = null;
 
+	/** Meta ******************************************************************/
+
+	/**
+	 * Memoized 'meta' relationship store, resolved lazily by get_meta_store().
+	 *
+	 * Reused across this instance's *_item_meta() calls because building the store
+	 * instantiates the remote meta Query (and its primary) — wasteful to repeat.
+	 *
+	 * Three states in one property: the sentinel `false` means "not resolved yet";
+	 * `null` is a valid resolution (this object has no meta store); a MetaStore is
+	 * the resolved store.
+	 *
+	 * @since 3.1.0
+	 * @var   \BerlinDB\Database\Interfaces\MetaStore|null|false
+	 */
+	private $meta_store = false;
+
 	/** Query Variables *******************************************************/
 
 	/**
@@ -3666,7 +3683,7 @@ class Query {
 	/** Meta ******************************************************************/
 
 	/**
-	 * Resolve this object's meta store, when it has one.
+	 * Resolve this object's meta store, when it has one (memoized per instance).
 	 *
 	 * The *_item_meta() methods are routers: when this object's relationship
 	 * named 'meta' resolves to a remote implementing Interfaces\MetaStore, meta
@@ -3676,24 +3693,48 @@ class Query {
 	 * canonical meta relationship; the interface proves the remote can actually
 	 * perform meta operations.
 	 *
+	 * The result is memoized on this instance ($meta_store, with `false` as the
+	 * "not resolved yet" sentinel since `null` validly means "no store") and reused
+	 * by every subsequent *_item_meta() call. Why: resolving the store
+	 * instantiates the remote meta Query — which, for the Meta preset, also builds
+	 * its primary Query and schema (~0.5ms) — so a loop of per-item meta operations
+	 * on the same Query would otherwise pay that cost on every call.
+	 *
+	 * Reuse is safe: the store is addressed by object ID *per method call* (nothing
+	 * is baked into the instance for a specific object), each store operation runs
+	 * its own lifecycle (per-run ephemeral state is reset by run()), and its reads
+	 * go through the standard query cache with last_changed invalidation — so a
+	 * memoized store never serves stale meta. (The test suite already reuses a
+	 * single store instance across many operations, exercising this.) The cache is
+	 * not invalidated during the instance's life because a Query's declared
+	 * relationships are fixed at construction.
+	 *
 	 * @since 3.1.0
 	 *
 	 * @return \BerlinDB\Database\Interfaces\MetaStore|null The store, or null.
 	 */
 	private function get_meta_store(): ?\BerlinDB\Database\Interfaces\MetaStore {
 
-		// Bail unless a relationship named 'meta' is declared.
-		$relationship = $this->get_relationship( 'meta' );
-		if ( ! ( $relationship instanceof Relationship ) ) {
-			return null;
+		/*
+		 * Return the memoized result. `false` means "not resolved yet"; `null` is a
+		 * valid resolution (this object has no meta store).
+		 */
+		if ( false !== $this->meta_store ) {
+			return $this->meta_store;
 		}
 
-		// Resolve the remote; it must prove capability via the contract.
-		$remote = $this->resolve_remote_query( $relationship );
+		// Resolve the remote behind the relationship named 'meta', if declared.
+		$relationship = $this->get_relationship( 'meta' );
+		$remote       = ( $relationship instanceof Relationship )
+			? $this->resolve_remote_query( $relationship )
+			: null;
 
-		return ( $remote instanceof \BerlinDB\Database\Interfaces\MetaStore )
+		// Cache the store (it must prove capability via the contract), or null.
+		$this->meta_store = ( $remote instanceof \BerlinDB\Database\Interfaces\MetaStore )
 			? $remote
 			: null;
+
+		return $this->meta_store;
 	}
 
 	/**

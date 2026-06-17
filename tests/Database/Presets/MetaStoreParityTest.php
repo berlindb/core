@@ -372,6 +372,23 @@ class MetaStoreParityTest extends TestCase {
 	}
 
 	/**
+	 * get_meta_store() is memoized: the SAME store instance is returned across
+	 * calls on one Query, so repeated *_item_meta() calls don't rebuild it.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_meta_store_is_memoized() {
+		$gadgets = new GadgetQuery();
+		$method  = new \ReflectionMethod( $gadgets, 'get_meta_store' );
+
+		$first  = $method->invoke( $gadgets );
+		$second = $method->invoke( $gadgets );
+
+		$this->assertInstanceOf( \BerlinDB\Database\Interfaces\MetaStore::class, $first );
+		$this->assertSame( $first, $second );
+	}
+
+	/**
 	 * A '0' value is a real delete filter, not "no filter" (core parity).
 	 *
 	 * @since 3.1.0
