@@ -127,36 +127,81 @@ EDD/SC, so the convention guides new code, not a mass-rename.
 ## Lexicon
 
 Domain terms have settled meanings — use them precisely, and always *qualify* the
-generic ones (never a bare global noun). Grows over time; add a term when one
-recurs or causes confusion.
+generic ones (never a bare global noun). The list grows; add a term when one
+recurs or causes confusion. When Berlin mirrors WordPress, **WP core's behavior is
+the spec** — `meta type`, `object_id`, `prepare()`, `register_meta()`,
+`no_found_rows`, `_get_meta_table()` carry WP's exact semantics.
+
+### Relationships
 
 - **`local` / `remote`** — the two sides of a relationship: `local` is the side
   *this* Query holds (its table/columns), `remote` is the related Query's side.
   Never "local to this class." Standard ORM usage (cf. Laravel's `$localKey`).
-- **`collection`** — a *set of things*, always qualified by domain: an *item
-  collection* (a Schema's columns or indexes), a *child collection* (a has_many's
-  related rows). A generic descriptor, not a formal type.
-- **`group`** — reserved for a boolean **AND/OR set of clauses**
-  (`build_clause_group()`, relationship/query clause groups). Do **not** reuse it
-  for schema items — that's a *collection*.
-- **`simple` clause** — the flat-`meta_*`-derived first-order meta clause that
-  sorts first (WordPress's own term; the `$simple` vars). The flat input vars are
-  the "`meta_*` shorthand"; the built clause is "simple."
-- **`first-order` clause** — a *leaf* clause (has `key`/`value`/`compare`…), vs a
-  nested AND/OR group (`WP_Meta_Query`'s term).
-- **`shaped` item** — a raw DB row turned into its `item_shape` (a Row subclass).
+- **`belongs_to` / `has_many`** — belongs_to *holds the pointer* at one remote row
+  (owning / "many" side); has_many *is pointed at* by many remote rows (parent /
+  "one" side).
+- **`foreign key`** — the column(s) holding the pointer (belongs_to's local side).
+  **`referenced key`** — the column(s) pointed at (a belongs_to's remote target, a
+  has_many's local key). **`constraint`** — the SQL `FOREIGN KEY` *name*, only when
+  `enforce` emits DDL (not the key itself).
+- **`accessor`** — a relationship's handle, how callers address it
+  (`get_related($item, 'order')`, `with => ['meta']`). It is the `Relationship`
+  object's `name`; the **`Relationship` value object** is the construct, the
+  accessor is just its handle (no separate type — YAGNI).
+- **`with`** primes accessors; strategy **`in`** (subquery → `{fk}__in`) vs
+  **`join`** (real `EXISTS`/JOIN); **semi-join** (has_many EXISTS, one row each) /
+  **anti-join** (`NOT EXISTS`).
 - **`prime` / priming** — warm a cache ahead of use (relationship/meta caches).
-- **fail closed** — on a malformed/unresolvable filter, match **no** rows
-  (`1 = 0`), never widen to all.
 
-### Method naming
+### Query & parsing
+
+- **`container var`** — a parser's top-level key holding its clauses
+  (`meta_query`, `date_query`, `relation_query`).
+- **`narrowed`** — a parser handed *only* its own sub-array vs the full query vars.
+- **`normalize_query_vars()`** — the *early, all-vars* phase (rewrites high-level
+  directives before parsing). **`parse_query_vars()`** — the *later, per-parser,
+  var-local* phase. (The two most-conflated.)
+- **`group`** — a boolean **AND/OR set of clauses** (`build_clause_group()`). Do
+  **not** reuse it for schema items — that's a *collection*.
+- **`first-order` clause** — a *leaf* clause (`key`/`value`/`compare`…) vs a nested
+  group (`WP_Meta_Query`'s term). **`simple` clause** — the flat-`meta_*`-derived
+  first-order meta clause that sorts first (WP's term; the `$simple` vars). The
+  flat input vars are the "`meta_*` shorthand"; the built clause is "simple."
+- **sentinel** — a flag a normalizer leaves in the vars
+  (`query_filter_short_circuit`) requesting **fail closed**. **fail closed** — on a
+  malformed/unresolvable filter, match **no** rows (`1 = 0`), never widen to all.
+- **`shaped` item** — a raw DB row turned into its `item_shape` (a Row subclass).
+
+### Schema & table
+
+- **`collection`** — a *qualified* set: an *item collection* (a Schema's columns or
+  indexes), a *child collection* (a has_many's related rows). A generic descriptor,
+  not a formal type.
+- **`prefix`** — three distinct things; **never write bare "prefix" in prose**: the
+  **plugin prefix** (`$prefix`, e.g. `edd`) → `apply_prefix()` makes `edd_orders`;
+  the **WordPress table prefix** (`$wpdb->prefix`, e.g. `wp_`) → prepended by the DB
+  interface → `wp_edd_orders`; **`table_prefix`** — the combined, site-aware prefix.
+  (`$prefix` can't be renamed — EDD/SC set it.)
+- **`tombstone`** — blocks auto-reinstall after `uninstall()`. **`global table`** —
+  multisite, shared across sites.
+
+### Boot / lifecycle
+
+- **`current`** — the *current run's* ephemeral state (`get_current()` /
+  `set_current()`), reset each run.
+- **`reserved vars`** — construction-machinery properties config can't clobber.
+  **`strict config`** — unknown config keys dropped + logged (opt-out).
+  **`define-once`** — `configure()` no-ops once booted.
+
+### Conventions
 
 - **`get_*`** — build-and-return (the house default: `get_sql`,
   `get_join_where_clauses`), not just stored accessors. Avoid `collect_`.
 - Relationship-API helpers carry **`relationship`** (or `related`) so `local` /
   `remote` read as relationship sides — `is_empty_relationship_key()`,
   `get_local_relationship_key_values()`.
-- Multi-line inline comments use `/* … */` (see Non-Negotiable #1).
+- **`sanitize_*` / `validate_*`** — see the section above.
+- Multi-line inline comments use `/* … */` (Non-Negotiable #1).
 
 ## Auditing (vs. verifying a change)
 
