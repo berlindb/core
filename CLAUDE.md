@@ -124,6 +124,40 @@ usable (coerced/cleaned) value; `validate_*` when it checks acceptability and ma
 reject. Keep existing names as-is — many are `@since 1.0.0`/`3.0.0` and called by
 EDD/SC, so the convention guides new code, not a mass-rename.
 
+## Lexicon
+
+Domain terms have settled meanings — use them precisely, and always *qualify* the
+generic ones (never a bare global noun). Grows over time; add a term when one
+recurs or causes confusion.
+
+- **`local` / `remote`** — the two sides of a relationship: `local` is the side
+  *this* Query holds (its table/columns), `remote` is the related Query's side.
+  Never "local to this class." Standard ORM usage (cf. Laravel's `$localKey`).
+- **`collection`** — a *set of things*, always qualified by domain: an *item
+  collection* (a Schema's columns or indexes), a *child collection* (a has_many's
+  related rows). A generic descriptor, not a formal type.
+- **`group`** — reserved for a boolean **AND/OR set of clauses**
+  (`build_clause_group()`, relationship/query clause groups). Do **not** reuse it
+  for schema items — that's a *collection*.
+- **`simple` clause** — the flat-`meta_*`-derived first-order meta clause that
+  sorts first (WordPress's own term; the `$simple` vars). The flat input vars are
+  the "`meta_*` shorthand"; the built clause is "simple."
+- **`first-order` clause** — a *leaf* clause (has `key`/`value`/`compare`…), vs a
+  nested AND/OR group (`WP_Meta_Query`'s term).
+- **`shaped` item** — a raw DB row turned into its `item_shape` (a Row subclass).
+- **`prime` / priming** — warm a cache ahead of use (relationship/meta caches).
+- **fail closed** — on a malformed/unresolvable filter, match **no** rows
+  (`1 = 0`), never widen to all.
+
+### Method naming
+
+- **`get_*`** — build-and-return (the house default: `get_sql`,
+  `get_join_where_clauses`), not just stored accessors. Avoid `collect_`.
+- Relationship-API helpers carry **`relationship`** (or `related`) so `local` /
+  `remote` read as relationship sides — `is_empty_relationship_key()`,
+  `get_local_relationship_key_values()`.
+- Multi-line inline comments use `/* … */` (see Non-Negotiable #1).
+
 ## Auditing (vs. verifying a change)
 
 "Verify my change" is diff-scoped: confirm the edit landed and the gate is green.

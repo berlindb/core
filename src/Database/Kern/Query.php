@@ -4404,7 +4404,7 @@ class Query {
 		}
 
 		// Warm the remote primary-key cache from this side's foreign-key values.
-		$values = $this->get_local_key_values( $items, $columns[0] );
+		$values = $this->get_local_relationship_key_values( $items, $columns[0] );
 
 		if ( ! empty( $values ) ) {
 			$remote->prime_items( $values );
@@ -4441,7 +4441,7 @@ class Query {
 		}
 
 		// Warm the child collections from this side's key values.
-		$values = $this->get_local_key_values( $items, $columns[0] );
+		$values = $this->get_local_relationship_key_values( $items, $columns[0] );
 
 		if ( ! empty( $values ) ) {
 			$remote->prime_has_many( $references[0], $values );
@@ -4449,19 +4449,20 @@ class Query {
 	}
 
 	/**
-	 * Return the distinct, non-empty local key values from a set of shaped items.
+	 * Return the distinct, non-empty local relationship-key values from items.
 	 *
-	 * Shared by the single-column relationship priming paths: reads $column off
-	 * each item, skips items that do not expose it, drops empty relationship keys,
-	 * and de-duplicates by string value.
+	 * "local" is the relationship side this query holds (vs the remote/related
+	 * Query). Shared by the single-column relationship priming paths: reads $column
+	 * off each item, skips items that do not expose it, drops empty relationship
+	 * keys (see is_empty_relationship_key()), and de-duplicates by string value.
 	 *
 	 * @since 3.1.0
 	 *
 	 * @param array<int|string,mixed> $items  Shaped result items to read keys from.
-	 * @param string                  $column The local column to read.
-	 * @return list<mixed> The distinct, non-empty key values.
+	 * @param string                  $column The local relationship key column to read.
+	 * @return list<mixed> The distinct, non-empty local key values.
 	 */
-	private function get_local_key_values( array $items, string $column ): array {
+	private function get_local_relationship_key_values( array $items, string $column ): array {
 		$values = array();
 
 		foreach ( $items as $item ) {
