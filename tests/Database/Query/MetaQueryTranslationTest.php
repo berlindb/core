@@ -812,4 +812,37 @@ class MetaQueryTranslationTest extends TestCase {
 			)
 		);
 	}
+
+	/**
+	 * Two named clauses drive a multi-column orderby on a store-backed query.
+	 *
+	 * Each token becomes its own correlated-subquery ORDER BY expression; size
+	 * ties A & B ( both large ), and the secondary score key breaks that tie.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_store_orderby_multiple_named_clauses() {
+		$args = array(
+			'meta_query' => array(
+				'size_clause'  => array(
+					'key' => 'size',
+				),
+				'score_clause' => array(
+					'key'  => 'score',
+					'type' => 'NUMERIC',
+				),
+			),
+			'orderby'    => array(
+				'size_clause'  => 'ASC',
+				'score_clause' => 'ASC',
+			),
+		);
+
+		// size ASC: large ( A, B ) < small ( C ). Within large, score ASC: 10 < 100.
+		$this->assertSame( array( 'A', 'B', 'C' ), $this->ordered_labels( $args ) );
+
+		// Flip only the secondary key: within large, score DESC puts B ( 100 ) first.
+		$args[ 'orderby' ][ 'score_clause' ] = 'DESC';
+		$this->assertSame( array( 'B', 'A', 'C' ), $this->ordered_labels( $args ) );
+	}
 }

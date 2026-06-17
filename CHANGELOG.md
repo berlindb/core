@@ -39,6 +39,17 @@ Notable changes to BerlinDB are documented here.
   sibling table (honoring `compare`, `type` casts, and `relation` AND/OR, with
   nesting); WordPress-core objects keep the bespoke meta parser. A negative
   `compare_key` is not yet translated and fails closed.
+- Adds ordering by meta value (#204): `orderby => 'meta_value'` / `'meta_value_num'`
+  (numeric), or a named `meta_query` clause key, orders results by that key's value —
+  for both the bespoke parser (via the clause's JOIN alias) and store-backed objects
+  (via a deterministic correlated subquery, where the oldest `meta_id` wins a
+  multi-valued key). Multiple meta keys, and mixing a meta key with a real column,
+  compose in one array `orderby`.
+- Fixes a named (string-keyed) `meta_query` clause being silently dropped by the
+  bespoke parser: it was mistaken for flat `meta_*` vars and emitted no SQL, so it
+  neither filtered nor sorted (only positional and `relation` clauses built). Named
+  clauses now build like positional ones (WP_Meta_Query parity), so both
+  `meta_query => array( 'name' => array( … ) )` filtering and `orderby => 'name'` work.
 - Relationship `relation_query` clauses may be combined into nested AND/OR groups
   (`'relation' => 'OR'` over a clause group), composing `EXISTS(a) OR EXISTS(b)`;
   malformed or unresolvable clauses fail the whole group closed.

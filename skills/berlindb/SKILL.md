@@ -250,6 +250,14 @@ casts, and `relation` AND/OR all honored. A negative `compare_key` (e.g. `NOT LI
 on the key) is not yet translated and fails closed. WordPress-core objects keep the
 bespoke meta parser unchanged.
 
+You can also order by a meta value: `orderby => 'meta_value'` (or `'meta_value_num'`
+for numeric) sorts by the simple/first clause's value, and a named `meta_query`
+clause key — `meta_query => array( 'price' => array( 'key' => 'price' ) )` with
+`orderby => 'price'` — sorts by that clause. Store-backed objects order via a
+correlated subquery (the oldest `meta_id` wins a multi-valued key). The array
+`orderby` shape works for both, so several meta keys (and real columns) can be mixed
+in one `orderby`. Named clauses both filter and sort, exactly like positional ones.
+
 Current limitations:
 
 - Negative `compare_key` on a meta key is not yet translated for store-backed

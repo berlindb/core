@@ -225,10 +225,14 @@ class Meta extends Base {
 
 		/*
 		 * If $qv is already a meta_query clause array (narrowed by the caller
-		 * before init() ran), return it unchanged. Numeric keys mean it's an
-		 * array of clause arrays; 'relation' means a multi-clause query.
+		 * before init() ran), return it unchanged. A positional list has a [0];
+		 * a multi-clause group has a 'relation'; a NAMED-only meta_query (its
+		 * clauses keyed by string name, e.g. 'price_clause' => array( … )) has
+		 * neither, so its members are inspected. Without the named case a
+		 * string-keyed meta_query is mistaken for flat meta_* vars and silently
+		 * dropped — it would neither filter nor sort.
 		 */
-		if ( isset( $qv[ 'relation' ] ) || isset( $qv[0] ) ) {
+		if ( $this->is_meta_query_clauses( $qv ) ) {
 			return $qv;
 		}
 
@@ -271,6 +275,58 @@ class Meta extends Base {
 
 		// Return the normalised meta_query array; Parser::init() will process it.
 		return $meta_query;
+	}
+
+	/**
+	 * Whether $qv is already a formed meta_query (a set of clauses) rather than
+	 * the flat top-level query vars.
+	 *
+	 * Recognises four shapes: a positional list ( `[0]` is a clause ), a
+	 * multi-clause group ( a 'relation' ), a bare first-order clause ( the array
+	 * IS a single clause, e.g. array( 'key' => …, 'value' => … ) ), and a NAMED
+	 * set ( string-keyed clauses ). The first two are cheap key checks; the last
+	 * two test for first-order meta keys, since neither carries a structural
+	 * marker of its own.
+	 *
+	 * Full query vars always carry the 'meta_query' container key ( the parser's
+	 * own sentinel, or an explicit array ), while a narrowed clause set does not;
+	 * gating the key tests on its absence keeps a flat query ( whose own keys or
+	 * array members like `orderby`/`fields` are not clauses ) on the simple-clause
+	 * path. Uses get_first_keys() rather than is_first_order_clause() because
+	 * init() runs parse_query_vars() before $this->first_keys is populated.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<int|string,mixed> $qv The ( possibly narrowed ) query vars.
+	 * @return bool True when $qv is already a meta_query clause set.
+	 */
+	private function is_meta_query_clauses( array $qv ): bool {
+
+		// Positional list, or an explicit multi-clause relation.
+		if ( isset( $qv[ 'relation' ] ) || isset( $qv[0] ) ) {
+			return true;
+		}
+
+		// Full query vars carry the container key; a narrowed clause set does not.
+		if ( array_key_exists( 'meta_query', $qv ) ) {
+			return false;
+		}
+
+		$first_keys = $this->get_first_keys();
+
+		// A bare first-order clause: the array itself is a single meta clause.
+		if ( array() !== array_intersect( $first_keys, array_keys( $qv ) ) ) {
+			return true;
+		}
+
+		// A named set: any member shaped like a first-order meta clause.
+		foreach ( $qv as $member ) {
+			if ( is_array( $member ) && ( array() !== array_intersect( $first_keys, array_keys( $member ) ) ) ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/**

@@ -573,9 +573,13 @@ class MetaParserTest extends TestCase {
 	/**
 	 * Test that a named meta_query clause key can be used as an orderby value.
 	 *
+	 * Orders DESC on purpose: scores 10/20/30 descend to Gamma, Beta, Alpha —
+	 * the REVERSE of insertion/id order, so this fails if the named clause is
+	 * dropped and rows fall back to the default primary-key order.
+	 *
 	 * @since 3.0.0
 	 */
-	public function test_orderby_named_clause_key_asc() {
+	public function test_orderby_named_clause_key_desc() {
 		$results = self::$query->query(
 			array(
 				'meta_query' => array(
@@ -584,14 +588,147 @@ class MetaParserTest extends TestCase {
 					),
 				),
 				'orderby'    => 'score_clause',
-				'order'      => 'ASC',
+				'order'      => 'DESC',
 			)
 		);
 
-		// All three rows have a score (10, 20, 30). ASC -> Alpha, Beta, Gamma.
+		// All three rows have a score (10, 20, 30). DESC -> Gamma, Beta, Alpha.
 		$this->assertCount( 3, $results );
-		$this->assertSame( 'Alpha Widget', $results[0]->name );
+		$this->assertSame( 'Gamma Gadget', $results[0]->name );
 		$this->assertSame( 'Beta Widget', $results[1]->name );
+		$this->assertSame( 'Alpha Widget', $results[2]->name );
+	}
+
+	/**
+	 * A NAMED (string-keyed) meta_query clause must FILTER, like a positional one.
+	 *
+	 * Regression test: the named clause was previously dropped before SQL was
+	 * built (mistaken for flat meta_* vars), so it neither filtered nor sorted —
+	 * the query returned every row. score >= 20 (NUMERIC) keeps Beta (20) and
+	 * Gamma (30) but not Alpha (10).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_named_meta_query_clause_filters() {
+		$results = self::$query->query(
+			array(
+				'meta_query' => array(
+					'score_clause' => array(
+						'key'     => 'berlindb_test_score',
+						'value'   => '20',
+						'compare' => '>=',
+						'type'    => 'NUMERIC',
+					),
+				),
+			)
+		);
+
+		$names = wp_list_pluck( $results, 'name' );
+		sort( $names );
+
+		$this->assertSame( array( 'Beta Widget', 'Gamma Gadget' ), $names );
+	}
+
+	/**
+	 * A bare first-order associative meta_query ( the array IS one clause, with
+	 * no [0], 'relation', or named wrapper ) must filter on the bespoke path.
+	 *
+	 * Regression test ( companion to the store-backed coverage ): like a named
+	 * clause, this shape was mistaken for flat meta_* vars and dropped. color
+	 * 'red' matches Alpha only.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_bare_first_order_meta_query_filters() {
+		$results = self::$query->query(
+			array(
+				'meta_query' => array(
+					'key'   => 'berlindb_test_color',
+					'value' => 'red',
+				),
+			)
+		);
+
+		$this->assertCount( 1, $results );
+		$this->assertSame( 'Alpha Widget', $results[0]->name );
+	}
+
+	/**
+	 * Two named meta_query clauses can both drive a multi-column orderby.
+	 *
+	 * grp ties Alpha & Beta (both 1); the secondary score key breaks that tie.
+	 * Confirms parse_orderby() resolves every meta token in an array orderby,
+	 * each against its own JOIN alias.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_orderby_multiple_named_clauses() {
+
+		// Group Alpha & Beta together (1); Gamma alone (2).
+		add_metadata( 'post', $this->ids[0], 'berlindb_test_grp', '1' );
+		add_metadata( 'post', $this->ids[1], 'berlindb_test_grp', '1' );
+		add_metadata( 'post', $this->ids[2], 'berlindb_test_grp', '2' );
+
+		$results = self::$query->query(
+			array(
+				'meta_query' => array(
+					'grp_clause'   => array(
+						'key'  => 'berlindb_test_grp',
+						'type' => 'NUMERIC',
+					),
+					'score_clause' => array(
+						'key'  => 'berlindb_test_score',
+						'type' => 'NUMERIC',
+					),
+				),
+				'orderby'    => array(
+					'grp_clause'   => 'ASC',
+					'score_clause' => 'DESC',
+				),
+			)
+		);
+
+		// grp ASC: 1 ( Alpha, Beta ), 2 ( Gamma ). Within grp 1, score DESC: 20 > 10.
+		$this->assertCount( 3, $results );
+		$this->assertSame( 'Beta Widget', $results[0]->name );
+		$this->assertSame( 'Alpha Widget', $results[1]->name );
+		$this->assertSame( 'Gamma Gadget', $results[2]->name );
+	}
+
+	/**
+	 * A meta clause and a real sortable column can be mixed in one orderby.
+	 *
+	 * The meta-driven JOIN-alias ORDER BY expression and the plain column
+	 * expression must coexist; the column ( name DESC ) breaks the grp tie.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_orderby_meta_clause_then_column() {
+
+		// Group Alpha & Beta together (1); Gamma alone (2).
+		add_metadata( 'post', $this->ids[0], 'berlindb_test_grp', '1' );
+		add_metadata( 'post', $this->ids[1], 'berlindb_test_grp', '1' );
+		add_metadata( 'post', $this->ids[2], 'berlindb_test_grp', '2' );
+
+		$results = self::$query->query(
+			array(
+				'meta_query' => array(
+					'grp_clause' => array(
+						'key'  => 'berlindb_test_grp',
+						'type' => 'NUMERIC',
+					),
+				),
+				'orderby'    => array(
+					'grp_clause' => 'ASC',
+					'name'       => 'DESC',
+				),
+			)
+		);
+
+		// grp ASC: 1 ( Alpha, Beta ), 2 ( Gamma ). Within grp 1, name DESC: Beta > Alpha.
+		$this->assertCount( 3, $results );
+		$this->assertSame( 'Beta Widget', $results[0]->name );
+		$this->assertSame( 'Alpha Widget', $results[1]->name );
 		$this->assertSame( 'Gamma Gadget', $results[2]->name );
 	}
 
