@@ -222,6 +222,7 @@ class Meta extends Base {
 	 * @return array<string,mixed> The normalised meta_query array.
 	 */
 	protected function parse_query_vars( $qv = array() ) {
+
 		/*
 		 * If $qv is already a meta_query clause array (narrowed by the caller
 		 * before init() ran), return it unchanged. Numeric keys mean it's an
@@ -237,20 +238,9 @@ class Meta extends Base {
 		 * needs to be its own clause (so it doesn't interfere with the logic of
 		 * the rest of the meta_query).
 		 */
-		$simple_keys       = array( 'key', 'compare', 'type', 'compare_key', 'type_key' );
-		$simple_meta_query = array();
 
-		// Loop through simple keys.
-		foreach ( $simple_keys as $key ) {
-			if ( ! empty( $qv[ "meta_{$key}" ] ) ) {
-				$simple_meta_query[ $key ] = $qv[ "meta_{$key}" ];
-			}
-		}
-
-		// Back-compat for setting 'meta_value' = '' by default.
-		if ( isset( $qv[ 'meta_value' ] ) && ( '' !== $qv[ 'meta_value' ] ) && ( ! is_array( $qv[ 'meta_value' ] ) || $qv[ 'meta_value' ] ) ) {
-			$simple_meta_query[ 'value' ] = $qv[ 'meta_value' ];
-		}
+		// The flat meta_* vars become one simple clause (shared with the store translator).
+		$simple_meta_query = $this->get_simple_meta_clause( $qv );
 
 		// Check for an existing meta_query argument.
 		$existing_meta_query = isset( $qv[ 'meta_query' ] ) && is_array( $qv[ 'meta_query' ] )
@@ -863,7 +853,7 @@ class Meta extends Base {
 	 */
 	public function normalize_query_vars( array $query_vars, \BerlinDB\Database\Kern\Query $caller ): array {
 
-		// Combine shorthand + meta_query into one clause tree; nothing to do if empty.
+		// Combine the simple clause + meta_query into one clause tree; nothing to do if empty.
 		$meta_query = $this->combine_meta_query_clauses( $query_vars );
 
 		if ( empty( $meta_query ) ) {
@@ -946,11 +936,45 @@ class Meta extends Base {
 	}
 
 	/**
-	 * Combine the meta shorthand vars and meta_query into one clause tree.
+	 * Build a single "simple" first-order clause from the flat meta_* vars.
 	 *
-	 * Mirrors parse_query_vars()'s shorthand handling but reads from the FULL query
-	 * vars (this early normalization sees everything) and wraps a bare first-order
-	 * meta_query so the translator treats it as one clause.
+	 * Shared by parse_query_vars() (the bespoke engine, reading its narrowed vars)
+	 * and combine_meta_query_clauses() (the store translator, reading all vars):
+	 * meta_key / meta_compare / meta_type / meta_compare_key / meta_type_key become
+	 * a clause, plus meta_value unless it is the back-compat default empty string.
+	 * "simple" is WP's term for this flat-var clause (the one sorted first);
+	 * centralizing it keeps the meta_value guard from drifting between the two.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string,mixed> $vars Query vars to read the flat meta_* vars from.
+	 * @return array<string,mixed> The simple clause, or empty when none is set.
+	 */
+	private function get_simple_meta_clause( array $vars ): array {
+
+		$simple = array();
+
+		// The flat meta_* vars become a single clause.
+		foreach ( array( 'key', 'compare', 'type', 'compare_key', 'type_key' ) as $key ) {
+			if ( ! empty( $vars[ "meta_{$key}" ] ) ) {
+				$simple[ $key ] = $vars[ "meta_{$key}" ];
+			}
+		}
+
+		// meta_value joins the clause unless it is the back-compat default empty string.
+		if ( isset( $vars[ 'meta_value' ] ) && ( '' !== $vars[ 'meta_value' ] ) && ( ! is_array( $vars[ 'meta_value' ] ) || $vars[ 'meta_value' ] ) ) {
+			$simple[ 'value' ] = $vars[ 'meta_value' ];
+		}
+
+		return $simple;
+	}
+
+	/**
+	 * Combine the simple meta clause and meta_query into one clause tree.
+	 *
+	 * Mirrors parse_query_vars()'s simple-clause handling but reads from the FULL
+	 * query vars (this early normalization sees everything) and wraps a bare
+	 * first-order meta_query so the translator treats it as one clause.
 	 *
 	 * @since 3.1.0
 	 *
@@ -964,21 +988,10 @@ class Meta extends Base {
 			? $query_vars[ 'meta_query' ]
 			: array();
 
-		// The simple shorthand vars become a single clause.
-		$simple = array();
+		// The flat meta_* vars become a single simple clause (shared with parse_query_vars()).
+		$simple = $this->get_simple_meta_clause( $query_vars );
 
-		foreach ( array( 'key', 'compare', 'type', 'compare_key', 'type_key' ) as $key ) {
-			if ( ! empty( $query_vars[ "meta_{$key}" ] ) ) {
-				$simple[ $key ] = $query_vars[ "meta_{$key}" ];
-			}
-		}
-
-		// meta_value joins the clause unless it is the default empty string.
-		if ( isset( $query_vars[ 'meta_value' ] ) && ( '' !== $query_vars[ 'meta_value' ] ) && ( ! is_array( $query_vars[ 'meta_value' ] ) || $query_vars[ 'meta_value' ] ) ) {
-			$simple[ 'value' ] = $query_vars[ 'meta_value' ];
-		}
-
-		// Combine the shorthand clause with any explicit meta_query, via AND.
+		// Combine the simple clause with any explicit meta_query, via AND.
 		if ( ! empty( $simple ) && ! empty( $meta_query ) ) {
 			return array(
 				'relation' => 'AND',
@@ -1117,7 +1130,8 @@ class Meta extends Base {
 			$available[ 'meta_value_num' ] = $first;
 		}
 
-		$this->collect_named_meta_orderby_keys( $meta_query, $available );
+		// Named clauses are added on top (they override the meta_value defaults above).
+		$available = array_merge( $available, $this->get_named_meta_orderby_keys( $meta_query ) );
 
 		// Record only the requested tokens we can satisfy.
 		$directive = array();
@@ -1158,18 +1172,19 @@ class Meta extends Base {
 	}
 
 	/**
-	 * Collect each NAMED meta_query clause's orderby entry, keyed by clause name.
+	 * Return each NAMED meta_query clause's orderby entry, keyed by clause name.
 	 *
 	 * A clause keyed by a STRING in the tree (other than 'relation') is a named
-	 * clause; record name → { key, cast } so `orderby => '<name>'` can claim it.
+	 * clause; map name → { key, cast } so `orderby => '<name>'` can claim it.
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param array<int|string,mixed>                        $meta_query The (sub)tree.
-	 * @param array<string,array{key: string, cast: string}> $map        Accumulator (by reference).
-	 * @return void
+	 * @param array<int|string,mixed> $meta_query The (sub)tree.
+	 * @return array<string,array{key: string, cast: string}> Named clauses, keyed by name.
 	 */
-	private function collect_named_meta_orderby_keys( array $meta_query, array &$map ): void {
+	private function get_named_meta_orderby_keys( array $meta_query ): array {
+
+		$map = array();
 
 		foreach ( $meta_query as $key => $member ) {
 
@@ -1177,9 +1192,9 @@ class Meta extends Base {
 				continue;
 			}
 
-			// A nested group: recurse (a named clause may live inside it).
+			// A nested group: merge in its named clauses (a named clause may live inside).
 			if ( isset( $member[ 'relation' ] ) || isset( $member[0] ) ) {
-				$this->collect_named_meta_orderby_keys( $member, $map );
+				$map = array_merge( $map, $this->get_named_meta_orderby_keys( $member ) );
 
 				continue;
 			}
@@ -1189,6 +1204,8 @@ class Meta extends Base {
 				$map[ $key ] = $this->orderby_entry_for_clause( $member );
 			}
 		}
+
+		return $map;
 	}
 
 	/**

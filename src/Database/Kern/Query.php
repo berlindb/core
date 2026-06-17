@@ -4404,7 +4404,7 @@ class Query {
 		}
 
 		// Warm the remote primary-key cache from this side's foreign-key values.
-		$values = $this->collect_local_key_values( $items, $columns[0] );
+		$values = $this->get_local_key_values( $items, $columns[0] );
 
 		if ( ! empty( $values ) ) {
 			$remote->prime_items( $values );
@@ -4441,7 +4441,7 @@ class Query {
 		}
 
 		// Warm the child collections from this side's key values.
-		$values = $this->collect_local_key_values( $items, $columns[0] );
+		$values = $this->get_local_key_values( $items, $columns[0] );
 
 		if ( ! empty( $values ) ) {
 			$remote->prime_has_many( $references[0], $values );
@@ -4449,7 +4449,7 @@ class Query {
 	}
 
 	/**
-	 * Collect the distinct, non-empty local key values from a set of shaped items.
+	 * Return the distinct, non-empty local key values from a set of shaped items.
 	 *
 	 * Shared by the single-column relationship priming paths: reads $column off
 	 * each item, skips items that do not expose it, drops empty relationship keys,
@@ -4458,10 +4458,10 @@ class Query {
 	 * @since 3.1.0
 	 *
 	 * @param array<int|string,mixed> $items  Shaped result items to read keys from.
-	 * @param string                   $column The local column to read.
+	 * @param string                  $column The local column to read.
 	 * @return list<mixed> The distinct, non-empty key values.
 	 */
-	private function collect_local_key_values( array $items, string $column ): array {
+	private function get_local_key_values( array $items, string $column ): array {
 		$values = array();
 
 		foreach ( $items as $item ) {
