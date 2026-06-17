@@ -47,7 +47,7 @@ class Compare extends Base {
 	 * Column filter passed to get_column_names() to select relevant columns.
 	 *
 	 * @since 3.0.0
-	 * @var array<string, bool>
+	 * @var array<string,bool>
 	 */
 	protected $column_filter = array( 'primary' => true );
 

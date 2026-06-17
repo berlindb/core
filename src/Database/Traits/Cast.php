@@ -43,7 +43,7 @@ trait Cast {
 	 *   );
 	 *
 	 * @since 3.0.0
-	 * @var   array<string, callable>
+	 * @var   array<string,callable>
 	 */
 	protected $casts = array();
 

@@ -29,7 +29,7 @@ defined( 'ABSPATH' ) || exit;
  * @property-read string $name
  * @property-read string|null $query_var
  * @property-read mixed $default
- * @property-read array<string, bool> $column_filter
+ * @property-read array<string,bool> $column_filter
  * @property-read string $column_suffix
  */
 abstract class Base {
@@ -58,7 +58,7 @@ abstract class Base {
 	 * An empty array means all columns are considered.
 	 *
 	 * @since 3.0.0
-	 * @var array<string, bool>
+	 * @var array<string,bool>
 	 */
 	protected $column_filter = array();
 

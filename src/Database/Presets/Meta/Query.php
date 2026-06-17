@@ -481,7 +481,7 @@ class Query extends KernQuery implements MetaStore {
 	 *
 	 * @param int|string|null $object_id Object ID, or null for all objects.
 	 * @param string          $meta_key  Meta key, or '' for all keys.
-	 * @return array<int, Row> Meta rows (possibly empty).
+	 * @return array<int,Row> Meta rows (possibly empty).
 	 */
 	private function get_meta_rows( int|string|null $object_id, string $meta_key ): array {
 

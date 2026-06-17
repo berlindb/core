@@ -390,7 +390,7 @@ class Relationship extends Base {
 	 * @since 3.1.0
 	 *
 	 * @param array<int|string,mixed> $clauses        The clause group (members + optional 'relation').
-	 * @param array<string, int>      $alias_counts Shared per-name alias counters (by reference).
+	 * @param array<string,int>       $alias_counts Shared per-name alias counters (by reference).
 	 * @param list<string>            $joins        Shared collected JOIN fragments (by reference).
 	 * @param bool                    $is_root      Whether this is the outermost group.
 	 * @return string|false The combined WHERE fragment ('' when empty), or false (fail closed).

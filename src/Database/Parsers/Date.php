@@ -143,7 +143,7 @@ class Date extends Base {
 	 * Column filter passed to get_column_names() to select relevant columns.
 	 *
 	 * @since 3.0.0
-	 * @var array<string, bool>
+	 * @var array<string,bool>
 	 */
 	protected $column_filter = array( 'date_query' => true );
 
@@ -494,7 +494,7 @@ class Date extends Base {
 		if ( ! empty( $clause[ 'after' ] ) ) {
 			$after_raw = $clause[ 'after' ];
 			if ( is_array( $after_raw ) ) {
-				/** @var array<string, int> $after_val */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
+				/** @var array<string,int> $after_val */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
 				$after_val = $after_raw;
 			} elseif ( is_int( $after_raw ) || is_string( $after_raw ) ) {
 				$after_val = $after_raw;
@@ -512,7 +512,7 @@ class Date extends Base {
 		if ( ! empty( $clause[ 'before' ] ) ) {
 			$before_raw = $clause[ 'before' ];
 			if ( is_array( $before_raw ) ) {
-				/** @var array<string, int> $before_val */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
+				/** @var array<string,int> $before_val */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
 				$before_val = $before_raw;
 			} elseif ( is_int( $before_raw ) || is_string( $before_raw ) ) {
 				$before_val = $before_raw;

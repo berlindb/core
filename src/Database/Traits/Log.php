@@ -81,7 +81,7 @@ trait Log {
 	 *
 	 * @param array<string,mixed> $args     Optional field/value pairs to match. Default empty array.
 	 * @param string              $operator Optional comparison operator. Accepts 'and' or 'or'. Default 'and'.
-	 * @return array<int, array{level: string, code: string, message: string, context: array<string,mixed>, time: float, source: string}>
+	 * @return array<int,array{level: string, code: string, message: string, context: array<string,mixed>, time: float, source: string}>
 	 */
 	public function get_logs( array $args = array(), string $operator = 'and' ) {
 
@@ -126,10 +126,10 @@ trait Log {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<int, array{level: string, code: string, message: string, context: array<string,mixed>, time: float, source: string}> $logs     Log entries.
-	 * @param array<string,mixed>                                                                                                        $args     Field/value pairs to match.
-	 * @param string                                                                                                                      $operator Optional comparison operator. Accepts 'and' or 'or'. Default 'and'.
-	 * @return array<int, array{level: string, code: string, message: string, context: array<string,mixed>, time: float, source: string}>
+	 * @param array<int,array{level: string, code: string, message: string, context: array<string,mixed>, time: float, source: string}> $logs     Log entries.
+	 * @param array<string,mixed>                                                                                                       $args     Field/value pairs to match.
+	 * @param string                                                                                                                    $operator Optional comparison operator. Accepts 'and' or 'or'. Default 'and'.
+	 * @return array<int,array{level: string, code: string, message: string, context: array<string,mixed>, time: float, source: string}>
 	 */
 	protected function filter_logs( array $logs = array(), array $args = array(), string $operator = 'and' ): array {
 		return array_values(
