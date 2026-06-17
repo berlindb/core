@@ -387,6 +387,30 @@ class MetaStoreParityTest extends TestCase {
 	}
 
 	/**
+	 * '', null, and false are all "no value filter" — they delete EVERY entry for
+	 * the key (delete_metadata() parity), unlike a real value such as '0'. Locks
+	 * the three-way guard in delete_meta() so it is not "simplified" away
+	 * (maybe_serialize() returns null/false for null/false input).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_delete_with_null_or_false_value_is_no_filter() {
+		$store = new GadgetMetaQuery();
+
+		// null: deletes all entries for the key regardless of value.
+		$store->add_meta( 1, 'tag', 'a' );
+		$store->add_meta( 1, 'tag', 'b' );
+		$this->assertTrue( $store->delete_meta( 1, 'tag', null ) );
+		$this->assertSame( array(), $store->get_meta( 1, 'tag' ) );
+
+		// false: same — no value filter.
+		$store->add_meta( 1, 'tag', 'c' );
+		$store->add_meta( 1, 'tag', 'd' );
+		$this->assertTrue( $store->delete_meta( 1, 'tag', false ) );
+		$this->assertSame( array(), $store->get_meta( 1, 'tag' ) );
+	}
+
+	/**
 	 * A '0' previous value is NOT a filter — core's empty() semantics.
 	 *
 	 * @since 3.1.0

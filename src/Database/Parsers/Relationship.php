@@ -398,9 +398,7 @@ class Relationship extends Base {
 	private function build_clause_group( array $clauses, array &$alias_counts, array &$joins, bool $is_root = false ): string|false {
 
 		// Extract the boolean relation for this group ('AND' default, or 'OR').
-		$relation = ( isset( $clauses[ 'relation' ] ) && is_string( $clauses[ 'relation' ] ) && ( 'OR' === strtoupper( $clauses[ 'relation' ] ) ) )
-			? 'OR'
-			: 'AND';
+		$relation = $this->get_clause_relation( $clauses );
 
 		// 'relation' is a group directive, not a clause.
 		unset( $clauses[ 'relation' ] );
@@ -668,9 +666,7 @@ class Relationship extends Base {
 	private function build_conditions( Query $remote, string $alias, array $conds ): string|false {
 
 		// Extract the boolean relation for this group ('AND' default, or 'OR').
-		$relation = ( isset( $conds[ 'relation' ] ) && is_string( $conds[ 'relation' ] ) && ( 'OR' === strtoupper( $conds[ 'relation' ] ) ) )
-			? 'OR'
-			: 'AND';
+		$relation = $this->get_clause_relation( $conds );
 
 		// 'relation' is a directive, not a column condition.
 		unset( $conds[ 'relation' ] );

@@ -272,4 +272,21 @@ abstract class Base {
 		// Set operators.
 		$this->operators = $instances[ $key ];
 	}
+
+	/**
+	 * Read a clause group's boolean relation: 'OR' when set, else 'AND' (default).
+	 *
+	 * `relation` is a group directive (not a clause); callers unset it after
+	 * reading. Shared by the relationship and meta clause-group builders.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<int|string,mixed> $clauses A clause group.
+	 * @return string 'OR' or 'AND'.
+	 */
+	protected function get_clause_relation( array $clauses ): string {
+		return ( isset( $clauses[ 'relation' ] ) && is_string( $clauses[ 'relation' ] ) && ( 'OR' === strtoupper( $clauses[ 'relation' ] ) ) )
+			? 'OR'
+			: 'AND';
+	}
 }

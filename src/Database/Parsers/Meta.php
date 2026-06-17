@@ -1334,9 +1334,7 @@ class Meta extends Base {
 	private function translate_meta_query_group( array $meta_query ): ?array {
 
 		// Boolean relation for this group ('AND' default, or 'OR').
-		$relation = ( isset( $meta_query[ 'relation' ] ) && is_string( $meta_query[ 'relation' ] ) && ( 'OR' === strtoupper( $meta_query[ 'relation' ] ) ) )
-			? 'OR'
-			: 'AND';
+		$relation = $this->get_clause_relation( $meta_query );
 
 		unset( $meta_query[ 'relation' ] );
 
