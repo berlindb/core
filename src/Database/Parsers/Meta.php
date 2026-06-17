@@ -356,9 +356,11 @@ class Meta extends Base {
 	 * @since 3.1.0
 	 * @internal
 	 *
-	 * Params are intentionally untyped: get_sql() is a back-compat entry point, so
-	 * a legacy caller passing a non-string is sanitized to false here (as it was
-	 * before this tail was extracted) rather than raising a TypeError.
+	 * The params carry no native type and are documented `string` only as the
+	 * expected type: get_sql() is a back-compat entry point, so a legacy caller
+	 * passing a non-string (effectively `mixed` at runtime) is sanitized to false
+	 * here — as it was before this tail was extracted — rather than raising a
+	 * TypeError. Pass strings; non-strings fail closed.
 	 *
 	 * @param string $type           Meta type (e.g. 'post'); the meta table is derived from it.
 	 * @param string $primary_table  Primary table name or alias.
