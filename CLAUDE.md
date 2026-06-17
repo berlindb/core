@@ -23,6 +23,9 @@ hand-rolled queries — never more surprising.
    Read the surrounding code and mirror it: comment density, naming, spacing,
    docblocks, `// Bail if …` early returns, aligned `=`, spaces inside array
    brackets (`$arr[ 'key' ]`), and the section banners (`/** … ****/`).
+   **Multi-line inline comments use `/* … */` blocks; `//` is for single lines
+   only** (WordPress standard) — never stack consecutive `//` lines for a
+   paragraph.
 2. **Run the test suite after every change**, without being asked:
    ```bash
    bin/run-tests.sh -p 8.2 -w 6.7 -- --group default
