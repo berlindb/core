@@ -36,7 +36,7 @@ trait Sanitizer {
 	 *
 	 * @return string|false Sanitized value on success, false on error.
 	 */
-	private function sanitize_identifier( $id = '', $disallowed_pattern = '', $replacement = '', $lowercase = false, $normalize_hyphens = false ) {
+	private function sanitize_identifier( $id = '', $disallowed_pattern = '', $replacement = '', $lowercase = false, $normalize_hyphens = false ): string|false {
 
 		// Bail if empty or not a string.
 		if ( empty( $id ) || ! is_string( $id ) ) {

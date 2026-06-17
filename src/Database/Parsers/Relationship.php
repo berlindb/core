@@ -395,7 +395,7 @@ class Relationship extends Base {
 	 * @param bool                    $is_root      Whether this is the outermost group.
 	 * @return string|false The combined WHERE fragment ('' when empty), or false (fail closed).
 	 */
-	private function build_clause_group( array $clauses, array &$alias_counts, array &$joins, bool $is_root = false ) {
+	private function build_clause_group( array $clauses, array &$alias_counts, array &$joins, bool $is_root = false ): string|false {
 
 		// Extract the boolean relation for this group ('AND' default, or 'OR').
 		$relation = ( isset( $clauses[ 'relation' ] ) && is_string( $clauses[ 'relation' ] ) && ( 'OR' === strtoupper( $clauses[ 'relation' ] ) ) )
@@ -509,7 +509,7 @@ class Relationship extends Base {
 	 *                                          names distinct (e.g. '_2'). Default ''.
 	 * @return array{join: string, where: list<string>}|false False if unresolvable.
 	 */
-	private function build_clause( array $clause_args, $alias_suffix = '' ) {
+	private function build_clause( array $clause_args, $alias_suffix = '' ): array|false {
 
 		$name  = (string) $clause_args[ 'name' ];
 		$conds = ( isset( $clause_args[ 'where' ] ) && is_array( $clause_args[ 'where' ] ) )
@@ -665,7 +665,7 @@ class Relationship extends Base {
 	 * @param array<string,mixed> $conds  Column => condition map (+ optional 'relation' and nested subgroups).
 	 * @return string|false The combined WHERE group (or '' if none), or false on an unknown column.
 	 */
-	private function build_conditions( Query $remote, string $alias, array $conds ) {
+	private function build_conditions( Query $remote, string $alias, array $conds ): string|false {
 
 		// Extract the boolean relation for this group ('AND' default, or 'OR').
 		$relation = ( isset( $conds[ 'relation' ] ) && is_string( $conds[ 'relation' ] ) && ( 'OR' === strtoupper( $conds[ 'relation' ] ) ) )
@@ -719,7 +719,7 @@ class Relationship extends Base {
 	 * @param mixed  $cond   The condition value or { compare, value } descriptor.
 	 * @return string|false The WHERE expression, '' if it produced nothing, or false if unknown column.
 	 */
-	private function build_condition( Query $remote, string $alias, string $column, mixed $cond ) {
+	private function build_condition( Query $remote, string $alias, string $column, mixed $cond ): string|false {
 
 		// Resolve the remote Column object.
 		$name = $this->sanitize_column_name( $column );
