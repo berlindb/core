@@ -3836,8 +3836,17 @@ class Query {
 		// Shape the item ID.
 		$item_id = $this->shape_item_id( $item_id );
 
-		// Bail if no meta was returned, or if the ID is not an integer (metadata requires integer IDs).
-		if ( ! is_int( $item_id ) || empty( $item_id ) || empty( $meta_key ) ) {
+		// A meta key is always required.
+		if ( empty( $meta_key ) ) {
+			return false;
+		}
+
+		/*
+		 * A global purge ($delete_all) deletes the key across every object, so it
+		 * ignores the item ID — the store and delete_metadata() both do. Otherwise
+		 * require a valid integer ID (metadata requires integer IDs).
+		 */
+		if ( empty( $delete_all ) && ( ! is_int( $item_id ) || empty( $item_id ) ) ) {
 			return false;
 		}
 
@@ -3855,8 +3864,11 @@ class Query {
 		// Get the meta type.
 		$meta_type = $this->get_meta_type();
 
-		// Return results of deleting meta data.
-		return delete_metadata( $meta_type, $item_id, $meta_key, $meta_value, $delete_all );
+		/*
+		 * Return results of deleting meta data. The id is an int on the per-object
+		 * path (guarded above) and ignored by delete_metadata() when $delete_all.
+		 */
+		return delete_metadata( $meta_type, (int) $item_id, $meta_key, $meta_value, $delete_all );
 	}
 
 	/**

@@ -112,6 +112,12 @@ Notable changes to BerlinDB are documented here.
   (matching `get_metadata()` and `MetaStore::get_meta()`); previously the empty key
   was rejected and it returned `false`. Applies to both the meta-store and legacy
   WordPress paths.
+- `delete_item_meta( $id, $key, '', true )` now reaches the global purge it
+  documents — the key is deleted across every object (`$delete_all`, ignoring the
+  item ID), matching `delete_metadata()` and `MetaStore::delete_meta()`. Previously
+  the empty-ID guard returned `false` before routing, so the capability — already
+  implemented on both the store and legacy paths — was unreachable. A meta key is
+  still required.
 - Malformed relationship declarations are still dropped (fail-closed), but now log a
   non-fatal warning identifying the column and the reason. Call
   `Query::get_relationship_errors()` to validate the remote side of the surviving

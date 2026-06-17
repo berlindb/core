@@ -82,6 +82,10 @@ class GadgetQuery extends Query {
 	public function expose_get_meta( $id, $key, $single = false ) {
 		return $this->get_item_meta( $id, $key, $single );
 	}
+
+	public function expose_delete_meta( $id, $key, $value = '', $delete_all = false ) {
+		return $this->delete_item_meta( $id, $key, $value, $delete_all );
+	}
 }
 
 /** Primary Table. */
@@ -607,6 +611,39 @@ class MetaStoreParityTest extends TestCase {
 
 		// Clean up: postmeta DDL bypasses the per-test transaction rollback.
 		$wpdb->query( "DELETE FROM {$wpdb->postmeta} WHERE post_id = {$id}" ); // phpcs:ignore WordPress.DB
+	}
+
+	/**
+	 * delete_item_meta( 0, $key, '', true ) purges a key across ALL objects.
+	 *
+	 * The global-purge ($delete_all) path now reaches the store through the router
+	 * instead of being blocked by the empty-ID guard; a normal per-object delete is
+	 * unaffected, and a key is still required.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_routed_delete_all_purges_key_across_objects() {
+		$gadgets = new GadgetQuery();
+		$store   = new GadgetMetaQuery();
+
+		$store->add_meta( 1, 'color', 'blue' );
+		$store->add_meta( 2, 'color', 'green' );
+		$store->add_meta( 1, 'size', 'large' );
+
+		// Global purge of 'color' (item id ignored) reaches the store via the router.
+		$this->assertTrue( $gadgets->expose_delete_meta( 0, 'color', '', true ) );
+		$this->assertSame( array(), $store->get_meta( 1, 'color' ) );
+		$this->assertSame( array(), $store->get_meta( 2, 'color' ) );
+
+		// A different key is untouched.
+		$this->assertSame( array( 'large' ), $store->get_meta( 1, 'size' ) );
+
+		// A normal per-object delete still requires (and uses) the item id.
+		$this->assertTrue( $gadgets->expose_delete_meta( 1, 'size' ) );
+		$this->assertSame( array(), $store->get_meta( 1, 'size' ) );
+
+		// A global purge still requires a meta key.
+		$this->assertFalse( $gadgets->expose_delete_meta( 0, '', '', true ) );
 	}
 
 	/**

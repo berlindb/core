@@ -232,6 +232,11 @@ the relationship named `meta` resolves to a `MetaStore`; otherwise they fall bac
 to the legacy WordPress metadata API. Expose those protected helpers from your
 own Query subclass if your plugin needs public item-meta methods.
 
+`delete_item_meta( $id, $key, $value, $delete_all )` mirrors `delete_metadata()`:
+with `$delete_all = true` the item ID is ignored and the key is purged across
+**every** object (a fleet-wide cleanup), on both the store and legacy paths. A
+meta key is still required.
+
 Bulk meta works too: extra non-column keys passed to `add_item()` /
 `update_item()` save through the store (non-empty values update, empty values
 delete), and `delete_item()` purges the item's meta. When a store is declared,
