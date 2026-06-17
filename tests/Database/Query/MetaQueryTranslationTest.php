@@ -545,8 +545,8 @@ class MetaQueryTranslationTest extends TestCase {
 	 *
 	 * Value-side != / NOT IN become EXISTS(... AND meta_value <negate> V): "has a
 	 * 'color' row whose value isn't blue" — A (only blue) is excluded, B (red) is
-	 * matched, C (no color) is excluded. Contrast test_unsupported_compare_key_*,
-	 * where a negative compare_KEY fails the whole translation closed instead.
+	 * matched, C (no color) is excluded. Contrast test_negative_compare_key_translates,
+	 * where a negative compare_KEY negates the whole clause (NOT EXISTS on the key).
 	 *
 	 * @since 3.1.0
 	 */
@@ -602,41 +602,42 @@ class MetaQueryTranslationTest extends TestCase {
 	}
 
 	/**
-	 * Every unsupported negative compare_key fails closed (no rows) and logs.
+	 * A negative compare_key translates to NOT EXISTS over the key.
 	 *
-	 * meta_key_condition() only translates =, EXISTS, IN, LIKE, REGEXP, RLIKE; every
-	 * other (negative) key comparison returns null so the whole translation fails
-	 * closed rather than mistranslating. Covers the breadth beyond NOT LIKE.
+	 * Each negative key operator flips to its positive form and negates the clause:
+	 * "the object has NO meta row whose key matches". A and B have a 'color' key
+	 * (alongside other keys) and are correctly excluded; only C, which has no color
+	 * key at all, matches. This proves the NOT EXISTS (lacks-the-key) semantics
+	 * rather than the naive "has some other key", which would wrongly match A/B.
 	 *
-	 * @dataProvider provide_unsupported_compare_keys
+	 * @dataProvider provide_negative_compare_keys
 	 * @since 3.1.0
 	 *
-	 * @param string $compare_key The unsupported key comparison.
+	 * @param string $compare_key The negative key comparison.
 	 */
-	public function test_unsupported_compare_key_fails_closed( string $compare_key ) {
-		$query = new MqThingQuery();
-
-		$results = $query->query(
-			array(
-				'meta_query' => array(
-					array(
-						'key'         => 'color',
-						'compare_key' => $compare_key,
+	public function test_negative_compare_key_translates( string $compare_key ) {
+		$this->assertSame(
+			array( 'C' ),
+			$this->labels(
+				array(
+					'meta_query' => array(
+						array(
+							'key'         => 'color',
+							'compare_key' => $compare_key,
+						),
 					),
-				),
-			)
+				)
+			),
+			"{$compare_key} should keep only the object lacking a color key"
 		);
-
-		$this->assertSame( array(), (array) $results, "{$compare_key} should fail closed" );
-		$this->assertNotEmpty( $query->get_logs( array( 'code' => 'meta_query' ) ), "{$compare_key} should log a meta_query warning" );
 	}
 
 	/**
-	 * Unsupported negative key comparisons (the meta_key_condition() default arm).
+	 * The negative key operators, each flipping to a positive + NOT EXISTS.
 	 *
 	 * @return array<string, array{string}>
 	 */
-	public function provide_unsupported_compare_keys(): array {
+	public function provide_negative_compare_keys(): array {
 		return array(
 			'not equal'  => array( '!=' ),
 			'not in'     => array( 'NOT IN' ),
@@ -644,6 +645,35 @@ class MetaQueryTranslationTest extends TestCase {
 			'not regexp' => array( 'NOT REGEXP' ),
 			'not exists' => array( 'NOT EXISTS' ),
 		);
+	}
+
+	/**
+	 * A negative compare_key combined with a value condition fails closed.
+	 *
+	 * "Lacks a matching key" (object-level) cannot be combined with "has a row with
+	 * this value" (row-level) in a single EXISTS clause, so the translation fails
+	 * closed and logs rather than mistranslating.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_negative_compare_key_with_value_fails_closed() {
+		$query = new MqThingQuery();
+
+		$results = $query->query(
+			array(
+				'meta_query' => array(
+					array(
+						'key'         => 'color',
+						'compare_key' => 'NOT LIKE',
+						'value'       => 'blue',
+						'compare'     => '=',
+					),
+				),
+			)
+		);
+
+		$this->assertSame( array(), (array) $results, 'negative compare_key + value should fail closed' );
+		$this->assertNotEmpty( $query->get_logs( array( 'code' => 'meta_query' ) ), 'should log a meta_query warning' );
 	}
 
 	/**

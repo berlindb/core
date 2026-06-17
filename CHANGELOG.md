@@ -38,7 +38,10 @@ Notable changes to BerlinDB are documented here.
   `meta_value` are now translated into relationship `EXISTS` filters against the
   sibling table (honoring `compare`, `type` casts, and `relation` AND/OR, with
   nesting); WordPress-core objects keep the bespoke meta parser. A negative
-  `compare_key` is not yet translated and fails closed.
+  `compare_key` (`!=` / `NOT IN` / `NOT LIKE` / `NOT REGEXP` / `NOT EXISTS`) is
+  flipped to its positive operator and emitted as `NOT EXISTS` over the key —
+  "the object has no meta row whose key matches" — matching the bespoke engine;
+  combining a negative `compare_key` with a value still fails closed.
 - Adds ordering by meta value (#204): `orderby => 'meta_value'` / `'meta_value_num'`
   (numeric), or a named `meta_query` clause key, orders results by that key's value —
   for both the bespoke parser (via the clause's JOIN alias) and store-backed objects

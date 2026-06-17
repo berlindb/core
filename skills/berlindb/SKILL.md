@@ -247,8 +247,9 @@ relationship IS the registration.
 are translated into relationship `EXISTS` filters against the sibling table (so the
 existing WordPress-shaped query surface keeps working), with `compare`, `type`
 casts, and `relation` AND/OR all honored. A negative `compare_key` (e.g. `NOT LIKE`
-on the key) is not yet translated and fails closed. WordPress-core objects keep the
-bespoke meta parser unchanged.
+on the key) becomes a `NOT EXISTS` over the key — "the object has no meta row whose
+key matches" — except when paired with a value, which still fails closed.
+WordPress-core objects keep the bespoke meta parser unchanged.
 
 You can also order by a meta value: `orderby => 'meta_value'` (or `'meta_value_num'`
 for numeric) sorts by the simple/first clause's value, and a named `meta_query`
@@ -260,8 +261,9 @@ in one `orderby`. Named clauses both filter and sort, exactly like positional on
 
 Current limitations:
 
-- Negative `compare_key` on a meta key is not yet translated for store-backed
-  objects (it fails closed rather than mistranslating).
+- A negative `compare_key` *combined with a value* fails closed for store-backed
+  objects (key absence is object-level, a value match is row-level — one EXISTS
+  clause can't express both). A negative `compare_key` on its own translates.
 - Runtime relationship features remain single-column only, so Meta preset
   primaries should use a single primary key column.
 - A string/UUID primary key is supported end-to-end (3.1.0): `add_item()` with a

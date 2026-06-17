@@ -1451,12 +1451,26 @@ class Meta extends Base {
 		if ( array_key_exists( 'key', $meta_clause ) ) {
 			$key_condition = $this->meta_key_condition( $meta_clause );
 
-			// A negative/unsupported compare_key cannot be faithfully translated.
+			// An unsupported compare_key cannot be faithfully translated.
 			if ( null === $key_condition ) {
 				return null;
 			}
 
-			$where = array_merge( $where, $key_condition );
+			/*
+			 * A negative compare_key means "the object has NO matching key", so the
+			 * whole clause is NOT EXISTS. It cannot also carry a value: that would
+			 * mix object-level key absence with row-level value presence, which a
+			 * single EXISTS clause can't express — fail closed for that combination.
+			 */
+			if ( $key_condition[ 'negate' ] ) {
+				if ( array_key_exists( 'value', $meta_clause ) && ! in_array( $compare, array( 'EXISTS', 'NOT EXISTS' ), true ) ) {
+					return null;
+				}
+
+				$clause_args[ 'exists' ] = false;
+			}
+
+			$where = array_merge( $where, $key_condition[ 'where' ] );
 		}
 
 		// The value side: EXISTS/NOT EXISTS are key-only; otherwise compare the value.
@@ -1487,16 +1501,19 @@ class Meta extends Base {
 	/**
 	 * Build the meta_key condition for a clause's compare_key.
 	 *
-	 * Positive comparisons map directly to the shared Operators. Negative
-	 * comparisons (NOT LIKE / NOT IN / != / NOT EXISTS / NOT REGEXP on the KEY)
-	 * are not yet supported here — the bespoke engine expresses them with nested
-	 * NOT EXISTS subqueries to avoid cross-key contamination — so they return null
-	 * to fail the translation closed (a Phase B follow-up).
+	 * Positive comparisons map directly to the shared Operators. A NEGATIVE key
+	 * comparison (`!=` / `NOT IN` / `NOT LIKE` / `NOT REGEXP` / `NOT EXISTS`) is
+	 * flipped to its positive operator and the clause is marked to negate — the
+	 * caller emits it as `NOT EXISTS`. That mirrors the bespoke engine's nested
+	 * NOT EXISTS: the semantics are "the object has NO meta row whose key matches"
+	 * (not "has some other key"), which avoids cross-key contamination. `!=` and
+	 * `NOT EXISTS` both flip to a `=` existence test.
 	 *
 	 * @since 3.1.0
 	 *
 	 * @param array<string,mixed> $meta_clause The meta_query leaf clause.
-	 * @return array<string,mixed>|null The meta_key condition, or null if unsupported.
+	 * @return array{where: array<string,mixed>, negate: bool}|null The key
+	 *         condition and whether the clause negates, or null if unsupported.
 	 */
 	private function meta_key_condition( array $meta_clause ): ?array {
 
@@ -1507,6 +1524,21 @@ class Meta extends Base {
 			? strtoupper( (string) $meta_clause[ 'compare_key' ] )
 			: ( is_array( $key ) ? 'IN' : '=' );
 
+		// Negative key operator → flip to its positive form and negate the clause.
+		$negate_map = array(
+			'!='         => '=',
+			'NOT EXISTS' => '=',
+			'NOT IN'     => 'IN',
+			'NOT LIKE'   => 'LIKE',
+			'NOT REGEXP' => 'REGEXP',
+		);
+
+		$negate = isset( $negate_map[ $compare_key ] );
+
+		if ( $negate ) {
+			$compare_key = $negate_map[ $compare_key ];
+		}
+
 		/*
 		 * 'meta_key' below is the sibling table's own indexed column name (a
 		 * relationship where-condition key), not a WP_Query meta var, so the
@@ -1515,23 +1547,31 @@ class Meta extends Base {
 		switch ( $compare_key ) {
 			case '=':
 			case 'EXISTS':
-				return array( 'meta_key' => $key ); // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+				$where = array( 'meta_key' => $key ); // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+				break;
 
 			case 'IN':
-				return array( 'meta_key' => (array) $key ); // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+				$where = array( 'meta_key' => (array) $key ); // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+				break;
 
 			case 'LIKE':
 			case 'REGEXP':
 			case 'RLIKE':
-				return array(
+				$where = array(
 					'meta_key' => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
 						'compare' => $compare_key,
 						'value'   => $key,
 					),
 				);
+				break;
 
 			default:
 				return null;
 		}
+
+		return array(
+			'where'  => $where,
+			'negate' => $negate,
+		);
 	}
 }
