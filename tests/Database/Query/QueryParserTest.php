@@ -466,6 +466,53 @@ class QueryParserTest extends TestCase {
 	}
 
 	/**
+	 * Meta::get_sql() — the BC positional entry — resolves the primary table by
+	 * NAME (not the ALIAS get_join_where_clauses() uses), and honors explicit args.
+	 *
+	 * Locks the name-vs-alias distinction and the positional fallbacks across the
+	 * shared build_meta_join_where() tail.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_get_sql_positional_entry_resolves_by_name() {
+		$query  = new QueryMetaCallerSpy();
+		$parser = new MetaParser( array(), $query );
+
+		// No args: falls back to the caller, using the table NAME (not the alias).
+		$result = $parser->get_sql();
+
+		$this->assertIsArray( $result );
+		$this->assertSame( _get_meta_table( 'post' ), $parser->meta_table );
+		$this->assertSame( 'post_id', $parser->meta_column );
+		$this->assertSame( 'resolved_meta_widgets', $parser->primary_table );
+		$this->assertSame( 'resolved_widget_id', $parser->primary_column );
+
+		// Explicit positional args win over the caller fallbacks.
+		$parser->get_sql( 'post', 'explicit_primary', 'explicit_id' );
+
+		$this->assertSame( 'explicit_primary', $parser->primary_table );
+		$this->assertSame( 'explicit_id', $parser->primary_column );
+	}
+
+	/**
+	 * Meta::get_sql()'s BC entry tolerates a non-string positional arg: it is
+	 * sanitized to a false result, not raised as a TypeError.
+	 *
+	 * The shared tail's params stay untyped for exactly this back-compat reason —
+	 * a legacy caller passing e.g. an array must fail closed, as it did before the
+	 * tail was extracted, rather than fataling.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_get_sql_with_malformed_positional_arg_fails_closed() {
+		$query  = new QueryMetaCallerSpy();
+		$parser = new MetaParser( array(), $query );
+
+		// A non-string primary table (e.g. a legacy array) sanitizes to false.
+		$this->assertFalse( $parser->get_sql( 'post', array( 'malformed' ) ) );
+	}
+
+	/**
 	 * A 'count' query var overrides the structural vars in normalize_query_vars().
 	 *
 	 * Counting short-circuits paging and shaping: it forces number=false, clears

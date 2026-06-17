@@ -298,6 +298,7 @@ class Meta extends Base {
 	 * New code should call get_join_where_clauses() instead.
 	 *
 	 * @since 2.1.0
+	 * @deprecated 3.1.0 Use get_join_where_clauses() instead.
 	 *
 	 * @param string $type           Optional. Object type (e.g. 'post', 'comment'). When empty,
 	 *                               sourced from $this->caller. Default ''.
@@ -311,51 +312,24 @@ class Meta extends Base {
 	 */
 	public function get_sql( $type = '', $primary_table = '', $primary_column = '' ) {
 
-		// Fall back to caller for missing $type.
+		// Fall back to caller for any missing argument.
 		if ( empty( $type ) ) {
 			$type = $this->caller?->get_meta_type() ?? '';
 		}
 
-		// Fall back to caller for missing primary table.
 		if ( empty( $primary_table ) ) {
 			$primary_table = $this->caller?->get_table_name() ?? '';
 		}
 
-		// Fall back to caller for missing primary column.
 		if ( empty( $primary_column ) ) {
 			$primary_column = $this->caller?->get_primary_column_name() ?? '';
 		}
 
-		// Attempt to get the secondary table.
-		$meta_table = _get_meta_table( $type );
-
-		// Bail if no object table.
-		if ( empty( $meta_table ) ) {
-			return false;
-		}
-
-		// Aliases.
-		$this->table_aliases = array();
-
-		// Meta.
-		$meta_table_sanitized  = $this->sanitize_table_name( $meta_table );
-		$meta_column_sanitized = $this->sanitize_column_name( $type . '_id' );
-
-		// Primary.
-		$primary_table_sanitized  = $this->sanitize_table_name( $primary_table );
-		$primary_column_sanitized = $this->sanitize_column_name( $primary_column );
-
-		if ( false === $meta_table_sanitized || false === $meta_column_sanitized || false === $primary_table_sanitized || false === $primary_column_sanitized ) {
-			return false;
-		}
-
-		$this->meta_table     = $meta_table_sanitized;
-		$this->meta_column    = $meta_column_sanitized;
-		$this->primary_table  = $primary_table_sanitized;
-		$this->primary_column = $primary_column_sanitized;
-
-		// Delegate to the shared implementation (bypasses this override).
-		return parent::get_join_where_clauses();
+		/*
+		 * BC entry point: resolves the primary table by NAME (the caller-driven
+		 * get_join_where_clauses() uses the table ALIAS instead).
+		 */
+		return $this->build_meta_join_where( $type, $primary_table, $primary_column );
 	}
 
 	/**
@@ -376,6 +350,32 @@ class Meta extends Base {
 		$type           = $this->caller?->get_meta_type() ?? '';
 		$primary_table  = $this->caller?->get_table_alias() ?? '';
 		$primary_column = $this->caller?->get_primary_column_name() ?? '';
+
+		return $this->build_meta_join_where( $type, $primary_table, $primary_column );
+	}
+
+	/**
+	 * Resolve the meta/primary table metadata, then build the JOIN/WHERE clauses.
+	 *
+	 * The shared tail of get_sql() and get_join_where_clauses(): derives the meta
+	 * table from $type, sanitizes it, the {type}_id foreign key, and the primary
+	 * table/column, stores them on the parser, then delegates to the shared base
+	 * implementation. The two public entry points differ only in how they resolve
+	 * their inputs (positional args + table NAME vs caller + table ALIAS).
+	 *
+	 * @since 3.1.0
+	 * @internal
+	 *
+	 * Params are intentionally untyped: get_sql() is a back-compat entry point, so
+	 * a legacy caller passing a non-string is sanitized to false here (as it was
+	 * before this tail was extracted) rather than raising a TypeError.
+	 *
+	 * @param string $type           Meta type (e.g. 'post'); the meta table is derived from it.
+	 * @param string $primary_table  Primary table name or alias.
+	 * @param string $primary_column Primary key column.
+	 * @return array{join: string, where: string}|false Clause fragments, or false when unresolvable.
+	 */
+	private function build_meta_join_where( $type, $primary_table, $primary_column ) {
 
 		// Attempt to get the secondary table.
 		$meta_table = _get_meta_table( $type );
