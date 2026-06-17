@@ -1510,8 +1510,8 @@ class Meta extends Base {
 	 * `NOT EXISTS` both flip to a `=`/`EXISTS` existence test.
 	 *
 	 * Polarity and the opposite both come from the Operator descriptors
-	 * (Operators\*::$positive / $opposite), so there is no negation map to keep
-	 * in sync here.
+	 * (Operators\*::$positive / $opposite_compare), so there is no negation map
+	 * to keep in sync here.
 	 *
 	 * @since 3.1.0
 	 *

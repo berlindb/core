@@ -625,7 +625,8 @@ trait Parser {
 	 * @param \BerlinDB\Database\Operators\Base $operator The operator to invert.
 	 *
 	 * @return \BerlinDB\Database\Operators\Base|false The opposite operator, or
-	 *         false when the operator declares no opposite (e.g. 'RLIKE').
+	 *         false when the operator declares no opposite (e.g. 'RLIKE') or that
+	 *         opposite is not in the filtered registry.
 	 */
 	protected function get_opposite_operator( \BerlinDB\Database\Operators\Base $operator ) {
 		$compare = $operator->get_opposite_compare();

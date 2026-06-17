@@ -33,9 +33,9 @@ use PHPUnit\Framework\TestCase;
 /**
  * Tests for all BerlinDB operator classes.
  *
- * Covers descriptor properties ($compare, $positive, $multi, $numeric),
- * get_value_sql() output for each operator, and the full-expression get_sql()
- * method on the trait.
+ * Covers descriptor properties ($compare, $positive, $opposite_compare,
+ * $multi, $numeric), the opposite linkage, get_value_sql() output for each
+ * operator, and the full-expression get_sql() method on the trait.
  *
  * @since 3.0.0
  */
