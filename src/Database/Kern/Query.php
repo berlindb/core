@@ -2754,9 +2754,12 @@ class Query {
 	 */
 	private function shape_item( $item = 0 ): object {
 
-		// Get the item from an ID.
-		if ( is_numeric( $item ) ) {
-			$item = $this->get_item( (int) $item );
+		/*
+		 * Fetch the row when given an ID (int or string/UUID key); rows already
+		 * arrive from the database as an object or array.
+		 */
+		if ( ! is_object( $item ) && ! is_array( $item ) ) {
+			$item = $this->get_item( $item );
 		}
 
 		/*
@@ -3111,7 +3114,9 @@ class Query {
 	 * @since 1.0.0
 	 *
 	 * @param array<string,mixed> $data Item data.
-	 * @return int|false Item ID if successful, false if not
+	 * @return int|string|false New item ID if successful (the auto-increment value,
+	 *                          or the supplied primary key for a string/UUID key),
+	 *                          false if not.
 	 */
 	public function add_item( $data = array() ) {
 
@@ -3187,8 +3192,13 @@ class Query {
 			return false;
 		}
 
-		// Get the new item ID.
-		$retval = $this->db()->get_insert_id();
+		/*
+		 * Get the new item ID: the supplied primary key (e.g. a string/UUID) when
+		 * one was given, otherwise the auto-increment value from the insert.
+		 */
+		$retval = ! empty( $save[ $primary ] )
+			? $save[ $primary ]
+			: $this->db()->get_insert_id();
 
 		// Maybe save meta keys.
 		if ( ! empty( $meta ) ) {
@@ -3214,9 +3224,10 @@ class Query {
 	 *
 	 * @since 1.1.0
 	 *
-	 * @param int|string           $item_id Item ID.
+	 * @param int|string          $item_id Item ID.
 	 * @param array<string,mixed> $data Item data.
-	 * @return int|false Item ID if successful, false if not
+	 * @return int|string|false New item ID if successful (int auto-increment or a
+	 *                          string/UUID key), false if not.
 	 */
 	public function copy_item( $item_id = 0, $data = array() ) {
 
@@ -3245,8 +3256,18 @@ class Query {
 			$save = array_merge( $save, $data );
 		}
 
-		// Unset the primary key.
-		unset( $save[ $primary ] );
+		/*
+		 * Drop the copied primary key when the column auto-increments (the DB
+		 * regenerates it — a supplied override is ignored, preserving long-standing
+		 * behavior) OR when the caller supplied no replacement. A manual key (e.g. a
+		 * string/UUID) cannot be auto-generated, so a caller-supplied one is kept.
+		 */
+		$primary_column = $this->get_column_by( array( 'name' => $primary ) );
+		$auto_increment = ( $primary_column instanceof Column ) && $primary_column->is_auto_increment();
+
+		if ( $auto_increment || empty( $data[ $primary ] ) ) {
+			unset( $save[ $primary ] );
+		}
 
 		// Return result of add_item().
 		return $this->add_item( $save );
@@ -3257,7 +3278,7 @@ class Query {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param int|string           $item_id Item ID.
+	 * @param int|string          $item_id Item ID.
 	 * @param array<string,mixed> $data Item data.
 	 * @return bool
 	 */
@@ -3430,13 +3451,13 @@ class Query {
 		 *
 		 * @since 1.0.0
 		 *
-		 * @param int  $item_id The ID of the item that was deleted.
-		 * @param bool $result  Whether the item was successfully deleted.
+		 * @param int|string $item_id The ID of the item that was deleted.
+		 * @param bool       $result  Whether the item was successfully deleted.
 		 */
 		if ( '' !== $action_name ) {
 			do_action(
 				$action_name,
-				(int) $item_id,
+				$item_id,
 				(bool) $retval
 			);
 		}
@@ -3670,12 +3691,12 @@ class Query {
 			 *
 			 * @since 1.0.0
 			 *
-			 * @param mixed $old_value The value being transitioned FROM.
-			 * @param mixed $new_value The value being transitioned TO.
-			 * @param int   $item_id   The ID of the item that is transitioning.
+			 * @param mixed      $old_value The value being transitioned FROM.
+			 * @param mixed      $new_value The value being transitioned TO.
+			 * @param int|string $item_id   The ID of the item that is transitioning.
 			 */
 			if ( '' !== $key_action ) {
-				do_action( $key_action, $old_value, $new_value, (int) $item_id );
+				do_action( $key_action, $old_value, $new_value, $item_id );
 			}
 		}
 	}
@@ -3754,15 +3775,20 @@ class Query {
 		// Shape the item ID.
 		$item_id = $this->shape_item_id( $item_id );
 
-		// Bail if no meta to add, or if the ID is not an integer (metadata requires integer IDs).
-		if ( ! is_int( $item_id ) || empty( $item_id ) || empty( $meta_key ) ) {
+		// Bail without a usable item ID or a meta key.
+		if ( empty( $item_id ) || empty( $meta_key ) ) {
 			return false;
 		}
 
-		// Route to the meta store when one is declared.
+		// Route to the meta store when one is declared (accepts a string/UUID ID).
 		$store = $this->get_meta_store();
 		if ( null !== $store ) {
 			return $store->add_meta( $item_id, $meta_key, $meta_value, (bool) $unique );
+		}
+
+		// The legacy WordPress metadata fallback is integer-keyed ({type}meta).
+		if ( ! is_int( $item_id ) ) {
+			return false;
 		}
 
 		// Bail if no meta table exists.
@@ -3794,18 +3820,22 @@ class Query {
 		$item_id = $this->shape_item_id( $item_id );
 
 		/*
-		 * Bail if the ID is not a usable integer (metadata requires integer IDs).
-		 * An empty meta key is allowed here: it reads ALL meta for the item, the
-		 * shape both the meta store and WordPress get_metadata() support.
+		 * Bail without a usable item ID. An empty meta key IS allowed: it reads ALL
+		 * meta for the item, a shape both the meta store and get_metadata() support.
 		 */
-		if ( ! is_int( $item_id ) || empty( $item_id ) ) {
+		if ( empty( $item_id ) ) {
 			return false;
 		}
 
-		// Route to the meta store when one is declared.
+		// Route to the meta store when one is declared (accepts a string/UUID ID).
 		$store = $this->get_meta_store();
 		if ( null !== $store ) {
 			return $store->get_meta( $item_id, $meta_key, (bool) $single );
+		}
+
+		// The legacy WordPress metadata fallback is integer-keyed ({type}meta).
+		if ( ! is_int( $item_id ) ) {
+			return false;
 		}
 
 		// Bail if no meta table exists.
@@ -3837,15 +3867,20 @@ class Query {
 		// Shape the item ID.
 		$item_id = $this->shape_item_id( $item_id );
 
-		// Bail if no meta was returned, or if the ID is not an integer (metadata requires integer IDs).
-		if ( ! is_int( $item_id ) || empty( $item_id ) || empty( $meta_key ) ) {
+		// Bail without a usable item ID or a meta key.
+		if ( empty( $item_id ) || empty( $meta_key ) ) {
 			return false;
 		}
 
-		// Route to the meta store when one is declared.
+		// Route to the meta store when one is declared (accepts a string/UUID ID).
 		$store = $this->get_meta_store();
 		if ( null !== $store ) {
 			return $store->update_meta( $item_id, $meta_key, $meta_value, $prev_value );
+		}
+
+		// The legacy WordPress metadata fallback is integer-keyed ({type}meta).
+		if ( ! is_int( $item_id ) ) {
+			return false;
 		}
 
 		// Bail if no meta table exists.
@@ -3887,14 +3922,22 @@ class Query {
 		 * ignores the item ID — the store and delete_metadata() both do. Otherwise
 		 * require a valid integer ID (metadata requires integer IDs).
 		 */
-		if ( empty( $delete_all ) && ( ! is_int( $item_id ) || empty( $item_id ) ) ) {
+		if ( empty( $delete_all ) && empty( $item_id ) ) {
 			return false;
 		}
 
-		// Route to the meta store when one is declared.
+		// Route to the meta store when one is declared (accepts a string/UUID ID).
 		$store = $this->get_meta_store();
 		if ( null !== $store ) {
 			return $store->delete_meta( $item_id, $meta_key, $meta_value, (bool) $delete_all );
+		}
+
+		/*
+		 * The legacy WordPress metadata fallback is integer-keyed ({type}meta); a
+		 * global purge ignores the ID, so a non-int ID only blocks per-object deletes.
+		 */
+		if ( empty( $delete_all ) && ! is_int( $item_id ) ) {
+			return false;
 		}
 
 		// Bail if no meta table exists.

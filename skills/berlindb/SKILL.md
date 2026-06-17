@@ -256,11 +256,13 @@ Current limitations:
   objects (it fails closed rather than mistranslating).
 - Runtime relationship features remain single-column only, so Meta preset
   primaries should use a single primary key column.
-- The generated meta foreign key mirrors the primary key's storage *shape*
-  (a `varchar`/non-`bigint` key is reproduced in the sibling table), but
-  item-meta routing — like the rest of `Query`'s CRUD and caching — requires an
-  **integer** primary-key value at runtime. Use an integer primary key for a
-  Meta preset primary; a UUID, if present, belongs in a separate column.
+- A string/UUID primary key is supported end-to-end (3.1.0): `add_item()` with a
+  supplied key returns that key, `get_item()`/`update_item()`/`delete_item()` and
+  query result-shaping address rows by it, and the generated meta foreign key
+  mirrors the primary key's storage *shape* so store-backed item meta keys off the
+  string/UUID too. (`add_item()` therefore returns `int|string`.) The legacy
+  WordPress metadata fallback — for a primary with no meta store — still requires
+  an integer ID, since `{type}meta` tables are int-keyed.
 
 ## High-Risk Gotchas
 
@@ -268,8 +270,8 @@ Current limitations:
 - PHP arrays are not automatically JSON-encoded before writes.
 - JSON strings are not automatically decoded after reads unless a cast or Row
   constructor handles them.
-- `add_item()` returns the new database insert ID (`int`) or `false` on
-  failure.
+- `add_item()` returns the new item ID on success — the auto-increment value
+  (`int`), or the supplied string/UUID primary key — or `false` on failure.
 - `update_item()` returns `true` when a table-column update is written — or
   (3.1.0) when a meta-only update saves bulk meta successfully — but returns
   `false` when nothing needs saving after diffing and capability reduction

@@ -13,6 +13,12 @@ Notable changes to BerlinDB are documented here.
   opt-in enforced FOREIGN KEY DDL; fails closed on malformed or unresolvable clauses.
 - Adds opt-in typed `CAST` in comparisons (e.g. `AS SIGNED` / `DATETIME`),
   sanitized at the boundary and fail-closed on invalid casts.
+- Adds end-to-end support for a string/UUID primary key (not `auto_increment`):
+  `add_item()` with a supplied key returns that key, and `get_item()`,
+  `update_item()`, `delete_item()`, `copy_item()`, query result-shaping, the
+  transition/deleted action hooks, and store-backed item meta all address rows by
+  the string key. The legacy WordPress metadata fallback (a primary with no meta
+  store) still requires an integer ID, since `{type}meta` tables are int-keyed.
 - Adds the Meta preset (#204, in progress): `Presets\Meta\Query` and
   `Presets\Meta\Table` are base classes a plugin extends with thin stubs naming
   their primary/query counterparts. The query stub derives its `{object}_meta`
@@ -89,6 +95,11 @@ Notable changes to BerlinDB are documented here.
 
 ### 3.1.0 Upgrade Notes
 
+- `add_item()` and `copy_item()` now return `int|string|false` (was `int|false`):
+  the supplied primary key for a string/UUID-keyed table, or the auto-increment
+  value otherwise. The `{item}_deleted` and `transition_{item}_{key}` action hooks
+  now pass `$item_id` as `int|string` (the real key) rather than casting to `int`.
+  Both are no-ops for the common `bigint` `auto_increment` case.
 - The `Query::sunrise()` construction hook (3.0.0) is renamed to `Query::init()`,
   which now runs after `configure()` and before `consume_args()`; `sunrise()` still
   exists but now runs *before* configuration. Rename any override that derived state

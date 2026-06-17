@@ -438,6 +438,21 @@ class QueryCrudTest extends TestCase {
 	}
 
 	/**
+	 * copy_item() ignores a supplied primary key for an auto-increment column —
+	 * the database regenerates the ID (only a manual/string key is kept).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_copy_item_ignores_supplied_auto_increment_id() {
+		$id     = self::$query->add_item( array( 'name' => 'Original Widget' ) );
+		$new_id = self::$query->copy_item( $id, array( 'id' => 999999 ) );
+
+		$this->assertIsInt( $new_id );
+		$this->assertNotSame( 999999, $new_id );
+		$this->assertNotSame( $id, $new_id );
+	}
+
+	/**
 	 * Test that copy_item preserves the original item's name in the copied row by default.
 	 *
 	 * @since 2.1.0

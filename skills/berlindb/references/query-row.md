@@ -46,7 +46,8 @@ also accept Schema objects for schema configuration.
 
 `add_item( array $data )`:
 
-- returns the new database insert ID on success (`int`)
+- returns the new item ID on success — the auto-increment value (`int`), or the
+  supplied string/UUID primary key
 - returns `false` on failure
 
 ```php
@@ -78,7 +79,7 @@ if ( false === $updated ) {
 
 `delete_item( $item_id )`:
 
-- first argument is the integer primary key
+- first argument is the primary key value (an `int`, or a string/UUID key)
 - returns `true` or `false`
 
 Do not pass a slug, UUID, or other business key to `update_item()` or

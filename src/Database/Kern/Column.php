@@ -978,6 +978,17 @@ class Column {
 		return in_array( $extra, $extras, true );
 	}
 
+	/**
+	 * Whether this column auto-increments (the database assigns its value).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return bool
+	 */
+	public function is_auto_increment(): bool {
+		return $this->is_extra( 'AUTO_INCREMENT' );
+	}
+
 	/** Private Sanitizers ****************************************************/
 
 	/**

@@ -84,6 +84,11 @@ Common keys include:
 
 Use `'allow_null' => true`; do not use `'null' => true`.
 
+The primary key need not be a `bigint auto_increment`: a `varchar`/UUID primary
+key is supported end-to-end (3.1.0). Supply the key in `add_item()` (which returns
+it) since the database cannot generate it, and pass it to `get_item()` /
+`update_item()` / `delete_item()` as usual.
+
 ## Nullable Values
 
 For nullable columns, set both `allow_null` and a null default:
