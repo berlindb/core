@@ -116,6 +116,159 @@ class DocDriftTest extends TestCase {
 	}
 
 	/**
+	 * Multi-line inline comments in src/ must use block syntax, not stacked `//`.
+	 *
+	 * Non-Negotiable #1 (CLAUDE.md): block comments for multi-line, `//` for
+	 * single lines only (WordPress standard). Documentation alone kept failing to
+	 * hold the line, so this turns the convention into a red test — two or more
+	 * consecutive full-line `//` comments are flagged, with the offending
+	 * locations named. `phpcs:` directive lines are exempt. Scoped to src/ (the
+	 * library surface); tests/ is not yet enforced.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_src_multiline_comments_use_block_syntax() {
+		$offenders = array();
+		$root      = $this->root();
+		$iterator  = new \RecursiveIteratorIterator( new \RecursiveDirectoryIterator( $root . '/src', \FilesystemIterator::SKIP_DOTS ) );
+
+		foreach ( $iterator as $file ) {
+
+			// Only PHP files.
+			if ( ! $file->isFile() || ( 'php' !== strtolower( $file->getExtension() ) ) ) {
+				continue;
+			}
+
+			$lines = explode( "\n", (string) file_get_contents( $file->getPathname() ) );
+			$run   = 0;
+
+			foreach ( $lines as $index => $line ) {
+
+				// A full-line // comment that is not a phpcs: directive.
+				$is_slash_comment = ( 1 === preg_match( '#^\s*//#', $line ) ) && ( false === strpos( $line, 'phpcs:' ) );
+
+				if ( ! $is_slash_comment ) {
+					$run = 0;
+					continue;
+				}
+
+				++$run;
+
+				// A second consecutive // line is a multi-line comment in disguise.
+				if ( 2 === $run ) {
+					$relative    = str_replace( $root . '/', '', $file->getPathname() );
+					$offenders[] = "{$relative}:{$index}";
+				}
+			}
+		}
+
+		$this->assertSame(
+			array(),
+			$offenders,
+			"Multi-line inline comments must use /* ... */ block syntax, not stacked //.\nOffending comment starts:\n" . implode( "\n", $offenders )
+		);
+	}
+
+	/**
+	 * Multi-line double-star comments in src/ must be docblocks, not inline.
+	 *
+	 * Non-Negotiable #1: docblock syntax (slash-star-star) is for declarations;
+	 * an inline multi-line comment uses slash-star. A double-star block NOT
+	 * attached to a declaration is a misused docblock. Uses the PHP tokenizer so
+	 * single-line double-star label markers (a deliberate convention) are exempt.
+	 * Blocks carrying phpDoc @-tags are also exempt — those are docblocks,
+	 * including WordPress hook docs that sit before apply_filters()/do_action()
+	 * (phpstan-wordpress reads them). Only tag-less multi-line double-star blocks
+	 * whose next significant token is not a declaration are flagged. Scoped to src/.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_src_inline_block_comments_are_not_docblock_style() {
+
+		// Tokens that may legitimately follow a docblock (a declaration).
+		$declarations = array(
+			\T_FUNCTION,
+			\T_CLASS,
+			\T_INTERFACE,
+			\T_TRAIT,
+			\T_ABSTRACT,
+			\T_FINAL,
+			\T_PUBLIC,
+			\T_PROTECTED,
+			\T_PRIVATE,
+			\T_STATIC,
+			\T_CONST,
+			\T_VAR,
+			\T_USE,
+			\T_NAMESPACE,
+			\T_DECLARE,
+		);
+
+		// Version-dependent tokens.
+		foreach ( array( 'T_READONLY', 'T_ENUM', 'T_ATTRIBUTE' ) as $name ) {
+			if ( defined( $name ) ) {
+				$declarations[] = constant( $name );
+			}
+		}
+
+		$declarations = array_flip( $declarations );
+		$skip         = array( \T_WHITESPACE, \T_COMMENT, \T_DOC_COMMENT );
+		$offenders    = array();
+		$root         = $this->root();
+		$iterator     = new \RecursiveIteratorIterator( new \RecursiveDirectoryIterator( $root . '/src', \FilesystemIterator::SKIP_DOTS ) );
+
+		foreach ( $iterator as $file ) {
+
+			// Only PHP files.
+			if ( ! $file->isFile() || ( 'php' !== strtolower( $file->getExtension() ) ) ) {
+				continue;
+			}
+
+			$tokens = token_get_all( (string) file_get_contents( $file->getPathname() ) );
+			$count  = count( $tokens );
+
+			foreach ( $tokens as $i => $token ) {
+
+				// Only multi-line double-star blocks; single-line markers are allowed.
+				if ( ! is_array( $token ) || ( \T_DOC_COMMENT !== $token[0] ) || ( false === strpos( $token[1], "\n" ) ) ) {
+					continue;
+				}
+
+				// A phpDoc @-tag line means it is a docblock (incl. hook docs): exempt.
+				if ( 1 === preg_match( '/\n\s*\*\s*@\w/', $token[1] ) ) {
+					continue;
+				}
+
+				// Find the next significant token.
+				$next = null;
+				for ( $j = $i + 1; $j < $count; $j++ ) {
+					$candidate = $tokens[ $j ];
+					if ( is_array( $candidate ) && in_array( $candidate[0], $skip, true ) ) {
+						continue;
+					}
+					$next = $candidate;
+					break;
+				}
+
+				// A docblock must precede a declaration (or a PHP 8 attribute).
+				$is_docblock = ( is_array( $next ) && isset( $declarations[ $next[0] ] ) )
+					|| ( is_string( $next ) && ( '#[' === $next ) );
+
+				if ( ! $is_docblock ) {
+					$relative    = str_replace( $root . '/', '', $file->getPathname() );
+					$offenders[] = "{$relative}:{$token[2]}";
+				}
+			}
+		}
+
+		$this->assertSame(
+			array(),
+			$offenders,
+			"Multi-line `/**` comments that are not docblocks must use `/*` block syntax.\nOffending blocks:\n" . implode( "\n", $offenders )
+		);
+	}
+
+	/**
 	 * Count `function test*()` method declarations under a directory tree.
 	 *
 	 * @param string $dir Directory to scan.

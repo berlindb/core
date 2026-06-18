@@ -278,7 +278,7 @@ trait Parser {
 				: false;
 		}
 
-		/**
+		/*
 		 * Early return objects, numerics, integers, or bools.
 		 *
 		 * These values assume the caller knew what it was doing, and are
@@ -288,7 +288,7 @@ trait Parser {
 			return array( $value );
 		}
 
-		/**
+		/*
 		 * Attempt to determine if a string contains a comma separated list of
 		 * values that should be split into an array of values for an __in type
 		 * of query.
@@ -421,7 +421,7 @@ trait Parser {
 			}
 		}
 
-		/**
+		/*
 		 * Each query should have a value for each default key.
 		 *
 		 * Inherit from the parent when possible.
@@ -455,7 +455,7 @@ trait Parser {
 				$relation = strtoupper( $query );
 			}
 
-			/**
+			/*
 			 * Non-array values and declared first-order keys pass through as-is.
 			 *
 			 * Trust the values and sanitize when building SQL.
@@ -463,7 +463,7 @@ trait Parser {
 			if ( ! is_array( $query ) || in_array( $key, $this->first_keys, true ) ) {
 				$retval[ $key ] = $query;
 
-				/**
+				/*
 				 * Arrays whose shape matches a first-order clause pass through as-is.
 				 *
 				 * Trust the values and sanitize when building SQL.
@@ -471,7 +471,7 @@ trait Parser {
 			} elseif ( $this->is_first_order_clause( $query ) ) {
 				$retval[ $key ] = $query;
 
-				/**
+				/*
 				 * Any array without a $first_key is another query, so we recurse.
 				 */
 			} else {
@@ -951,7 +951,7 @@ trait Parser {
 		// Get the SQL clauses.
 		$retval = $this->get_sql_clauses();
 
-		/**
+		/*
 		 * If any JOINs are LEFT JOINs (as in the case of NOT EXISTS) then all
 		 * JOINs should be LEFT. Otherwise items with no values will be excluded
 		 * from results.
@@ -1577,7 +1577,7 @@ trait Parser {
 		// Get multi-value comparison operators.
 		$mvk = $this->get_operators( array( 'multi' => true ) );
 
-		/**
+		/*
 		 * Complex combined queries aren't supported for multi-value queries.
 		 */
 		if ( in_array( $compare, $mvk, true ) ) {
@@ -1635,7 +1635,7 @@ trait Parser {
 			}
 		}
 
-		/**
+		/*
 		 * Single units were already handled.
 		 *
 		 * Since hour & second isn't allowed, minute must to be set.
@@ -1728,14 +1728,14 @@ trait Parser {
 			// Default empty compares for sibling.
 			$compatible_compares = array();
 
-			/**
+			/*
 			 * Clauses connected by OR can share JOINs as long as they have
 			 * "positive" operators.
 			 */
 			if ( 'OR' === $parent_query[ 'relation' ] ) {
 				$compatible_compares = $this->get_operators( array( 'positive' => true ) );
 
-				/**
+				/*
 				 * Clauses JOIN'ed by AND with "negative" operators share a JOIN
 				 * only if they also share a key.
 				 */

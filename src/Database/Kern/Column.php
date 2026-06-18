@@ -693,7 +693,7 @@ class Column {
 		// Handle specific "extra" aliases.
 		if ( ! empty( $args[ 'extra' ] ) ) {
 
-			/**
+			/*
 			 * The special "extra" values below are built into MySQL as
 			 * shorthand for commonly used combinations of Column arguments.
 			 */
@@ -1535,7 +1535,7 @@ class Column {
 				return null;
 			}
 
-			/**
+			/*
 			 * Null was passed but is not allowed, so fallback to the default
 			 * (but only if it is also not null.)
 			 *
@@ -2008,7 +2008,7 @@ class Column {
 			$create[] = $type_sql;
 		}
 
-		/**
+		/*
 		 * Note: unsigned Decimals are deprecated in MySQL 8.0.17, and this will
 		 *       be changed to is_int() at a later date.
 		 */

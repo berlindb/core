@@ -738,7 +738,7 @@ class Query {
 	 */
 	private function set_found_items( $item_ids = array() ): void {
 
-		/**
+		/*
 		 * Default to count of item IDs.
 		 *
 		 * This is relevant for any kind of query. Either it is literal item IDs
@@ -747,7 +747,7 @@ class Query {
 		 */
 		$retval = count( (array) $item_ids );
 
-		/**
+		/*
 		 * Count query.
 		 *
 		 * Possibly grouping results by some other columns.
@@ -1055,7 +1055,7 @@ class Query {
 		// Default return value.
 		$retval = $column_name;
 
-		/**
+		/*
 		 * Maybe prepend the table alias.
 		 *
 		 * Also add a period as a separator.
@@ -1428,8 +1428,10 @@ class Query {
 		// One per-run reset for every normalizer below.
 		$this->set_current( 'query_filter_short_circuit', false );
 
-		// Counting overrides the other structural vars (count was canonicalized to
-		// a boolean by validate_query_vars()).
+		/*
+		 * Counting overrides the other structural vars (count was canonicalized
+		 * to a boolean by validate_query_vars()).
+		 */
 		if ( ! empty( $query_vars[ 'count' ] ) ) {
 			$query_vars[ 'number' ]            = false;
 			$query_vars[ 'fields' ]            = '';
@@ -2187,7 +2189,7 @@ class Query {
 			$parser_query_var = $descriptor->get_query_var();
 			if ( ! is_null( $parser_query_var ) && ! empty( $query_vars[ $parser_query_var ] ) ) {
 
-				/**
+				/*
 				 * Narrow the scope to just this parser's query_var sub-array,
 				 * but only when the user has explicitly set it to an array value
 				 * (i.e. not the default sentinel and not a scalar). This restricts
@@ -4340,7 +4342,7 @@ class Query {
 		// Accepts single values, so cast to array.
 		$item_ids = (array) $item_ids;
 
-		/**
+		/*
 		 * Update item caches.
 		 *
 		 * Uses get_non_cached_ids() to remove item IDs that already exist in
@@ -4372,7 +4374,7 @@ class Query {
 			}
 		}
 
-		/**
+		/*
 		 * Update meta data caches.
 		 *
 		 * Uses update_meta_cache() because it politely handles all of the

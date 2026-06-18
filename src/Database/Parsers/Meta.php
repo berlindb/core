@@ -1380,8 +1380,10 @@ class Meta extends Base {
 			. " WHERE {$qt_sub}.{$qt_fk} = {$local_ref}"
 			. " AND {$qt_sub}.{$qt_key} = {$prepared_key}{$order_by} LIMIT 1 )";
 
-		// Numeric ordering casts to SIGNED; otherwise use the recorded cast
-		// (already CHAR-stripped when recorded, so the sentinel map is a no-op).
+		/*
+		 * Numeric ordering casts to SIGNED; otherwise use the recorded cast
+		 * (already CHAR-stripped when recorded, so the sentinel map is a no-op).
+		 */
 		$recorded = is_scalar( $entry[ 'cast' ] ?? '' ) ? (string) $entry[ 'cast' ] : '';
 		$cast     = $this->meta_cast_to_sql( $recorded, ( 'meta_value_num' === $orderby ) );
 
