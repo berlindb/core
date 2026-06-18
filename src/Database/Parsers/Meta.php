@@ -684,12 +684,8 @@ class Meta extends Base {
 					case 'RLIKE':
 					case 'REGEXP':
 						$regex_op = $meta_compare_key;
-						if ( isset( $clause[ 'type_key' ] ) && 'BINARY' === strtoupper( $clause[ 'type_key' ] ) ) {
-							$cast = 'BINARY';
-						} else {
-							$cast = '';
-						}
-						$where = $this->db()->prepare( "{$qt_alias}.{$qt_column} {$regex_op} {$cast} %s", trim( $clause[ 'key' ] ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+						$cast     = $this->get_meta_key_cast( $clause, $meta_compare_key );
+						$where    = $this->db()->prepare( "{$qt_alias}.{$qt_column} {$regex_op} {$cast} %s", trim( $clause[ 'key' ] ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 						break;
 
 					case '!=':
@@ -710,12 +706,8 @@ class Meta extends Base {
 						break;
 
 					case 'NOT REGEXP':
-						if ( isset( $clause[ 'type_key' ] ) && ( 'BINARY' === strtoupper( $clause[ 'type_key' ] ) ) ) {
-							$cast = 'BINARY';
-						} else {
-							$cast = '';
-						}
-
+						// The subquery emits a positive REGEXP; cast keyed off that.
+						$cast                = $this->get_meta_key_cast( $clause, 'REGEXP' );
 						$meta_compare_string = $meta_compare_string_start . "AND {$qt_subquery_alias}.{$qt_column} REGEXP {$cast} %s " . $meta_compare_string_end;
 						$where               = $this->db()->prepare( $meta_compare_string, $clause[ 'key' ] ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 						break;
@@ -868,6 +860,37 @@ class Meta extends Base {
 
 		// Return uppercase type.
 		return $upper_type;
+	}
+
+	/**
+	 * Resolve the optional CAST for a meta_key comparison.
+	 *
+	 * WordPress honors `type_key => BINARY` only for regular-expression key
+	 * comparisons (REGEXP / RLIKE), where it makes the key match case-sensitive;
+	 * LIKE / = / IN never cast the key. Both the bespoke JOIN engine and the
+	 * store-backed relationship path read this one rule so they cannot drift
+	 * (see berlindb/core#210). Each path then applies the returned type in its
+	 * own idiom (the JOIN engine emits `REGEXP BINARY`, the relationship path a
+	 * `CAST(... AS BINARY)` reference) — both case-sensitive.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string,mixed> $clause  A first-order meta_query clause.
+	 * @param string              $compare The meta_key comparison operator.
+	 *
+	 * @return string 'BINARY' when the key match should be case-sensitive, else ''.
+	 */
+	private function get_meta_key_cast( array $clause, string $compare = '' ): string {
+
+		// BINARY only applies to regular-expression key comparisons.
+		if ( ! in_array( strtoupper( $compare ), array( 'REGEXP', 'RLIKE' ), true ) ) {
+			return '';
+		}
+
+		// Honor type_key => BINARY; anything else means no cast.
+		return ( isset( $clause[ 'type_key' ] ) && ( 'BINARY' === strtoupper( (string) $clause[ 'type_key' ] ) ) )
+			? 'BINARY'
+			: '';
 	}
 
 	/**
@@ -1558,11 +1581,23 @@ class Meta extends Base {
 			case 'LIKE':
 			case 'REGEXP':
 			case 'RLIKE':
+				$condition = array(
+					'compare' => $compare_key,
+					'value'   => $key,
+				);
+
+				/*
+				 * type_key => BINARY makes REGEXP/RLIKE key matches case-sensitive
+				 * (LIKE never casts). Same rule as the bespoke engine, one source.
+				 */
+				$cast = $this->get_meta_key_cast( $meta_clause, $compare_key );
+
+				if ( '' !== $cast ) {
+					$condition[ 'cast' ] = $cast;
+				}
+
 				$where = array(
-					'meta_key' => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
-						'compare' => $compare_key,
-						'value'   => $key,
-					),
+					'meta_key' => $condition, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
 				);
 				break;
 

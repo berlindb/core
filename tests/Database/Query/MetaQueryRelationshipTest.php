@@ -541,6 +541,66 @@ class MetaQueryRelationshipTest extends TestCase {
 	}
 
 	/**
+	 * compare_key REGEXP honors type_key BINARY in the store-backed path.
+	 *
+	 * Closes the gap where the relationship path ignored type_key (the bespoke
+	 * engine already honored it). C gets a capital-cased 'Color' key that a
+	 * case-insensitive REGEXP would match; BINARY must exclude it, leaving the
+	 * two lowercase 'color' rows.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_compare_key_regexp_binary_is_case_sensitive() {
+		( new MqThingMetaQuery() )->add_meta( $this->ids['C'], 'Color', 'green' );
+
+		$this->assertSame(
+			array( 'A', 'B' ),
+			$this->labels(
+				array(
+					'meta_query' => array(
+						array(
+							'key'         => '^color$',
+							'compare_key' => 'REGEXP',
+							'type_key'    => 'BINARY',
+							'compare'     => 'EXISTS',
+						),
+					),
+				)
+			)
+		);
+	}
+
+	/**
+	 * compare_key NOT REGEXP honors type_key BINARY (negated regex + cast flip).
+	 *
+	 * Exercises the negative-key flip together with the BINARY cast: C's
+	 * capital 'Color' does NOT match '^color$' case-sensitively, so C has no
+	 * matching key and survives the NOT EXISTS; A and B (lowercase 'color') are
+	 * excluded. Without BINARY, 'Color' would match and C would be excluded too.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_compare_key_not_regexp_binary_is_case_sensitive() {
+		( new MqThingMetaQuery() )->add_meta( $this->ids['C'], 'Color', 'green' );
+
+		$this->assertSame(
+			array( 'C' ),
+			$this->labels(
+				array(
+					'meta_query' => array(
+						array(
+							'key'         => '^color$',
+							'compare_key' => 'NOT REGEXP',
+							'type_key'    => 'BINARY',
+							'compare'     => 'EXISTS',
+						),
+					),
+				)
+			)
+		);
+	}
+
+	/**
 	 * A negative VALUE comparison translates (unlike a negative compare_KEY).
 	 *
 	 * Value-side != / NOT IN become EXISTS(... AND meta_value <negate> V): "has a

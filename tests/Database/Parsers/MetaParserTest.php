@@ -279,6 +279,39 @@ class MetaParserTest extends TestCase {
 	}
 
 	/**
+	 * Test that compare_key REGEXP honors type_key BINARY (case-sensitive key).
+	 *
+	 * Locks the bespoke JOIN engine's pre-existing behavior so the shared
+	 * get_meta_key_cast() rule can't regress it. Gamma gets a capital-cased key
+	 * that a case-insensitive REGEXP would match; BINARY must exclude it.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_meta_query_compare_key_regexp_binary_is_case_sensitive() {
+		add_metadata( 'post', $this->ids[2], 'berlindb_test_Color', 'green' );
+		wp_cache_flush();
+
+		$results = self::$query->query(
+			array(
+				'meta_query' => array(
+					array(
+						'key'         => '^berlindb_test_color$',
+						'compare_key' => 'REGEXP',
+						'type_key'    => 'BINARY',
+						'compare'     => 'EXISTS',
+					),
+				),
+			)
+		);
+
+		$names = wp_list_pluck( $results, 'name' );
+		sort( $names );
+
+		// Only the exact lowercase key matches; Gamma's 'berlindb_test_Color' does not.
+		$this->assertSame( array( 'Alpha Widget', 'Beta Widget' ), $names );
+	}
+
+	/**
 	 * Test that compare_key NOT LIKE excludes rows that have matching meta keys.
 	 *
 	 * @since 3.0.0
