@@ -782,7 +782,15 @@ trait Parser {
 	 * @return string The comparison operator.
 	 */
 	protected function get_compare( $query = array() ) {
-		$comparison_keys = $this->get_operators();
+
+		/*
+		 * Exclude unary predicates (IS NULL / IS NOT NULL). Callers of this
+		 * method build `{column} {compare} {value}` and have no value-less
+		 * path, so a unary compare falls back to the default. Parsers that DO
+		 * support unary operators (Compare, Relationship) route through
+		 * operator->get_sql() instead of this method.
+		 */
+		$comparison_keys = $this->get_operators( array( 'unary' => false ) );
 
 		return ! empty( $query[ 'compare' ] ) && in_array( $query[ 'compare' ], $comparison_keys, true )
 			? strtoupper( $query[ 'compare' ] )
@@ -1159,8 +1167,8 @@ trait Parser {
 
 		/** Build the WHERE clause */
 
-		// Column object and value.
-		if ( array_key_exists( 'key', $clause ) && array_key_exists( 'value', $clause ) ) {
+		// Column object and value. Unary operators (IS NULL) need no value.
+		if ( array_key_exists( 'key', $clause ) && ( array_key_exists( 'value', $clause ) || $operator->is_unary() ) ) {
 			$name = $this->sanitize_column_name( $clause[ 'key' ] );
 
 			// Key doesn't sanitize to a valid column name.
@@ -1175,9 +1183,9 @@ trait Parser {
 				return $this->unresolved_column_clause( $retval );
 			}
 
-			// Get the qualified column name for SQL.
+			// Get the qualified column name for SQL ('value' is absent for unary).
 			$alias = $this->caller->get_table_alias() ?? '';
-			$expr  = $operator->get_sql( $col, $alias, $clause[ 'value' ] );
+			$expr  = $operator->get_sql( $col, $alias, $clause[ 'value' ] ?? null );
 
 			// Maybe add the WHERE expression.
 			if ( ! empty( $expr ) ) {

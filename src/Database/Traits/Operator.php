@@ -86,6 +86,18 @@ trait Operator {
 	protected $multi = false;
 
 	/**
+	 * Whether this operator is unary — a predicate that takes no right-hand
+	 * value (e.g. IS NULL / IS NOT NULL).
+	 *
+	 * Clause builders use this to allow a value-less clause (key + compare, no
+	 * value) instead of skipping it for want of a value operand.
+	 *
+	 * @since 3.1.0
+	 * @var bool
+	 */
+	protected $unary = false;
+
+	/**
 	 * Whether this operator is intended for numeric comparisons (>, <, BETWEEN).
 	 *
 	 * @since 3.0.0
@@ -139,6 +151,17 @@ trait Operator {
 	 */
 	public function is_positive(): bool {
 		return (bool) $this->positive;
+	}
+
+	/**
+	 * Whether this operator is unary (takes no right-hand value).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return bool
+	 */
+	public function is_unary(): bool {
+		return (bool) $this->unary;
 	}
 
 	/**

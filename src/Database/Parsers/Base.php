@@ -211,6 +211,8 @@ abstract class Base {
 			'BerlinDB\\Database\\Operators\\GreaterThan',
 			'BerlinDB\\Database\\Operators\\GreaterThanOrEqual',
 			'BerlinDB\\Database\\Operators\\In',
+			'BerlinDB\\Database\\Operators\\IsNotNull',
+			'BerlinDB\\Database\\Operators\\IsNull',
 			'BerlinDB\\Database\\Operators\\LessThan',
 			'BerlinDB\\Database\\Operators\\LessThanOrEqual',
 			'BerlinDB\\Database\\Operators\\Like',

@@ -601,6 +601,29 @@ class MetaQueryRelationshipTest extends TestCase {
 	}
 
 	/**
+	 * A unary value compare (IS NULL) is not built by the store path yet; it
+	 * falls back to '=' rather than emitting a value-less predicate (#211).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_is_null_value_falls_back_to_equals() {
+		$this->assertSame(
+			array( 'A' ),
+			$this->labels(
+				array(
+					'meta_query' => array(
+						array(
+							'key'     => 'color',
+							'value'   => 'blue',
+							'compare' => 'IS NULL',
+						),
+					),
+				)
+			)
+		);
+	}
+
+	/**
 	 * A negative VALUE comparison translates (unlike a negative compare_KEY).
 	 *
 	 * Value-side != / NOT IN become EXISTS(... AND meta_value <negate> V): "has a

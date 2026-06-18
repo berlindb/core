@@ -17,6 +17,8 @@ use BerlinDB\Database\Operators\Exists;
 use BerlinDB\Database\Operators\GreaterThan;
 use BerlinDB\Database\Operators\GreaterThanOrEqual;
 use BerlinDB\Database\Operators\In;
+use BerlinDB\Database\Operators\IsNotNull;
+use BerlinDB\Database\Operators\IsNull;
 use BerlinDB\Database\Operators\LessThan;
 use BerlinDB\Database\Operators\LessThanOrEqual;
 use BerlinDB\Database\Operators\Like;
@@ -265,6 +267,100 @@ class OperatorsTest extends TestCase {
 		$this->assertTrue( $op->positive );
 		$this->assertFalse( $op->multi );
 		$this->assertFalse( $op->numeric );
+	}
+
+	/**
+	 * Test IsNull descriptor properties.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_is_null_descriptor_properties() {
+		$op = new IsNull();
+		$this->assertSame( 'IS NULL', $op->compare );
+		$this->assertTrue( $op->positive );
+		$this->assertFalse( $op->multi );
+		$this->assertFalse( $op->numeric );
+		$this->assertTrue( $op->is_unary() );
+	}
+
+	/**
+	 * Test IsNotNull descriptor properties.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_is_not_null_descriptor_properties() {
+		$op = new IsNotNull();
+		$this->assertSame( 'IS NOT NULL', $op->compare );
+		// Positive: IS NOT NULL is a direct predicate, not an anti-join.
+		$this->assertTrue( $op->positive );
+		$this->assertFalse( $op->multi );
+		$this->assertFalse( $op->numeric );
+		$this->assertTrue( $op->is_unary() );
+	}
+
+	// -------------------------------------------------------------------------
+	// Unary operators (IS NULL / IS NOT NULL).
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Test that IsNull::get_sql emits a value-less `IS NULL` predicate.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_is_null_get_sql_emits_value_less_predicate() {
+		$col = new Column(
+			array(
+				'name' => 'deleted_at',
+				'type' => 'datetime',
+			)
+		);
+		$sql = ( new IsNull() )->get_sql( $col, 't' );
+		$this->assertSame( '`t`.`deleted_at` IS NULL', $sql );
+	}
+
+	/**
+	 * Test that IsNotNull::get_sql emits a value-less `IS NOT NULL` predicate.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_is_not_null_get_sql_emits_value_less_predicate() {
+		$col = new Column(
+			array(
+				'name' => 'deleted_at',
+				'type' => 'datetime',
+			)
+		);
+		$sql = ( new IsNotNull() )->get_sql( $col, 't' );
+		$this->assertSame( '`t`.`deleted_at` IS NOT NULL', $sql );
+	}
+
+	/**
+	 * Test that a passed value is ignored by the unary operators.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_is_null_ignores_any_passed_value() {
+		$col = new Column(
+			array(
+				'name' => 'deleted_at',
+				'type' => 'datetime',
+			)
+		);
+		$this->assertSame(
+			'`deleted_at` IS NULL',
+			( new IsNull() )->get_sql( $col, '', 'whatever' )
+		);
+	}
+
+	/**
+	 * Test that unary operators return no value fragment, so value-driven
+	 * builders skip them rather than emitting a spurious operand.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_unary_get_value_sql_is_empty() {
+		$this->assertSame( '', ( new IsNull() )->get_value_sql( 'x' ) );
+		$this->assertSame( '', ( new IsNotNull() )->get_value_sql( 'x' ) );
 	}
 
 	// -------------------------------------------------------------------------
@@ -709,6 +805,8 @@ class OperatorsTest extends TestCase {
 			new GreaterThanOrEqual(),
 			new LessThan(),
 			new LessThanOrEqual(),
+			new IsNull(),
+			new IsNotNull(),
 		);
 
 		$map = array();
@@ -743,6 +841,8 @@ class OperatorsTest extends TestCase {
 			'<='          => '>',
 			'<'           => '>=',
 			'>='          => '<',
+			'IS NULL'     => 'IS NOT NULL',
+			'IS NOT NULL' => 'IS NULL',
 			'RLIKE'       => '',
 		);
 

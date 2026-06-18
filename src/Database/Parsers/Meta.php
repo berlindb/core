@@ -504,8 +504,17 @@ class Meta extends Base {
 				: '=';
 		}
 
-		// Operators.
-		$non_numeric_operators = $this->get_operators( array( 'numeric' => false ) );
+		/*
+		 * Operators. Unary predicates (IS NULL) aren't built by the meta engine
+		 * yet, so exclude them here — an unrecognized compare falls back to '='
+		 * rather than silently no-op'ing. Meta IS NULL support is tracked in #211.
+		 */
+		$non_numeric_operators = $this->get_operators(
+			array(
+				'numeric' => false,
+				'unary'   => false,
+			)
+		);
 		$numeric_operators     = $this->get_operators( array( 'numeric' => true ) );
 
 		// Fallback if bad comparison.
@@ -1474,6 +1483,17 @@ class Meta extends Base {
 		$compare = isset( $meta_clause[ 'compare' ] )
 			? strtoupper( (string) $meta_clause[ 'compare' ] )
 			: ( ( isset( $meta_clause[ 'value' ] ) && is_array( $meta_clause[ 'value' ] ) ) ? 'IN' : '=' );
+
+		/*
+		 * Unary predicates (IS NULL) aren't supported for meta values yet; fall
+		 * back to '=' so the store path mirrors the bespoke engine rather than
+		 * emitting a value-less predicate. Meta IS NULL support is tracked in #211.
+		 */
+		$compare_op = $this->get_operator( $compare );
+
+		if ( ( false !== $compare_op ) && $compare_op->is_unary() ) {
+			$compare = '=';
+		}
 
 		// The meta_key condition.
 		if ( array_key_exists( 'key', $meta_clause ) ) {

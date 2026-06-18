@@ -432,6 +432,30 @@ class MetaParserTest extends TestCase {
 	}
 
 	/**
+	 * Test that a unary compare (IS NULL) is not built by the meta engine yet,
+	 * falling back to '=' rather than silently no-op'ing (#211).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_meta_query_is_null_value_falls_back_to_equals() {
+		$results = self::$query->query(
+			array(
+				'meta_query' => array(
+					array(
+						'key'     => 'berlindb_test_color',
+						'value'   => 'red',
+						'compare' => 'IS NULL',
+					),
+				),
+			)
+		);
+
+		// Treated as `meta_value = 'red'`, so only Alpha (color red) matches.
+		$this->assertCount( 1, $results );
+		$this->assertSame( 'Alpha Widget', $results[0]->name );
+	}
+
+	/**
 	 * Test that meta_query with a numeric comparison works correctly.
 	 *
 	 * @since 3.0.0
