@@ -626,8 +626,13 @@ class Meta extends Base {
 
 			} else {
 
-				// Get negative operators.
-				$neg = $this->get_operators( array( 'positive' => false ) );
+				/*
+				 * Is this key operator negative? Read the operator's own polarity
+				 * descriptor rather than rebuilding a list of NOT-* compare names.
+				 * Mirrors how the store-backed meta_key_condition() decides.
+				 */
+				$key_operator = $this->get_operator( $meta_compare_key );
+				$is_negative  = ( false !== $key_operator ) && ! $key_operator->is_positive();
 
 				// Initialize subquery fragments; only populated for negative compare_key operators.
 				$subquery_alias            = '';
@@ -641,7 +646,7 @@ class Meta extends Base {
 				 * matching post IDs but different meta keys. Here we prepare the
 				 * nested clause.
 				 */
-				if ( in_array( $meta_compare_key, $neg, true ) ) {
+				if ( true === $is_negative ) {
 
 					// Negative clauses may be reused.
 					$i                 = count( $this->table_aliases );
