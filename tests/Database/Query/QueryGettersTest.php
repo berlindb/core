@@ -230,8 +230,10 @@ class QueryGettersTest extends TestCase {
 	 * @since 3.0.0
 	 */
 	public function test_get_max_num_pages_is_zero_for_unlimited_query() {
-		// number => 0 means no LIMIT clause; max_num_pages stays 0 because the
-		// pagination calculation requires a non-zero page size.
+		/*
+		 * number => 0 means no LIMIT clause; max_num_pages stays 0 because the
+		 * pagination calculation requires a non-zero page size.
+		 */
 		self::$query->query( array( 'number' => 0 ) );
 		$this->assertSame( 0, self::$query->get_max_num_pages() );
 	}

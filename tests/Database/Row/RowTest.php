@@ -260,8 +260,10 @@ class RowTest extends TestCase {
 	public function test_base_row_casts_are_empty_and_values_pass_through() {
 		$row = new TestRow( array( 'priority' => '7' ) );
 
-		// priority is declared as int on TestRow, but no cast is defined,
-		// so the raw string from the DB is preserved.
+		/*
+		 * priority is declared as int on TestRow, but no cast is defined,
+		 * so the raw string from the DB is preserved.
+		 */
 		$this->assertSame( '7', $row->priority );
 	}
 }

@@ -262,8 +262,10 @@ class RelationshipParserTest extends TestCase {
 			array( 'parent' => $this->relationship() )
 		);
 
-		// The remote table name is resolved connection-side (and is empty here
-		// because no table is installed); assert the parser-owned structure.
+		/*
+		 * The remote table name is resolved connection-side (and is empty here
+		 * because no table is installed); assert the parser-owned structure.
+		 */
 		$this->assertStringContainsString( 'INNER JOIN', $result['join'] );
 		$this->assertStringContainsString( 'AS `bdb_rel_parent`', $result['join'] );
 		$this->assertStringContainsString( 'ON `o`.`parent_id` = `bdb_rel_parent`.`id`', $result['join'] );
@@ -494,15 +496,19 @@ class RelationshipParserTest extends TestCase {
 			)
 		);
 
-		// Force an unusual name straight onto the resolved object's accessor by
-		// resolving under that key.
+		/*
+		 * Force an unusual name straight onto the resolved object's accessor by
+		 * resolving under that key.
+		 */
 		$result = $this->parse(
 			array( 'name' => 'weird name!' ),
 			array( 'weird name!' => $rel )
 		);
 
-		// Non-identifier chars collapse to underscores; sanitize_table_alias()
-		// normalizes runs and trims trailing underscores ('weird name!' -> 'weird_name').
+		/*
+		 * Non-identifier chars collapse to underscores; sanitize_table_alias()
+		 * normalizes runs and trims trailing underscores ('weird name!' -> 'weird_name').
+		 */
 		$this->assertStringContainsString( 'AS `bdb_rel_weird_name`', $result['join'] );
 	}
 
@@ -911,8 +917,10 @@ class RelationshipParserTest extends TestCase {
 	 * @since 3.1.0
 	 */
 	public function test_relation_key_is_not_a_column() {
-		// 'relation' would not be a valid column; if it were treated as one this
-		// would fail closed. Instead it selects AND/OR and the real column wins.
+		/*
+		 * 'relation' would not be a valid column; if it were treated as one this
+		 * would fail closed. Instead it selects AND/OR and the real column wins.
+		 */
 		$result = $this->parse(
 			array(
 				'name'  => 'parent',
@@ -999,8 +1007,10 @@ class RelationshipParserTest extends TestCase {
 		$this->assertStringContainsString( '`bdb_rel_parent`.`total`', $result['where'] );
 		$this->assertStringContainsString( '`bdb_rel_parent`.`order_id`', $result['where'] );
 
-		// The OR group is nested inside the outer AND group: two opening parens
-		// appear before the inner OR keyword.
+		/*
+		 * The OR group is nested inside the outer AND group: two opening parens
+		 * appear before the inner OR keyword.
+		 */
 		$or_position    = strpos( $result['where'], ' OR ' );
 		$prefix         = substr( $result['where'], 0, (int) $or_position );
 		$opening_parens = substr_count( $prefix, '(' );

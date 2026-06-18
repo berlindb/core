@@ -423,9 +423,11 @@ class CompareParserTest extends TestCase {
 	 */
 	public function test_and_subgroup_nested_in_or() {
 
-		// ( status = 'pending' OR ( status = 'inactive' AND priority > 30 ) )
-		//   => Epsilon (pending) + Delta (inactive, 40) = 2 rows. Gamma (30) is
-		//   excluded because the inner AND requires priority > 30.
+		/*
+		 * ( status = 'pending' OR ( status = 'inactive' AND priority > 30 ) )
+		 *   => Epsilon (pending) + Delta (inactive, 40) = 2 rows. Gamma (30) is
+		 *   excluded because the inner AND requires priority > 30.
+		 */
 		$results = self::$query->query(
 			array(
 				'compare_query' => array(

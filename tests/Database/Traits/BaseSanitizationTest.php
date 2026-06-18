@@ -732,8 +732,10 @@ class BaseSanitizationTest extends \PHPUnit\Framework\TestCase {
 		// Only an empty cast is a no-op.
 		$this->assertSame( $ref, $this->helper->get_cast_reference( $ref, '' ) );
 
-		// Every non-empty target wraps in CAST() — including CHAR, a valid cast
-		// for string-semantics comparison on a numeric column.
+		/*
+		 * Every non-empty target wraps in CAST() — including CHAR, a valid cast
+		 * for string-semantics comparison on a numeric column.
+		 */
 		$this->assertSame( 'CAST(`a`.`col` AS CHAR)', $this->helper->get_cast_reference( $ref, 'CHAR' ) );
 		$this->assertSame( 'CAST(`a`.`col` AS SIGNED)', $this->helper->get_cast_reference( $ref, 'SIGNED' ) );
 		$this->assertSame( 'CAST(`a`.`col` AS DATETIME)', $this->helper->get_cast_reference( $ref, 'DATETIME' ) );

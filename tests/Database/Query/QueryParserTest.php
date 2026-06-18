@@ -459,8 +459,10 @@ class QueryParserTest extends TestCase {
 		$this->assertIsArray( $result );
 		$this->assertSame( _get_meta_table( 'post' ), $parser->meta_table );
 		$this->assertSame( 'post_id', $parser->meta_column );
-		// get_join_where_clauses() resolves the primary table by ALIAS (JOIN ON
-		// clauses reference the alias, not the full table name).
+		/*
+		 * get_join_where_clauses() resolves the primary table by ALIAS (JOIN ON
+		 * clauses reference the alias, not the full table name).
+		 */
 		$this->assertSame( 'resolved_mw', $parser->primary_table );
 		$this->assertSame( 'resolved_widget_id', $parser->primary_column );
 	}

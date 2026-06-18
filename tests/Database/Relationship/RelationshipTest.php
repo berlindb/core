@@ -306,8 +306,10 @@ class RelationshipTest extends TestCase {
 	public function test_protected_property_is_readable_via_magic_get() {
 		$relationship = new Relationship( array( 'type' => 'has_many' ) );
 
-		// Reading the protected $type from outside the class routes through
-		// the Magic trait's __get() and returns the value unchanged.
+		/*
+		 * Reading the protected $type from outside the class routes through
+		 * the Magic trait's __get() and returns the value unchanged.
+		 */
 		$this->assertSame( 'has_many', $relationship->type );
 	}
 
@@ -330,8 +332,10 @@ class RelationshipTest extends TestCase {
 			}
 		};
 
-		// External property access routes through __get(), which prefers the
-		// subclass getter over the stored value.
+		/*
+		 * External property access routes through __get(), which prefers the
+		 * subclass getter over the stored value.
+		 */
 		$this->assertSame( 'BELONGS_TO', $relationship->type );
 	}
 
@@ -409,8 +413,10 @@ class RelationshipTest extends TestCase {
 			)
 		);
 
-		// No 'constraint' was set, so MySQL auto-names: no CONSTRAINT prefix,
-		// and the accessor name must not leak into the SQL.
+		/*
+		 * No 'constraint' was set, so MySQL auto-names: no CONSTRAINT prefix,
+		 * and the accessor name must not leak into the SQL.
+		 */
 		$this->assertSame(
 			'FOREIGN KEY (`customer_id`) REFERENCES `wp_acme_customers` (`id`)',
 			$relationship->get_create_string( 'wp_acme_customers' )

@@ -110,44 +110,44 @@ class DocDriftTest extends TestCase {
 			}
 		}
 
-		// Guard the guard: if the summaries move or get reworded away, fail loudly
-		// rather than passing vacuously.
+		/*
+		 * Guard the guard: if the summaries move or get reworded away, fail loudly
+		 * rather than passing vacuously.
+		 */
 		$this->assertGreaterThanOrEqual( count( $files ), $inspected, 'Expected at least one lifecycle summary per documented file; the guard may be looking in the wrong place.' );
 	}
 
 	/**
-	 * Multi-line inline comments in src/ must use block syntax, not stacked `//`.
+	 * Multi-line inline comments must use block syntax, not stacked `//`.
 	 *
 	 * Non-Negotiable #1 (CLAUDE.md): block comments for multi-line, `//` for
 	 * single lines only (WordPress standard). Documentation alone kept failing to
 	 * hold the line, so this turns the convention into a red test — two or more
 	 * consecutive full-line `//` comments are flagged, with the offending
-	 * locations named. `phpcs:` directive lines are exempt. Scoped to src/ (the
-	 * library surface); tests/ is not yet enforced.
+	 * locations named. Exempt: `phpcs:` directive lines, and divider banners
+	 * (`// ----` / `// ====`), which break a run so section headers are not
+	 * mistaken for prose. Covers src/ and tests/.
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_src_multiline_comments_use_block_syntax() {
+	public function test_multiline_comments_use_block_syntax() {
 		$offenders = array();
-		$root      = $this->root();
-		$iterator  = new \RecursiveIteratorIterator( new \RecursiveDirectoryIterator( $root . '/src', \FilesystemIterator::SKIP_DOTS ) );
 
-		foreach ( $iterator as $file ) {
-
-			// Only PHP files.
-			if ( ! $file->isFile() || ( 'php' !== strtolower( $file->getExtension() ) ) ) {
-				continue;
-			}
-
-			$lines = explode( "\n", (string) file_get_contents( $file->getPathname() ) );
+		foreach ( $this->source_php_files() as $relative => $path ) {
+			$lines = explode( "\n", (string) file_get_contents( $path ) );
 			$run   = 0;
 
 			foreach ( $lines as $index => $line ) {
 
-				// A full-line // comment that is not a phpcs: directive.
-				$is_slash_comment = ( 1 === preg_match( '#^\s*//#', $line ) ) && ( false === strpos( $line, 'phpcs:' ) );
+				/*
+				 * A full-line // comment, excluding phpcs: directives and divider
+				 * banners (which reset the run rather than extend it).
+				 */
+				$is_prose = ( 1 === preg_match( '#^\s*//#', $line ) )
+					&& ( false === strpos( $line, 'phpcs:' ) )
+					&& ( 1 !== preg_match( '#^\s*//\s*[-=*]{3,}#', $line ) );
 
-				if ( ! $is_slash_comment ) {
+				if ( ! $is_prose ) {
 					$run = 0;
 					continue;
 				}
@@ -156,8 +156,7 @@ class DocDriftTest extends TestCase {
 
 				// A second consecutive // line is a multi-line comment in disguise.
 				if ( 2 === $run ) {
-					$relative    = str_replace( $root . '/', '', $file->getPathname() );
-					$offenders[] = "{$relative}:{$index}";
+					$offenders[] = "{$relative}:" . ( $index + 1 );
 				}
 			}
 		}
@@ -179,11 +178,12 @@ class DocDriftTest extends TestCase {
 	 * Blocks carrying phpDoc @-tags are also exempt — those are docblocks,
 	 * including WordPress hook docs that sit before apply_filters()/do_action()
 	 * (phpstan-wordpress reads them). Only tag-less multi-line double-star blocks
-	 * whose next significant token is not a declaration are flagged. Scoped to src/.
+	 * whose next significant token is not a declaration are flagged. Covers
+	 * src/ and tests/.
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_src_inline_block_comments_are_not_docblock_style() {
+	public function test_inline_block_comments_are_not_docblock_style() {
 
 		// Tokens that may legitimately follow a docblock (a declaration).
 		$declarations = array(
@@ -214,17 +214,9 @@ class DocDriftTest extends TestCase {
 		$declarations = array_flip( $declarations );
 		$skip         = array( \T_WHITESPACE, \T_COMMENT, \T_DOC_COMMENT );
 		$offenders    = array();
-		$root         = $this->root();
-		$iterator     = new \RecursiveIteratorIterator( new \RecursiveDirectoryIterator( $root . '/src', \FilesystemIterator::SKIP_DOTS ) );
 
-		foreach ( $iterator as $file ) {
-
-			// Only PHP files.
-			if ( ! $file->isFile() || ( 'php' !== strtolower( $file->getExtension() ) ) ) {
-				continue;
-			}
-
-			$tokens = token_get_all( (string) file_get_contents( $file->getPathname() ) );
+		foreach ( $this->source_php_files() as $relative => $path ) {
+			$tokens = token_get_all( (string) file_get_contents( $path ) );
 			$count  = count( $tokens );
 
 			foreach ( $tokens as $i => $token ) {
@@ -255,7 +247,6 @@ class DocDriftTest extends TestCase {
 					|| ( is_string( $next ) && ( '#[' === $next ) );
 
 				if ( ! $is_docblock ) {
-					$relative    = str_replace( $root . '/', '', $file->getPathname() );
 					$offenders[] = "{$relative}:{$token[2]}";
 				}
 			}
@@ -266,6 +257,28 @@ class DocDriftTest extends TestCase {
 			$offenders,
 			"Multi-line `/**` comments that are not docblocks must use `/*` block syntax.\nOffending blocks:\n" . implode( "\n", $offenders )
 		);
+	}
+
+	/**
+	 * Every PHP file under src/ and tests/, keyed by repo-relative path.
+	 *
+	 * @return array<string,string> Repo-relative path => absolute path.
+	 */
+	private function source_php_files(): array {
+		$root  = $this->root();
+		$files = array();
+
+		foreach ( array( 'src', 'tests' ) as $dir ) {
+			$iterator = new \RecursiveIteratorIterator( new \RecursiveDirectoryIterator( $root . '/' . $dir, \FilesystemIterator::SKIP_DOTS ) );
+
+			foreach ( $iterator as $file ) {
+				if ( $file->isFile() && ( 'php' === strtolower( $file->getExtension() ) ) ) {
+					$files[ str_replace( $root . '/', '', $file->getPathname() ) ] = $file->getPathname();
+				}
+			}
+		}
+
+		return $files;
 	}
 
 	/**

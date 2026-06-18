@@ -54,8 +54,10 @@ class PrimingSchema extends Schema {
 			'default'       => '',
 			'cache_key'     => true,
 			'in'            => true,
-			// A relationship pointing at a real class that is NOT a Query, to
-			// exercise resolve_remote_query()'s instanceof guard (fails closed).
+			/*
+			 * A relationship pointing at a real class that is NOT a Query, to
+			 * exercise resolve_remote_query()'s instanceof guard (fails closed).
+			 */
 			'relationships' => array(
 				array(
 					'name'   => 'bogus',
@@ -343,8 +345,10 @@ class QueryRelationshipPrimingTest extends TestCase {
 	 * @since 3.1.0
 	 */
 	public function test_get_related_non_query_class_is_null() {
-		// The 'bogus' relationship points at stdClass — a class that exists but
-		// is not a Query, so the remote can't be resolved.
+		/*
+		 * The 'bogus' relationship points at stdClass — a class that exists but
+		 * is not a Query, so the remote can't be resolved.
+		 */
 		$item = (object) array( 'status' => 'anything' );
 
 		$this->assertNull( self::$query->get_related( $item, 'bogus' ) );
@@ -854,8 +858,10 @@ class QueryRelationshipPrimingTest extends TestCase {
 			)
 		);
 
-		// Only the child matches (its parent has status 'parent'); the parent
-		// row has no parent, so the condition filters it out despite the LEFT.
+		/*
+		 * Only the child matches (its parent has status 'parent'); the parent
+		 * row has no parent, so the condition filters it out despite the LEFT.
+		 */
 		$this->assertCount( 1, $results );
 		$this->assertSame( $this->child_id, (int) $results[0]->id );
 	}
@@ -935,8 +941,10 @@ class QueryRelationshipPrimingTest extends TestCase {
 		// Warm the result cache WITHOUT 'with' — priming is quiet, parent cold.
 		self::$query->query( array( 'status' => 'child' ) );
 
-		// Same query WITH 'with' — served from the cache (same key), but the
-		// 'with' priming must still warm the parent.
+		/*
+		 * Same query WITH 'with' — served from the cache (same key), but the
+		 * 'with' priming must still warm the parent.
+		 */
 		self::$query->query(
 			array(
 				'status' => 'child',
