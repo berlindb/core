@@ -366,6 +366,72 @@ class MetaParserTest extends TestCase {
 	}
 
 	/**
+	 * Test that compare_key != excludes rows that have the exact key.
+	 *
+	 * Pins the bespoke negative-key path (NOT EXISTS subquery) that the operator
+	 * polarity check drives; only Gamma lacks the color key.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_meta_query_compare_key_not_equal() {
+		$results = self::$query->query(
+			array(
+				'meta_query' => array(
+					array(
+						'key'         => 'berlindb_test_color',
+						'compare_key' => '!=',
+					),
+				),
+			)
+		);
+
+		$this->assertCount( 1, $results );
+		$this->assertSame( 'Gamma Gadget', $results[0]->name );
+	}
+
+	/**
+	 * Test that compare_key NOT IN excludes rows holding any listed key.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_meta_query_compare_key_not_in() {
+		$results = self::$query->query(
+			array(
+				'meta_query' => array(
+					array(
+						'key'         => array( 'berlindb_test_color' ),
+						'compare_key' => 'NOT IN',
+					),
+				),
+			)
+		);
+
+		$this->assertCount( 1, $results );
+		$this->assertSame( 'Gamma Gadget', $results[0]->name );
+	}
+
+	/**
+	 * Test that compare_key NOT REGEXP excludes rows whose keys match the pattern.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_meta_query_compare_key_not_regexp() {
+		$results = self::$query->query(
+			array(
+				'meta_query' => array(
+					array(
+						'key'         => 'color',
+						'compare_key' => 'NOT REGEXP',
+					),
+				),
+			)
+		);
+
+		$this->assertCount( 1, $results );
+		$this->assertSame( 'Gamma Gadget', $results[0]->name );
+	}
+
+	/**
 	 * Test that meta_query with a numeric comparison works correctly.
 	 *
 	 * @since 3.0.0
