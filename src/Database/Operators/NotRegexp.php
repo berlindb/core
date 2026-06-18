@@ -72,4 +72,12 @@ class NotRegexp extends Base {
 	 * @var bool
 	 */
 	protected $numeric = false;
+
+	/**
+	 * Whether this operator is a regular-expression match (REGEXP / RLIKE).
+	 *
+	 * @since 3.1.0
+	 * @var bool
+	 */
+	protected $regex = true;
 }

@@ -106,6 +106,19 @@ trait Operator {
 	protected $numeric = false;
 
 	/**
+	 * Whether this operator is a regular-expression match (REGEXP / RLIKE).
+	 *
+	 * Lets callers ask the registry "is this a regex compare?" instead of
+	 * hardcoding a compare-string list — e.g. type_key => BINARY only applies to
+	 * regex key comparisons. Set on the negative NotRegexp too: regex-ness and
+	 * polarity are independent axes.
+	 *
+	 * @since 3.1.0
+	 * @var bool
+	 */
+	protected $regex = false;
+
+	/**
 	 * The SQL operator string to use when assembling a WHERE clause.
 	 *
 	 * Defaults to $compare. Override in operator classes where the SQL operator
@@ -162,6 +175,39 @@ trait Operator {
 	 */
 	public function is_unary(): bool {
 		return (bool) $this->unary;
+	}
+
+	/**
+	 * Whether this operator is intended for numeric comparisons (>, <, BETWEEN).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return bool
+	 */
+	public function is_numeric(): bool {
+		return (bool) $this->numeric;
+	}
+
+	/**
+	 * Whether this operator accepts multiple values (IN, BETWEEN).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return bool
+	 */
+	public function is_multi(): bool {
+		return (bool) $this->multi;
+	}
+
+	/**
+	 * Whether this operator is a regular-expression match (REGEXP / RLIKE).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return bool
+	 */
+	public function is_regex(): bool {
+		return (bool) $this->regex;
 	}
 
 	/**

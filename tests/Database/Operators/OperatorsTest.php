@@ -387,6 +387,40 @@ class OperatorsTest extends TestCase {
 	}
 
 	// -------------------------------------------------------------------------
+	// Descriptor accessors (is_regex / is_numeric / is_multi).
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Test that is_regex() is true only for regular-expression operators.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_is_regex_marks_regex_operators() {
+		$this->assertTrue( ( new Regexp() )->is_regex() );
+		$this->assertTrue( ( new Rlike() )->is_regex() );
+		// Negative regex is still a regex operator (polarity is a separate axis).
+		$this->assertTrue( ( new NotRegexp() )->is_regex() );
+
+		$this->assertFalse( ( new Like() )->is_regex() );
+		$this->assertFalse( ( new Equal() )->is_regex() );
+		$this->assertFalse( ( new In() )->is_regex() );
+	}
+
+	/**
+	 * Test the is_numeric() and is_multi() descriptor accessors.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_numeric_and_multi_accessors() {
+		$this->assertTrue( ( new GreaterThan() )->is_numeric() );
+		$this->assertFalse( ( new Equal() )->is_numeric() );
+
+		$this->assertTrue( ( new In() )->is_multi() );
+		$this->assertTrue( ( new Between() )->is_multi() );
+		$this->assertFalse( ( new Equal() )->is_multi() );
+	}
+
+	// -------------------------------------------------------------------------
 	// Scalar get_value_sql (trait default).
 	// -------------------------------------------------------------------------
 

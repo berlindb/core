@@ -896,8 +896,13 @@ class Meta extends Base {
 	 */
 	private function get_meta_key_cast( array $clause, string $compare = '' ): string {
 
-		// BINARY only applies to regular-expression key comparisons.
-		if ( ! in_array( strtoupper( $compare ), array( 'REGEXP', 'RLIKE' ), true ) ) {
+		/*
+		 * BINARY only applies to regular-expression key comparisons; ask the
+		 * operator registry rather than hardcoding the regex compare list.
+		 */
+		$operator = $this->get_operator( strtoupper( $compare ) );
+
+		if ( ( false === $operator ) || ! $operator->is_regex() ) {
 			return '';
 		}
 
@@ -1588,48 +1593,53 @@ class Meta extends Base {
 
 		if ( $negate ) {
 			$compare_key = $operator->get_opposite_compare();
+			$operator    = $this->get_operator( $compare_key );
 		}
 
 		/*
-		 * 'meta_key' below is the sibling table's own indexed column name (a
+		 * Only a positive, non-numeric, non-unary operator is a valid key
+		 * comparison (=, EXISTS, IN, LIKE, REGEXP, RLIKE). Anything else — an
+		 * unknown compare, a numeric/range operator, or a unary IS NULL — cannot
+		 * be expressed as a meta_key condition; fail closed.
+		 */
+		if ( ( false === $operator ) || $operator->is_numeric() || $operator->is_unary() ) {
+			return null;
+		}
+
+		/*
+		 * Shape the relationship where-condition from the operator's descriptors
+		 * rather than a hardcoded compare-string switch:
+		 *  - equality (Equal/Exists, sql_compare '=') → a bare scalar,
+		 *  - multi (IN) → an array,
+		 *  - otherwise a pattern op (LIKE/REGEXP/RLIKE) → an explicit { compare,
+		 *    value } with the optional type_key BINARY cast.
+		 *
+		 * 'meta_key' is the sibling table's own indexed column name (a
 		 * relationship where-condition key), not a WP_Query meta var, so the
 		 * slow-query heuristic does not apply.
 		 */
-		switch ( $compare_key ) {
-			case '=':
-			case 'EXISTS':
-				$where = array( 'meta_key' => $key ); // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
-				break;
+		if ( '=' === $operator->get_sql_compare() ) {
+			$where = array( 'meta_key' => $key ); // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
 
-			case 'IN':
-				$where = array( 'meta_key' => (array) $key ); // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
-				break;
+		} elseif ( $operator->is_multi() ) {
+			$where = array( 'meta_key' => (array) $key ); // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
 
-			case 'LIKE':
-			case 'REGEXP':
-			case 'RLIKE':
-				$condition = array(
-					'compare' => $compare_key,
-					'value'   => $key,
-				);
+		} else {
+			$condition = array(
+				'compare' => $compare_key,
+				'value'   => $key,
+			);
 
-				/*
-				 * type_key => BINARY makes REGEXP/RLIKE key matches case-sensitive
-				 * (LIKE never casts). Same rule as the bespoke engine, one source.
-				 */
-				$cast = $this->get_meta_key_cast( $meta_clause, $compare_key );
+			// type_key => BINARY makes REGEXP/RLIKE key matches case-sensitive.
+			$cast = $this->get_meta_key_cast( $meta_clause, $compare_key );
 
-				if ( '' !== $cast ) {
-					$condition[ 'cast' ] = $cast;
-				}
+			if ( '' !== $cast ) {
+				$condition[ 'cast' ] = $cast;
+			}
 
-				$where = array(
-					'meta_key' => $condition, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
-				);
-				break;
-
-			default:
-				return null;
+			$where = array(
+				'meta_key' => $condition, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+			);
 		}
 
 		return array(
