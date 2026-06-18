@@ -1144,13 +1144,6 @@ trait Parser {
 			$clause[ 'compare' ] = '=';
 		}
 
-		// Uppercase or equals.
-		if ( isset( $clause[ 'compare_key' ] ) && ( 'LIKE' === strtoupper( $clause[ 'compare_key' ] ) ) ) {
-			$clause[ 'compare_key' ] = strtoupper( $clause[ 'compare_key' ] );
-		} else {
-			$clause[ 'compare_key' ] = '=';
-		}
-
 		// Get comparison from clause.
 		$compare  = $clause[ 'compare' ];
 		$operator = $this->get_operator( $compare );
