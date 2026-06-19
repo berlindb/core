@@ -1521,6 +1521,53 @@ class ColumnTest extends TestCase {
 	}
 
 	/**
+	 * Test get_type_category() across types, including the temporal split and the
+	 * optional cast override.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_get_type_category() {
+
+		$cases = array(
+			'datetime' => 'date',
+			'date'     => 'date',
+			'time'     => 'time',
+			'year'     => 'year',
+			'bigint'   => 'numeric',
+			'decimal'  => 'numeric',
+			'varchar'  => 'string',
+		);
+
+		foreach ( $cases as $type => $category ) {
+			$column = new Column(
+				array(
+					'name' => 'c',
+					'type' => $type,
+				)
+			);
+			$this->assertSame( $category, $column->get_type_category(), "type {$type}" );
+		}
+
+		// A cast overrides the declared type.
+		$varchar = new Column(
+			array(
+				'name' => 'c',
+				'type' => 'varchar',
+			)
+		);
+		$this->assertSame( 'numeric', $varchar->get_type_category( 'SIGNED' ) );
+		$this->assertSame( 'date', $varchar->get_type_category( 'DATETIME' ) );
+		$this->assertSame( 'time', $varchar->get_type_category( 'TIME' ) );
+
+		/*
+		 * The cast is normalized like get_name_sql(): a sloppy-but-valid cast is
+		 * honored, and an invalid cast is ignored (the declared type decides).
+		 */
+		$this->assertSame( 'numeric', $varchar->get_type_category( ' signed ' ) );
+		$this->assertSame( 'string', $varchar->get_type_category( 'SIGNEDFOO' ) );
+	}
+
+	/**
 	 * Test that get_name_sql wraps the reference in CAST only when a cast is given.
 	 *
 	 * @since 3.1.0

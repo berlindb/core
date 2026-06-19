@@ -1986,6 +1986,78 @@ class Column {
 	}
 
 	/**
+	 * Return this column's type category — 'date', 'time', 'year', 'numeric', or
+	 * 'string'. Lets a type-sensitive caller validate a column without re-deriving
+	 * type knowledge (e.g. a date function rejecting a numeric column).
+	 *
+	 * An optional CAST overrides the declared type — mirroring get_name_sql(), so
+	 * the category matches the SQL that will actually render: a SIGNED/DECIMAL cast
+	 * is 'numeric', a DATETIME cast is 'date', etc. Date-bearing types (date /
+	 * datetime / timestamp) report 'date'; time-only and year are distinct, so a
+	 * date function on a TIME or YEAR column does not pass as date-bearing.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $cast Optional. A normalized CAST target overriding the declared type.
+	 * @return 'date'|'time'|'year'|'numeric'|'string'
+	 */
+	public function get_type_category( string $cast = '' ): string {
+
+		/*
+		 * Normalize the cast exactly as get_name_sql() does before rendering, so
+		 * the category matches the SQL: a sanitizable cast (e.g. ' signed ')
+		 * overrides the type, while an invalid one (rejected to '') is ignored —
+		 * the declared type then decides, just as the dropped cast would render.
+		 */
+		$cast = ( '' !== $cast )
+			? $this->sanitize_sql_cast_type( $cast )
+			: '';
+
+		// A valid explicit cast determines the effective category.
+		if ( '' !== $cast ) {
+
+			// SIGNED / UNSIGNED / DECIMAL → numeric.
+			if ( str_starts_with( $cast, 'SIGNED' ) || str_starts_with( $cast, 'UNSIGNED' ) || str_starts_with( $cast, 'DECIMAL' ) ) {
+				return 'numeric';
+			}
+
+			// DATE / DATETIME → date (date-bearing); TIME → time.
+			if ( str_starts_with( $cast, 'DATE' ) ) {
+				return 'date';
+			}
+
+			if ( str_starts_with( $cast, 'TIME' ) ) {
+				return 'time';
+			}
+
+			// CHAR / BINARY → string.
+			return 'string';
+		}
+
+		$type = strtolower( (string) $this->type );
+
+		// Date-bearing temporal types.
+		if ( in_array( $type, array( 'date', 'datetime', 'timestamp' ), true ) ) {
+			return 'date';
+		}
+
+		// Time-only and year are their own categories (not date-bearing).
+		if ( 'time' === $type ) {
+			return 'time';
+		}
+
+		if ( 'year' === $type ) {
+			return 'year';
+		}
+
+		if ( $this->is_numeric() ) {
+			return 'numeric';
+		}
+
+		return 'string';
+	}
+
+	/**
 	 * Return a string representation of this column's properties as part of
 	 * the "CREATE" string of a Table.
 	 *

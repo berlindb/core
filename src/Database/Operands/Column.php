@@ -94,79 +94,18 @@ class Column extends Base {
 	}
 
 	/**
-	 * Return this operand's EFFECTIVE type category: 'date', 'numeric', or
-	 * 'string'. Used to validate a column argument against a function's accepted
-	 * categories (e.g. YEAR() rejects a numeric column).
+	 * Return this operand's EFFECTIVE type category ('date'/'time'/'year'/
+	 * 'numeric'/'string'). Used to validate a column argument against a function's
+	 * accepted categories (e.g. YEAR() rejects a numeric column).
 	 *
-	 * An explicit cast overrides the column's declared type — `CAST(name AS
-	 * SIGNED)` is numeric, `CAST(ts AS DATETIME)` is date — so a casted argument is
-	 * categorized by its cast target, matching the SQL get_sql() actually renders.
-	 *
-	 * Temporal types are split so a date-only / time-only / year column is not
-	 * mistaken for a full date — `DATE(time_col)` and `DAYOFMONTH(year_col)` must
-	 * fail closed. Date-bearing types (date/datetime/timestamp) report 'date';
-	 * time-only reports 'time'; year reports 'year'.
+	 * The category is owned by the column; this operand only contributes its
+	 * (optional) cast, which the column folds in as an override.
 	 *
 	 * @since 3.1.0
 	 *
 	 * @return 'date'|'time'|'year'|'numeric'|'string'
 	 */
 	public function get_type_category(): string {
-
-		// An explicit cast determines the effective type.
-		if ( '' !== $this->cast ) {
-			return $this->cast_category( $this->cast );
-		}
-
-		$type = strtolower( (string) $this->column->type );
-
-		// Date-bearing temporal types.
-		if ( in_array( $type, array( 'date', 'datetime', 'timestamp' ), true ) ) {
-			return 'date';
-		}
-
-		// Time-only and year are their own categories (not date-bearing).
-		if ( 'time' === $type ) {
-			return 'time';
-		}
-
-		if ( 'year' === $type ) {
-			return 'year';
-		}
-
-		if ( $this->column->is_numeric() ) {
-			return 'numeric';
-		}
-
-		return 'string';
-	}
-
-	/**
-	 * Map a normalized CAST target to a type category.
-	 *
-	 * @since 3.1.0
-	 *
-	 * @param string $cast A normalized CAST target (e.g. 'SIGNED', 'DATETIME', 'CHAR').
-	 * @return 'date'|'time'|'numeric'|'string'
-	 */
-	private function cast_category( string $cast ): string {
-		$upper = strtoupper( $cast );
-
-		// SIGNED / UNSIGNED / DECIMAL → numeric.
-		if ( str_starts_with( $upper, 'SIGNED' ) || str_starts_with( $upper, 'UNSIGNED' ) || str_starts_with( $upper, 'DECIMAL' ) ) {
-			return 'numeric';
-		}
-
-		// DATE / DATETIME → date (date-bearing); TIME → time.
-		if ( str_starts_with( $upper, 'DATE' ) ) {
-			return 'date';
-		}
-
-		if ( str_starts_with( $upper, 'TIME' ) ) {
-			return 'time';
-		}
-
-		// CHAR / BINARY → string.
-		return 'string';
+		return $this->column->get_type_category( $this->cast );
 	}
 }
