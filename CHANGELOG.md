@@ -21,7 +21,11 @@ Notable changes to BerlinDB are documented here.
   `compare_query` and relationship `where` clauses. Operators opt in via an
   `is_expression()` descriptor, so a structured operand on an unsupported operator
   (or an unknown referenced column) fails the clause closed. A plain scalar/list
-  value is unchanged.
+  value is unchanged. The right-hand operand may also be an allow-listed SQL
+  function wrapping recursive arguments (column / literal / nested function), e.g.
+  `array( 'operand' => 'func', 'name' => 'LOWER', 'args' => array( array( 'operand' => 'column', 'name' => 'name' ) ) )`;
+  only listed functions with a matching arity and argument kinds are permitted —
+  there is no arbitrary-function or raw-SQL passthrough.
 - Adds end-to-end support for a string/UUID primary key (not `auto_increment`):
   `add_item()` with a supplied key returns that key, and `get_item()`,
   `update_item()`, `delete_item()`, `copy_item()`, query result-shaping, the

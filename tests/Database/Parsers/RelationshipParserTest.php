@@ -492,6 +492,38 @@ class RelationshipParserTest extends TestCase {
 	}
 
 	/**
+	 * Test that a function operand wraps a remote column on the joined table.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_where_condition_func_operand() {
+		$result = $this->parse(
+			array(
+				'name'  => 'parent',
+				'where' => array(
+					'total' => array(
+						'compare' => '>',
+						'value'   => array(
+							'operand' => 'func',
+							'name'    => 'ABS',
+							'args'    => array(
+								array(
+									'operand' => 'column',
+									'name'    => 'order_id',
+								),
+							),
+						),
+					),
+				),
+			),
+			array( 'parent' => $this->relationship() )
+		);
+
+		$this->assertStringContainsString( '`bdb_rel_parent`.`total` > ABS(`bdb_rel_parent`.`order_id`)', $result['where'] );
+		$this->assertStringNotContainsString( '1 = 0', $result['where'] );
+	}
+
+	/**
 	 * Test that a column operand on a non-expression operator (LIKE) fails closed.
 	 *
 	 * @since 3.1.0

@@ -1339,12 +1339,14 @@ trait Parser {
 	 * (the caller uses the ordinary value path), or false when the spec is present
 	 * but unresolvable (the caller must fail the clause closed).
 	 *
-	 * Phase 1 supports only the `column` operand (column-to-column comparison):
-	 * the referenced name is sanitized and validated against $source's schema
-	 * (unknown column => false), and an optional opt-in `cast` is resolved against
-	 * the REFERENCED column's own type. The referenced column is qualified with
-	 * $alias, which the caller supplies from known query/relationship state — a
-	 * caller-supplied alias string is never trusted here.
+	 * Supported operand kinds: `column` (a column reference, optional opt-in
+	 * `cast`, validated against $source's schema), `value` (a prepared literal —
+	 * mainly for nesting inside a function), and `func` (an allow-listed SQL
+	 * function wrapping recursive argument operands). An unknown column, unknown
+	 * function, bad arity, or disallowed argument kind all fail closed. The
+	 * referenced column(s) are qualified with $alias, which the caller supplies
+	 * from known query/relationship state — a caller-supplied alias string is
+	 * never trusted here.
 	 *
 	 * @since 3.1.0
 	 * @internal Query/Parser collaborator API.
@@ -1367,10 +1369,33 @@ trait Parser {
 			? strtolower( $value[ 'operand' ] )
 			: '';
 
-		// Phase 1 supports the column operand only; anything else fails closed.
-		if ( 'column' !== $kind ) {
-			return false;
+		// Dispatch by kind; an unknown kind fails closed.
+		switch ( $kind ) {
+			case 'column':
+				return $this->resolve_column_operand( $value, $source, $alias );
+
+			case 'value':
+				return $this->resolve_value_operand( $value );
+
+			case 'func':
+				return $this->resolve_func_operand( $value, $source, $alias );
+
+			default:
+				return false;
 		}
+	}
+
+	/**
+	 * Resolve a `column` operand spec into a Column operand, or false (fail closed).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string,mixed>                $value  The operand spec.
+	 * @param \BerlinDB\Database\Kern\Query|null $source The Query whose schema owns the column.
+	 * @param string                             $alias  Table alias to qualify the reference.
+	 * @return \BerlinDB\Database\Operands\Base|false
+	 */
+	private function resolve_column_operand( array $value, $source, string $alias ) {
 
 		// Sanitize the referenced column name.
 		$raw_name = $value[ 'name' ] ?? '';
@@ -1406,6 +1431,137 @@ trait Parser {
 	}
 
 	/**
+	 * Resolve a `value` operand spec into a prepared Value operand, or false.
+	 *
+	 * A value operand carries a scalar that is prepared (via wpdb::prepare) here,
+	 * so the resulting object holds an already-safe fragment. An optional
+	 * `pattern` ('%s', '%d', or '%f') selects the placeholder; anything else
+	 * defaults to a string placeholder.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string,mixed> $value The operand spec.
+	 * @return \BerlinDB\Database\Operands\Base|false
+	 */
+	private function resolve_value_operand( array $value ) {
+
+		// A value operand must carry a scalar value.
+		if ( ! array_key_exists( 'value', $value ) || ! is_scalar( $value[ 'value' ] ) ) {
+			return false;
+		}
+
+		// Optional, validated prepare() pattern; default to a string placeholder.
+		$pattern = ( isset( $value[ 'pattern' ] ) && in_array( $value[ 'pattern' ], array( '%s', '%d', '%f' ), true ) )
+			? $value[ 'pattern' ]
+			: '%s';
+
+		// Prepare the literal; an empty result fails closed.
+		$prepared = (string) $this->db()->prepare( $pattern, $value[ 'value' ] );
+
+		if ( '' === $prepared ) {
+			return false;
+		}
+
+		return new \BerlinDB\Database\Operands\Value( $prepared );
+	}
+
+	/**
+	 * Resolve a `func` operand spec into a Func operand, or false (fail closed).
+	 *
+	 * The function name must be in the Func allow-list, the argument count within
+	 * its declared arity, and every argument must resolve as an operand of an
+	 * allowed kind. Arguments recurse through resolve_operand(), so functions nest.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string,mixed>                $value  The operand spec.
+	 * @param \BerlinDB\Database\Kern\Query|null $source The Query whose schema owns any column arguments.
+	 * @param string                             $alias  Table alias to qualify column arguments.
+	 * @return \BerlinDB\Database\Operands\Base|false
+	 */
+	private function resolve_func_operand( array $value, $source, string $alias ) {
+
+		// The function must be in the allow-list.
+		$name       = is_string( $value[ 'name' ] ?? null ) ? $value[ 'name' ] : '';
+		$descriptor = \BerlinDB\Database\Operands\Func::descriptor( $name );
+
+		if ( null === $descriptor ) {
+			return false;
+		}
+
+		// Arguments must be a list within the declared arity.
+		$args_spec = $value[ 'args' ] ?? array();
+
+		if ( ! is_array( $args_spec ) ) {
+			return false;
+		}
+
+		$count = count( $args_spec );
+
+		if ( ( $count < $descriptor[ 'min_args' ] ) || ( $count > $descriptor[ 'max_args' ] ) ) {
+			return false;
+		}
+
+		// Resolve each argument operand, enforcing the function's allowed kinds.
+		$resolved = array();
+
+		foreach ( $args_spec as $arg_spec ) {
+			$arg = $this->resolve_operand_argument( $arg_spec, $descriptor[ 'arg_kinds' ], $source, $alias );
+
+			if ( ! ( $arg instanceof \BerlinDB\Database\Operands\Base ) ) {
+				return false;
+			}
+
+			$resolved[] = $arg;
+		}
+
+		return new \BerlinDB\Database\Operands\Func( $descriptor[ 'sql' ], $resolved );
+	}
+
+	/**
+	 * Resolve a single function argument into an operand, or false (fail closed).
+	 *
+	 * A bare scalar is value-operand sugar (allowed only when the function accepts
+	 * a `value` argument). A structured spec must name one of the function's
+	 * allowed argument kinds, then resolves through resolve_operand().
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param mixed                              $arg_spec  The argument spec (scalar or operand spec).
+	 * @param list<string>                       $arg_kinds The operand kinds this function accepts.
+	 * @param \BerlinDB\Database\Kern\Query|null $source    The Query whose schema owns any column arguments.
+	 * @param string                             $alias     Table alias to qualify column arguments.
+	 * @return \BerlinDB\Database\Operands\Base|false
+	 */
+	private function resolve_operand_argument( $arg_spec, array $arg_kinds, $source, string $alias ) {
+
+		// A bare scalar is value-operand sugar, when the function accepts a value.
+		if ( ! $this->is_operand_spec( $arg_spec ) ) {
+
+			if ( ! in_array( 'value', $arg_kinds, true ) || ! is_scalar( $arg_spec ) ) {
+				return false;
+			}
+
+			return $this->resolve_value_operand( array( 'value' => $arg_spec ) );
+		}
+
+		// A structured argument must be one of the function's allowed kinds.
+		$kind = is_string( $arg_spec[ 'operand' ] )
+			? strtolower( $arg_spec[ 'operand' ] )
+			: '';
+
+		if ( ! in_array( $kind, $arg_kinds, true ) ) {
+			return false;
+		}
+
+		$operand = $this->resolve_operand( $arg_spec, $source, $alias );
+
+		return ( $operand instanceof \BerlinDB\Database\Operands\Base )
+			? $operand
+			: false;
+	}
+
+	/**
 	 * Assemble an expression-operand comparison: `{column} {compare} {operand}`.
 	 *
 	 * The operand counterpart of an operator's own value assembly. The parser owns
@@ -1427,7 +1583,7 @@ trait Parser {
 	 */
 	protected function build_operand_sql( \BerlinDB\Database\Kern\Column $col, string $alias, string $cast, string $sql_compare, \BerlinDB\Database\Operands\Base $operand ): string {
 
-		$operand_sql = $operand->to_sql();
+		$operand_sql = $operand->get_sql();
 
 		// Bail if the operand rendered nothing.
 		if ( '' === $operand_sql ) {

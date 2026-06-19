@@ -12,6 +12,8 @@ namespace BerlinDB\Tests;
 
 use BerlinDB\Database\Kern\Column;
 use BerlinDB\Database\Operands\Column as ColumnOperand;
+use BerlinDB\Database\Operands\Func as FuncOperand;
+use BerlinDB\Database\Operands\Value as ValueOperand;
 use BerlinDB\Database\Operators\Between;
 use BerlinDB\Database\Operators\Equal;
 use BerlinDB\Database\Operators\Exists;
@@ -730,7 +732,7 @@ class OperatorsTest extends TestCase {
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_column_operand_to_sql_renders_reference() {
+	public function test_column_operand_get_sql_renders_reference() {
 		$ref = new Column(
 			array(
 				'name' => 'last_name',
@@ -738,8 +740,43 @@ class OperatorsTest extends TestCase {
 			)
 		);
 
-		$this->assertSame( '`t`.`last_name`', ( new ColumnOperand( $ref, 't' ) )->to_sql() );
-		$this->assertSame( 'CAST(`t`.`last_name` AS CHAR)', ( new ColumnOperand( $ref, 't', 'CHAR' ) )->to_sql() );
+		$this->assertSame( '`t`.`last_name`', ( new ColumnOperand( $ref, 't' ) )->get_sql() );
+		$this->assertSame( 'CAST(`t`.`last_name` AS CHAR)', ( new ColumnOperand( $ref, 't', 'CHAR' ) )->get_sql() );
+	}
+
+	/**
+	 * Test that a Value operand returns its already-prepared fragment verbatim.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_value_operand_get_sql_returns_prepared_fragment() {
+		$this->assertSame( "'active'", ( new ValueOperand( "'active'" ) )->get_sql() );
+	}
+
+	/**
+	 * Test that a Func operand renders a (possibly nested) function call, and that
+	 * the allow-list descriptor is case-insensitive and rejects unknown functions.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_func_operand_renders_and_allow_list() {
+		$ref = new Column(
+			array(
+				'name' => 'name',
+				'type' => 'varchar',
+			)
+		);
+		$col = new ColumnOperand( $ref, 't' );
+
+		// Single and nested function calls.
+		$this->assertSame( 'LOWER(`t`.`name`)', ( new FuncOperand( 'LOWER', array( $col ) ) )->get_sql() );
+
+		$inner = new FuncOperand( 'ABS', array( $col ) );
+		$this->assertSame( 'UPPER(ABS(`t`.`name`))', ( new FuncOperand( 'UPPER', array( $inner ) ) )->get_sql() );
+
+		// Allow-list: case-insensitive hit, and a miss for anything unlisted.
+		$this->assertSame( 'LOWER', FuncOperand::descriptor( 'lower' )['sql'] );
+		$this->assertNull( FuncOperand::descriptor( 'DROP TABLE' ) );
 	}
 
 	/**

@@ -140,7 +140,11 @@ Which side declares it, and what `column` means, differs by `type`:
   `array( 'compare' => '>', 'value' => array( 'operand' => 'column', 'name' => 'min_total' ) )`
   compares two columns (`total > min_total`). Works on the scalar comparison
   operators (`=`/`!=`/`<`/`<=`/`>`/`>=`) in relationship `where` and `compare_query`
-  clauses; an unknown column or an unsupported operator **fails closed**.
+  clauses; an unknown column or an unsupported operator **fails closed**. The
+  operand may also be an allow-listed SQL function wrapping recursive arguments —
+  `array( 'operand' => 'func', 'name' => 'ABS', 'args' => array( array( 'operand' => 'column', 'name' => 'balance' ) ) )`
+  for `... = ABS(balance)`. Only listed functions (e.g. `LOWER`/`UPPER`/`LENGTH`/
+  `ABS`/`DATE`/`YEAR`/`MONTH`/…) with a matching arity are allowed; no raw SQL.
 
 Notes:
 

@@ -942,4 +942,234 @@ class CompareParserTest extends TestCase {
 		$this->assertCount( 1, $results );
 		$this->assertSame( 'active', $results[0]->name );
 	}
+
+	/**
+	 * Test that a function operand wraps a column argument on the right-hand side.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_func_operand_wraps_column_argument() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => 'priority',
+				'compare' => '=',
+				'value'   => array(
+					'operand' => 'func',
+					'name'    => 'ABS',
+					'args'    => array(
+						array(
+							'operand' => 'column',
+							'name'    => 'id',
+						),
+					),
+				),
+			)
+		);
+
+		$this->assertStringContainsString( 'ABS(', $where );
+		$this->assertStringContainsString( '`id`', $where );
+		$this->assertStringNotContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * Test that function operands nest (a function argument that is itself a func).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_func_operand_nests() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => 'priority',
+				'compare' => '=',
+				'value'   => array(
+					'operand' => 'func',
+					'name'    => 'ABS',
+					'args'    => array(
+						array(
+							'operand' => 'func',
+							'name'    => 'ABS',
+							'args'    => array(
+								array(
+									'operand' => 'column',
+									'name'    => 'id',
+								),
+							),
+						),
+					),
+				),
+			)
+		);
+
+		$this->assertStringContainsString( 'ABS(ABS(', $where );
+	}
+
+	/**
+	 * Test that a function operand accepts a bare-scalar argument as value sugar.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_func_operand_bare_scalar_argument() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => 'name',
+				'compare' => '=',
+				'value'   => array(
+					'operand' => 'func',
+					'name'    => 'LOWER',
+					'args'    => array( 'JoHn' ),
+				),
+			)
+		);
+
+		$this->assertStringContainsString( 'LOWER(', $where );
+		$this->assertStringNotContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * Test that an unknown function fails the clause closed.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_func_operand_unknown_function_fails_closed() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => 'priority',
+				'compare' => '=',
+				'value'   => array(
+					'operand' => 'func',
+					'name'    => 'NOT_A_FUNCTION',
+					'args'    => array(
+						array(
+							'operand' => 'column',
+							'name'    => 'id',
+						),
+					),
+				),
+			)
+		);
+
+		$this->assertStringContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * Test that a function called with the wrong argument count fails closed.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_func_operand_bad_arity_fails_closed() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => 'priority',
+				'compare' => '=',
+				'value'   => array(
+					'operand' => 'func',
+					'name'    => 'ABS',
+					'args'    => array(
+						array(
+							'operand' => 'column',
+							'name'    => 'id',
+						),
+						array(
+							'operand' => 'column',
+							'name'    => 'priority',
+						),
+					),
+				),
+			)
+		);
+
+		$this->assertStringContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * Test that a function argument referencing an unknown column fails closed.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_func_operand_unknown_column_argument_fails_closed() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => 'priority',
+				'compare' => '=',
+				'value'   => array(
+					'operand' => 'func',
+					'name'    => 'ABS',
+					'args'    => array(
+						array(
+							'operand' => 'column',
+							'name'    => 'nonexistent_column',
+						),
+					),
+				),
+			)
+		);
+
+		$this->assertStringContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * Test that a function argument of an unrecognized operand kind fails closed.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_func_operand_invalid_arg_kind_fails_closed() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => 'priority',
+				'compare' => '=',
+				'value'   => array(
+					'operand' => 'func',
+					'name'    => 'ABS',
+					'args'    => array(
+						array(
+							'operand' => 'bogus_kind',
+							'name'    => 'id',
+						),
+					),
+				),
+			)
+		);
+
+		$this->assertStringContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * Test that an explicit value operand renders a prepared literal end-to-end:
+	 * `priority = ABS(-30)` matches the row with priority 30.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_func_operand_value_argument_matches_rows() {
+
+		$results = self::$query->query(
+			array(
+				'compare_query' => array(
+					'key'     => 'priority',
+					'compare' => '=',
+					'value'   => array(
+						'operand' => 'func',
+						'name'    => 'ABS',
+						'args'    => array(
+							array(
+								'operand' => 'value',
+								'value'   => -30,
+								'pattern' => '%d',
+							),
+						),
+					),
+				),
+			)
+		);
+
+		// ABS(-30) = 30 → the Gamma Gadget row.
+		$this->assertCount( 1, $results );
+		$this->assertSame( 'Gamma Gadget', $results[0]->name );
+	}
 }

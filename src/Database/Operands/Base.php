@@ -26,7 +26,7 @@ defined( 'ABSPATH' ) || exit;
  *
  * Operands are built by the parser layer, which resolves and validates them
  * against the schema and fails closed on anything unresolvable. By the time an
- * operand exists, it is already safe, so to_sql() is a pure renderer that needs
+ * operand exists, it is already safe, so get_sql() is a pure renderer that needs
  * no further validation.
  *
  * @since 3.1.0
@@ -40,5 +40,5 @@ abstract class Base {
 	 *
 	 * @return string The SQL fragment, or '' when the operand renders nothing.
 	 */
-	abstract public function to_sql(): string;
+	abstract public function get_sql(): string;
 }

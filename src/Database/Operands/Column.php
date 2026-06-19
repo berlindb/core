@@ -23,7 +23,7 @@ defined( 'ABSPATH' ) || exit;
  *
  * Enables column-to-column comparisons such as `first_name = last_name`. The
  * referenced column is resolved and validated against the schema by the parser
- * before this object is built, so to_sql() simply emits the column's own quoted
+ * before this object is built, so get_sql() simply emits the column's own quoted
  * (optionally cast) SQL reference via Column::get_name_sql().
  *
  * @since 3.1.0
@@ -76,7 +76,7 @@ class Column extends Base {
 	 *
 	 * @return string
 	 */
-	public function to_sql(): string {
+	public function get_sql(): string {
 		return $this->column->get_name_sql( $this->alias, $this->cast );
 	}
 }
