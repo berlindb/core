@@ -169,7 +169,7 @@ class Date extends Base {
 	 * @since 3.0.0
 	 * @var bool
 	 */
-	public $sortable = true;
+	protected $sortable = true;
 
 	/**
 	 * Determines and validates what first-order keys to use.

@@ -135,7 +135,7 @@ class Meta extends Base {
 	 * @since 3.0.0
 	 * @var bool
 	 */
-	public $sortable = true;
+	protected $sortable = true;
 
 	/**
 	 * Database table to query for the metadata.

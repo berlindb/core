@@ -89,7 +89,7 @@ abstract class Base {
 	 * @since 3.0.0
 	 * @var bool
 	 */
-	public $sortable = false;
+	protected $sortable = false;
 
 	/** Methods ***************************************************************/
 
@@ -119,18 +119,18 @@ abstract class Base {
 	 * introspection (REST, validation, docs) can ask the same question without
 	 * reassembling the rule from the raw descriptor properties.
 	 *
+	 * Reads $this->caller for the schema's columns, so the parser must have been
+	 * constructed with its Query (descriptors are now born caller-bearing).
+	 *
 	 * @since 3.1.0
 	 * @api
 	 *
-	 * @param \BerlinDB\Database\Kern\Query|null $caller The Query whose columns
-	 *        scope the per-column shorthand. Defaults to the constructed caller.
 	 * @return list<string> The query var keys.
 	 */
-	public function get_query_var_keys( $caller = null ): array {
-		$keys   = array();
-		$caller = ( $caller instanceof \BerlinDB\Database\Kern\Query )
-			? $caller
-			: $this->caller;
+	public function get_query_var_keys(): array {
+
+		// Default return value.
+		$retval = array();
 
 		/*
 		 * The container var, when this parser uses one. Via the accessor so a
@@ -140,7 +140,7 @@ abstract class Base {
 		$query_var = $this->get_query_var();
 
 		if ( ! empty( $query_var ) ) {
-			$keys[] = $query_var;
+			$retval[] = $query_var;
 		}
 
 		/*
@@ -152,12 +152,31 @@ abstract class Base {
 		 * column name, since an empty column_filter matches all columns.
 		 */
 		if ( ( '' !== $this->column_suffix ) || empty( $query_var ) ) {
-			foreach ( (array) $caller?->get_column_names( $this->column_filter ) as $column ) {
-				$keys[] = "{$column}{$this->column_suffix}";
+			foreach ( (array) $this->caller?->get_column_names( $this->column_filter ) as $column ) {
+				$retval[] = "{$column}{$this->column_suffix}";
 			}
 		}
 
-		return $keys;
+		// Return the query var keys.
+		return $retval;
+	}
+
+	/**
+	 * Get the default value to register for this parser's query vars.
+	 *
+	 * The parser's own $default when it declares one, otherwise the caller's
+	 * query-var default sentinel (the "unset" marker the Query uses to tell a
+	 * deliberately-set var from an absent one). Like get_query_var_keys(), this
+	 * lets Query ask the parser rather than owning the null-fallback itself.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return mixed
+	 */
+	public function get_query_var_default() {
+		return ( null === $this->default )
+			? $this->caller?->get_query_var_default_value()
+			: $this->default;
 	}
 
 	/**

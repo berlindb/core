@@ -643,8 +643,12 @@ class Query {
 		// Loop through query var parsers.
 		foreach ( $this->query_var_parsers as $class ) {
 
-			// Instantiate to read descriptor properties; skip a non-parser class.
-			$parser = $this->instantiate_class( $class );
+			/*
+			 * Instantiate the descriptor with its caller (this Query), so every
+			 * parser method can read $this->caller — descriptors and the transient
+			 * parse-time instances alike. Skip a non-parser class.
+			 */
+			$parser = $this->instantiate_class( $class, '', array(), $this );
 			if ( ! ( $parser instanceof \BerlinDB\Database\Parsers\Base ) ) {
 				continue;
 			}
@@ -652,12 +656,10 @@ class Query {
 			// Setup the parser.
 			$this->parsers[ $parser->name ] = $parser;
 
-			// Register every query var key the parser claims (container + per-column).
-			$default = ( null === $parser->default )
-				? $this->query_var_default_value
-				: $parser->default;
+			// Register every query var key the parser claims, at its own default.
+			$default = $parser->get_query_var_default();
 
-			foreach ( $parser->get_query_var_keys( $this ) as $key ) {
+			foreach ( $parser->get_query_var_keys() as $key ) {
 				$this->query_var_defaults[ $key ] = $default;
 			}
 		}
@@ -836,6 +838,22 @@ class Query {
 	 */
 	public function is_query_var_default_value( $value = null ): bool {
 		return ( $value === $this->query_var_default_value );
+	}
+
+	/**
+	 * Return the query-var default sentinel (the "unset" marker).
+	 *
+	 * Internal collaborator API for Query parsers; public so a parser can resolve
+	 * its registered default (Parsers\Base::get_query_var_default()) without
+	 * reaching into a protected Query property.
+	 *
+	 * @since 3.1.0
+	 * @internal
+	 *
+	 * @return string
+	 */
+	public function get_query_var_default_value(): string {
+		return $this->query_var_default_value;
 	}
 
 	/**
