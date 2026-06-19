@@ -652,24 +652,13 @@ class Query {
 			// Setup the parser.
 			$this->parsers[ $parser->name ] = $parser;
 
-			// Maybe add query var alone.
-			if ( ! empty( $parser->query_var ) ) {
-				$this->query_var_defaults[ $parser->query_var ] = ( null === $parser->default )
-					? $this->query_var_default_value
-					: $parser->default;
-			}
+			// Register every query var key the parser claims (container + per-column).
+			$default = ( null === $parser->default )
+				? $this->query_var_default_value
+				: $parser->default;
 
-			// Get column names.
-			$columns = $this->get_column_names( $parser->column_filter );
-
-			// Add to defaults.
-			if ( ! empty( $columns ) ) {
-				foreach ( $columns as $column ) {
-					$key                              = "{$column}{$parser->column_suffix}";
-					$this->query_var_defaults[ $key ] = ( null === $parser->default )
-						? $this->query_var_default_value
-						: $parser->default;
-				}
+			foreach ( $parser->get_query_var_keys( $this ) as $key ) {
+				$this->query_var_defaults[ $key ] = $default;
 			}
 		}
 	}

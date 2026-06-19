@@ -140,6 +140,26 @@ class CompareParserTest extends TestCase {
 	}
 
 	/**
+	 * Test that get_query_var_keys() reports the container var and the per-column
+	 * shorthand keys derived from column_filter + column_suffix.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_get_query_var_keys_lists_container_and_per_column() {
+
+		// Container parser: Compare reports its container var.
+		$compare = new \BerlinDB\Database\Parsers\Compare( array(), self::$query );
+		$this->assertContains( 'compare_query', $compare->get_query_var_keys() );
+
+		/*
+		 * Per-column parser: In reports a {column}__in shorthand for in-enabled
+		 * columns ('status' carries 'in' => true in the fixture schema).
+		 */
+		$in = new \BerlinDB\Database\Parsers\In( array(), self::$query );
+		$this->assertContains( 'status__in', $in->get_query_var_keys() );
+	}
+
+	/**
 	 * Test that a not-equals comparison excludes matching rows.
 	 *
 	 * @since 3.0.0

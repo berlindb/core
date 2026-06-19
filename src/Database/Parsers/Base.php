@@ -108,6 +108,59 @@ abstract class Base {
 	}
 
 	/**
+	 * Get every top-level query var key this parser claims.
+	 *
+	 * The container var (when the parser uses one, e.g. 'compare_query') plus the
+	 * per-column shorthand keys ({column}{column_suffix}, e.g. 'status__in' or
+	 * 'date_created_query') for each column matching this parser's column_filter.
+	 *
+	 * This is the single source of truth for "which query vars route to this
+	 * parser": Query consumes it when building its query var defaults, and any
+	 * introspection (REST, validation, docs) can ask the same question without
+	 * reassembling the rule from the raw descriptor properties.
+	 *
+	 * @since 3.1.0
+	 * @api
+	 *
+	 * @param \BerlinDB\Database\Kern\Query|null $caller The Query whose columns
+	 *        scope the per-column shorthand. Defaults to the constructed caller.
+	 * @return list<string> The query var keys.
+	 */
+	public function get_query_var_keys( $caller = null ): array {
+		$keys   = array();
+		$caller = ( $caller instanceof \BerlinDB\Database\Kern\Query )
+			? $caller
+			: $this->caller;
+
+		/*
+		 * The container var, when this parser uses one. Via the accessor so a
+		 * subclass that overrides get_query_var() is honored (Magic __get prefers
+		 * the getter; reading $this->query_var raw would bypass that override).
+		 */
+		$query_var = $this->get_query_var();
+
+		if ( ! empty( $query_var ) ) {
+			$keys[] = $query_var;
+		}
+
+		/*
+		 * Per-column shorthand, but only for parsers that actually have one: a
+		 * non-empty suffix to append, OR no container var at all (a per-column-
+		 * only parser like By, whose shorthand IS the bare column name). A
+		 * container-only parser that inherits the empty Base suffix (e.g.
+		 * Relationship) claims no per-column keys — it would otherwise grab every
+		 * column name, since an empty column_filter matches all columns.
+		 */
+		if ( ( '' !== $this->column_suffix ) || empty( $query_var ) ) {
+			foreach ( (array) $caller?->get_column_names( $this->column_filter ) as $column ) {
+				$keys[] = "{$column}{$this->column_suffix}";
+			}
+		}
+
+		return $keys;
+	}
+
+	/**
 	 * Recover a column name from a per-column query var key.
 	 *
 	 * Strips this parser's {@see $column_suffix} from the end of the key — e.g.
