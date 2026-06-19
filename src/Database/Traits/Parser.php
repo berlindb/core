@@ -1178,7 +1178,19 @@ trait Parser {
 
 			// Get the qualified column name for SQL ('value' is absent for unary).
 			$alias = $this->caller->get_table_alias() ?? '';
-			$expr  = $operator->get_sql( $col, $alias, $clause[ 'value' ] ?? null );
+
+			/*
+			 * Resolve an optional, opt-in CAST for the column side. An explicit
+			 * but invalid cast fails the clause closed (matches no rows) rather
+			 * than silently comparing lexically.
+			 */
+			$cast = $this->resolve_clause_sql_cast( $col, $clause );
+
+			if ( false === $cast ) {
+				return $this->unresolved_column_clause( $retval );
+			}
+
+			$expr = $operator->get_sql( $col, $alias, $clause[ 'value' ] ?? null, $cast );
 
 			// Maybe add the WHERE expression.
 			if ( ! empty( $expr ) ) {
@@ -1215,6 +1227,56 @@ trait Parser {
 		$retval[ 'where' ][] = '1 = 0';
 
 		return $retval;
+	}
+
+	/**
+	 * Resolve an optional, opt-in CAST target for a clause's column side.
+	 *
+	 * Shared by get_sql_for_clause() and the Relationship parser so both read the
+	 * 'cast' clause key the same way. 'cast' => true derives the target from the
+	 * column's own declared type; a non-empty string is an explicit override,
+	 * validated via sanitize_sql_cast_type(). Absent, false, null, or empty means
+	 * no cast — casting is never applied by default.
+	 *
+	 * An explicit but invalid string is a misconfiguration: it returns false so
+	 * the caller fails the clause closed (match no rows), rather than silently
+	 * comparing lexically. A misspelled 'SIGNED' should never widen to an uncast
+	 * compare.
+	 *
+	 * @since 3.1.0
+	 * @internal Query/Parser collaborator API.
+	 *
+	 * @param \BerlinDB\Database\Kern\Column $column The column being compared.
+	 * @param array<string,mixed>            $clause The clause, possibly carrying a 'cast' key.
+	 * @return string|false The CAST target ('' when none), or false when an
+	 *                      explicit cast is invalid (caller must fail closed).
+	 */
+	protected function resolve_clause_sql_cast( \BerlinDB\Database\Kern\Column $column, array $clause ) {
+
+		// Read the opt-in directive; absent, false, and null all mean "no cast".
+		$requested = $clause[ 'cast' ] ?? null;
+
+		// 'cast' => true derives the target from the column's own declared type.
+		if ( true === $requested ) {
+			return $column->get_sql_cast_type();
+		}
+
+		// A non-empty string is an explicit, validated override.
+		if ( is_string( $requested ) && ( '' !== trim( $requested ) ) ) {
+			$cast = $this->sanitize_sql_cast_type( $requested );
+
+			/*
+			 * An explicit but invalid cast is a misconfiguration: signal the
+			 * caller to fail closed, rather than falling back to no cast and
+			 * comparing lexically.
+			 */
+			return ( '' === $cast )
+				? false
+				: $cast;
+		}
+
+		// No cast requested.
+		return '';
 	}
 
 	/**

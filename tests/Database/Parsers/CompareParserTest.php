@@ -604,4 +604,145 @@ class CompareParserTest extends TestCase {
 		$this->assertContains( 'Alpha Widget', $names );
 		$this->assertContains( 'Beta Widget', $names );
 	}
+
+	/**
+	 * Build the WHERE SQL the Compare parser emits for a single clause.
+	 *
+	 * Drives the parser directly (the first constructor arg is the clause) and
+	 * returns its WHERE fragment, so cast wiring can be asserted at the SQL level.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string,mixed> $clause A single compare_query clause.
+	 * @return string The emitted WHERE SQL.
+	 */
+	private function compare_where_sql( array $clause ): string {
+		$parser = new \BerlinDB\Database\Parsers\Compare( $clause, self::$query );
+		$result = $parser->get_join_where_clauses();
+
+		return $result['where'];
+	}
+
+	/**
+	 * Test that an explicit string cast wraps the column side in CAST( ... AS X ).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_explicit_string_cast_wraps_column() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => 'priority',
+				'value'   => 25,
+				'compare' => '>',
+				'cast'    => 'SIGNED',
+			)
+		);
+
+		$this->assertStringContainsString( 'CAST(', $where );
+		$this->assertStringContainsString( 'AS SIGNED)', $where );
+	}
+
+	/**
+	 * Test that 'cast' => true derives the CAST target from the column's own type
+	 * (the unsigned bigint 'priority' column casts to UNSIGNED).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_cast_true_derives_target_from_column() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => 'priority',
+				'value'   => 25,
+				'compare' => '>',
+				'cast'    => true,
+			)
+		);
+
+		$this->assertStringContainsString( 'AS UNSIGNED)', $where );
+	}
+
+	/**
+	 * Test that an absent cast emits no CAST() — casting is opt-in, never default.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_absent_cast_emits_no_cast() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => 'priority',
+				'value'   => 25,
+				'compare' => '>',
+			)
+		);
+
+		$this->assertStringNotContainsString( 'CAST(', $where );
+	}
+
+	/**
+	 * Test that an explicit but invalid cast fails the clause closed (matches no
+	 * rows) rather than silently comparing without a cast — mirroring the
+	 * relationship parser's fail-closed behavior.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_invalid_cast_fails_closed() {
+
+		// The emitted SQL is a never-true condition, not an uncast compare.
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => 'priority',
+				'value'   => 25,
+				'compare' => '>',
+				'cast'    => 'nonsense',
+			)
+		);
+
+		$this->assertStringContainsString( '1 = 0', $where );
+		$this->assertStringNotContainsString( 'priority', $where );
+
+		// And end-to-end: a query with that clause returns no rows.
+		$results = self::$query->query(
+			array(
+				'compare_query' => array(
+					'key'     => 'priority',
+					'value'   => 25,
+					'compare' => '>',
+					'cast'    => 'nonsense',
+				),
+			)
+		);
+
+		$this->assertCount( 0, $results );
+	}
+
+	/**
+	 * Test that a valid cast leaves results correct on a numeric column — the
+	 * cast is additive, not a behavior change for already-numeric comparisons.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_valid_cast_preserves_numeric_results() {
+
+		$results = self::$query->query(
+			array(
+				'compare_query' => array(
+					'key'     => 'priority',
+					'value'   => 25,
+					'compare' => '>',
+					'cast'    => 'SIGNED',
+				),
+			)
+		);
+
+		// priority > 25 → Gamma (30), Delta (40), Epsilon (50).
+		$this->assertCount( 3, $results );
+
+		$names = wp_list_pluck( $results, 'name' );
+		$this->assertContains( 'Gamma Gadget', $names );
+		$this->assertContains( 'Delta Gadget', $names );
+		$this->assertContains( 'Epsilon Widget', $names );
+	}
 }

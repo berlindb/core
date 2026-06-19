@@ -713,7 +713,8 @@ class Relationship extends Base {
 	 * @param string $alias  The joined table alias.
 	 * @param string $column The remote column name.
 	 * @param mixed  $cond   The condition value or { compare, value } descriptor.
-	 * @return string|false The WHERE expression, '' if it produced nothing, or false if unknown column.
+	 * @return string|false The WHERE expression, '' if it produced nothing, or
+	 *                      false on an unknown column or an explicit invalid cast.
 	 */
 	private function build_condition( Query $remote, string $alias, string $column, mixed $cond ): string|false {
 
@@ -756,46 +757,40 @@ class Relationship extends Base {
 		// Resolve the operator, falling back to equals.
 		$operator = $this->get_operator( $compare );
 
+		// Fall back to equals if the operator is unresolvable.
 		if ( false === $operator ) {
 			$operator = $this->get_operator( '=' );
 		}
 
+		// Bail if the operator is still unresolvable.
 		if ( false === $operator ) {
 			return '';
 		}
 
 		/*
-		 * Resolve an optional, opt-in CAST for the column side. 'cast' => true
-		 * derives the target from the remote column's own type; a non-empty string
-		 * is an explicit override. Absent, false, or empty means no cast — casting
-		 * is never applied by default.
+		 * Resolve an optional, opt-in CAST for the column side (shared with the
+		 * generic clause builder via resolve_clause_sql_cast()). An explicit but
+		 * invalid cast fails closed — consistent with the rest of the relationship
+		 * API — so a misspelled 'SIGNED' matches no rows, not a lexical compare.
 		 */
-		$cast = '';
+		$cast = $this->resolve_clause_sql_cast(
+			$column_object,
+			is_array( $cond ) ? $cond : array()
+		);
 
-		if ( is_array( $cond ) ) {
-			$requested = $cond[ 'cast' ] ?? null;
-
-			if ( true === $requested ) {
-				$cast = $column_object->get_sql_cast_type();
-			} elseif ( is_string( $requested ) && ( '' !== trim( $requested ) ) ) {
-				$cast = $this->sanitize_sql_cast_type( $requested );
-
-				/*
-				 * An explicit but invalid cast is a misconfiguration: fail closed,
-				 * consistent with the rest of the relationship API. A misspelled
-				 * 'SIGNED' should match no rows, not silently compare lexically.
-				 */
-				if ( '' === $cast ) {
-					return false;
-				}
-			}
+		/*
+		 * Fail closed on an explicit but invalid cast (e.g. a misspelled 'SIGNED').
+		 * A column with no useful cast yields '' (no cast) here, never false.
+		 */
+		if ( false === $cast ) {
+			return false;
 		}
 
-		// Build the comparison SQL against the joined alias.
-		$expr = $operator->get_sql( $column_object, $alias, $value, $cast );
-
-		return is_string( $expr )
-			? $expr
-			: '';
+		/*
+		 * Build the comparison SQL against the joined alias. get_sql() always
+		 * returns a string; a value-less operator (e.g. NOT EXISTS) yields '',
+		 * which build_conditions() drops as "produced nothing".
+		 */
+		return $operator->get_sql( $column_object, $alias, $value, $cast );
 	}
 }

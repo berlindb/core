@@ -12,7 +12,9 @@ Notable changes to BerlinDB are documented here.
 - Adds relationship cache priming via `with` for `belongs_to` and `has_many`, and
   opt-in enforced FOREIGN KEY DDL; fails closed on malformed or unresolvable clauses.
 - Adds opt-in typed `CAST` in comparisons (e.g. `AS SIGNED` / `DATETIME`),
-  sanitized at the boundary and fail-closed on invalid casts.
+  sanitized at the boundary and fail-closed on invalid casts. A single shared
+  resolver applies the `cast` clause key to both relationship `where` conditions
+  and `compare_query` clauses; absent `cast` is unchanged (never cast by default).
 - Adds end-to-end support for a string/UUID primary key (not `auto_increment`):
   `add_item()` with a supplied key returns that key, and `get_item()`,
   `update_item()`, `delete_item()`, `copy_item()`, query result-shaping, the
