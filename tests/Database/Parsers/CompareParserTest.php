@@ -1172,4 +1172,272 @@ class CompareParserTest extends TestCase {
 		$this->assertCount( 1, $results );
 		$this->assertSame( 'Gamma Gadget', $results[0]->name );
 	}
+
+	/**
+	 * Test that a function operand on the 'key' (left side) wraps the key column,
+	 * with a bare scalar right side prepared with the function's return pattern.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_lhs_func_operand_wraps_key_column() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => array(
+					'operand' => 'func',
+					'name'    => 'LOWER',
+					'args'    => array(
+						array(
+							'operand' => 'column',
+							'name'    => 'name',
+						),
+					),
+				),
+				'compare' => '=',
+				'value'   => 'john',
+			)
+		);
+
+		$this->assertStringContainsString( 'LOWER(', $where );
+		$this->assertStringContainsString( '`name`', $where );
+		$this->assertStringContainsString( ' = ', $where );
+		$this->assertStringNotContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * Test a function on BOTH sides: LOWER(name) = LOWER('term').
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_lhs_func_equals_rhs_func() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => array(
+					'operand' => 'func',
+					'name'    => 'LOWER',
+					'args'    => array(
+						array(
+							'operand' => 'column',
+							'name'    => 'name',
+						),
+					),
+				),
+				'compare' => '=',
+				'value'   => array(
+					'operand' => 'func',
+					'name'    => 'LOWER',
+					'args'    => array(
+						array(
+							'operand' => 'value',
+							'value'   => 'ALPHA WIDGET',
+						),
+					),
+				),
+			)
+		);
+
+		$this->assertStringContainsString( 'LOWER(`', $where );
+		$this->assertStringContainsString( ' = LOWER(', $where );
+		$this->assertStringNotContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * Test that a column operand on the 'key' renders a bare column reference
+	 * (the regular grammar: any operand spec is valid on either side).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_lhs_column_operand() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => array(
+					'operand' => 'column',
+					'name'    => 'status',
+				),
+				'compare' => '=',
+				'value'   => 'active',
+			)
+		);
+
+		$this->assertStringContainsString( '`status`', $where );
+		$this->assertStringContainsString( ' = ', $where );
+		$this->assertStringNotContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * Test a unary operator on a left-hand function operand: LOWER(name) IS NULL.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_lhs_func_operand_is_null() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => array(
+					'operand' => 'func',
+					'name'    => 'LOWER',
+					'args'    => array(
+						array(
+							'operand' => 'column',
+							'name'    => 'name',
+						),
+					),
+				),
+				'compare' => 'IS NULL',
+			)
+		);
+
+		$this->assertStringContainsString( 'LOWER(', $where );
+		$this->assertStringContainsString( 'IS NULL', $where );
+		$this->assertStringNotContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * Test a left-hand function operand end-to-end with a numeric return pattern:
+	 * LENGTH(status) = 6 matches the 'active' rows ('active' is 6 characters).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_lhs_func_operand_matches_rows_end_to_end() {
+
+		$results = self::$query->query(
+			array(
+				'compare_query' => array(
+					'key'     => array(
+						'operand' => 'func',
+						'name'    => 'LENGTH',
+						'args'    => array(
+							array(
+								'operand' => 'column',
+								'name'    => 'status',
+							),
+						),
+					),
+					'compare' => '=',
+					'value'   => 6,
+				),
+			)
+		);
+
+		// status 'active' has length 6 → Alpha + Beta.
+		$this->assertCount( 2, $results );
+
+		$names = wp_list_pluck( $results, 'name' );
+		$this->assertContains( 'Alpha Widget', $names );
+		$this->assertContains( 'Beta Widget', $names );
+	}
+
+	/**
+	 * Test that a left-hand function operand on a non-expression operator (LIKE)
+	 * fails the clause closed.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_lhs_func_operand_on_non_expression_operator_fails_closed() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => array(
+					'operand' => 'func',
+					'name'    => 'LOWER',
+					'args'    => array(
+						array(
+							'operand' => 'column',
+							'name'    => 'name',
+						),
+					),
+				),
+				'compare' => 'LIKE',
+				'value'   => 'x',
+			)
+		);
+
+		$this->assertStringContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * Test that a left-hand function operand over an unknown column fails closed.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_lhs_func_operand_unknown_column_fails_closed() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => array(
+					'operand' => 'func',
+					'name'    => 'LOWER',
+					'args'    => array(
+						array(
+							'operand' => 'column',
+							'name'    => 'nonexistent_column',
+						),
+					),
+				),
+				'compare' => '=',
+				'value'   => 'x',
+			)
+		);
+
+		$this->assertStringContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * Test that a fractional scalar compared against ABS() is not truncated:
+	 * `ABS(priority) = 1.5` must keep the 1.5, not collapse to 1 (ABS preserves
+	 * its input type, so its return pattern is not an integer placeholder).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_lhs_abs_func_preserves_fractional_value() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => array(
+					'operand' => 'func',
+					'name'    => 'ABS',
+					'args'    => array(
+						array(
+							'operand' => 'column',
+							'name'    => 'priority',
+						),
+					),
+				),
+				'compare' => '=',
+				'value'   => 1.5,
+			)
+		);
+
+		$this->assertStringContainsString( 'ABS(', $where );
+		$this->assertStringContainsString( '1.5', $where );
+	}
+
+	/**
+	 * Test that an unknown function on the 'key' fails the clause closed.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_lhs_unknown_func_fails_closed() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => array(
+					'operand' => 'func',
+					'name'    => 'NOT_A_FUNCTION',
+					'args'    => array(
+						array(
+							'operand' => 'column',
+							'name'    => 'name',
+						),
+					),
+				),
+				'compare' => '=',
+				'value'   => 'x',
+			)
+		);
+
+		$this->assertStringContainsString( '1 = 0', $where );
+	}
 }

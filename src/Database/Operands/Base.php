@@ -30,6 +30,11 @@ defined( 'ABSPATH' ) || exit;
  * no further validation.
  *
  * @since 3.1.0
+ * @internal Parser collaborator. Operands are constructed from operand specs by
+ *           the parser and consumed by it; the public surface is the operand spec
+ *           array (`array( 'operand' => 'column', ... )`), not these classes. The
+ *           methods are public only because the parser (a separate class) calls
+ *           them — PHP has no friend/package visibility.
  */
 abstract class Base {
 
@@ -41,4 +46,21 @@ abstract class Base {
 	 * @return string The SQL fragment, or '' when the operand renders nothing.
 	 */
 	abstract public function get_sql(): string;
+
+	/**
+	 * Return the wpdb::prepare() placeholder a scalar should use when compared
+	 * against this operand on the OTHER side of a comparison.
+	 *
+	 * Lets a bare-scalar value derive its placeholder from the expression it is
+	 * compared with (e.g. an integer column or an integer-returning function takes
+	 * '%d'). The base default is a string placeholder; subclasses that know their
+	 * type override it.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return string A wpdb::prepare() placeholder ('%s', '%d', or '%f').
+	 */
+	public function get_comparison_pattern(): string {
+		return '%s';
+	}
 }

@@ -796,25 +796,20 @@ class Relationship extends Base {
 		}
 
 		/*
-		 * A structured operand (e.g. column-to-column against the joined table)
-		 * replaces the value side. The operator must opt into expression operands,
-		 * and the referenced column is resolved against the REMOTE schema and
-		 * qualified with the joined alias; either check failing fails closed.
+		 * A structured operand (e.g. column-to-column or a function against the
+		 * joined table) replaces the value side. The local column is the left
+		 * operand; the right operand's column(s) resolve against the REMOTE schema
+		 * and the joined alias. The shared builder fails closed on a non-expression
+		 * operator or an unresolvable operand.
 		 */
 		if ( $this->is_operand_spec( $value ) ) {
 
-			if ( ! $operator->is_expression() ) {
-				return false;
-			}
+			$lhs  = new \BerlinDB\Database\Operands\Column( $column_object, $alias, $cast );
+			$expr = $this->build_operand_clause( $lhs, $operator, $value, true, $remote, $alias );
 
-			$operand = $this->resolve_operand( $value, $remote, $alias );
-
-			// Fail closed if the operand spec was unresolvable.
-			if ( ! ( $operand instanceof \BerlinDB\Database\Operands\Base ) ) {
-				return false;
-			}
-
-			return $this->build_operand_sql( $column_object, $alias, $cast, $operator->get_sql_compare(), $operand );
+			return ( false === $expr )
+				? false
+				: $expr;
 		}
 
 		/*

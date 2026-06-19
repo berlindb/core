@@ -780,6 +780,43 @@ class OperatorsTest extends TestCase {
 	}
 
 	/**
+	 * Test get_comparison_pattern(): a column operand reports its column's pattern,
+	 * a function operand its declared return pattern, and a value operand defaults
+	 * to a string placeholder. This drives how a bare scalar on the other side of
+	 * the comparison is prepared.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_operand_comparison_patterns() {
+
+		// A column reports its own declared prepare() pattern ('%d' here).
+		$int_col = new Column(
+			array(
+				'name'    => 'priority',
+				'type'    => 'bigint',
+				'pattern' => '%d',
+			)
+		);
+		$this->assertSame( '%d', ( new ColumnOperand( $int_col ) )->get_comparison_pattern() );
+
+		// String column → '%s'.
+		$str_col = new Column(
+			array(
+				'name' => 'name',
+				'type' => 'varchar',
+			)
+		);
+		$this->assertSame( '%s', ( new ColumnOperand( $str_col ) )->get_comparison_pattern() );
+
+		// Function operand → its declared return pattern.
+		$year_pattern = FuncOperand::descriptor( 'YEAR' )['return_pattern'];
+		$this->assertSame( '%d', ( new FuncOperand( 'YEAR', array( new ColumnOperand( $str_col ) ), $year_pattern ) )->get_comparison_pattern() );
+
+		// Value operand → string placeholder default.
+		$this->assertSame( '%s', ( new ValueOperand( "'x'" ) )->get_comparison_pattern() );
+	}
+
+	/**
 	 * Test that get_sql casts the column side for a value-overriding operator
 	 * (IN), proving the cast applies to the LHS regardless of operator subclass.
 	 *

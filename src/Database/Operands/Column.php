@@ -27,6 +27,7 @@ defined( 'ABSPATH' ) || exit;
  * (optionally cast) SQL reference via Column::get_name_sql().
  *
  * @since 3.1.0
+ * @internal Parser collaborator; see Operands\Base.
  */
 class Column extends Base {
 
@@ -78,5 +79,17 @@ class Column extends Base {
 	 */
 	public function get_sql(): string {
 		return $this->column->get_name_sql( $this->alias, $this->cast );
+	}
+
+	/**
+	 * Return the referenced column's own prepare() placeholder, so a scalar
+	 * compared against this column is prepared with the matching type.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return string
+	 */
+	public function get_comparison_pattern(): string {
+		return $this->column->pattern;
 	}
 }

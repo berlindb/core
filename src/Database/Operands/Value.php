@@ -28,6 +28,7 @@ defined( 'ABSPATH' ) || exit;
  * built, so get_sql() simply returns the already-prepared, already-safe fragment.
  *
  * @since 3.1.0
+ * @internal Parser collaborator; see Operands\Base.
  */
 class Value extends Base {
 

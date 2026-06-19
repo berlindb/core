@@ -29,6 +29,7 @@ defined( 'ABSPATH' ) || exit;
  * Arguments are themselves operands (column / value / func), so functions nest.
  *
  * @since 3.1.0
+ * @internal Parser collaborator; see Operands\Base.
  */
 class Func extends Base {
 
@@ -41,69 +42,89 @@ class Func extends Base {
 	 * function return/comparison pattern is added with the left-hand-side operand
 	 * work, where the function's return type informs the comparison value.)
 	 *
+	 * `return_pattern` is the wpdb::prepare() placeholder for the function's RESULT
+	 * — used to prepare a bare-scalar value compared against the function (e.g.
+	 * `YEAR(date_col) = 2024` prepares `2024` as `%d`). (Per-argument type rules,
+	 * the semantic-validation layer, are deferred to a later phase — see #211.)
+	 *
 	 * @since 3.1.0
-	 * @var array<string,array{sql:string,min_args:int,max_args:int,arg_kinds:list<string>}>
+	 * @var array<string,array{sql:string,min_args:int,max_args:int,arg_kinds:list<string>,return_pattern:string}>
 	 */
 	private const ALLOWED = array(
 		'LOWER'      => array(
-			'sql'       => 'LOWER',
-			'min_args'  => 1,
-			'max_args'  => 1,
-			'arg_kinds' => array( 'column', 'func', 'value' ),
+			'sql'            => 'LOWER',
+			'min_args'       => 1,
+			'max_args'       => 1,
+			'arg_kinds'      => array( 'column', 'func', 'value' ),
+			'return_pattern' => '%s',
 		),
 		'UPPER'      => array(
-			'sql'       => 'UPPER',
-			'min_args'  => 1,
-			'max_args'  => 1,
-			'arg_kinds' => array( 'column', 'func', 'value' ),
+			'sql'            => 'UPPER',
+			'min_args'       => 1,
+			'max_args'       => 1,
+			'arg_kinds'      => array( 'column', 'func', 'value' ),
+			'return_pattern' => '%s',
 		),
 		'LENGTH'     => array(
-			'sql'       => 'LENGTH',
-			'min_args'  => 1,
-			'max_args'  => 1,
-			'arg_kinds' => array( 'column', 'func', 'value' ),
+			'sql'            => 'LENGTH',
+			'min_args'       => 1,
+			'max_args'       => 1,
+			'arg_kinds'      => array( 'column', 'func', 'value' ),
+			'return_pattern' => '%d',
 		),
 		'ABS'        => array(
-			'sql'       => 'ABS',
-			'min_args'  => 1,
-			'max_args'  => 1,
-			'arg_kinds' => array( 'column', 'func', 'value' ),
+			'sql'            => 'ABS',
+			'min_args'       => 1,
+			'max_args'       => 1,
+			'arg_kinds'      => array( 'column', 'func', 'value' ),
+			/*
+			 * ABS preserves its input's type (a decimal stays fractional), so a
+			 * '%d' placeholder would truncate `ABS(x) = 1.5` to `= 1`. Use a string
+			 * placeholder and let MySQL coerce, rather than force an integer.
+			 */
+			'return_pattern' => '%s',
 		),
 		'DATE'       => array(
-			'sql'       => 'DATE',
-			'min_args'  => 1,
-			'max_args'  => 1,
-			'arg_kinds' => array( 'column', 'func', 'value' ),
+			'sql'            => 'DATE',
+			'min_args'       => 1,
+			'max_args'       => 1,
+			'arg_kinds'      => array( 'column', 'func', 'value' ),
+			'return_pattern' => '%s',
 		),
 		'YEAR'       => array(
-			'sql'       => 'YEAR',
-			'min_args'  => 1,
-			'max_args'  => 1,
-			'arg_kinds' => array( 'column', 'func', 'value' ),
+			'sql'            => 'YEAR',
+			'min_args'       => 1,
+			'max_args'       => 1,
+			'arg_kinds'      => array( 'column', 'func', 'value' ),
+			'return_pattern' => '%d',
 		),
 		'MONTH'      => array(
-			'sql'       => 'MONTH',
-			'min_args'  => 1,
-			'max_args'  => 1,
-			'arg_kinds' => array( 'column', 'func', 'value' ),
+			'sql'            => 'MONTH',
+			'min_args'       => 1,
+			'max_args'       => 1,
+			'arg_kinds'      => array( 'column', 'func', 'value' ),
+			'return_pattern' => '%d',
 		),
 		'DAYOFMONTH' => array(
-			'sql'       => 'DAYOFMONTH',
-			'min_args'  => 1,
-			'max_args'  => 1,
-			'arg_kinds' => array( 'column', 'func', 'value' ),
+			'sql'            => 'DAYOFMONTH',
+			'min_args'       => 1,
+			'max_args'       => 1,
+			'arg_kinds'      => array( 'column', 'func', 'value' ),
+			'return_pattern' => '%d',
 		),
 		'DAYOFYEAR'  => array(
-			'sql'       => 'DAYOFYEAR',
-			'min_args'  => 1,
-			'max_args'  => 1,
-			'arg_kinds' => array( 'column', 'func', 'value' ),
+			'sql'            => 'DAYOFYEAR',
+			'min_args'       => 1,
+			'max_args'       => 1,
+			'arg_kinds'      => array( 'column', 'func', 'value' ),
+			'return_pattern' => '%d',
 		),
 		'DAYOFWEEK'  => array(
-			'sql'       => 'DAYOFWEEK',
-			'min_args'  => 1,
-			'max_args'  => 1,
-			'arg_kinds' => array( 'column', 'func', 'value' ),
+			'sql'            => 'DAYOFWEEK',
+			'min_args'       => 1,
+			'max_args'       => 1,
+			'arg_kinds'      => array( 'column', 'func', 'value' ),
+			'return_pattern' => '%d',
 		),
 	);
 
@@ -124,16 +145,26 @@ class Func extends Base {
 	private $args;
 
 	/**
+	 * The wpdb::prepare() placeholder for this function's result.
+	 *
+	 * @since 3.1.0
+	 * @var string
+	 */
+	private $return_pattern;
+
+	/**
 	 * Build a function operand.
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param string     $sql  The validated SQL function name (from a descriptor).
-	 * @param list<Base> $args The resolved argument operands.
+	 * @param string     $sql            The validated SQL function name (from a descriptor).
+	 * @param list<Base> $args           The resolved argument operands.
+	 * @param string     $return_pattern The placeholder for the function's result. Default '%s'.
 	 */
-	public function __construct( string $sql, array $args ) {
-		$this->sql  = $sql;
-		$this->args = $args;
+	public function __construct( string $sql, array $args, string $return_pattern = '%s' ) {
+		$this->sql            = $sql;
+		$this->args           = $args;
+		$this->return_pattern = $return_pattern;
 	}
 
 	/**
@@ -142,12 +173,24 @@ class Func extends Base {
 	 * @since 3.1.0
 	 *
 	 * @param string $name The function name (case-insensitive).
-	 * @return array{sql:string,min_args:int,max_args:int,arg_kinds:list<string>}|null
+	 * @return array{sql:string,min_args:int,max_args:int,arg_kinds:list<string>,return_pattern:string}|null
 	 */
 	public static function descriptor( string $name ): ?array {
 		$key = strtoupper( trim( $name ) );
 
 		return self::ALLOWED[ $key ] ?? null;
+	}
+
+	/**
+	 * Return the prepare() placeholder a scalar should use when compared against
+	 * this function's result (e.g. `YEAR(date_col) = 2024` prepares 2024 as %d).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return string
+	 */
+	public function get_comparison_pattern(): string {
+		return $this->return_pattern;
 	}
 
 	/**

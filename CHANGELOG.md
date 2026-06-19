@@ -25,7 +25,13 @@ Notable changes to BerlinDB are documented here.
   function wrapping recursive arguments (column / literal / nested function), e.g.
   `array( 'operand' => 'func', 'name' => 'LOWER', 'args' => array( array( 'operand' => 'column', 'name' => 'name' ) ) )`;
   only listed functions with a matching arity and argument kinds are permitted —
-  there is no arbitrary-function or raw-SQL passthrough.
+  there is no arbitrary-function or raw-SQL passthrough. The same operands also
+  apply to the LEFT side via the clause `key` (e.g. `'key' => array( 'operand' =>
+  'func', 'name' => 'LOWER', ... )` for `LOWER(name) = …`), so functions/columns
+  can wrap either side of a comparison; a bare scalar on the other side is
+  prepared with the operand's return type. Position (`key` vs `value`) selects the
+  side. Operand-bearing clauses on non-expression operators (IN/BETWEEN/LIKE) fail
+  closed; unary operators (`IS NULL`) apply to an operand `key` too.
 - Adds end-to-end support for a string/UUID primary key (not `auto_increment`):
   `add_item()` with a supplied key returns that key, and `get_item()`,
   `update_item()`, `delete_item()`, `copy_item()`, query result-shaping, the
