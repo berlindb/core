@@ -15,6 +15,13 @@ Notable changes to BerlinDB are documented here.
   sanitized at the boundary and fail-closed on invalid casts. A single shared
   resolver applies the `cast` clause key to both relationship `where` conditions
   and `compare_query` clauses; absent `cast` is unchanged (never cast by default).
+- Adds opt-in expression operands on the right-hand side of a comparison, starting
+  with column-to-column (`array( 'operand' => 'column', 'name' => 'other_col' )`)
+  on the scalar comparison operators (`=`, `!=`, `<`, `<=`, `>`, `>=`) — in both
+  `compare_query` and relationship `where` clauses. Operators opt in via an
+  `is_expression()` descriptor, so a structured operand on an unsupported operator
+  (or an unknown referenced column) fails the clause closed. A plain scalar/list
+  value is unchanged.
 - Adds end-to-end support for a string/UUID primary key (not `auto_increment`):
   `add_item()` with a supplied key returns that key, and `get_item()`,
   `update_item()`, `delete_item()`, `copy_item()`, query result-shaping, the

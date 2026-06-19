@@ -406,6 +406,117 @@ class RelationshipParserTest extends TestCase {
 	}
 
 	/**
+	 * Test that a column operand compares two columns on the joined remote table
+	 * (column-to-column against the relationship's table).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_where_condition_column_operand() {
+		$result = $this->parse(
+			array(
+				'name'  => 'parent',
+				'where' => array(
+					'total' => array(
+						'compare' => '>',
+						'value'   => array(
+							'operand' => 'column',
+							'name'    => 'order_id',
+						),
+					),
+				),
+			),
+			array( 'parent' => $this->relationship() )
+		);
+
+		// Both sides are joined-table column references; no prepared literal.
+		$this->assertStringContainsString( '`bdb_rel_parent`.`total`', $result['where'] );
+		$this->assertStringContainsString( '`bdb_rel_parent`.`order_id`', $result['where'] );
+		$this->assertStringContainsString( '>', $result['where'] );
+		$this->assertStringNotContainsString( '1 = 0', $result['where'] );
+	}
+
+	/**
+	 * Test that a column operand referencing an unknown remote column fails the
+	 * condition closed.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_where_condition_column_operand_unknown_column_fails_closed() {
+		$result = $this->parse(
+			array(
+				'name'  => 'parent',
+				'where' => array(
+					'total' => array(
+						'compare' => '>',
+						'value'   => array(
+							'operand' => 'column',
+							'name'    => 'nonexistent_column',
+						),
+					),
+				),
+			),
+			array( 'parent' => $this->relationship() )
+		);
+
+		$this->assertStringContainsString( '1 = 0', $result['where'] );
+		$this->assertStringNotContainsString( '`bdb_rel_parent`.`total`', $result['where'] );
+	}
+
+	/**
+	 * Test that a descriptor-form operand with an unrecognized compare falls back
+	 * to equality (column-to-column), consistent with the bare-operand and Compare
+	 * paths — not to IN, which would reject the operand and fail closed.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_where_condition_operand_with_bad_compare_falls_back_to_equality() {
+		$result = $this->parse(
+			array(
+				'name'  => 'parent',
+				'where' => array(
+					'total' => array(
+						'compare' => 'NOT_AN_OPERATOR',
+						'value'   => array(
+							'operand' => 'column',
+							'name'    => 'order_id',
+						),
+					),
+				),
+			),
+			array( 'parent' => $this->relationship() )
+		);
+
+		// Falls back to '=' and renders the column-to-column comparison.
+		$this->assertStringContainsString( '`bdb_rel_parent`.`total` = `bdb_rel_parent`.`order_id`', $result['where'] );
+		$this->assertStringNotContainsString( '1 = 0', $result['where'] );
+	}
+
+	/**
+	 * Test that a column operand on a non-expression operator (LIKE) fails closed.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_where_condition_column_operand_non_expression_operator_fails_closed() {
+		$result = $this->parse(
+			array(
+				'name'  => 'parent',
+				'where' => array(
+					'status' => array(
+						'compare' => 'LIKE',
+						'value'   => array(
+							'operand' => 'column',
+							'name'    => 'total',
+						),
+					),
+				),
+			),
+			array( 'parent' => $this->relationship() )
+		);
+
+		$this->assertStringContainsString( '1 = 0', $result['where'] );
+	}
+
+	/**
 	 * Test that multiple where conditions are AND-combined.
 	 *
 	 * @since 3.1.0

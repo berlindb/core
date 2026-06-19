@@ -1131,7 +1131,13 @@ trait Parser {
 
 			// Or set compare clause based on value.
 		} else {
-			$clause[ 'compare' ] = isset( $clause[ 'value' ] ) && is_array( $clause[ 'value' ] )
+			$clause_value = $clause[ 'value' ] ?? null;
+
+			/*
+			 * A list value defaults to IN, but a structured operand spec is not a
+			 * list — it defaults to equality (e.g. column-to-column `=`).
+			 */
+			$clause[ 'compare' ] = ( is_array( $clause_value ) && ! $this->is_operand_spec( $clause_value ) )
 				? 'IN'
 				: '=';
 		}
@@ -1190,7 +1196,30 @@ trait Parser {
 				return $this->unresolved_column_clause( $retval );
 			}
 
-			$expr = $operator->get_sql( $col, $alias, $clause[ 'value' ] ?? null, $cast );
+			$value = $clause[ 'value' ] ?? null;
+
+			// A structured operand (e.g. column-to-column) replaces the value side.
+			if ( $this->is_operand_spec( $value ) ) {
+
+				// The operator must opt into expression operands; else fail closed.
+				if ( ! $operator->is_expression() ) {
+					return $this->unresolved_column_clause( $retval );
+				}
+
+				// Resolve against this caller's own schema (same-table operand).
+				$operand = $this->resolve_operand( $value, $this->caller, $alias );
+
+				// Fail closed if the operand spec was unresolvable.
+				if ( ! ( $operand instanceof \BerlinDB\Database\Operands\Base ) ) {
+					return $this->unresolved_column_clause( $retval );
+				}
+
+				$expr = $this->build_operand_sql( $col, $alias, $cast, $operator->get_sql_compare(), $operand );
+
+				// Or the ordinary prepared-value path.
+			} else {
+				$expr = $operator->get_sql( $col, $alias, $value, $cast );
+			}
 
 			// Maybe add the WHERE expression.
 			if ( ! empty( $expr ) ) {
@@ -1277,6 +1306,135 @@ trait Parser {
 
 		// No cast requested.
 		return '';
+	}
+
+	/**
+	 * Whether a clause value is a structured operand spec (vs a scalar or list).
+	 *
+	 * A structured operand is an associative array carrying an explicit 'operand'
+	 * marker — e.g. `array( 'operand' => 'column', 'name' => 'last_name' )`. A bare
+	 * scalar, or a numeric-keyed list (an IN list), is NOT an operand spec and is
+	 * handled by the ordinary value path, so existing queries are unaffected.
+	 *
+	 * Classification is by KEY PRESENCE, not value: a present-but-null/invalid
+	 * marker (e.g. `array( 'operand' => null )` from decoded JSON) is still an
+	 * operand spec, so it reaches resolve_operand() and fails closed rather than
+	 * slipping back into the ordinary IN/scalar path against the marker fields.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param mixed $value The clause value to inspect.
+	 * @return bool
+	 */
+	protected function is_operand_spec( $value ): bool {
+		return is_array( $value ) && array_key_exists( 'operand', $value );
+	}
+
+	/**
+	 * Resolve a structured operand spec into a renderable Operand, or fail closed.
+	 *
+	 * The right-hand-side counterpart of resolve_clause_sql_cast(): turns an
+	 * explicit operand spec into an Operand value object the operator renders in
+	 * place of a prepared scalar. Returns null when $value is not an operand spec
+	 * (the caller uses the ordinary value path), or false when the spec is present
+	 * but unresolvable (the caller must fail the clause closed).
+	 *
+	 * Phase 1 supports only the `column` operand (column-to-column comparison):
+	 * the referenced name is sanitized and validated against $source's schema
+	 * (unknown column => false), and an optional opt-in `cast` is resolved against
+	 * the REFERENCED column's own type. The referenced column is qualified with
+	 * $alias, which the caller supplies from known query/relationship state — a
+	 * caller-supplied alias string is never trusted here.
+	 *
+	 * @since 3.1.0
+	 * @internal Query/Parser collaborator API.
+	 *
+	 * @param mixed                              $value  The clause value (possibly an operand spec).
+	 * @param \BerlinDB\Database\Kern\Query|null $source The Query whose schema owns the referenced column.
+	 * @param string                             $alias  Optional. Table alias to qualify the reference.
+	 * @return \BerlinDB\Database\Operands\Base|false|null Operand on success; false to fail closed;
+	 *                                                     null when $value is not an operand spec.
+	 */
+	protected function resolve_operand( $value, $source, string $alias = '' ) {
+
+		// Not a structured operand spec: caller uses the ordinary value path.
+		if ( ! $this->is_operand_spec( $value ) ) {
+			return null;
+		}
+
+		// Normalize the operand kind.
+		$kind = is_string( $value[ 'operand' ] )
+			? strtolower( $value[ 'operand' ] )
+			: '';
+
+		// Phase 1 supports the column operand only; anything else fails closed.
+		if ( 'column' !== $kind ) {
+			return false;
+		}
+
+		// Sanitize the referenced column name.
+		$raw_name = $value[ 'name' ] ?? '';
+		$name     = is_string( $raw_name )
+			? $this->sanitize_column_name( $raw_name )
+			: '';
+
+		// Bail if the name doesn't sanitize to a valid column name.
+		if ( '' === $name ) {
+			return false;
+		}
+
+		// The referenced column must exist in the source schema.
+		$column = ( $source instanceof \BerlinDB\Database\Kern\Query )
+			? $source->get_column_by( array( 'name' => $name ) )
+			: false;
+
+		// Bail if the column doesn't exist in the schema.
+		if ( ! ( $column instanceof \BerlinDB\Database\Kern\Column ) ) {
+			return false;
+		}
+
+		// Resolve an optional, opt-in cast against the REFERENCED column's type.
+		$cast = $this->resolve_clause_sql_cast( $column, $value );
+
+		// Bail if an explicit but invalid cast was requested.
+		if ( false === $cast ) {
+			return false;
+		}
+
+		// Return a Column operand with the cast and alias applied.
+		return new \BerlinDB\Database\Operands\Column( $column, $alias, $cast );
+	}
+
+	/**
+	 * Assemble an expression-operand comparison: `{column} {compare} {operand}`.
+	 *
+	 * The operand counterpart of an operator's own value assembly. The parser owns
+	 * this (rather than the operator) because operand rendering is uniform across
+	 * the scalar comparison operators — the operator contributes only its SQL
+	 * compare string — whereas value rendering is operator-specific (IN lists,
+	 * BETWEEN pairs, LIKE wildcards). Keeping it here also avoids widening the
+	 * public operator get_sql() signature, which would fatally break custom
+	 * operator overrides registered via berlindb_database_operator_classes.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param \BerlinDB\Database\Kern\Column   $col         The left-hand column.
+	 * @param string                           $alias       Table alias for the left-hand column.
+	 * @param string                           $cast        Normalized CAST target for the left-hand column, or ''.
+	 * @param string                           $sql_compare The operator's SQL compare string (get_sql_compare()).
+	 * @param \BerlinDB\Database\Operands\Base $operand     The resolved right-hand operand.
+	 * @return string The assembled comparison SQL, or '' when the operand renders nothing.
+	 */
+	protected function build_operand_sql( \BerlinDB\Database\Kern\Column $col, string $alias, string $cast, string $sql_compare, \BerlinDB\Database\Operands\Base $operand ): string {
+
+		$operand_sql = $operand->to_sql();
+
+		// Bail if the operand rendered nothing.
+		if ( '' === $operand_sql ) {
+			return '';
+		}
+
+		return $col->get_name_sql( $alias, $cast ) . ' ' . $sql_compare . ' ' . $operand_sql;
 	}
 
 	/**

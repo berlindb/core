@@ -119,6 +119,21 @@ trait Operator {
 	protected $regex = false;
 
 	/**
+	 * Whether this operator accepts an expression operand on the right-hand side
+	 * (a column reference, function, or subquery) instead of only a prepared
+	 * scalar value.
+	 *
+	 * The scalar comparison operators (=, !=, <, <=, >, >=) set this true; the
+	 * multi-value, pattern, unary, and existence operators leave it false, so a
+	 * structured operand on an unsupported operator fails closed rather than
+	 * emitting meaningless or unsafe SQL (e.g. LIKE against a bare column).
+	 *
+	 * @since 3.1.0
+	 * @var bool
+	 */
+	protected $expression = false;
+
+	/**
 	 * The SQL operator string to use when assembling a WHERE clause.
 	 *
 	 * Defaults to $compare. Override in operator classes where the SQL operator
@@ -208,6 +223,18 @@ trait Operator {
 	 */
 	public function is_regex(): bool {
 		return (bool) $this->regex;
+	}
+
+	/**
+	 * Whether this operator accepts an expression operand (column/function/
+	 * subquery) on the right-hand side instead of only a prepared scalar value.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return bool
+	 */
+	public function is_expression(): bool {
+		return (bool) $this->expression;
 	}
 
 	/**

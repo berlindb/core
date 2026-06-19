@@ -136,6 +136,11 @@ Which side declares it, and what `column` means, differs by `type`:
   - `'cast' => true` — derive the target from the remote column's own type.
   - A present-but-invalid `cast` (e.g. a typo) **fails closed** (no rows), not a
     silent lexical compare.
+- **Compare to another column** with an opt-in operand in place of `value`:
+  `array( 'compare' => '>', 'value' => array( 'operand' => 'column', 'name' => 'min_total' ) )`
+  compares two columns (`total > min_total`). Works on the scalar comparison
+  operators (`=`/`!=`/`<`/`<=`/`>`/`>=`) in relationship `where` and `compare_query`
+  clauses; an unknown column or an unsupported operator **fails closed**.
 
 Notes:
 

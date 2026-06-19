@@ -734,7 +734,12 @@ class Relationship extends Base {
 		$column_object = reset( $columns );
 
 		// Determine the comparison operator and the value.
-		if ( is_array( $cond ) && ( isset( $cond[ 'compare' ] ) || array_key_exists( 'value', $cond ) ) ) {
+		if ( $this->is_operand_spec( $cond ) ) {
+
+			// A bare operand spec (e.g. column-to-column) defaults to equality.
+			$compare = '=';
+			$value   = $cond;
+		} elseif ( is_array( $cond ) && ( isset( $cond[ 'compare' ] ) || array_key_exists( 'value', $cond ) ) ) {
 			$compare = isset( $cond[ 'compare' ] )
 				? strtoupper( (string) $cond[ 'compare' ] )
 				: '=';
@@ -747,9 +752,13 @@ class Relationship extends Base {
 			$value   = $cond;
 		}
 
-		// Fall back to a sane operator if the compare is not recognized.
+		/*
+		 * Fall back to a sane operator if the compare is not recognized. A list
+		 * value falls back to IN, but an operand spec is not a list — it falls
+		 * back to equality, consistent with the bare-operand and Compare paths.
+		 */
 		if ( ! in_array( $compare, $this->get_operators(), true ) ) {
-			$compare = is_array( $value )
+			$compare = ( is_array( $value ) && ! $this->is_operand_spec( $value ) )
 				? 'IN'
 				: '=';
 		}
@@ -775,7 +784,7 @@ class Relationship extends Base {
 		 */
 		$cast = $this->resolve_clause_sql_cast(
 			$column_object,
-			is_array( $cond ) ? $cond : array()
+			( is_array( $cond ) && ! $this->is_operand_spec( $cond ) ) ? $cond : array()
 		);
 
 		/*
@@ -784,6 +793,28 @@ class Relationship extends Base {
 		 */
 		if ( false === $cast ) {
 			return false;
+		}
+
+		/*
+		 * A structured operand (e.g. column-to-column against the joined table)
+		 * replaces the value side. The operator must opt into expression operands,
+		 * and the referenced column is resolved against the REMOTE schema and
+		 * qualified with the joined alias; either check failing fails closed.
+		 */
+		if ( $this->is_operand_spec( $value ) ) {
+
+			if ( ! $operator->is_expression() ) {
+				return false;
+			}
+
+			$operand = $this->resolve_operand( $value, $remote, $alias );
+
+			// Fail closed if the operand spec was unresolvable.
+			if ( ! ( $operand instanceof \BerlinDB\Database\Operands\Base ) ) {
+				return false;
+			}
+
+			return $this->build_operand_sql( $column_object, $alias, $cast, $operator->get_sql_compare(), $operand );
 		}
 
 		/*

@@ -745,4 +745,201 @@ class CompareParserTest extends TestCase {
 		$this->assertContains( 'Delta Gadget', $names );
 		$this->assertContains( 'Epsilon Widget', $names );
 	}
+
+	/**
+	 * Test that a column operand renders a column reference on the right-hand
+	 * side (column-to-column) rather than a prepared literal.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_column_operand_renders_column_reference() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => 'priority',
+				'compare' => '>',
+				'value'   => array(
+					'operand' => 'column',
+					'name'    => 'id',
+				),
+			)
+		);
+
+		// Both sides are quoted column references joined by the operator.
+		$this->assertStringContainsString( '`priority`', $where );
+		$this->assertStringContainsString( '`id`', $where );
+		$this->assertStringContainsString( ' > ', $where );
+		$this->assertStringNotContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * Test that a column operand with no explicit compare defaults to equality
+	 * (a structured operand is not treated as an IN list).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_column_operand_defaults_to_equality() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'   => 'status',
+				'value' => array(
+					'operand' => 'column',
+					'name'    => 'name',
+				),
+			)
+		);
+
+		$this->assertStringContainsString( '`name`', $where );
+		$this->assertStringContainsString( ' = ', $where );
+		$this->assertStringNotContainsString( ' IN ', $where );
+	}
+
+	/**
+	 * Test that an optional cast on a column operand wraps the REFERENCED column.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_column_operand_with_cast_wraps_referenced_column() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => 'priority',
+				'compare' => '>',
+				'value'   => array(
+					'operand' => 'column',
+					'name'    => 'id',
+					'cast'    => 'SIGNED',
+				),
+			)
+		);
+
+		$this->assertStringContainsString( 'CAST(', $where );
+		$this->assertStringContainsString( 'AS SIGNED)', $where );
+		$this->assertStringContainsString( '`id`', $where );
+	}
+
+	/**
+	 * Test that an unknown referenced column fails the clause closed (no rows).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_column_operand_unknown_column_fails_closed() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => 'priority',
+				'compare' => '>',
+				'value'   => array(
+					'operand' => 'column',
+					'name'    => 'nonexistent_column',
+				),
+			)
+		);
+
+		$this->assertStringContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * Test that a column operand on an operator that does not accept expression
+	 * operands (e.g. LIKE) fails closed rather than emitting meaningless SQL.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_column_operand_on_non_expression_operator_fails_closed() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => 'name',
+				'compare' => 'LIKE',
+				'value'   => array(
+					'operand' => 'column',
+					'name'    => 'status',
+				),
+			)
+		);
+
+		$this->assertStringContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * Test that an unsupported operand kind (phase 1 supports 'column' only)
+	 * fails the clause closed.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_unsupported_operand_kind_fails_closed() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => 'name',
+				'compare' => '=',
+				'value'   => array(
+					'operand' => 'func',
+					'name'    => 'LOWER',
+				),
+			)
+		);
+
+		$this->assertStringContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * Test that a present-but-null operand marker is treated as a (malformed)
+	 * operand spec and fails closed, rather than slipping into an IN/scalar
+	 * comparison against the marker fields (e.g. from decoded JSON input).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_null_operand_marker_fails_closed() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'   => 'status',
+				'value' => array(
+					'operand' => null,
+					'name'    => 'name',
+				),
+			)
+		);
+
+		$this->assertStringContainsString( '1 = 0', $where );
+		$this->assertStringNotContainsString( ' IN ', $where );
+	}
+
+	/**
+	 * Test column-to-column comparison end-to-end: a row whose status equals its
+	 * own name matches `status = {column: name}`.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_column_operand_matches_rows_end_to_end() {
+
+		// A row where the two columns are equal (the others all differ).
+		self::$query->add_item(
+			array(
+				'name'     => 'active',
+				'status'   => 'active',
+				'priority' => 60,
+			)
+		);
+		wp_cache_flush();
+
+		$results = self::$query->query(
+			array(
+				'compare_query' => array(
+					'key'     => 'status',
+					'compare' => '=',
+					'value'   => array(
+						'operand' => 'column',
+						'name'    => 'name',
+					),
+				),
+			)
+		);
+
+		// Only the row whose name and status are both 'active'.
+		$this->assertCount( 1, $results );
+		$this->assertSame( 'active', $results[0]->name );
+	}
 }

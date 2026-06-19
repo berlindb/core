@@ -72,4 +72,13 @@ class LessThan extends Base {
 	 * @var bool
 	 */
 	protected $numeric = true;
+
+	/**
+	 * Whether this operator accepts an expression operand (column/function/
+	 * subquery) on the right-hand side instead of only a prepared scalar value.
+	 *
+	 * @since 3.1.0
+	 * @var bool
+	 */
+	protected $expression = true;
 }

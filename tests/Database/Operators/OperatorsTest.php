@@ -11,6 +11,7 @@
 namespace BerlinDB\Tests;
 
 use BerlinDB\Database\Kern\Column;
+use BerlinDB\Database\Operands\Column as ColumnOperand;
 use BerlinDB\Database\Operators\Between;
 use BerlinDB\Database\Operators\Equal;
 use BerlinDB\Database\Operators\Exists;
@@ -420,6 +421,30 @@ class OperatorsTest extends TestCase {
 		$this->assertFalse( ( new Equal() )->is_multi() );
 	}
 
+	/**
+	 * Test the is_expression() descriptor accessor: the scalar comparison
+	 * operators accept expression operands; multi-value, pattern, and unary
+	 * operators do not.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_is_expression_accessor() {
+
+		// Scalar comparison operators accept expression operands.
+		$this->assertTrue( ( new Equal() )->is_expression() );
+		$this->assertTrue( ( new NotEqual() )->is_expression() );
+		$this->assertTrue( ( new GreaterThan() )->is_expression() );
+		$this->assertTrue( ( new GreaterThanOrEqual() )->is_expression() );
+		$this->assertTrue( ( new LessThan() )->is_expression() );
+		$this->assertTrue( ( new LessThanOrEqual() )->is_expression() );
+
+		// Multi-value, pattern, and unary operators do not.
+		$this->assertFalse( ( new In() )->is_expression() );
+		$this->assertFalse( ( new Between() )->is_expression() );
+		$this->assertFalse( ( new Like() )->is_expression() );
+		$this->assertFalse( ( new IsNull() )->is_expression() );
+	}
+
 	// -------------------------------------------------------------------------
 	// Scalar get_value_sql (trait default).
 	// -------------------------------------------------------------------------
@@ -696,6 +721,25 @@ class OperatorsTest extends TestCase {
 		);
 		$sql = ( new Equal() )->get_sql( $col, 't', '100', 'SIGNED' );
 		$this->assertStringContainsString( 'CAST(`t`.`total` AS SIGNED)', $sql );
+	}
+
+	/**
+	 * Test that a Column operand renders its referenced column as a quoted,
+	 * optionally cast, SQL reference. (Assembling the full comparison and gating
+	 * it by is_expression() is the parser's job, covered in the parser tests.)
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_column_operand_to_sql_renders_reference() {
+		$ref = new Column(
+			array(
+				'name' => 'last_name',
+				'type' => 'varchar',
+			)
+		);
+
+		$this->assertSame( '`t`.`last_name`', ( new ColumnOperand( $ref, 't' ) )->to_sql() );
+		$this->assertSame( 'CAST(`t`.`last_name` AS CHAR)', ( new ColumnOperand( $ref, 't', 'CHAR' ) )->to_sql() );
 	}
 
 	/**
