@@ -817,6 +817,91 @@ class OperatorsTest extends TestCase {
 	}
 
 	/**
+	 * Test the Column operand's type category (date / numeric / string), used to
+	 * validate a column argument against a function's accepted categories.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_column_operand_type_category() {
+
+		$date = new Column(
+			array(
+				'name' => 'date_created',
+				'type' => 'datetime',
+			)
+		);
+		$this->assertSame( 'date', ( new ColumnOperand( $date ) )->get_type_category() );
+
+		$num = new Column(
+			array(
+				'name' => 'priority',
+				'type' => 'bigint',
+			)
+		);
+		$this->assertSame( 'numeric', ( new ColumnOperand( $num ) )->get_type_category() );
+
+		$str = new Column(
+			array(
+				'name' => 'name',
+				'type' => 'varchar',
+			)
+		);
+		$this->assertSame( 'string', ( new ColumnOperand( $str ) )->get_type_category() );
+
+		// Time-only and year are distinct from date-bearing temporal types.
+		$time = new Column(
+			array(
+				'name' => 'start',
+				'type' => 'time',
+			)
+		);
+		$this->assertSame( 'time', ( new ColumnOperand( $time ) )->get_type_category() );
+
+		$year = new Column(
+			array(
+				'name' => 'born',
+				'type' => 'year',
+			)
+		);
+		$this->assertSame( 'year', ( new ColumnOperand( $year ) )->get_type_category() );
+
+		// An explicit cast overrides the column's declared type.
+		$this->assertSame( 'numeric', ( new ColumnOperand( $str, '', 'SIGNED' ) )->get_type_category() );
+		$this->assertSame( 'date', ( new ColumnOperand( $num, '', 'DATETIME' ) )->get_type_category() );
+		$this->assertSame( 'time', ( new ColumnOperand( $num, '', 'TIME' ) )->get_type_category() );
+		$this->assertSame( 'string', ( new ColumnOperand( $num, '', 'CHAR' ) )->get_type_category() );
+	}
+
+	/**
+	 * Test that the Func allow-list carries the new time functions and an
+	 * 'accepts' type-category list (date functions accept 'date', not 'numeric').
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_func_descriptor_accepts_and_time_functions() {
+
+		// Time functions are allow-listed.
+		$this->assertNotNull( FuncOperand::descriptor( 'HOUR' ) );
+		$this->assertNotNull( FuncOperand::descriptor( 'MINUTE' ) );
+		$this->assertNotNull( FuncOperand::descriptor( 'SECOND' ) );
+
+		// Date functions accept date columns, not numeric ones.
+		$year = FuncOperand::descriptor( 'YEAR' );
+		$this->assertContains( 'date', $year['accepts'] );
+		$this->assertNotContains( 'numeric', $year['accepts'] );
+
+		// ABS accepts numeric only.
+		$this->assertSame( array( 'numeric' ), FuncOperand::descriptor( 'ABS' )['accepts'] );
+
+		// String functions coerce any type — LENGTH accepts time/year columns too.
+		$this->assertContains( 'time', FuncOperand::descriptor( 'LENGTH' )['accepts'] );
+		$this->assertContains( 'year', FuncOperand::descriptor( 'LENGTH' )['accepts'] );
+
+		// Time functions accept time-only columns.
+		$this->assertContains( 'time', FuncOperand::descriptor( 'HOUR' )['accepts'] );
+	}
+
+	/**
 	 * Test that get_sql casts the column side for a value-overriding operator
 	 * (IN), proving the cast applies to the LHS regardless of operator subclass.
 	 *

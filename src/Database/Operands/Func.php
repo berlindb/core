@@ -34,21 +34,34 @@ defined( 'ABSPATH' ) || exit;
 class Func extends Base {
 
 	/**
+	 * Every type category, for functions that coerce any column type (e.g. the
+	 * string functions, which apply to a column's string representation).
+	 *
+	 * @since 3.1.0
+	 * @var list<string>
+	 */
+	private const ANY_TYPE = array( 'numeric', 'string', 'date', 'time', 'year' );
+
+	/**
 	 * Allow-list of permitted SQL functions, keyed by their (uppercase) name.
 	 *
 	 * Each descriptor declares the SQL function name, its argument-count bounds,
-	 * and the operand kinds allowed as arguments. Kept deliberately small and
-	 * stable; grows only as functions earn a place with tests. (A richer per-
-	 * function return/comparison pattern is added with the left-hand-side operand
-	 * work, where the function's return type informs the comparison value.)
+	 * the operand kinds allowed as arguments, the placeholder for its result, and
+	 * the column-type categories it accepts as a column argument. Kept deliberately
+	 * small and stable; grows only as functions earn a place with tests.
 	 *
-	 * `return_pattern` is the wpdb::prepare() placeholder for the function's RESULT
-	 * — used to prepare a bare-scalar value compared against the function (e.g.
-	 * `YEAR(date_col) = 2024` prepares `2024` as `%d`). (Per-argument type rules,
-	 * the semantic-validation layer, are deferred to a later phase — see #211.)
+	 * - `return_pattern` — the wpdb::prepare() placeholder for the function's
+	 *   RESULT, used to prepare a bare scalar compared against it (`YEAR(col) =
+	 *   2024` prepares 2024 as `%d`). ABS keeps `%s` because it preserves its
+	 *   input's type (a `%d` would truncate `ABS(x) = 1.5` to `= 1`).
+	 * - `accepts` — the type categories ('numeric' / 'string' / 'date') allowed for
+	 *   a COLUMN argument; the parser fails a clause closed when a column argument's
+	 *   declared type is not in this list (e.g. `YEAR(an_int_column)`). Conservative
+	 *   and schema-informed — it rejects obvious misuse, not everything MySQL would
+	 *   coerce; literal and nested-function arguments are not type-checked.
 	 *
 	 * @since 3.1.0
-	 * @var array<string,array{sql:string,min_args:int,max_args:int,arg_kinds:list<string>,return_pattern:string}>
+	 * @var array<string,array{sql:string,min_args:int,max_args:int,arg_kinds:list<string>,return_pattern:string,accepts:list<string>}>
 	 */
 	private const ALLOWED = array(
 		'LOWER'      => array(
@@ -57,6 +70,7 @@ class Func extends Base {
 			'max_args'       => 1,
 			'arg_kinds'      => array( 'column', 'func', 'value' ),
 			'return_pattern' => '%s',
+			'accepts'        => self::ANY_TYPE,
 		),
 		'UPPER'      => array(
 			'sql'            => 'UPPER',
@@ -64,6 +78,7 @@ class Func extends Base {
 			'max_args'       => 1,
 			'arg_kinds'      => array( 'column', 'func', 'value' ),
 			'return_pattern' => '%s',
+			'accepts'        => self::ANY_TYPE,
 		),
 		'LENGTH'     => array(
 			'sql'            => 'LENGTH',
@@ -71,6 +86,7 @@ class Func extends Base {
 			'max_args'       => 1,
 			'arg_kinds'      => array( 'column', 'func', 'value' ),
 			'return_pattern' => '%d',
+			'accepts'        => self::ANY_TYPE,
 		),
 		'ABS'        => array(
 			'sql'            => 'ABS',
@@ -78,11 +94,11 @@ class Func extends Base {
 			'max_args'       => 1,
 			'arg_kinds'      => array( 'column', 'func', 'value' ),
 			/*
-			 * ABS preserves its input's type (a decimal stays fractional), so a
-			 * '%d' placeholder would truncate `ABS(x) = 1.5` to `= 1`. Use a string
-			 * placeholder and let MySQL coerce, rather than force an integer.
+			 * ABS keeps a string placeholder (see the const docblock) so it does
+			 * not truncate fractional comparisons; it accepts numeric columns only.
 			 */
 			'return_pattern' => '%s',
+			'accepts'        => array( 'numeric' ),
 		),
 		'DATE'       => array(
 			'sql'            => 'DATE',
@@ -90,6 +106,7 @@ class Func extends Base {
 			'max_args'       => 1,
 			'arg_kinds'      => array( 'column', 'func', 'value' ),
 			'return_pattern' => '%s',
+			'accepts'        => array( 'date', 'string' ),
 		),
 		'YEAR'       => array(
 			'sql'            => 'YEAR',
@@ -97,6 +114,7 @@ class Func extends Base {
 			'max_args'       => 1,
 			'arg_kinds'      => array( 'column', 'func', 'value' ),
 			'return_pattern' => '%d',
+			'accepts'        => array( 'date', 'string' ),
 		),
 		'MONTH'      => array(
 			'sql'            => 'MONTH',
@@ -104,6 +122,7 @@ class Func extends Base {
 			'max_args'       => 1,
 			'arg_kinds'      => array( 'column', 'func', 'value' ),
 			'return_pattern' => '%d',
+			'accepts'        => array( 'date', 'string' ),
 		),
 		'DAYOFMONTH' => array(
 			'sql'            => 'DAYOFMONTH',
@@ -111,6 +130,7 @@ class Func extends Base {
 			'max_args'       => 1,
 			'arg_kinds'      => array( 'column', 'func', 'value' ),
 			'return_pattern' => '%d',
+			'accepts'        => array( 'date', 'string' ),
 		),
 		'DAYOFYEAR'  => array(
 			'sql'            => 'DAYOFYEAR',
@@ -118,6 +138,7 @@ class Func extends Base {
 			'max_args'       => 1,
 			'arg_kinds'      => array( 'column', 'func', 'value' ),
 			'return_pattern' => '%d',
+			'accepts'        => array( 'date', 'string' ),
 		),
 		'DAYOFWEEK'  => array(
 			'sql'            => 'DAYOFWEEK',
@@ -125,6 +146,31 @@ class Func extends Base {
 			'max_args'       => 1,
 			'arg_kinds'      => array( 'column', 'func', 'value' ),
 			'return_pattern' => '%d',
+			'accepts'        => array( 'date', 'string' ),
+		),
+		'HOUR'       => array(
+			'sql'            => 'HOUR',
+			'min_args'       => 1,
+			'max_args'       => 1,
+			'arg_kinds'      => array( 'column', 'func', 'value' ),
+			'return_pattern' => '%d',
+			'accepts'        => array( 'date', 'time', 'string' ),
+		),
+		'MINUTE'     => array(
+			'sql'            => 'MINUTE',
+			'min_args'       => 1,
+			'max_args'       => 1,
+			'arg_kinds'      => array( 'column', 'func', 'value' ),
+			'return_pattern' => '%d',
+			'accepts'        => array( 'date', 'time', 'string' ),
+		),
+		'SECOND'     => array(
+			'sql'            => 'SECOND',
+			'min_args'       => 1,
+			'max_args'       => 1,
+			'arg_kinds'      => array( 'column', 'func', 'value' ),
+			'return_pattern' => '%d',
+			'accepts'        => array( 'date', 'time', 'string' ),
 		),
 	);
 
@@ -173,7 +219,7 @@ class Func extends Base {
 	 * @since 3.1.0
 	 *
 	 * @param string $name The function name (case-insensitive).
-	 * @return array{sql:string,min_args:int,max_args:int,arg_kinds:list<string>,return_pattern:string}|null
+	 * @return array{sql:string,min_args:int,max_args:int,arg_kinds:list<string>,return_pattern:string,accepts:list<string>}|null
 	 */
 	public static function descriptor( string $name ): ?array {
 		$key = strtoupper( trim( $name ) );

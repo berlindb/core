@@ -1486,7 +1486,9 @@ trait Parser {
 	 *
 	 * The function name must be in the Func allow-list, the argument count within
 	 * its declared arity, and every argument must resolve as an operand of an
-	 * allowed kind. Arguments recurse through resolve_operand(), so functions nest.
+	 * allowed kind. A column argument's declared type category must also be one
+	 * the function accepts. Arguments recurse through resolve_operand(), so
+	 * functions nest.
 	 *
 	 * @since 3.1.0
 	 *
@@ -1525,6 +1527,16 @@ trait Parser {
 			$arg = $this->resolve_operand_argument( $arg_spec, $descriptor[ 'arg_kinds' ], $source, $alias );
 
 			if ( ! ( $arg instanceof \BerlinDB\Database\Operands\Base ) ) {
+				return false;
+			}
+
+			/*
+			 * Schema-informed type check: a column argument's declared category
+			 * must be one the function accepts (e.g. YEAR() rejects a numeric
+			 * column). Literal and nested-function arguments are not type-checked —
+			 * MySQL coerces freely, so this rejects obvious misuse, not everything.
+			 */
+			if ( ( $arg instanceof \BerlinDB\Database\Operands\Column ) && ! in_array( $arg->get_type_category(), $descriptor[ 'accepts' ], true ) ) {
 				return false;
 			}
 

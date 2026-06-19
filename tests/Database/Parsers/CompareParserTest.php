@@ -1440,4 +1440,152 @@ class CompareParserTest extends TestCase {
 
 		$this->assertStringContainsString( '1 = 0', $where );
 	}
+
+	/**
+	 * Test that a date function accepts a date/datetime column argument.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_func_operand_date_function_accepts_date_column() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => array(
+					'operand' => 'func',
+					'name'    => 'YEAR',
+					'args'    => array(
+						array(
+							'operand' => 'column',
+							'name'    => 'date_created',
+						),
+					),
+				),
+				'compare' => '=',
+				'value'   => 2024,
+			)
+		);
+
+		$this->assertStringContainsString( 'YEAR(', $where );
+		$this->assertStringContainsString( '`date_created`', $where );
+		$this->assertStringNotContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * Test that a date function rejects a numeric column argument (e.g. YEAR(id))
+	 * — schema-informed type validation fails the clause closed.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_func_operand_date_function_rejects_numeric_column() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => array(
+					'operand' => 'func',
+					'name'    => 'YEAR',
+					'args'    => array(
+						array(
+							'operand' => 'column',
+							'name'    => 'priority',
+						),
+					),
+				),
+				'compare' => '=',
+				'value'   => 2024,
+			)
+		);
+
+		$this->assertStringContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * Test that ABS rejects a non-numeric (string) column argument.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_func_operand_abs_rejects_non_numeric_column() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => 'priority',
+				'compare' => '=',
+				'value'   => array(
+					'operand' => 'func',
+					'name'    => 'ABS',
+					'args'    => array(
+						array(
+							'operand' => 'column',
+							'name'    => 'name',
+						),
+					),
+				),
+			)
+		);
+
+		$this->assertStringContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * Test that an explicit cast on a function's column argument is honored by the
+	 * type check: `ABS(CAST(name AS SIGNED))` is valid even though `name` is a
+	 * string column, because the cast makes the effective type numeric.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_func_operand_arg_cast_satisfies_type_check() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => 'priority',
+				'compare' => '=',
+				'value'   => array(
+					'operand' => 'func',
+					'name'    => 'ABS',
+					'args'    => array(
+						array(
+							'operand' => 'column',
+							'name'    => 'name',
+							'cast'    => 'SIGNED',
+						),
+					),
+				),
+			)
+		);
+
+		// The cast makes the string column numeric, so ABS accepts it.
+		$this->assertStringContainsString( 'ABS(CAST(', $where );
+		$this->assertStringContainsString( 'AS SIGNED)', $where );
+		$this->assertStringNotContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * Test that the time functions (HOUR/MINUTE/SECOND) wrap a date column.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_func_operand_time_functions() {
+
+		foreach ( array( 'HOUR', 'MINUTE', 'SECOND' ) as $fn ) {
+
+			$where = $this->compare_where_sql(
+				array(
+					'key'     => array(
+						'operand' => 'func',
+						'name'    => $fn,
+						'args'    => array(
+							array(
+								'operand' => 'column',
+								'name'    => 'date_created',
+							),
+						),
+					),
+					'compare' => '=',
+					'value'   => 0,
+				)
+			);
+
+			$this->assertStringContainsString( $fn . '(', $where );
+			$this->assertStringNotContainsString( '1 = 0', $where );
+		}
+	}
 }

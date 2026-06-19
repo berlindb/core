@@ -143,8 +143,11 @@ Which side declares it, and what `column` means, differs by `type`:
   clauses; an unknown column or an unsupported operator **fails closed**. The
   operand may also be an allow-listed SQL function wrapping recursive arguments —
   `array( 'operand' => 'func', 'name' => 'ABS', 'args' => array( array( 'operand' => 'column', 'name' => 'balance' ) ) )`
-  for `... = ABS(balance)`. Only listed functions (e.g. `LOWER`/`UPPER`/`LENGTH`/
-  `ABS`/`DATE`/`YEAR`/`MONTH`/…) with a matching arity are allowed; no raw SQL. The
+  for `... = ABS(balance)`. Only listed functions (`LOWER`/`UPPER`/`LENGTH`/`ABS`/
+  `DATE`/`YEAR`/`MONTH`/`DAYOFMONTH`/`DAYOFYEAR`/`DAYOFWEEK`/`HOUR`/`MINUTE`/
+  `SECOND`) with a matching arity are allowed; no raw SQL. A column argument is
+  type-checked against the function (`YEAR()` wants a date column, `ABS()` a
+  numeric one) and fails closed on a mismatch. The
   same operand spec works on the **left** side via the clause `key` (position
   selects the side) — `array( 'key' => array( 'operand' => 'func', 'name' =>
   'LOWER', 'args' => array( array( 'operand' => 'column', 'name' => 'name' ) ) ), 'value' => 'jane' )`
