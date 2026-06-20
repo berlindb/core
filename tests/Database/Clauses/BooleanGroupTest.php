@@ -26,8 +26,25 @@ class BooleanGroupTest extends TestCase {
 	 * @since 3.1.0
 	 */
 	public function test_empty_renders_nothing() {
-		$this->assertSame( '', ( new BooleanGroup( 'AND', array() ) )->get_sql() );
-		$this->assertSame( '', ( new BooleanGroup( 'AND', array( '', '   ' ) ) )->get_sql() );
+		$this->assertSame( '', ( new BooleanGroup() )->get_sql() );
+		$this->assertSame(
+			'',
+			( new BooleanGroup(
+				array(
+					'relation' => 'AND',
+					'items'    => array(),
+				)
+			) )->get_sql()
+		);
+		$this->assertSame(
+			'',
+			( new BooleanGroup(
+				array(
+					'relation' => 'AND',
+					'items'    => array( '', '   ' ),
+				)
+			) )->get_sql()
+		);
 	}
 
 	/**
@@ -36,10 +53,26 @@ class BooleanGroupTest extends TestCase {
 	 * @since 3.1.0
 	 */
 	public function test_single_item_is_not_parenthesised() {
-		$this->assertSame( 'a = 1', ( new BooleanGroup( 'AND', array( 'a = 1' ) ) )->get_sql() );
+		$this->assertSame(
+			'a = 1',
+			( new BooleanGroup(
+				array(
+					'relation' => 'AND',
+					'items'    => array( 'a = 1' ),
+				)
+			) )->get_sql()
+		);
 
 		// Empty siblings are dropped, leaving a single bare item.
-		$this->assertSame( 'a = 1', ( new BooleanGroup( 'OR', array( '', 'a = 1', '' ) ) )->get_sql() );
+		$this->assertSame(
+			'a = 1',
+			( new BooleanGroup(
+				array(
+					'relation' => 'OR',
+					'items'    => array( '', 'a = 1', '' ),
+				)
+			) )->get_sql()
+		);
 	}
 
 	/**
@@ -50,11 +83,21 @@ class BooleanGroupTest extends TestCase {
 	public function test_multiple_items_joined_and_parenthesised() {
 		$this->assertSame(
 			'( a = 1 AND b = 2 )',
-			( new BooleanGroup( 'AND', array( 'a = 1', 'b = 2' ) ) )->get_sql()
+			( new BooleanGroup(
+				array(
+					'relation' => 'AND',
+					'items'    => array( 'a = 1', 'b = 2' ),
+				)
+			) )->get_sql()
 		);
 		$this->assertSame(
 			'( a = 1 OR b = 2 )',
-			( new BooleanGroup( 'OR', array( 'a = 1', 'b = 2' ) ) )->get_sql()
+			( new BooleanGroup(
+				array(
+					'relation' => 'OR',
+					'items'    => array( 'a = 1', 'b = 2' ),
+				)
+			) )->get_sql()
 		);
 	}
 
@@ -66,7 +109,12 @@ class BooleanGroupTest extends TestCase {
 	public function test_unknown_relation_falls_back_to_and() {
 		$this->assertSame(
 			'( a = 1 AND b = 2 )',
-			( new BooleanGroup( 'XOR', array( 'a = 1', 'b = 2' ) ) )->get_sql()
+			( new BooleanGroup(
+				array(
+					'relation' => 'XOR',
+					'items'    => array( 'a = 1', 'b = 2' ),
+				)
+			) )->get_sql()
 		);
 	}
 
@@ -76,8 +124,18 @@ class BooleanGroupTest extends TestCase {
 	 * @since 3.1.0
 	 */
 	public function test_nested_groups() {
-		$inner = new BooleanGroup( 'OR', array( 'c = 3', 'd = 4' ) );
-		$outer = new BooleanGroup( 'AND', array( 'a = 1', $inner ) );
+		$inner = new BooleanGroup(
+			array(
+				'relation' => 'OR',
+				'items'    => array( 'c = 3', 'd = 4' ),
+			)
+		);
+		$outer = new BooleanGroup(
+			array(
+				'relation' => 'AND',
+				'items'    => array( 'a = 1', $inner ),
+			)
+		);
 
 		$this->assertSame( '( a = 1 AND ( c = 3 OR d = 4 ) )', $outer->get_sql() );
 	}
@@ -90,13 +148,25 @@ class BooleanGroupTest extends TestCase {
 	public function test_negated_group() {
 		$this->assertSame(
 			'NOT ( a = 1 OR b = 2 )',
-			( new BooleanGroup( 'OR', array( 'a = 1', 'b = 2' ), true ) )->get_sql()
+			( new BooleanGroup(
+				array(
+					'relation' => 'OR',
+					'items'    => array( 'a = 1', 'b = 2' ),
+					'negated'  => true,
+				)
+			) )->get_sql()
 		);
 
 		// A negated single item still wraps in NOT.
 		$this->assertSame(
 			'NOT ( a = 1 )',
-			( new BooleanGroup( 'AND', array( 'a = 1' ), true ) )->get_sql()
+			( new BooleanGroup(
+				array(
+					'relation' => 'AND',
+					'items'    => array( 'a = 1' ),
+					'negated'  => true,
+				)
+			) )->get_sql()
 		);
 	}
 }

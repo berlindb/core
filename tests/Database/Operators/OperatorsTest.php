@@ -740,8 +740,25 @@ class OperatorsTest extends TestCase {
 			)
 		);
 
-		$this->assertSame( '`t`.`last_name`', ( new ColumnOperand( $ref, 't' ) )->get_sql() );
-		$this->assertSame( 'CAST(`t`.`last_name` AS CHAR)', ( new ColumnOperand( $ref, 't', 'CHAR' ) )->get_sql() );
+		$this->assertSame(
+			'`t`.`last_name`',
+			( new ColumnOperand(
+				array(
+					'column' => $ref,
+					'alias'  => 't',
+				)
+			) )->get_sql()
+		);
+		$this->assertSame(
+			'CAST(`t`.`last_name` AS CHAR)',
+			( new ColumnOperand(
+				array(
+					'column' => $ref,
+					'alias'  => 't',
+					'cast'   => 'CHAR',
+				)
+			) )->get_sql()
+		);
 	}
 
 	/**
@@ -750,7 +767,7 @@ class OperatorsTest extends TestCase {
 	 * @since 3.1.0
 	 */
 	public function test_value_operand_get_sql_returns_prepared_fragment() {
-		$this->assertSame( "'active'", ( new ValueOperand( "'active'" ) )->get_sql() );
+		$this->assertSame( "'active'", ( new ValueOperand( array( 'sql' => "'active'" ) ) )->get_sql() );
 	}
 
 	/**
@@ -766,13 +783,39 @@ class OperatorsTest extends TestCase {
 				'type' => 'varchar',
 			)
 		);
-		$col = new ColumnOperand( $ref, 't' );
+		$col = new ColumnOperand(
+			array(
+				'column' => $ref,
+				'alias'  => 't',
+			)
+		);
 
 		// Single and nested function calls.
-		$this->assertSame( 'LOWER(`t`.`name`)', ( new FuncOperand( 'LOWER', array( $col ) ) )->get_sql() );
+		$this->assertSame(
+			'LOWER(`t`.`name`)',
+			( new FuncOperand(
+				array(
+					'sql'  => 'LOWER',
+					'args' => array( $col ),
+				)
+			) )->get_sql()
+		);
 
-		$inner = new FuncOperand( 'ABS', array( $col ) );
-		$this->assertSame( 'UPPER(ABS(`t`.`name`))', ( new FuncOperand( 'UPPER', array( $inner ) ) )->get_sql() );
+		$inner = new FuncOperand(
+			array(
+				'sql'  => 'ABS',
+				'args' => array( $col ),
+			)
+		);
+		$this->assertSame(
+			'UPPER(ABS(`t`.`name`))',
+			( new FuncOperand(
+				array(
+					'sql'  => 'UPPER',
+					'args' => array( $inner ),
+				)
+			) )->get_sql()
+		);
 
 		// Allow-list: case-insensitive hit, and a miss for anything unlisted.
 		$this->assertSame( 'LOWER', FuncOperand::descriptor( 'lower' )['sql'] );
@@ -797,7 +840,7 @@ class OperatorsTest extends TestCase {
 				'pattern' => '%d',
 			)
 		);
-		$this->assertSame( '%d', ( new ColumnOperand( $int_col ) )->get_comparison_pattern() );
+		$this->assertSame( '%d', ( new ColumnOperand( array( 'column' => $int_col ) ) )->get_comparison_pattern() );
 
 		// String column -> '%s'.
 		$str_col = new Column(
@@ -806,14 +849,23 @@ class OperatorsTest extends TestCase {
 				'type' => 'varchar',
 			)
 		);
-		$this->assertSame( '%s', ( new ColumnOperand( $str_col ) )->get_comparison_pattern() );
+		$this->assertSame( '%s', ( new ColumnOperand( array( 'column' => $str_col ) ) )->get_comparison_pattern() );
 
 		// Function operand -> its declared return pattern.
 		$year_pattern = FuncOperand::descriptor( 'YEAR' )['return_pattern'];
-		$this->assertSame( '%d', ( new FuncOperand( 'YEAR', array( new ColumnOperand( $str_col ) ), $year_pattern ) )->get_comparison_pattern() );
+		$this->assertSame(
+			'%d',
+			( new FuncOperand(
+				array(
+					'sql'            => 'YEAR',
+					'args'           => array( new ColumnOperand( array( 'column' => $str_col ) ) ),
+					'return_pattern' => $year_pattern,
+				)
+			) )->get_comparison_pattern()
+		);
 
 		// Value operand -> string placeholder default.
-		$this->assertSame( '%s', ( new ValueOperand( "'x'" ) )->get_comparison_pattern() );
+		$this->assertSame( '%s', ( new ValueOperand( array( 'sql' => "'x'" ) ) )->get_comparison_pattern() );
 	}
 
 	/**
@@ -830,7 +882,7 @@ class OperatorsTest extends TestCase {
 				'type' => 'datetime',
 			)
 		);
-		$this->assertSame( 'date', ( new ColumnOperand( $date ) )->get_type_category() );
+		$this->assertSame( 'date', ( new ColumnOperand( array( 'column' => $date ) ) )->get_type_category() );
 
 		$num = new Column(
 			array(
@@ -838,7 +890,7 @@ class OperatorsTest extends TestCase {
 				'type' => 'bigint',
 			)
 		);
-		$this->assertSame( 'numeric', ( new ColumnOperand( $num ) )->get_type_category() );
+		$this->assertSame( 'numeric', ( new ColumnOperand( array( 'column' => $num ) ) )->get_type_category() );
 
 		$str = new Column(
 			array(
@@ -846,7 +898,7 @@ class OperatorsTest extends TestCase {
 				'type' => 'varchar',
 			)
 		);
-		$this->assertSame( 'string', ( new ColumnOperand( $str ) )->get_type_category() );
+		$this->assertSame( 'string', ( new ColumnOperand( array( 'column' => $str ) ) )->get_type_category() );
 
 		// Time-only and year are distinct from date-bearing temporal types.
 		$time = new Column(
@@ -855,7 +907,7 @@ class OperatorsTest extends TestCase {
 				'type' => 'time',
 			)
 		);
-		$this->assertSame( 'time', ( new ColumnOperand( $time ) )->get_type_category() );
+		$this->assertSame( 'time', ( new ColumnOperand( array( 'column' => $time ) ) )->get_type_category() );
 
 		$year = new Column(
 			array(
@@ -863,13 +915,45 @@ class OperatorsTest extends TestCase {
 				'type' => 'year',
 			)
 		);
-		$this->assertSame( 'year', ( new ColumnOperand( $year ) )->get_type_category() );
+		$this->assertSame( 'year', ( new ColumnOperand( array( 'column' => $year ) ) )->get_type_category() );
 
 		// An explicit cast overrides the column's declared type.
-		$this->assertSame( 'numeric', ( new ColumnOperand( $str, '', 'SIGNED' ) )->get_type_category() );
-		$this->assertSame( 'date', ( new ColumnOperand( $num, '', 'DATETIME' ) )->get_type_category() );
-		$this->assertSame( 'time', ( new ColumnOperand( $num, '', 'TIME' ) )->get_type_category() );
-		$this->assertSame( 'string', ( new ColumnOperand( $num, '', 'CHAR' ) )->get_type_category() );
+		$this->assertSame(
+			'numeric',
+			( new ColumnOperand(
+				array(
+					'column' => $str,
+					'cast'   => 'SIGNED',
+				)
+			) )->get_type_category()
+		);
+		$this->assertSame(
+			'date',
+			( new ColumnOperand(
+				array(
+					'column' => $num,
+					'cast'   => 'DATETIME',
+				)
+			) )->get_type_category()
+		);
+		$this->assertSame(
+			'time',
+			( new ColumnOperand(
+				array(
+					'column' => $num,
+					'cast'   => 'TIME',
+				)
+			) )->get_type_category()
+		);
+		$this->assertSame(
+			'string',
+			( new ColumnOperand(
+				array(
+					'column' => $num,
+					'cast'   => 'CHAR',
+				)
+			) )->get_type_category()
+		);
 	}
 
 	/**

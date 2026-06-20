@@ -39,6 +39,35 @@ defined( 'ABSPATH' ) || exit;
 abstract class Base {
 
 	/**
+	 * Build an operand from a key-value argument array.
+	 *
+	 * Mirrors Operators\Base: the constructor delegates to init(), which each
+	 * concrete operand implements to assign its own keys. Operands are dumb
+	 * renderers, so they deliberately do NOT compose Traits\Base (no Magic,
+	 * logging, or sanitization) - only this construction shape is shared, so the
+	 * argument contract can outlive the current property layout.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string,mixed> $args Operand arguments; see each subclass init().
+	 */
+	public function __construct( array $args = array() ) {
+		if ( ! empty( $args ) ) {
+			$this->init( $args );
+		}
+	}
+
+	/**
+	 * Assign constructor arguments to properties.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string,mixed> $args Operand arguments.
+	 * @return void
+	 */
+	abstract protected function init( array $args ): void;
+
+	/**
 	 * Render this operand as the SQL fragment for the right-hand side.
 	 *
 	 * @since 3.1.0

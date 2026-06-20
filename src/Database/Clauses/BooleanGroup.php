@@ -44,7 +44,7 @@ class BooleanGroup {
 	 * @since 3.1.0
 	 * @var string
 	 */
-	private $relation;
+	private $relation = 'AND';
 
 	/**
 	 * The items to combine - each a raw SQL string or a nested BooleanGroup.
@@ -52,7 +52,7 @@ class BooleanGroup {
 	 * @since 3.1.0
 	 * @var array<int,string|BooleanGroup>
 	 */
-	private $items;
+	private $items = array();
 
 	/**
 	 * Whether the group is negated (wrapped in NOT).
@@ -60,23 +60,54 @@ class BooleanGroup {
 	 * @since 3.1.0
 	 * @var bool
 	 */
-	private $negated;
+	private $negated = false;
 
 	/**
-	 * Build a boolean group.
+	 * Build a boolean group from a key-value argument array.
+	 *
+	 * Mirrors the Operands construction shape (constructor delegates to init())
+	 * so the argument contract is uniform and can outlive the property layout.
+	 * Like the operands, this is a dumb renderer and does NOT compose Traits\Base.
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param string                          $relation The relation: 'AND' or 'OR' (anything else is AND).
-	 * @param array<int,string|BooleanGroup>  $items    The SQL fragments / nested groups to combine.
-	 * @param bool                            $negated  Whether to wrap the group in NOT. Default false.
+	 * @param array<string,mixed> $args See init().
 	 */
-	public function __construct( string $relation = 'AND', array $items = array(), bool $negated = false ) {
-		$this->relation = ( 'OR' === strtoupper( $relation ) )
-			? 'OR'
-			: 'AND';
-		$this->items    = $items;
-		$this->negated  = $negated;
+	public function __construct( array $args = array() ) {
+		if ( ! empty( $args ) ) {
+			$this->init( $args );
+		}
+	}
+
+	/**
+	 * Assign constructor arguments to properties.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string,mixed> $args {
+	 *     @type string                         $relation The relation: 'AND' or 'OR' (anything else is AND). Default 'AND'.
+	 *     @type array<int,string|BooleanGroup> $items    The SQL fragments / nested groups to combine. Default empty.
+	 *     @type bool                           $negated  Whether to wrap the group in NOT. Default false.
+	 * }
+	 * @return void
+	 */
+	protected function init( array $args ): void {
+		$relation       = ( isset( $args[ 'relation' ] ) && is_string( $args[ 'relation' ] ) ) ? strtoupper( $args[ 'relation' ] ) : 'AND';
+		$this->relation = ( 'OR' === $relation ) ? 'OR' : 'AND';
+		$this->negated  = ! empty( $args[ 'negated' ] );
+
+		// Keep only string fragments and nested groups.
+		$items = array();
+
+		if ( isset( $args[ 'items' ] ) && is_array( $args[ 'items' ] ) ) {
+			foreach ( $args[ 'items' ] as $item ) {
+				if ( is_string( $item ) || ( $item instanceof self ) ) {
+					$items[] = $item;
+				}
+			}
+		}
+
+		$this->items = $items;
 	}
 
 	/**

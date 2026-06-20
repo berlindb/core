@@ -45,7 +45,7 @@ class Column extends Base {
 	 * @since 3.1.0
 	 * @var string
 	 */
-	private $alias;
+	private $alias = '';
 
 	/**
 	 * Normalized CAST target for the referenced column, or '' for no cast.
@@ -53,21 +53,29 @@ class Column extends Base {
 	 * @since 3.1.0
 	 * @var string
 	 */
-	private $cast;
+	private $cast = '';
 
 	/**
-	 * Build a column operand.
+	 * Assign constructor arguments to properties.
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param ColumnObject $column The referenced column.
-	 * @param string       $alias  Optional. Table alias to qualify the reference. Default empty.
-	 * @param string       $cast   Optional. Normalized CAST target. Default empty (no cast).
+	 * @param array<string,mixed> $args {
+	 *     @type ColumnObject $column The referenced column (required).
+	 *     @type string       $alias  Optional. Table alias to qualify the reference. Default ''.
+	 *     @type string       $cast   Optional. Normalized CAST target. Default '' (no cast).
+	 * }
+	 * @return void
 	 */
-	public function __construct( ColumnObject $column, string $alias = '', string $cast = '' ) {
-		$this->column = $column;
-		$this->alias  = $alias;
-		$this->cast   = $cast;
+	protected function init( array $args ): void {
+		$column = $args[ 'column' ] ?? null;
+
+		if ( $column instanceof ColumnObject ) {
+			$this->column = $column;
+		}
+
+		$this->alias = isset( $args[ 'alias' ] ) ? (string) $args[ 'alias' ] : '';
+		$this->cast  = isset( $args[ 'cast' ] ) ? (string) $args[ 'cast' ] : '';
 	}
 
 	/**

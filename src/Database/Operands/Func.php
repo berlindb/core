@@ -180,7 +180,7 @@ class Func extends Base {
 	 * @since 3.1.0
 	 * @var string
 	 */
-	private $sql;
+	private $sql = '';
 
 	/**
 	 * The function's argument operands, in order.
@@ -188,7 +188,7 @@ class Func extends Base {
 	 * @since 3.1.0
 	 * @var list<Base>
 	 */
-	private $args;
+	private $args = array();
 
 	/**
 	 * The wpdb::prepare() placeholder for this function's result.
@@ -196,21 +196,36 @@ class Func extends Base {
 	 * @since 3.1.0
 	 * @var string
 	 */
-	private $return_pattern;
+	private $return_pattern = '%s';
 
 	/**
-	 * Build a function operand.
+	 * Assign constructor arguments to properties.
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param string     $sql            The validated SQL function name (from a descriptor).
-	 * @param list<Base> $args           The resolved argument operands.
-	 * @param string     $return_pattern The placeholder for the function's result. Default '%s'.
+	 * @param array<string,mixed> $args {
+	 *     @type string     $sql            The validated SQL function name, from a descriptor (required).
+	 *     @type list<Base> $args           The resolved argument operands. Default empty.
+	 *     @type string     $return_pattern The placeholder for the function's result. Default '%s'.
+	 * }
+	 * @return void
 	 */
-	public function __construct( string $sql, array $args, string $return_pattern = '%s' ) {
-		$this->sql            = $sql;
-		$this->args           = $args;
-		$this->return_pattern = $return_pattern;
+	protected function init( array $args ): void {
+		$this->sql = isset( $args[ 'sql' ] ) ? (string) $args[ 'sql' ] : '';
+
+		// Keep only the resolved operand arguments (the parser supplies Base objects).
+		$operands = array();
+
+		if ( isset( $args[ 'args' ] ) && is_array( $args[ 'args' ] ) ) {
+			foreach ( $args[ 'args' ] as $operand ) {
+				if ( $operand instanceof Base ) {
+					$operands[] = $operand;
+				}
+			}
+		}
+
+		$this->args           = $operands;
+		$this->return_pattern = isset( $args[ 'return_pattern' ] ) ? (string) $args[ 'return_pattern' ] : '%s';
 	}
 
 	/**

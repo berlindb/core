@@ -38,17 +38,20 @@ class Value extends Base {
 	 * @since 3.1.0
 	 * @var string
 	 */
-	private $sql;
+	private $sql = '';
 
 	/**
-	 * Build a value operand from an already-prepared SQL fragment.
+	 * Assign constructor arguments to properties.
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param string $sql The prepared SQL literal (e.g. the output of wpdb::prepare).
+	 * @param array<string,mixed> $args {
+	 *     @type string $sql The prepared SQL literal, e.g. the output of wpdb::prepare (required).
+	 * }
+	 * @return void
 	 */
-	public function __construct( string $sql ) {
-		$this->sql = $sql;
+	protected function init( array $args ): void {
+		$this->sql = isset( $args[ 'sql' ] ) ? (string) $args[ 'sql' ] : '';
 	}
 
 	/**

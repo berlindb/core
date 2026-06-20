@@ -804,7 +804,13 @@ class Relationship extends Base {
 		 */
 		if ( $this->is_operand_spec( $value ) ) {
 
-			$lhs  = new \BerlinDB\Database\Operands\Column( $column_object, $alias, $cast );
+			$lhs  = new \BerlinDB\Database\Operands\Column(
+				array(
+					'column' => $column_object,
+					'alias'  => $alias,
+					'cast'   => $cast,
+				)
+			);
 			$expr = $this->build_operand_clause( $lhs, $operator, $value, true, $remote, $alias );
 
 			return ( false === $expr )

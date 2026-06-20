@@ -2579,7 +2579,12 @@ class Query {
 	private function parse_where_clause( $where = array() ): string {
 
 		// Combine the parser WHERE fragments with a boolean AND.
-		$sql = ( new \BerlinDB\Database\Clauses\BooleanGroup( 'AND', array_values( (array) $where ) ) )->get_sql();
+		$sql = ( new \BerlinDB\Database\Clauses\BooleanGroup(
+			array(
+				'relation' => 'AND',
+				'items'    => array_values( (array) $where ),
+			)
+		) )->get_sql();
 
 		// Prefix WHERE only when there is something to filter.
 		return ( '' === $sql )

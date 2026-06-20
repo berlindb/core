@@ -1049,7 +1049,12 @@ trait Parser {
 
 					// Get clauses, then combine them (none -> '', one -> bare, many -> AND group).
 					$clause_sql       = $this->get_sql_for_clause( $clause, $query, $key );
-					$sql[ 'where' ][] = ( new \BerlinDB\Database\Clauses\BooleanGroup( 'AND', array_values( $clause_sql[ 'where' ] ) ) )->get_sql();
+					$sql[ 'where' ][] = ( new \BerlinDB\Database\Clauses\BooleanGroup(
+						array(
+							'relation' => 'AND',
+							'items'    => array_values( $clause_sql[ 'where' ] ),
+						)
+					) )->get_sql();
 
 					// Merge joins.
 					$sql[ 'join' ] = array_merge( $sql[ 'join' ], $clause_sql[ 'join' ] );
@@ -1210,7 +1215,13 @@ trait Parser {
 				// A unary operator or a structured value enters the operand path.
 				if ( $operator->is_unary() || $value_is_operand ) {
 
-					$lhs  = new \BerlinDB\Database\Operands\Column( $col, $alias, $cast );
+					$lhs  = new \BerlinDB\Database\Operands\Column(
+						array(
+							'column' => $col,
+							'alias'  => $alias,
+							'cast'   => $cast,
+						)
+					);
 					$expr = $this->build_operand_clause( $lhs, $operator, $value, $value_is_operand, $this->caller, $alias );
 
 					// Fail closed if the comparison could not be built.
@@ -1430,7 +1441,13 @@ trait Parser {
 		}
 
 		// Return a Column operand with the cast and alias applied.
-		return new \BerlinDB\Database\Operands\Column( $column, $alias, $cast );
+		return new \BerlinDB\Database\Operands\Column(
+			array(
+				'column' => $column,
+				'alias'  => $alias,
+				'cast'   => $cast,
+			)
+		);
 	}
 
 	/**
@@ -1465,7 +1482,7 @@ trait Parser {
 			return false;
 		}
 
-		return new \BerlinDB\Database\Operands\Value( $prepared );
+		return new \BerlinDB\Database\Operands\Value( array( 'sql' => $prepared ) );
 	}
 
 	/**
@@ -1530,7 +1547,13 @@ trait Parser {
 			$resolved[] = $arg;
 		}
 
-		return new \BerlinDB\Database\Operands\Func( $descriptor[ 'sql' ], $resolved, $descriptor[ 'return_pattern' ] );
+		return new \BerlinDB\Database\Operands\Func(
+			array(
+				'sql'            => $descriptor[ 'sql' ],
+				'args'           => $resolved,
+				'return_pattern' => $descriptor[ 'return_pattern' ],
+			)
+		);
 	}
 
 	/**
