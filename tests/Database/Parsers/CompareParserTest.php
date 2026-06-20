@@ -1330,12 +1330,13 @@ class CompareParserTest extends TestCase {
 	}
 
 	/**
-	 * Test that a left-hand function operand on a non-expression operator (LIKE)
-	 * fails the clause closed.
+	 * Test that a left-hand function operand pairs with a bare value through the
+	 * operator's own value rendering — LOWER(name) LIKE '%x%' (the operator owns
+	 * the LIKE wildcards; the operand supplies the left side).
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_lhs_func_operand_on_non_expression_operator_fails_closed() {
+	public function test_lhs_func_operand_with_like() {
 
 		$where = $this->compare_where_sql(
 			array(
@@ -1354,7 +1355,104 @@ class CompareParserTest extends TestCase {
 			)
 		);
 
-		$this->assertStringContainsString( '1 = 0', $where );
+		$this->assertStringContainsString( 'LOWER(', $where );
+		$this->assertStringContainsString( 'LIKE', $where );
+		$this->assertStringNotContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * Test a function operand LHS with an IN list: YEAR(date_created) IN (...).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_lhs_func_operand_in_list() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => array(
+					'operand' => 'func',
+					'name'    => 'YEAR',
+					'args'    => array(
+						array(
+							'operand' => 'column',
+							'name'    => 'date_created',
+						),
+					),
+				),
+				'compare' => 'IN',
+				'value'   => array( 2023, 2024 ),
+			)
+		);
+
+		$this->assertStringContainsString( 'YEAR(', $where );
+		$this->assertStringContainsString( ' IN ', $where );
+		$this->assertStringNotContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * Test a function operand LHS with a BETWEEN range: LENGTH(name) BETWEEN a AND b.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_lhs_func_operand_between() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => array(
+					'operand' => 'func',
+					'name'    => 'LENGTH',
+					'args'    => array(
+						array(
+							'operand' => 'column',
+							'name'    => 'name',
+						),
+					),
+				),
+				'compare' => 'BETWEEN',
+				'value'   => array( 3, 20 ),
+			)
+		);
+
+		$this->assertStringContainsString( 'LENGTH(', $where );
+		$this->assertStringContainsString( 'BETWEEN', $where );
+		$this->assertStringContainsString( 'AND', $where );
+		$this->assertStringNotContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * Test an operand LHS + IN end-to-end: LENGTH(status) IN (6, 8) matches the
+	 * 'active' (6) and 'inactive' (8) rows.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_lhs_func_operand_in_matches_rows() {
+
+		$results = self::$query->query(
+			array(
+				'compare_query' => array(
+					'key'     => array(
+						'operand' => 'func',
+						'name'    => 'LENGTH',
+						'args'    => array(
+							array(
+								'operand' => 'column',
+								'name'    => 'status',
+							),
+						),
+					),
+					'compare' => 'IN',
+					'value'   => array( 6, 8 ),
+				),
+			)
+		);
+
+		// 'active' (6): Alpha, Beta; 'inactive' (8): Gamma, Delta. 'pending' (7) excluded.
+		$this->assertCount( 4, $results );
+
+		$names = wp_list_pluck( $results, 'name' );
+		$this->assertContains( 'Alpha Widget', $names );
+		$this->assertContains( 'Gamma Gadget', $names );
+		$this->assertNotContains( 'Epsilon Widget', $names );
 	}
 
 	/**

@@ -30,13 +30,16 @@ Notable changes to BerlinDB are documented here.
   'func', 'name' => 'LOWER', ... )` for `LOWER(name) = …`), so functions/columns
   can wrap either side of a comparison; a bare scalar on the other side is
   prepared with the operand's return type. Position (`key` vs `value`) selects the
-  side. Operand-bearing clauses on non-expression operators (IN/BETWEEN/LIKE) fail
-  closed; unary operators (`IS NULL`) apply to an operand `key` too. Allow-listed
-  functions cover `LOWER`/`UPPER`/`LENGTH`/`ABS`/`DATE`/`YEAR`/`MONTH`/`DAYOFMONTH`/
-  `DAYOFYEAR`/`DAYOFWEEK`/`HOUR`/`MINUTE`/`SECOND`, each declaring the column-type
-  categories it accepts — a column argument whose declared type is wrong for the
-  function (e.g. `YEAR()` of a numeric column, `ABS()` of a string column) fails
-  the clause closed.
+  side. Unary operators (`IS NULL`) apply to an operand `key` too. An operand
+  `key` also pairs with a bare value through any operator's own value rendering, so
+  `YEAR(post_date) IN (2023, 2024)`, `LENGTH(name) BETWEEN 3 AND 20`, and
+  `LOWER(name) LIKE '%term%'` work (the operator owns the IN/BETWEEN/LIKE fragment,
+  the operand supplies the left side). A *structured* right-hand operand (column or
+  function) still requires a scalar comparison operator. Allow-listed functions
+  cover `LOWER`/`UPPER`/`LENGTH`/`ABS`/`DATE`/`YEAR`/`MONTH`/`DAYOFMONTH`/`DAYOFYEAR`/
+  `DAYOFWEEK`/`HOUR`/`MINUTE`/`SECOND`, each declaring the column-type categories it
+  accepts — a column argument whose declared type is wrong for the function (e.g.
+  `YEAR()` of a numeric column, `ABS()` of a string column) fails the clause closed.
 - Adds end-to-end support for a string/UUID primary key (not `auto_increment`):
   `add_item()` with a supplied key returns that key, and `get_item()`,
   `update_item()`, `delete_item()`, `copy_item()`, query result-shaping, the

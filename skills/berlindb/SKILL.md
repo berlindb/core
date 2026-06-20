@@ -152,8 +152,11 @@ Which side declares it, and what `column` means, differs by `type`:
   selects the side) — `array( 'key' => array( 'operand' => 'func', 'name' =>
   'LOWER', 'args' => array( array( 'operand' => 'column', 'name' => 'name' ) ) ), 'value' => 'jane' )`
   for `LOWER(name) = 'jane'`; a bare scalar on the other side is prepared with the
-  function's return type. (Operand `key`s on IN/BETWEEN/LIKE fail closed; these are
-  for the scalar comparison operators and `IS NULL`.)
+  function's return type. An operand `key` also works with a bare value on `IN`/
+  `BETWEEN`/`LIKE`/`IS NULL` (e.g. `'key' => array( 'operand' => 'func', 'name' =>
+  'YEAR', 'args' => array( array( 'operand' => 'column', 'name' => 'created' ) ) ), 'compare' => 'IN', 'value' => array( 2023, 2024 )`).
+  Comparing two operands (a *structured* value) stays limited to the scalar
+  operators (`=`/`!=`/`<`/`<=`/`>`/`>=`).
 
 Notes:
 

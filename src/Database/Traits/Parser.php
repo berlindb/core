@@ -1650,11 +1650,14 @@ trait Parser {
 	 *
 	 * Shared by the compare and relationship clause builders once the left side is
 	 * an operand — a structured 'key', or a bare column wrapped as a Column
-	 * operand. A unary operator yields `{lhs} IS NULL`; otherwise the operator must
-	 * accept expression operands and the right side resolves to an operand (an
-	 * explicit operand spec, or a bare scalar prepared with the left operand's
-	 * comparison pattern). Operand-bearing clauses on a non-expression, non-unary
-	 * operator (IN / BETWEEN / LIKE) fail closed rather than mis-rendering.
+	 * operand. Three cases:
+	 *
+	 * - unary operator (`IS NULL`) → `{lhs} {compare}` (no right-hand side);
+	 * - a STRUCTURED right-hand operand (column-to-column, function = function) →
+	 *   limited to the scalar expression operators, paired as two operands;
+	 * - a BARE right-hand value → paired with the OPERATOR's own value rendering
+	 *   (`get_value_sql`), so `IN` / `BETWEEN` / `LIKE` / `REGEXP` / scalar all work
+	 *   uniformly: the operator owns the value fragment, the parser owns the LHS.
 	 *
 	 * @since 3.1.0
 	 *
@@ -1673,31 +1676,64 @@ trait Parser {
 			return $this->build_unary_sql( $lhs, $operator->get_sql_compare() );
 		}
 
-		// Only expression-capable operators accept operands; else fail closed.
-		if ( ! $operator->is_expression() ) {
-			return false;
-		}
-
-		// Resolve the right-hand side into an operand.
+		/*
+		 * A structured right-hand operand (column-to-column, function = function)
+		 * pairs two operands and is limited to the scalar expression operators.
+		 */
 		if ( $value_is_operand ) {
+
+			if ( ! $operator->is_expression() ) {
+				return false;
+			}
+
 			$rhs = $this->resolve_operand( $value, $source, $alias );
 
-			// Or prepare a bare scalar with the left operand's comparison pattern.
-		} else {
-			$rhs = $this->resolve_value_operand(
-				array(
-					'value'   => $value,
-					'pattern' => $lhs->get_comparison_pattern(),
-				)
-			);
+			return ( $rhs instanceof \BerlinDB\Database\Operands\Base )
+				? $this->build_comparison_sql( $lhs, $operator->get_sql_compare(), $rhs )
+				: false;
 		}
 
-		// Fail closed if the right-hand operand was unresolvable.
-		if ( ! ( $rhs instanceof \BerlinDB\Database\Operands\Base ) ) {
-			return false;
+		/*
+		 * A bare right-hand value pairs the operand with the operator's own value
+		 * rendering (scalar / IN / BETWEEN / LIKE / REGEXP), prepared with the left
+		 * operand's comparison pattern. EXISTS renders as equality here exactly as
+		 * it does on a plain column; a value-less operator (NOT EXISTS) yields ''.
+		 */
+		return $this->build_operand_value_sql( $lhs, $operator, $value );
+	}
+
+	/**
+	 * Assemble `{operand} {compare} {operator-rendered value}` for a bare value.
+	 *
+	 * Pairs an operand left-hand side with the operator's existing value renderer
+	 * (`get_value_sql`), so the operator keeps owning the value fragment — IN
+	 * parens, BETWEEN `AND`, LIKE wildcards, prepared scalars — while the parser
+	 * supplies the (possibly function/column) left side.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param \BerlinDB\Database\Operands\Base  $lhs      The left-hand operand.
+	 * @param \BerlinDB\Database\Operators\Base $operator The resolved operator.
+	 * @param mixed                             $value    The bare right-hand value(s).
+	 * @return string The comparison SQL, or '' when the operator renders no value side.
+	 */
+	protected function build_operand_value_sql( \BerlinDB\Database\Operands\Base $lhs, \BerlinDB\Database\Operators\Base $operator, $value ): string {
+
+		// Narrow the left operand's pattern to a known placeholder for prepare().
+		$pattern = $lhs->get_comparison_pattern();
+		$pattern = in_array( $pattern, array( '%s', '%d', '%f' ), true )
+			? $pattern
+			: '%s';
+
+		// The operator renders its value fragment, typed by the left operand.
+		$value_sql = $operator->get_value_sql( $value, $pattern );
+
+		// A value-less operator (e.g. NOT EXISTS) yields nothing.
+		if ( '' === $value_sql ) {
+			return '';
 		}
 
-		return $this->build_comparison_sql( $lhs, $operator->get_sql_compare(), $rhs );
+		return $lhs->get_sql() . ' ' . $operator->get_sql_compare() . ' ' . $value_sql;
 	}
 
 	/**
