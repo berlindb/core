@@ -20,7 +20,7 @@ use Yoast\WPTestUtils\WPIntegration\TestCase;
  * to avoid conflicts with real WordPress tables.
  *
  * Because Table::is_testing() detects WP_TESTS_DIR, constructing a TestTable
- * automatically calls maybe_upgrade() → install() on first run.
+ * automatically calls maybe_upgrade() -> install() on first run.
  *
  * @since 2.1.0
  */
@@ -79,7 +79,7 @@ class TableTest extends TestCase {
 		 * _create_temporary_tables filter may be added multiple times across test
 		 * runs (if tearDown doesn't drain every instance), and calling install()
 		 * while any instance is still active would produce a spurious
-		 * "CREATE TEMPORARY TABLE … already exists" error. Tests that drop or
+		 * "CREATE TEMPORARY TABLE ... already exists" error. Tests that drop or
 		 * uninstall the table handle their own reinstall via bypass_table_filters().
 		 */
 		self::$table->delete_all();

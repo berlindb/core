@@ -25,8 +25,8 @@ defined( 'ABSPATH' ) || exit;
  * WordPress deliberately avoids real FOREIGN KEY constraints (historical MyISAM
  * support, fragile bulk operations, application-layer integrity). BerlinDB
  * matches that convention: relationships are unenforced by default and emit no
- * DDL. The shape, however, is intentionally FOREIGN KEY-compatible — local
- * columns, a referenced table and columns, and ON DELETE / ON UPDATE actions —
+ * DDL. The shape, however, is intentionally FOREIGN KEY-compatible - local
+ * columns, a referenced table and columns, and ON DELETE / ON UPDATE actions -
  * so that:
  *
  *   - the opt-in `enforce` flag can emit real constraint DDL,
@@ -108,7 +108,7 @@ class Relationship {
 	/** Attributes ************************************************************/
 
 	/**
-	 * Relationship name — the accessor handle this relationship is known by.
+	 * Relationship name - the accessor handle this relationship is known by.
 	 *
 	 * The semantic name (e.g. 'customer', 'orders') used to reach the related
 	 * data, and the property a related Row is loaded through (e.g.
@@ -129,9 +129,9 @@ class Relationship {
 	/**
 	 * Relationship type.
 	 *
-	 * - 'belongs_to' — the local columns hold the foreign key, pointing at one
+	 * - 'belongs_to' - the local columns hold the foreign key, pointing at one
 	 *   remote row (many-to-one / one-to-one owning side).
-	 * - 'has_many' — the local columns are the referenced key; many remote rows
+	 * - 'has_many' - the local columns are the referenced key; many remote rows
 	 *   point here (one-to-many inverse side).
 	 *
 	 * @since 3.1.0
@@ -278,7 +278,7 @@ class Relationship {
 	/**
 	 * Return validation errors for this relationship's own shape.
 	 *
-	 * Only the checks this value object can make in isolation — it has no owning
+	 * Only the checks this value object can make in isolation - it has no owning
 	 * Schema, so local-column existence is validated by
 	 * Schema::get_validation_errors(), and remote resolution / remote-column
 	 * existence by Query::get_relationship_errors(). Checks here:
@@ -349,7 +349,7 @@ class Relationship {
 	 */
 	public function get_create_string( $remote_table = '' ) {
 
-		// Bail if not enforced — relationships emit no DDL by default.
+		// Bail if not enforced - relationships emit no DDL by default.
 		if ( false === $this->is_enforced() ) {
 			return '';
 		}

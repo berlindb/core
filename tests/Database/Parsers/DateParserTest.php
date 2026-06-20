@@ -259,8 +259,8 @@ class DateParserTest extends TestCase {
 	 * Test that a date_query naming a column that exists but is NOT a date column
 	 * fails closed: it matches no rows, rather than dropping the clause (which
 	 * would widen results to the whole table). The column is named on the clause
-	 * itself, so it's an unambiguous typo/misuse — not a foreign clause Date swept
-	 * up — and is safe to fail closed.
+	 * itself, so it's an unambiguous typo/misuse - not a foreign clause Date swept
+	 * up - and is safe to fail closed.
 	 *
 	 * @since 3.1.0
 	 */
@@ -316,7 +316,7 @@ class DateParserTest extends TestCase {
 
 	/**
 	 * Test that the '{column}_query' date shorthand still works when a
-	 * compare_query is also present — the shorthand (Date's own key) is kept,
+	 * compare_query is also present - the shorthand (Date's own key) is kept,
 	 * the sibling compare_query container is isolated, and both real filters
 	 * apply with no bleed.
 	 *
@@ -790,7 +790,7 @@ class DateParserTest extends TestCase {
 	/**
 	 * Test that dayofweek filter returns all rows falling on the given weekday.
 	 *
-	 * MySQL DAYOFWEEK: 1=Sunday…7=Saturday. Tuesday=3.
+	 * MySQL DAYOFWEEK: 1=Sunday...7=Saturday. Tuesday=3.
 	 * Both 2021-06-01 and 2024-12-31 are Tuesdays.
 	 *
 	 * @since 3.0.0

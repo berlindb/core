@@ -4,7 +4,7 @@
  *
  * Unit tests work against Column objects directly. Integration tests use a
  * self-contained schema/table/query trio defined in this file so the shared
- * TestSchema is not modified — JSON is a transparent type behaviour, not a
+ * TestSchema is not modified - JSON is a transparent type behaviour, not a
  * named special column like uuid or date_created.
  *
  * @package     BerlinDB\Tests
@@ -22,13 +22,13 @@ use BerlinDB\Database\Kern\Table;
 use Yoast\WPTestUtils\WPIntegration\TestCase;
 
 // ============================================================================
-// Self-contained fixtures — not part of the shared test infrastructure.
+// Self-contained fixtures - not part of the shared test infrastructure.
 // ============================================================================
 
 /**
  * Minimal schema with a single JSON column alongside a primary key.
  *
- * The JSON column is named 'data' here but the column name is arbitrary —
+ * The JSON column is named 'data' here but the column name is arbitrary -
  * Berlin applies encode/decode based on the type, not the name.
  *
  * @since 3.0.0
@@ -279,7 +279,7 @@ class JsonColumnTest extends TestCase {
 	}
 
 	/**
-	 * cast_json() is idempotent — an already-decoded array passes through.
+	 * cast_json() is idempotent - an already-decoded array passes through.
 	 *
 	 * @since 3.0.0
 	 */

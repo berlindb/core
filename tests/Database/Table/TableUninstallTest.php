@@ -6,12 +6,12 @@
  * intentionally uninstalled from being recreated automatically on the next
  * admin page load (berlindb/core discussions #176):
  *
- *   Tombstone  — uninstall() writes a persistent option that is recognised
+ *   Tombstone  - uninstall() writes a persistent option that is recognised
  *                by is_upgradeable(), causing maybe_upgrade() to bail.
  *                install() clears it so the table can be intentionally
  *                reinstalled later.
  *
- *   $auto_install — when set to false in a subclass, add_hooks() skips the
+ *   $auto_install - when set to false in a subclass, add_hooks() skips the
  *                   admin_init hook entirely, making installation fully
  *                   explicit.
  *
@@ -104,7 +104,7 @@ class TableUninstallTest extends TestCase {
 	}
 
 	// -------------------------------------------------------------------------
-	// Helpers (mirrored from TableTest — kept private so there is no coupling).
+	// Helpers (mirrored from TableTest - kept private so there is no coupling).
 	// -------------------------------------------------------------------------
 
 	/**
@@ -142,7 +142,7 @@ class TableUninstallTest extends TestCase {
 	}
 
 	// -------------------------------------------------------------------------
-	// Tombstone — written by uninstall().
+	// Tombstone - written by uninstall().
 	// -------------------------------------------------------------------------
 
 	/**
@@ -161,7 +161,7 @@ class TableUninstallTest extends TestCase {
 	}
 
 	// -------------------------------------------------------------------------
-	// Tombstone — blocks maybe_upgrade().
+	// Tombstone - blocks maybe_upgrade().
 	// -------------------------------------------------------------------------
 
 	/**
@@ -180,7 +180,7 @@ class TableUninstallTest extends TestCase {
 	}
 
 	/**
-	 * maybe_upgrade() must not recreate the table after uninstall() — this is
+	 * maybe_upgrade() must not recreate the table after uninstall() - this is
 	 * the core regression test for discussions #176.
 	 *
 	 * @since 3.1.0
@@ -200,7 +200,7 @@ class TableUninstallTest extends TestCase {
 	}
 
 	// -------------------------------------------------------------------------
-	// Tombstone — cleared by install().
+	// Tombstone - cleared by install().
 	// -------------------------------------------------------------------------
 
 	/**

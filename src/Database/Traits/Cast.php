@@ -19,8 +19,8 @@ defined( 'ABSPATH' ) || exit;
 /**
  * The Cast Trait casts Row properties after they are read from the database.
  *
- * Classes using this trait gain a $casts property — a map of column name to
- * callable — that is applied during init(). Subclasses override $casts to
+ * Classes using this trait gain a $casts property - a map of column name to
+ * callable - that is applied during init(). Subclasses override $casts to
  * define their own casting behavior without touching the constructor.
  *
  * @since 3.0.0

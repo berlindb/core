@@ -16,7 +16,7 @@ namespace BerlinDB\Database\Operators;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * NOT LIKE operator — negated partial string match.
+ * NOT LIKE operator - negated partial string match.
  *
  * The value is trimmed, escaped with wpdb::esc_like(), and wrapped in `%`
  * wildcards before being prepared. Generates: `NOT LIKE '%value%'`.

@@ -1,12 +1,12 @@
 <?php
 /**
- * meta_query → relationship clauses for store-backed objects (#204 Phase B).
+ * meta_query -> relationship clauses for store-backed objects (#204 Phase B).
  *
  * A query whose 'meta' relationship resolves to a MetaStore has its
  * meta_query / meta_key / meta_value vars built into relationship EXISTS
  * filters against the custom sibling table (Query::resolve_meta_query_filters()).
  * These tests prove behavioral parity with the WordPress meta_query surface by
- * asserting the rows returned against a real installed sibling table — the SQL is
+ * asserting the rows returned against a real installed sibling table - the SQL is
  * relationship EXISTS rather than the bespoke JOIN engine, so results, not SQL,
  * are what must match.
  *
@@ -351,7 +351,7 @@ class MetaQueryRelationshipTest extends TestCase {
 	 * A built meta_query ANDs with an existing OR relation_query, not OR.
 	 *
 	 * The pre-existing relation_query is a top-level OR group (has 'color' OR
-	 * size='small' → A, B, C). The meta_query (size='large' → A, B) must AND with
+	 * size='small' -> A, B, C). The meta_query (size='large' -> A, B) must AND with
 	 * that whole group, giving (A,B,C) AND (A,B) = A, B. The earlier bug appended
 	 * the meta clause INTO the OR list, widening the result to A, B, C
 	 * (color OR small OR large).
@@ -627,7 +627,7 @@ class MetaQueryRelationshipTest extends TestCase {
 	 * A negative VALUE comparison translates (unlike a negative compare_KEY).
 	 *
 	 * Value-side != / NOT IN become EXISTS(... AND meta_value <negate> V): "has a
-	 * 'color' row whose value isn't blue" — A (only blue) is excluded, B (red) is
+	 * 'color' row whose value isn't blue" - A (only blue) is excluded, B (red) is
 	 * matched, C (no color) is excluded. Contrast test_negative_compare_key_translates,
 	 * where a negative compare_KEY negates the whole clause (NOT EXISTS on the key).
 	 *
@@ -780,7 +780,7 @@ class MetaQueryRelationshipTest extends TestCase {
 	/**
 	 * orderby => 'meta_value' sorts store-backed rows LEXICALLY by the key's value.
 	 *
-	 * scores '10','100','9' sort lexically as 10 < 100 < 9 → A, B, C ascending.
+	 * scores '10','100','9' sort lexically as 10 < 100 < 9 -> A, B, C ascending.
 	 *
 	 * @since 3.1.0
 	 */
@@ -798,9 +798,9 @@ class MetaQueryRelationshipTest extends TestCase {
 	}
 
 	/**
-	 * orderby => 'meta_value_num' sorts NUMERICALLY (CAST … AS SIGNED).
+	 * orderby => 'meta_value_num' sorts NUMERICALLY (CAST ... AS SIGNED).
 	 *
-	 * scores 9,10,100 sort numerically → C, A, B ascending — distinct from the
+	 * scores 9,10,100 sort numerically -> C, A, B ascending - distinct from the
 	 * lexical order above, proving the SIGNED cast is applied.
 	 *
 	 * @since 3.1.0
@@ -858,7 +858,7 @@ class MetaQueryRelationshipTest extends TestCase {
 	 * For a multi-valued key, the orderby subquery uses the OLDEST row (meta_id ASC).
 	 *
 	 * C is given a second, larger score (999) with a newer meta_id. Ordering by
-	 * meta_value_num ASC must still place C first (its older value, 9) — if the
+	 * meta_value_num ASC must still place C first (its older value, 9) - if the
 	 * newer row won, C (999) would sort last.
 	 *
 	 * @since 3.1.0
@@ -882,7 +882,7 @@ class MetaQueryRelationshipTest extends TestCase {
 	 * orderby by a NAMED meta_query clause filters and sorts by that clause's key.
 	 *
 	 * The named 'score_clause' (type NUMERIC) both filters (has score) and is the
-	 * sort key; its NUMERIC type casts to SIGNED → numeric order 9,10,100 → C,A,B.
+	 * sort key; its NUMERIC type casts to SIGNED -> numeric order 9,10,100 -> C,A,B.
 	 *
 	 * @since 3.1.0
 	 */

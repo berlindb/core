@@ -15,7 +15,7 @@ use BerlinDB\Tests\Fixtures\TestTable;
 use Yoast\WPTestUtils\WPIntegration\TestCase;
 
 /**
- * Tests for Query::transition_item() — the hook that fires when a column
+ * Tests for Query::transition_item() - the hook that fires when a column
  * declared with 'transition' => true changes value.
  *
  * TestSchema marks 'status' as a transition column, so the hook fired is:
@@ -77,7 +77,7 @@ class QueryTransitionTest extends TestCase {
 	 * Test that add_item fires the transition hook with 'new' as the old value.
 	 *
 	 * When there is no prior row (old_data is empty), transition_item() sets
-	 * every old value to the string 'new' — the WordPress convention for signalling
+	 * every old value to the string 'new' - the WordPress convention for signalling
 	 * "this column is transitioning from nothing to its initial value."
 	 *
 	 * @since 3.0.0

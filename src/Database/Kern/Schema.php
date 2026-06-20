@@ -183,7 +183,7 @@ class Schema {
 	/**
 	 * Late lifecycle hook, called by Traits\Boot after class properties are
 	 * assigned. The single point that hydrates $columns and $indexes into
-	 * objects — it runs after set_vars(), so it sees both subclass-declared
+	 * objects - it runs after set_vars(), so it sees both subclass-declared
 	 * arrays and any passed as constructor args.
 	 *
 	 * Supports the legacy pre-set $columns/$indexes arrays (the only way to
@@ -882,7 +882,7 @@ class Schema {
 	 * NOTE: foreign-key DDL is intentionally NOT emitted here. Relationship
 	 * metadata (type, columns, references, and the enforce / on_delete /
 	 * on_update / constraint attributes) is declarable, and
-	 * Relationship::get_create_string() can render a FOREIGN KEY fragment — but
+	 * Relationship::get_create_string() can render a FOREIGN KEY fragment - but
 	 * it is future-ready metadata, not wired into table creation. WordPress
 	 * deliberately avoids real foreign keys (dbDelta doesn't support them, and
 	 * enforced keys would require resolving and install-ordering the remote
@@ -902,7 +902,7 @@ class Schema {
 
 		/*
 		 * Columns and indexes only. Relationship/foreign-key DDL is declarable
-		 * (see Relationship::get_create_string()) but intentionally not emitted —
+		 * (see Relationship::get_create_string()) but intentionally not emitted -
 		 * see this method's docblock.
 		 */
 		$strings = array(
@@ -931,7 +931,7 @@ class Schema {
 	 * - Conflicting primary keys: multiple primary indexes, multiple primary-
 	 *   flagged columns with no covering composite primary index, or a primary-
 	 *   flagged column the primary index does not cover. (A flagged column
-	 *   covered by the primary index is ONE key — the flag is the semantic
+	 *   covered by the primary index is ONE key - the flag is the semantic
 	 *   marker; the index emits the DDL.)
 	 * - Relationships: own-shape errors (Relationship::get_validation_errors()),
 	 *   a missing/duplicate accessor name, a local column not present in this
@@ -1027,9 +1027,9 @@ class Schema {
 
 		/*
 		 * Reconcile primary-key declarations. A column flagged primary AND a
-		 * primary index covering that same column describe ONE primary key — the
+		 * primary index covering that same column describe ONE primary key - the
 		 * flag is the semantic marker queries and parsers read; the index emits
-		 * the DDL — not a conflict. Real conflicts: multiple primary indexes,
+		 * the DDL - not a conflict. Real conflicts: multiple primary indexes,
 		 * multiple flagged columns without a covering composite primary index, or
 		 * a flagged column the primary index does not cover.
 		 */

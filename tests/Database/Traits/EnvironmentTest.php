@@ -41,7 +41,7 @@ class EnvironmentTestSubject {
 }
 
 /**
- * Tests for the Environment trait — specifically get_db_global() caching
+ * Tests for the Environment trait - specifically get_db_global() caching
  * and its interaction with WordPress's switch_blog pattern.
  *
  * @since 3.0.0
@@ -118,10 +118,10 @@ class EnvironmentTest extends TestCase {
 
 	/**
 	 * Mutating $wpdb->prefix (as switch_to_blog() does) is immediately visible
-	 * through the cached adapter — no stale snapshot.
+	 * through the cached adapter - no stale snapshot.
 	 *
 	 * This is the core switch_blog safety assertion: Table::switch_blog() calls
-	 * set_db_interface() → get_db() → get_db_global(), which returns the cached
+	 * set_db_interface() -> get_db() -> get_db_global(), which returns the cached
 	 * Wpdb adapter. Because the adapter holds a reference to the same \wpdb
 	 * object (not a copy), any mutation WordPress applies to the prefix is
 	 * reflected instantly.
@@ -146,7 +146,7 @@ class EnvironmentTest extends TestCase {
 
 	/**
 	 * Replacing the global with a new \wpdb instance (different spl_object_id)
-	 * produces a fresh adapter — the stale cache entry is not reused.
+	 * produces a fresh adapter - the stale cache entry is not reused.
 	 *
 	 * This covers the rare case where test setup or a custom integration
 	 * replaces $wpdb wholesale rather than mutating it.

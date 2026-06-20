@@ -17,7 +17,7 @@ namespace BerlinDB\Database\Operands;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * An operand that wraps its argument(s) in a SQL function — e.g. LOWER(col).
+ * An operand that wraps its argument(s) in a SQL function - e.g. LOWER(col).
  *
  * Enables function-wrapped comparisons such as `LOWER(name) = LOWER('term')`.
  * Only functions in the fixed allow-list (self::ALLOWED) are permitted, each
@@ -50,14 +50,14 @@ class Func extends Base {
 	 * the column-type categories it accepts as a column argument. Kept deliberately
 	 * small and stable; grows only as functions earn a place with tests.
 	 *
-	 * - `return_pattern` — the wpdb::prepare() placeholder for the function's
+	 * - `return_pattern` - the wpdb::prepare() placeholder for the function's
 	 *   RESULT, used to prepare a bare scalar compared against it (`YEAR(col) =
 	 *   2024` prepares 2024 as `%d`). ABS keeps `%s` because it preserves its
 	 *   input's type (a `%d` would truncate `ABS(x) = 1.5` to `= 1`).
-	 * - `accepts` — the type categories ('numeric' / 'string' / 'date') allowed for
+	 * - `accepts` - the type categories ('numeric' / 'string' / 'date') allowed for
 	 *   a COLUMN argument; the parser fails a clause closed when a column argument's
 	 *   declared type is not in this list (e.g. `YEAR(an_int_column)`). Conservative
-	 *   and schema-informed — it rejects obvious misuse, not everything MySQL would
+	 *   and schema-informed - it rejects obvious misuse, not everything MySQL would
 	 *   coerce; literal and nested-function arguments are not type-checked.
 	 *
 	 * @since 3.1.0

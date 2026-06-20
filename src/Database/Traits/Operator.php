@@ -86,7 +86,7 @@ trait Operator {
 	protected $multi = false;
 
 	/**
-	 * Whether this operator is unary — a predicate that takes no right-hand
+	 * Whether this operator is unary - a predicate that takes no right-hand
 	 * value (e.g. IS NULL / IS NOT NULL).
 	 *
 	 * Clause builders use this to allow a value-less clause (key + compare, no
@@ -109,7 +109,7 @@ trait Operator {
 	 * Whether this operator is a regular-expression match (REGEXP / RLIKE).
 	 *
 	 * Lets callers ask the registry "is this a regex compare?" instead of
-	 * hardcoding a compare-string list — e.g. type_key => BINARY only applies to
+	 * hardcoding a compare-string list - e.g. type_key => BINARY only applies to
 	 * regex key comparisons. Set on the negative NotRegexp too: regex-ness and
 	 * polarity are independent axes.
 	 *
@@ -254,7 +254,7 @@ trait Operator {
 	 * Generate the SQL value fragment for this operator.
 	 *
 	 * Default implementation for scalar operators. Returns only the value/operand
-	 * side of the comparison — not the column name or the operator itself.
+	 * side of the comparison - not the column name or the operator itself.
 	 * Multi-value and non-standard operators (IN, BETWEEN, LIKE, NOT EXISTS, etc.)
 	 * override this method in their concrete class.
 	 *
@@ -326,7 +326,7 @@ trait Operator {
 		// Get the prepared value fragment, deriving the pattern from the column.
 		$value_sql = $this->get_value_sql( $value, $col->pattern );
 
-		// Bail if no value fragment — operator has no value side (e.g. NOT EXISTS).
+		// Bail if no value fragment - operator has no value side (e.g. NOT EXISTS).
 		if ( '' === $value_sql ) {
 			return '';
 		}

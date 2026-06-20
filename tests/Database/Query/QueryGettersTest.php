@@ -154,7 +154,7 @@ class QueryGettersTest extends TestCase {
 	 * @since 3.0.0
 	 */
 	public function test_get_found_items_matches_retrieved_row_count() {
-		// Default query (no_found_rows => true) — found_items equals returned count.
+		// Default query (no_found_rows => true) - found_items equals returned count.
 		self::$query->query( array( 'number' => 0 ) );
 		$this->assertSame( 5, self::$query->get_found_items() );
 	}
@@ -198,7 +198,7 @@ class QueryGettersTest extends TestCase {
 	 * @since 3.0.0
 	 */
 	public function test_get_max_num_pages_with_exact_divisor() {
-		// 5 items, page size 5 → 1 page.
+		// 5 items, page size 5 -> 1 page.
 		self::$query->query(
 			array(
 				'number'        => 5,
@@ -214,7 +214,7 @@ class QueryGettersTest extends TestCase {
 	 * @since 3.0.0
 	 */
 	public function test_get_max_num_pages_rounds_up() {
-		// 5 items, page size 2 → ceil(5/2) = 3 pages.
+		// 5 items, page size 2 -> ceil(5/2) = 3 pages.
 		self::$query->query(
 			array(
 				'number'        => 2,

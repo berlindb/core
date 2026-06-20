@@ -334,7 +334,7 @@ class ColumnFromMysqlTest extends TestCase {
 		$this->assertFalse( $col->allow_null );
 	}
 
-	// decimal precision — comma-separated length.
+	// decimal precision - comma-separated length.
 
 	/**
 	 * decimal type takes only the precision (left of comma) as length.

@@ -799,7 +799,7 @@ class OperatorsTest extends TestCase {
 		);
 		$this->assertSame( '%d', ( new ColumnOperand( $int_col ) )->get_comparison_pattern() );
 
-		// String column → '%s'.
+		// String column -> '%s'.
 		$str_col = new Column(
 			array(
 				'name' => 'name',
@@ -808,11 +808,11 @@ class OperatorsTest extends TestCase {
 		);
 		$this->assertSame( '%s', ( new ColumnOperand( $str_col ) )->get_comparison_pattern() );
 
-		// Function operand → its declared return pattern.
+		// Function operand -> its declared return pattern.
 		$year_pattern = FuncOperand::descriptor( 'YEAR' )['return_pattern'];
 		$this->assertSame( '%d', ( new FuncOperand( 'YEAR', array( new ColumnOperand( $str_col ) ), $year_pattern ) )->get_comparison_pattern() );
 
-		// Value operand → string placeholder default.
+		// Value operand -> string placeholder default.
 		$this->assertSame( '%s', ( new ValueOperand( "'x'" ) )->get_comparison_pattern() );
 	}
 
@@ -893,7 +893,7 @@ class OperatorsTest extends TestCase {
 		// ABS accepts numeric only.
 		$this->assertSame( array( 'numeric' ), FuncOperand::descriptor( 'ABS' )['accepts'] );
 
-		// String functions coerce any type — LENGTH accepts time/year columns too.
+		// String functions coerce any type - LENGTH accepts time/year columns too.
 		$this->assertContains( 'time', FuncOperand::descriptor( 'LENGTH' )['accepts'] );
 		$this->assertContains( 'year', FuncOperand::descriptor( 'LENGTH' )['accepts'] );
 
@@ -1095,7 +1095,7 @@ class OperatorsTest extends TestCase {
 	 *
 	 * For every operator with a declared opposite, resolving that opposite and
 	 * asking for ITS opposite returns the original (a <-> b). And any negating
-	 * operator always flips to a positive one — the property the meta key-flip
+	 * operator always flips to a positive one - the property the meta key-flip
 	 * (build_relationship_clause) relies on to express NOT EXISTS.
 	 *
 	 * @since 3.1.0

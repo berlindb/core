@@ -16,7 +16,7 @@ namespace BerlinDB\Database\Operators;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * EXISTS operator — validates that a meta key exists.
+ * EXISTS operator - validates that a meta key exists.
  *
  * The identifier 'EXISTS' is used for query validation and operator lookup.
  * Because `{column} EXISTS {value}` is not valid MySQL syntax, $sql_compare

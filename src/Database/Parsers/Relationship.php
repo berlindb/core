@@ -22,7 +22,7 @@ defined( 'ABSPATH' ) || exit;
 /**
  * Parser for the 'join' relationship-filter strategy (berlindb/core #193).
  *
- * Consumes the `relation_query` query var — one clause, or a list of clauses, each
+ * Consumes the `relation_query` query var - one clause, or a list of clauses, each
  * shaped:
  *
  *     array(
@@ -46,13 +46,13 @@ defined( 'ABSPATH' ) || exit;
  * Single-column relationships. A positive belongs_to filter uses an INNER JOIN
  * (or a LEFT JOIN when the clause sets 'join' => 'left'). NOTE: LEFT keeps
  * unmatched local rows ONLY when the relationship carries no 'where' conditions
- * — conditions are emitted into the outer WHERE (not the ON clause), so any
+ * - conditions are emitted into the outer WHERE (not the ON clause), so any
  * condition on the joined columns excludes the NULL-joined unmatched rows, and
  * LEFT then behaves like INNER. Use a conditionless 'join' => 'left' to keep
  * unmatched rows. A positive has_many filter uses a correlated WHERE EXISTS (semi
  * join), which keeps each local row once instead of duplicating it per matching
  * child. When a clause sets 'exists' => false, either direction becomes a WHERE
- * NOT EXISTS (anti join) — rows that have no matching related row.
+ * NOT EXISTS (anti join) - rows that have no matching related row.
  *
  * RIGHT and FULL OUTER joins are intentionally unsupported: a RIGHT join would
  * turn a local-row filter into a remote-driven result with null local IDs, and
@@ -116,8 +116,8 @@ class Relationship extends Base {
 		 * Shared across the whole (possibly nested) clause tree: per-relationship-name
 		 * alias counters (so a repeated name gets DISTINCT aliases at any depth) and
 		 * the collected JOIN fragments (which only ever come from the root AND
-		 * context — see build_clause_group()). Duplicate-clause suppression is NOT
-		 * shared — it is local to each sibling group, so an identical clause in a
+		 * context - see build_clause_group()). Duplicate-clause suppression is NOT
+		 * shared - it is local to each sibling group, so an identical clause in a
 		 * different boolean group (e.g. the A in "A AND ( A OR B )") is preserved.
 		 */
 		$alias_counts = array();
@@ -142,13 +142,13 @@ class Relationship extends Base {
 	 * Translate the high-level 'relation' directive into canonical query vars.
 	 *
 	 * The early, all-vars normalizer (run before parsing). Reads the 'relation'
-	 * convenience var — a single clause or a list, each { name, where, strategy } —
+	 * convenience var - a single clause or a list, each { name, where, strategy } -
 	 * and rewrites each into native query vars: the 'in' strategy runs a subquery
 	 * and constrains the local foreign key via {fk}__in; the 'join' strategy hands
 	 * the clause to this parser's own relation_query (consumed at build time). The
 	 * 'relation' var is then removed. Any unresolvable or empty-matching filter
 	 * fails closed via the 'query_filter_short_circuit' sentinel the Query consumes
-	 * — never widening to all rows. See berlindb/core #193.
+	 * - never widening to all rows. See berlindb/core #193.
 	 *
 	 * @since 3.1.0
 	 * @internal Query/Parser collaborator API.
@@ -371,10 +371,10 @@ class Relationship extends Base {
 	 *
 	 * A group is a list whose members are either clauses ({ name, where, ... }) or
 	 * NESTED groups (a member that is itself such a list). 'relation' => 'OR'
-	 * combines the members with OR; AND is the default — mirroring
+	 * combines the members with OR; AND is the default - mirroring
 	 * build_conditions()'s convention for column groups. This lets a caller
 	 * express EXISTS(a) OR EXISTS(b) (each matching a DIFFERENT related row) and
-	 * compose that group with other, AND-ed filters — the shape meta_query's
+	 * compose that group with other, AND-ed filters - the shape meta_query's
 	 * relation=OR needs.
 	 *
 	 * Fail-closed: ANY malformed or unresolvable member fails the WHOLE tree
@@ -383,7 +383,7 @@ class Relationship extends Base {
 	 *
 	 * JOINs are honored ONLY at the root AND context: a belongs_to INNER JOIN
 	 * filters unconditionally, so it cannot live inside an OR (or a nested group
-	 * that an OR ancestor might short-circuit) — a JOIN anywhere but the root AND
+	 * that an OR ancestor might short-circuit) - a JOIN anywhere but the root AND
 	 * fails the group closed. The meta mapper only ever emits EXISTS, so this
 	 * costs it nothing.
 	 *
@@ -585,7 +585,7 @@ class Relationship extends Base {
 		 * row, so a join never duplicates the local row, and exposes the joined
 		 * columns for later selection/ordering. INNER keeps only matched rows;
 		 * LEFT (opt-in via 'join' => 'left') keeps unmatched local rows ONLY when
-		 * there are no conditions — $condition_list goes into the outer WHERE, so
+		 * there are no conditions - $condition_list goes into the outer WHERE, so
 		 * a condition on the joined columns filters NULL-joined rows out (LEFT
 		 * then behaves like INNER).
 		 */
@@ -603,7 +603,7 @@ class Relationship extends Base {
 		}
 
 		/*
-		 * All other cases use a correlated (NOT) EXISTS — a semi/anti join that
+		 * All other cases use a correlated (NOT) EXISTS - a semi/anti join that
 		 * keeps each local row once: has_many matching (EXISTS), or "no matching
 		 * relation" in either direction (NOT EXISTS).
 		 */
@@ -754,7 +754,7 @@ class Relationship extends Base {
 
 		/*
 		 * Fall back to a sane operator if the compare is not recognized. A list
-		 * value falls back to IN, but an operand spec is not a list — it falls
+		 * value falls back to IN, but an operand spec is not a list - it falls
 		 * back to equality, consistent with the bare-operand and Compare paths.
 		 */
 		if ( ! in_array( $compare, $this->get_operators(), true ) ) {
@@ -779,8 +779,8 @@ class Relationship extends Base {
 		/*
 		 * Resolve an optional, opt-in CAST for the column side (shared with the
 		 * generic clause builder via resolve_clause_sql_cast()). An explicit but
-		 * invalid cast fails closed — consistent with the rest of the relationship
-		 * API — so a misspelled 'SIGNED' matches no rows, not a lexical compare.
+		 * invalid cast fails closed - consistent with the rest of the relationship
+		 * API - so a misspelled 'SIGNED' matches no rows, not a lexical compare.
 		 */
 		$cast = $this->resolve_clause_sql_cast(
 			$column_object,

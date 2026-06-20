@@ -135,7 +135,7 @@ class GeneratorTest extends TestCase {
 	/**
 	 * generate_uuid() draws its randomness from the overridable
 	 * generate_random_int() seam: a subclass that fixes it yields a deterministic
-	 * (still well-formed) v4 UUID — the override point that replaces wp_rand()'s
+	 * (still well-formed) v4 UUID - the override point that replaces wp_rand()'s
 	 * pluggability.
 	 *
 	 * @since 3.1.0

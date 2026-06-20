@@ -35,13 +35,13 @@ trait Error {
 	 * Check if a database operation succeeded.
 	 *
 	 * Returns true for any value except false, null, 0, and WP_Error:
-	 * - false    — wpdb query error
-	 * - null     — wpdb get_row() found no matching row
-	 * - 0        — query ran but matched or affected zero rows
-	 * - WP_Error — an explicit error object (also stashed in $last_error)
+	 * - false    - wpdb query error
+	 * - null     - wpdb get_row() found no matching row
+	 * - 0        - query ran but matched or affected zero rows
+	 * - WP_Error - an explicit error object (also stashed in $last_error)
 	 *
-	 * If you need different semantics — for example, treating 0 as success
-	 * for a DELETE on an empty table — check the result directly instead of
+	 * If you need different semantics - for example, treating 0 as success
+	 * for a DELETE on an empty table - check the result directly instead of
 	 * delegating to this method.
 	 *
 	 * @since 1.0.0

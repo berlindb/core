@@ -19,7 +19,7 @@ use BerlinDB\Database\Kern\Column;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * IS NULL operator — matches rows whose column holds SQL NULL.
+ * IS NULL operator - matches rows whose column holds SQL NULL.
  *
  * A unary postfix predicate: it takes no right-hand value, so it emits
  * `{column} IS NULL` directly rather than the trait's `{column} OP {value}`.
@@ -105,7 +105,7 @@ class IsNull extends Base {
 	}
 
 	/**
-	 * Returns an empty string — a unary operator has no value fragment.
+	 * Returns an empty string - a unary operator has no value fragment.
 	 *
 	 * Keeps value-driven builders (e.g. Parser::build_value()) from emitting a
 	 * spurious operand: they guard on a non-empty return and skip the clause.

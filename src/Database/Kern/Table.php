@@ -91,7 +91,7 @@ class Table {
 	 * Set this to your plugin's unique slug (e.g. 'edd', 'give') so that
 	 * tables, hooks, and cache groups are namespaced to your plugin.
 	 *
-	 * Declare it as a class property in your subclass — it is read during
+	 * Declare it as a class property in your subclass - it is read during
 	 * construction before init() runs, so it is always available when
 	 * table names are assembled.
 	 *
@@ -168,7 +168,7 @@ class Table {
 	 * Schema class name or Schema object used to configure columns and indexes.
 	 *
 	 * Accepts either a fully-qualified class name string (the classic subclass
-	 * pattern) or a Schema instance built at runtime — e.g. from a constructor
+	 * pattern) or a Schema instance built at runtime - e.g. from a constructor
 	 * argument or a Schema::from_table() call.
 	 *
 	 * @since 1.0.0
@@ -532,7 +532,7 @@ class Table {
 	 * Return whether this table has been installed.
 	 *
 	 * Checks for a stored database version, which is written by install() and
-	 * cleared by uninstall(). This is always a cache hit — the version option
+	 * cleared by uninstall(). This is always a cache hit - the version option
 	 * is autoloaded and served from WordPress's in-memory options cache.
 	 *
 	 * Compares against the empty string rather than using empty(), so a table
@@ -624,7 +624,7 @@ class Table {
 	 */
 	public function status() {
 
-		// Query statement — SHOW TABLE STATUS LIKE exact_name returns at most one row.
+		// Query statement - SHOW TABLE STATUS LIKE exact_name returns at most one row.
 		$sql      = 'SHOW TABLE STATUS LIKE %s';
 		$like     = $this->db()->esc_like( $this->table_name );
 		$prepared = $this->db()->prepare( $sql, $like );
@@ -649,7 +649,7 @@ class Table {
 	 */
 	public function get_create_sql(): string|false {
 
-		// Query statement — SHOW CREATE TABLE always returns exactly one row.
+		// Query statement - SHOW CREATE TABLE always returns exactly one row.
 		$sql    = "SHOW CREATE TABLE {$this->table_name}";
 		$result = $this->db()->get_row( $sql );
 
@@ -760,7 +760,7 @@ class Table {
 	/**
 	 * Set the AUTO_INCREMENT counter for this table.
 	 *
-	 * Use this to seed the counter at a specific value — for example, to
+	 * Use this to seed the counter at a specific value - for example, to
 	 * leave low IDs available for fixture or seed data, or to reseed after
 	 * a TRUNCATE. Has no effect if the table has no AUTO_INCREMENT column.
 	 *
@@ -787,7 +787,7 @@ class Table {
 	/**
 	 * Convert the storage engine for this table.
 	 *
-	 * Runs ALTER TABLE … ENGINE=X. Returns false immediately for engine names
+	 * Runs ALTER TABLE ... ENGINE=X. Returns false immediately for engine names
 	 * that are not in the recognised set, without issuing a query.
 	 *
 	 * @since 3.1.0
@@ -855,7 +855,7 @@ class Table {
 			$sql[] = 'ROW_FORMAT=' . $this->row_format;
 		}
 
-		// Starting AUTO_INCREMENT value (skip 0 and 1 — both are engine defaults).
+		// Starting AUTO_INCREMENT value (skip 0 and 1 - both are engine defaults).
 		if ( $this->auto_increment > 1 ) {
 			$sql[] = 'AUTO_INCREMENT=' . $this->auto_increment;
 		}
@@ -1016,7 +1016,7 @@ class Table {
 	 * applied to the new table name automatically, matching how
 	 * $this->table_name is built.
 	 *
-	 * After a successful rename, $this->table_name is not updated — callers
+	 * After a successful rename, $this->table_name is not updated - callers
 	 * are responsible for refreshing any references to the old name.
 	 *
 	 * @since 3.0.0
@@ -1159,7 +1159,7 @@ class Table {
 	 */
 	public function checksum() {
 
-		// Query statement — CHECKSUM TABLE returns exactly one row per table.
+		// Query statement - CHECKSUM TABLE returns exactly one row per table.
 		$sql    = "CHECKSUM TABLE {$this->table_name}";
 		$result = $this->db()->get_row( $sql );
 

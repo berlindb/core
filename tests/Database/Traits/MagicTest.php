@@ -17,7 +17,7 @@ namespace BerlinDB\Tests;
  *   so the getter should win over raw property access.
  * - $prop_without_getter: protected property with no getter, so raw value
  *   is returned directly.
- * - get_virtual(): a getter with no backing property — a virtual property.
+ * - get_virtual(): a getter with no backing property - a virtual property.
  *
  * Note: public properties bypass PHP's magic methods entirely and are never
  * routed through __get() or __isset(), regardless of this trait.
@@ -45,7 +45,7 @@ class MagicTestSubject {
 	}
 
 	/**
-	 * Virtual property — no backing $virtual property exists.
+	 * Virtual property - no backing $virtual property exists.
 	 *
 	 * @since 3.0.0
 	 * @return string
@@ -104,7 +104,7 @@ class MagicTest extends \PHPUnit\Framework\TestCase {
 
 	/**
 	 * __get() calls get_{$key}() when a getter exists, even if a same-named
-	 * property also exists — the getter takes priority.
+	 * property also exists - the getter takes priority.
 	 *
 	 * @since 3.0.0
 	 */
@@ -137,7 +137,7 @@ class MagicTest extends \PHPUnit\Framework\TestCase {
 	}
 
 	/**
-	 * __get() supports virtual properties — keys with a getter but no backing
+	 * __get() supports virtual properties - keys with a getter but no backing
 	 * property still return the getter's value.
 	 *
 	 * @since 3.0.0
@@ -161,7 +161,7 @@ class MagicTest extends \PHPUnit\Framework\TestCase {
 
 	/**
 	 * __isset() returns true when a get_{$key}() method exists, even with no
-	 * backing property — virtual properties appear to be set.
+	 * backing property - virtual properties appear to be set.
 	 *
 	 * @since 3.0.0
 	 */

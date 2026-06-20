@@ -101,7 +101,7 @@ class Column {
 	);
 
 	/**
-	 * Coarse type categories — a SQL-type taxonomy used by type-sensitive callers
+	 * Coarse type categories - a SQL-type taxonomy used by type-sensitive callers
 	 * (e.g. operand function validation) instead of a parallel pile of literals.
 	 *
 	 * Derived from the column type (sanitize_type_category) but settable, with the
@@ -378,10 +378,10 @@ class Column {
 	public $pattern = '%s';
 
 	/**
-	 * Coarse type category — 'numeric', 'string', 'date', 'time', or 'year'.
+	 * Coarse type category - 'numeric', 'string', 'date', 'time', or 'year'.
 	 *
 	 * Like $pattern, this is inferred from the column type when not provided
-	 * (sanitize_type_category) and used by type-sensitive callers — currently
+	 * (sanitize_type_category) and used by type-sensitive callers - currently
 	 * operand function validation (a date function rejecting a numeric column).
 	 * Settable, WordPress-style, for the rare column whose type does not imply the
 	 * right category; an empty value triggers auto-inference at construction.
@@ -824,7 +824,7 @@ class Column {
 	/**
 	 * Return if a column type is date-bearing (date, datetime, or timestamp).
 	 *
-	 * The date-bearing subset of is_date_time() — excludes time-only and year, so
+	 * The date-bearing subset of is_date_time() - excludes time-only and year, so
 	 * a date-part function (YEAR, MONTH, DAYOF*) can require a real date.
 	 *
 	 * @since 3.1.0
@@ -1143,7 +1143,7 @@ class Column {
 
 		/*
 		 * Keep the valid entries; log a stable warning for each dropped one at the
-		 * point of rejection. The drop is fail-closed — the warning only makes the
+		 * point of rejection. The drop is fail-closed - the warning only makes the
 		 * loss visible. These logs survive construction because configure()
 		 * excludes the log store from the config snapshot it merges over.
 		 */
@@ -1191,7 +1191,7 @@ class Column {
 
 			/*
 			 * Validate 'query' as a PHP class reference. sanitize_class_name()
-			 * REJECTS (doesn't strip) anything invalid, returning '' — so a
+			 * REJECTS (doesn't strip) anything invalid, returning '' - so a
 			 * malformed value like 'Order; DROP TABLE' drops the whole relationship
 			 * rather than mutating into a different, real class.
 			 */
@@ -1213,7 +1213,7 @@ class Column {
 			 * Resolve optional 'type'. An OMITTED type defaults to 'belongs_to'
 			 * (the common case). A PRESENT-but-invalid type (e.g. a typo like
 			 * 'has-many') is a misconfiguration: drop the whole relationship rather
-			 * than silently coercing it to the wrong direction — the reject-not-
+			 * than silently coercing it to the wrong direction - the reject-not-
 			 * mutate stance taken for 'query' above.
 			 */
 			if ( ! isset( $relationship['type'] ) ) {
@@ -1346,7 +1346,7 @@ class Column {
 	 * Sanitize the type category, inferring it from the column type when absent.
 	 *
 	 * Mirrors sanitize_pattern(): an explicit, recognized category is honored;
-	 * anything else (the common case — not provided) is inferred from the declared
+	 * anything else (the common case - not provided) is inferred from the declared
 	 * type via the is_*() predicates. Date-bearing / time-only / year are kept
 	 * distinct so a date function does not accept a TIME or YEAR column.
 	 *
@@ -1542,12 +1542,12 @@ class Column {
 	 */
 	public function cast_json( $value = '' ) {
 
-		// Already decoded — pass through unchanged.
+		// Already decoded - pass through unchanged.
 		if ( is_array( $value ) || is_object( $value ) ) {
 			return $value;
 		}
 
-		// Null — let the caller decide what null means.
+		// Null - let the caller decide what null means.
 		if ( null === $value ) {
 			return null;
 		}
@@ -1593,7 +1593,7 @@ class Column {
 			}
 		}
 
-		// Everything else (empty string, non-scalar, invalid JSON) → empty object.
+		// Everything else (empty string, non-scalar, invalid JSON) -> empty object.
 		return '{}';
 	}
 
@@ -1823,7 +1823,7 @@ class Column {
 	 *
 	 * Confirms the value is a correctly-prefixed URN UUID string and passes it
 	 * through unchanged. Returns the column default for any value that fails the
-	 * check — generation is the caller's responsibility (Column::intercept()).
+	 * check - generation is the caller's responsibility (Column::intercept()).
 	 *
 	 * @since 1.0.0
 	 * @since 3.1.0 Pure format validation; generation moved to intercept().
@@ -1989,7 +1989,7 @@ class Column {
 			return '';
 		}
 
-		// Numeric — use 0 unless the column is auto-incrementing.
+		// Numeric - use 0 unless the column is auto-incrementing.
 		if ( $this->is_numeric() ) {
 			return $this->is_extra( 'AUTO_INCREMENT' ) ? '' : "default '0'";
 		}
@@ -2020,7 +2020,7 @@ class Column {
 	 *
 	 * When $cast is a valid CAST target the reference is wrapped in
 	 * CAST( ... AS $cast ). $cast is sanitized here (sanitize_sql_cast_type()), so
-	 * this public helper does not trust its caller — an invalid value is safely
+	 * this public helper does not trust its caller - an invalid value is safely
 	 * ignored (no cast). Casting is opt-in and never applied by default. CHAR is a
 	 * real target (string-semantics comparison), not a no-op.
 	 *
@@ -2044,7 +2044,7 @@ class Column {
 		// Sanitize the cast at this public boundary; an invalid value => no cast.
 		$cast = $this->sanitize_sql_cast_type( $cast );
 
-		// Optionally wrap in a CAST() — a no-op only when $cast is empty.
+		// Optionally wrap in a CAST() - a no-op only when $cast is empty.
 		return $this->cast_reference( $reference, $cast );
 	}
 
@@ -2097,14 +2097,14 @@ class Column {
 	}
 
 	/**
-	 * Return this column's effective type category — 'date', 'time', 'year',
+	 * Return this column's effective type category - 'date', 'time', 'year',
 	 * 'numeric', or 'string'. Lets a type-sensitive caller validate a column
 	 * without re-deriving type knowledge (e.g. a date function rejecting a numeric
 	 * column).
 	 *
 	 * Without a cast, this returns the $type_category property (set explicitly or
 	 * inferred from the declared type by sanitize_type_category). An optional CAST
-	 * overrides it — mirroring get_name_sql(), so the category matches the SQL that
+	 * overrides it - mirroring get_name_sql(), so the category matches the SQL that
 	 * will actually render: a SIGNED/DECIMAL cast is 'numeric', a DATETIME cast is
 	 * 'date', etc.
 	 *
@@ -2119,7 +2119,7 @@ class Column {
 		/*
 		 * Normalize the cast exactly as get_name_sql() does before rendering, so
 		 * the category matches the SQL: a sanitizable cast (e.g. ' signed ')
-		 * overrides the type, while an invalid one (rejected to '') is ignored —
+		 * overrides the type, while an invalid one (rejected to '') is ignored -
 		 * the declared type then decides, just as the dropped cast would render.
 		 */
 		$cast = ( '' !== $cast )
@@ -2129,12 +2129,12 @@ class Column {
 		// A valid explicit cast determines the effective category.
 		if ( '' !== $cast ) {
 
-			// SIGNED / UNSIGNED / DECIMAL → numeric.
+			// SIGNED / UNSIGNED / DECIMAL -> numeric.
 			if ( str_starts_with( $cast, 'SIGNED' ) || str_starts_with( $cast, 'UNSIGNED' ) || str_starts_with( $cast, 'DECIMAL' ) ) {
 				return 'numeric';
 			}
 
-			// DATE / DATETIME → date (date-bearing); TIME → time.
+			// DATE / DATETIME -> date (date-bearing); TIME -> time.
 			if ( str_starts_with( $cast, 'DATE' ) ) {
 				return 'date';
 			}
@@ -2143,7 +2143,7 @@ class Column {
 				return 'time';
 			}
 
-			// CHAR / BINARY → string.
+			// CHAR / BINARY -> string.
 			return 'string';
 		}
 

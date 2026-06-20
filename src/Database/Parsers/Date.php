@@ -410,7 +410,7 @@ class Date extends Base {
 		$inclusive     = ! empty( $clause[ 'inclusive' ] );
 
 		/*
-		 * Track whether the column was explicitly requested for THIS clause —
+		 * Track whether the column was explicitly requested for THIS clause -
 		 * either via the clause's own 'column', or (below) a {col}_query key.
 		 * A column merely inherited from the parser default could belong to a
 		 * foreign sub-array that only matched a date first-order key, so we must
@@ -428,7 +428,7 @@ class Date extends Base {
 		 * var name also ends in '_query' (e.g. 'compare_query' strips to
 		 * 'compare'), so when Date receives the full query_vars it can strip a
 		 * foreign clause's key here. If that derived name isn't a date column it
-		 * must DROP (below), not fail closed — failing closed would emit 1 = 0
+		 * must DROP (below), not fail closed - failing closed would emit 1 = 0
 		 * into an unrelated parser's query. Only a genuine '{date_col}_query'
 		 * resolves to a real date column and proceeds.
 		 */
@@ -441,7 +441,7 @@ class Date extends Base {
 		}
 
 		/*
-		 * Bail if no date column is resolved — this clause doesn't belong to a
+		 * Bail if no date column is resolved - this clause doesn't belong to a
 		 * date query (e.g. a non-date sub-array accidentally matched first_keys).
 		 * Dropped (not failed closed) so it can't bleed into a foreign query.
 		 */
@@ -457,7 +457,7 @@ class Date extends Base {
 
 		/*
 		 * The name doesn't map to a date column. When the clause itself named the
-		 * column ('column' => ...), that's a typo/misuse — fail closed so it
+		 * column ('column' => ...), that's a typo/misuse - fail closed so it
 		 * matches no rows instead of dropping (which widens results to every row).
 		 * A column derived from the clause key or inherited from the default may
 		 * belong to a foreign sub-array Date merely swept up, so those are dropped
@@ -535,7 +535,7 @@ class Date extends Base {
 			}
 		}
 
-		// month / monthnum are aliases — try month first, fall back to monthnum.
+		// month / monthnum are aliases - try month first, fall back to monthnum.
 		$value = false;
 		if ( isset( $clause[ 'month' ] ) ) {
 			$value = $this->build_numeric_value( $compare, $clause[ 'month' ] );
@@ -547,7 +547,7 @@ class Date extends Base {
 			$where[] = "MONTH( {$column} ) {$compare} {$value}";
 		}
 
-		// week / w are aliases — try week first, fall back to w.
+		// week / w are aliases - try week first, fall back to w.
 		$value = false;
 		if ( isset( $clause[ 'week' ] ) ) {
 			$value = $this->build_numeric_value( $compare, $clause[ 'week' ] );
@@ -587,7 +587,7 @@ class Date extends Base {
 			}
 		}
 
-		// Straight value compare — build_value() normalises the mixed input.
+		// Straight value compare - build_value() normalises the mixed input.
 		if ( isset( $clause[ 'value' ] ) ) {
 			$value   = $this->build_value( $compare, $clause[ 'value' ] );
 			$where[] = "{$column} {$compare} {$value}";

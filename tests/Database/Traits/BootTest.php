@@ -352,7 +352,7 @@ class BootTest extends TestCase {
 	}
 
 	/**
-	 * sunrise() runs before configure(), and configure() runs before init() —
+	 * sunrise() runs before configure(), and configure() runs before init() -
 	 * so init() (the construction hook) sees the configured props.
 	 *
 	 * @since 3.1.0

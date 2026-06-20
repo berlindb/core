@@ -29,7 +29,7 @@ defined( 'ABSPATH' ) || exit;
  *     }
  *
  * The base derives its name ({object}_meta), plugin prefix, and schema from that
- * meta Query — the exact same generated Schema instance the query runs against —
+ * meta Query - the exact same generated Schema instance the query runs against -
  * then behaves like any other Table: it registers itself with the database
  * interface and installs/upgrades through the normal Table lifecycle. A plugin
  * instantiates it alongside its other tables.

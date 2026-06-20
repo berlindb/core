@@ -614,8 +614,8 @@ trait Parser {
 	 * Resolve an operator's logical opposite to a registered instance.
 	 *
 	 * Looks the opposite up by its $compare through the same registry as every
-	 * other operator, so the result is the live, filtered singleton — honoring
-	 * any berlindb_database_operator_classes customization — not a throwaway
+	 * other operator, so the result is the live, filtered singleton - honoring
+	 * any berlindb_database_operator_classes customization - not a throwaway
 	 * default. Callers that only need the opposite's identifier should read
 	 * Operators\Base::get_opposite_compare() directly; this is for callers that
 	 * need the full object (its $sql_compare, $multi, custom behavior, etc.).
@@ -912,7 +912,7 @@ trait Parser {
 	 *
 	 * Called by Query::parse_single_orderby() for each registered parser.
 	 * Subclasses may override this to handle orderby values that belong to
-	 * their domain (e.g. the In parser handles '{column}__in' → FIELD()).
+	 * their domain (e.g. the In parser handles '{column}__in' -> FIELD()).
 	 * The default is a no-op.
 	 *
 	 * @since 3.0.0
@@ -930,7 +930,7 @@ trait Parser {
 	 * Generates SQL clauses to be appended to a main query.
 	 *
 	 * The preferred method for new code in 3.0.0 and later. Carries no legacy parameter
-	 * baggage — all context is derived from the parser state set at construction time.
+	 * baggage - all context is derived from the parser state set at construction time.
 	 *
 	 * Subclasses that need to perform setup before SQL is generated should override this
 	 * method rather than get_sql().
@@ -1122,7 +1122,7 @@ trait Parser {
 
 			/*
 			 * A list value defaults to IN, but a structured operand spec is not a
-			 * list — it defaults to equality (e.g. column-to-column `=`).
+			 * list - it defaults to equality (e.g. column-to-column `=`).
 			 */
 			$clause[ 'compare' ] = ( is_array( $clause_value ) && ! $this->is_operand_spec( $clause_value ) )
 				? 'IN'
@@ -1244,7 +1244,7 @@ trait Parser {
 	 *
 	 * A first-order clause reaches this point only because it requested a filter,
 	 * yet its key names no real column (a typo, or a column absent from this
-	 * schema). Emitting a never-true condition makes the clause match no rows —
+	 * schema). Emitting a never-true condition makes the clause match no rows -
 	 * rather than dropping it, which would silently WIDEN results to every row, a
 	 * dangerous outcome that is never the caller's intent.
 	 *
@@ -1268,7 +1268,7 @@ trait Parser {
 	 * 'cast' clause key the same way. 'cast' => true derives the target from the
 	 * column's own declared type; a non-empty string is an explicit override,
 	 * validated via sanitize_sql_cast_type(). Absent, false, null, or empty means
-	 * no cast — casting is never applied by default.
+	 * no cast - casting is never applied by default.
 	 *
 	 * An explicit but invalid string is a misconfiguration: it returns false so
 	 * the caller fails the clause closed (match no rows), rather than silently
@@ -1315,7 +1315,7 @@ trait Parser {
 	 * Whether a clause value is a structured operand spec (vs a scalar or list).
 	 *
 	 * A structured operand is an associative array carrying an explicit 'operand'
-	 * marker — e.g. `array( 'operand' => 'column', 'name' => 'last_name' )`. A bare
+	 * marker - e.g. `array( 'operand' => 'column', 'name' => 'last_name' )`. A bare
 	 * scalar, or a numeric-keyed list (an IN list), is NOT an operand spec and is
 	 * handled by the ordinary value path, so existing queries are unaffected.
 	 *
@@ -1343,12 +1343,12 @@ trait Parser {
 	 * but unresolvable (the caller must fail the clause closed).
 	 *
 	 * Supported operand kinds: `column` (a column reference, optional opt-in
-	 * `cast`, validated against $source's schema), `value` (a prepared literal —
+	 * `cast`, validated against $source's schema), `value` (a prepared literal -
 	 * mainly for nesting inside a function), and `func` (an allow-listed SQL
 	 * function wrapping recursive argument operands). An unknown column, unknown
 	 * function, bad arity, or disallowed argument kind all fail closed. The
 	 * referenced column(s) are qualified with $alias, which the caller supplies
-	 * from known query/relationship state — a caller-supplied alias string is
+	 * from known query/relationship state - a caller-supplied alias string is
 	 * never trusted here.
 	 *
 	 * @since 3.1.0
@@ -1520,7 +1520,7 @@ trait Parser {
 			/*
 			 * Schema-informed type check: a column argument's declared category
 			 * must be one the function accepts (e.g. YEAR() rejects a numeric
-			 * column). Literal and nested-function arguments are not type-checked —
+			 * column). Literal and nested-function arguments are not type-checked -
 			 * MySQL coerces freely, so this rejects obvious misuse, not everything.
 			 */
 			if ( ( $arg instanceof \BerlinDB\Database\Operands\Column ) && ! in_array( $arg->get_type_category(), $descriptor[ 'accepts' ], true ) ) {
@@ -1581,7 +1581,7 @@ trait Parser {
 	 *
 	 * Both sides are resolved operands (a bare column key becomes a Column
 	 * operand; a structured key/value resolves to any operand). The parser owns
-	 * this — rather than the operator — because operand rendering is uniform
+	 * this - rather than the operator - because operand rendering is uniform
 	 * across the scalar comparison operators (the operator contributes only its
 	 * SQL compare string), whereas value rendering is operator-specific (IN lists,
 	 * BETWEEN pairs, LIKE wildcards). It also avoids widening the public operator
@@ -1612,7 +1612,7 @@ trait Parser {
 	 * Assemble a unary comparison: `{lhs} {compare}` (e.g. `{col} IS NULL`).
 	 *
 	 * A unary operator takes no right-hand operand. The left side is a resolved
-	 * operand — a bare column or a structured expression.
+	 * operand - a bare column or a structured expression.
 	 *
 	 * @since 3.1.0
 	 *
@@ -1636,13 +1636,13 @@ trait Parser {
 	 * Build a comparison from a resolved left-hand operand, or false (fail closed).
 	 *
 	 * Shared by the compare and relationship clause builders once the left side is
-	 * an operand — a structured 'key', or a bare column wrapped as a Column
+	 * an operand - a structured 'key', or a bare column wrapped as a Column
 	 * operand. Three cases:
 	 *
-	 * - unary operator (`IS NULL`) → `{lhs} {compare}` (no right-hand side);
-	 * - a STRUCTURED right-hand operand (column-to-column, function = function) →
+	 * - unary operator (`IS NULL`) -> `{lhs} {compare}` (no right-hand side);
+	 * - a STRUCTURED right-hand operand (column-to-column, function = function) ->
 	 *   limited to the scalar expression operators, paired as two operands;
-	 * - a BARE right-hand value → paired with the OPERATOR's own value rendering
+	 * - a BARE right-hand value -> paired with the OPERATOR's own value rendering
 	 *   (`get_value_sql`), so `IN` / `BETWEEN` / `LIKE` / `REGEXP` / scalar all work
 	 *   uniformly: the operator owns the value fragment, the parser owns the LHS.
 	 *
@@ -1693,8 +1693,8 @@ trait Parser {
 	 * Assemble `{operand} {compare} {operator-rendered value}` for a bare value.
 	 *
 	 * Pairs an operand left-hand side with the operator's existing value renderer
-	 * (`get_value_sql`), so the operator keeps owning the value fragment — IN
-	 * parens, BETWEEN `AND`, LIKE wildcards, prepared scalars — while the parser
+	 * (`get_value_sql`), so the operator keeps owning the value fragment - IN
+	 * parens, BETWEEN `AND`, LIKE wildcards, prepared scalars - while the parser
 	 * supplies the (possibly function/column) left side.
 	 *
 	 * @since 3.1.0

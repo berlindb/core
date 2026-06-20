@@ -485,7 +485,7 @@ class CompareParserTest extends TestCase {
 	 *
 	 * This is the discriminating case: only correct parenthesization yields the
 	 * right rows. ( priority > 30 AND ( status = 'inactive' OR status = 'active' ) )
-	 * matches Delta only — Epsilon (50, pending) passes the priority test but fails
+	 * matches Delta only - Epsilon (50, pending) passes the priority test but fails
 	 * the grouped OR; if the OR were not grouped, operator precedence would let the
 	 * active rows leak in.
 	 *
@@ -664,7 +664,7 @@ class CompareParserTest extends TestCase {
 	}
 
 	/**
-	 * Test that an absent cast emits no CAST() — casting is opt-in, never default.
+	 * Test that an absent cast emits no CAST() - casting is opt-in, never default.
 	 *
 	 * @since 3.1.0
 	 */
@@ -683,7 +683,7 @@ class CompareParserTest extends TestCase {
 
 	/**
 	 * Test that an explicit but invalid cast fails the clause closed (matches no
-	 * rows) rather than silently comparing without a cast — mirroring the
+	 * rows) rather than silently comparing without a cast - mirroring the
 	 * relationship parser's fail-closed behavior.
 	 *
 	 * @since 3.1.0
@@ -719,7 +719,7 @@ class CompareParserTest extends TestCase {
 	}
 
 	/**
-	 * Test that a valid cast leaves results correct on a numeric column — the
+	 * Test that a valid cast leaves results correct on a numeric column - the
 	 * cast is additive, not a behavior change for already-numeric comparisons.
 	 *
 	 * @since 3.1.0
@@ -737,7 +737,7 @@ class CompareParserTest extends TestCase {
 			)
 		);
 
-		// priority > 25 → Gamma (30), Delta (40), Epsilon (50).
+		// priority > 25 -> Gamma (30), Delta (40), Epsilon (50).
 		$this->assertCount( 3, $results );
 
 		$names = wp_list_pluck( $results, 'name' );
@@ -1168,7 +1168,7 @@ class CompareParserTest extends TestCase {
 			)
 		);
 
-		// ABS(-30) = 30 → the Gamma Gadget row.
+		// ABS(-30) = 30 -> the Gamma Gadget row.
 		$this->assertCount( 1, $results );
 		$this->assertSame( 'Gamma Gadget', $results[0]->name );
 	}
@@ -1321,7 +1321,7 @@ class CompareParserTest extends TestCase {
 			)
 		);
 
-		// status 'active' has length 6 → Alpha + Beta.
+		// status 'active' has length 6 -> Alpha + Beta.
 		$this->assertCount( 2, $results );
 
 		$names = wp_list_pluck( $results, 'name' );
@@ -1331,7 +1331,7 @@ class CompareParserTest extends TestCase {
 
 	/**
 	 * Test that a left-hand function operand pairs with a bare value through the
-	 * operator's own value rendering — LOWER(name) LIKE '%x%' (the operator owns
+	 * operator's own value rendering - LOWER(name) LIKE '%x%' (the operator owns
 	 * the LIKE wildcards; the operand supplies the left side).
 	 *
 	 * @since 3.1.0
@@ -1570,7 +1570,7 @@ class CompareParserTest extends TestCase {
 
 	/**
 	 * Test that a date function rejects a numeric column argument (e.g. YEAR(id))
-	 * — schema-informed type validation fails the clause closed.
+	 * - schema-informed type validation fails the clause closed.
 	 *
 	 * @since 3.1.0
 	 */

@@ -116,7 +116,7 @@ class ReduceItemTest extends TestCase {
 	}
 
 	// ========================================================================
-	// Capability checks — logged-in admin (user 1).
+	// Capability checks - logged-in admin (user 1).
 	// ========================================================================
 
 	/**
@@ -159,7 +159,7 @@ class ReduceItemTest extends TestCase {
 	}
 
 	// ========================================================================
-	// Capability checks — anonymous user (user 0).
+	// Capability checks - anonymous user (user 0).
 	// ========================================================================
 
 	/**

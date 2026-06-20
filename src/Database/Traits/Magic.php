@@ -24,7 +24,7 @@ defined( 'ABSPATH' ) || exit;
  * by PHP without going through __get() or __isset() at all.
  *
  * Both methods follow the same resolution order:
- *   1. A get_{$key}() method, if one exists and is callable — this enables
+ *   1. A get_{$key}() method, if one exists and is callable - this enables
  *      virtual properties with no backing storage and lets subclasses override
  *      how a protected property appears externally.
  *   2. A real property with that name, if one exists.

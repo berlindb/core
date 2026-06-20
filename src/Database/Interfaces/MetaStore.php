@@ -24,7 +24,7 @@ defined( 'ABSPATH' ) || exit;
  * storage of non-scalars, and WP-compatible return values.
  *
  * Kern\Query routes its *_item_meta() methods to a store when its relationship
- * named 'meta' resolves to one — the accessor name picks WHICH relationship is
+ * named 'meta' resolves to one - the accessor name picks WHICH relationship is
  * the canonical meta relationship; this interface proves the remote can
  * actually perform meta operations. Implementations: Presets\Meta\Query (the
  * custom sibling-table recipe); a WP-core-backed adapter is a candidate later.
@@ -41,7 +41,7 @@ interface MetaStore {
 	 * @param int|string $object_id  Object ID the meta belongs to.
 	 * @param string     $meta_key   Meta key.
 	 * @param mixed      $meta_value Meta value (serialized for storage if non-scalar).
-	 * @param bool       $unique     Whether the key must be unique per object —
+	 * @param bool       $unique     Whether the key must be unique per object -
 	 *                               when true and the key exists, nothing is added.
 	 * @return int|false The new meta entry ID on success, false on failure.
 	 */

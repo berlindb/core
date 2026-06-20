@@ -16,7 +16,7 @@ namespace BerlinDB\Database\Operators;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * NOT REGEXP operator — negated regular expression match.
+ * NOT REGEXP operator - negated regular expression match.
  *
  * Generates a value fragment prepared for use in `{column} NOT REGEXP {pattern}`
  * expressions. The value is passed as-is to wpdb::prepare().

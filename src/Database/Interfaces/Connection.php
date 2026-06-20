@@ -226,7 +226,7 @@ interface Connection {
 	 * Append a table key to a named group array.
 	 *
 	 * Maps to the wpdb convention of $wpdb->tables[] and
-	 * $wpdb->ms_global_tables[]. The method is idempotent — duplicate entries
+	 * $wpdb->ms_global_tables[]. The method is idempotent - duplicate entries
 	 * are ignored.
 	 *
 	 * @since 3.0.0

@@ -315,7 +315,7 @@ class RelationshipTest extends TestCase {
 
 	/**
 	 * Test that a subclass can override how a property appears via a get_*()
-	 * method — the override that protected properties make possible (#46).
+	 * method - the override that protected properties make possible (#46).
 	 *
 	 * @since 3.1.0
 	 */

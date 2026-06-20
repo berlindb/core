@@ -26,7 +26,7 @@ use Yoast\WPTestUtils\WPIntegration\TestCase;
  */
 class SchemaFromTableTest extends TestCase {
 
-	// Guard rails — empty / nonexistent table.
+	// Guard rails - empty / nonexistent table.
 
 	/**
 	 * Empty table name returns an empty Schema.
@@ -76,7 +76,7 @@ class SchemaFromTableTest extends TestCase {
 		$this->assertEmpty( $schema->columns );
 	}
 
-	// wp_posts — existence and shape.
+	// wp_posts - existence and shape.
 
 	/**
 	 * from_table( wp_posts ) returns a Schema instance.
@@ -131,7 +131,7 @@ class SchemaFromTableTest extends TestCase {
 		$this->assertGreaterThanOrEqual( 23, count( $schema->columns ) );
 	}
 
-	// wp_posts.ID — primary bigint unsigned.
+	// wp_posts.ID - primary bigint unsigned.
 
 	/**
 	 * wp_posts.ID column is present in the schema.
@@ -229,7 +229,7 @@ class SchemaFromTableTest extends TestCase {
 		$this->assertFalse( $id_col->date_query );
 	}
 
-	// wp_posts.post_date — datetime.
+	// wp_posts.post_date - datetime.
 
 	/**
 	 * wp_posts.post_date sets the date_query flag.
@@ -270,7 +270,7 @@ class SchemaFromTableTest extends TestCase {
 		$this->assertFalse( $date_col->primary );
 	}
 
-	// wp_posts.post_status — varchar.
+	// wp_posts.post_status - varchar.
 
 	/**
 	 * wp_posts.post_status has type VARCHAR (Column stores types in uppercase).
@@ -298,7 +298,7 @@ class SchemaFromTableTest extends TestCase {
 		$this->assertFalse( $status_col->date_query );
 	}
 
-	// wp_users — separate table introspection.
+	// wp_users - separate table introspection.
 
 	/**
 	 * from_table( wp_users ) returns a Schema instance.

@@ -20,7 +20,7 @@ defined( 'ABSPATH' ) || exit;
 /**
  * Adapts \wpdb to the BerlinDB Connection interface.
  *
- * Thin delegation layer — every Connection method proxies directly to the
+ * Thin delegation layer - every Connection method proxies directly to the
  * wrapped \wpdb instance.  Property-based access on wpdb (insert_id, charset,
  * collate, dynamic table names) is surfaced as typed methods so callers only
  * depend on the Connection interface.

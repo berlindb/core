@@ -3,7 +3,7 @@
  * Schema primary-key reconciliation tests.
  *
  * A column flagged primary AND a primary index covering that column describe ONE
- * primary key — the flag is the semantic marker queries/parsers read; the index
+ * primary key - the flag is the semantic marker queries/parsers read; the index
  * emits the DDL. Real conflicts (multiple primary indexes, multiple flagged
  * columns without a covering composite index, a flagged column the primary index
  * does not cover) still fail validation.

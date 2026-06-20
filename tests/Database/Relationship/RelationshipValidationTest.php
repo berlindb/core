@@ -3,7 +3,7 @@
  * Relationship self-shape validation tests (#206).
  *
  * Relationship::get_validation_errors() reports only what the value object can
- * see in isolation — no owning Schema, no remote resolution. Local-column and
+ * see in isolation - no owning Schema, no remote resolution. Local-column and
  * remote checks live in Schema/Query and are tested there.
  *
  * @package     BerlinDB\Tests

@@ -129,7 +129,7 @@ class QueryCacheTest extends TestCase {
 
 	/**
 	 * After deleting an item, re-querying with the same args on the same
-	 * instance must reflect the deletion — not return the stale cached result.
+	 * instance must reflect the deletion - not return the stale cached result.
 	 *
 	 * This is the regression case from berlindb/core#160: the old
 	 * set_last_changed() guard (`if (empty($this->last_changed))`)
@@ -144,7 +144,7 @@ class QueryCacheTest extends TestCase {
 			'status' => 'active',
 		);
 
-		// Prime the cache — one item exists.
+		// Prime the cache - one item exists.
 		$before = self::$query->query( $args );
 		$this->assertCount( 1, $before );
 
@@ -204,10 +204,10 @@ class QueryCacheTest extends TestCase {
 			'cache_results' => true,
 		);
 
-		// Run a no-cache query — must not write anything to the cache.
+		// Run a no-cache query - must not write anything to the cache.
 		self::$query->query( $args_no_cache );
 
-		// Now run the equivalent cache-enabled query — cache is cold, so DB hit expected.
+		// Now run the equivalent cache-enabled query - cache is cold, so DB hit expected.
 		$queries_before = $wpdb->num_queries;
 		self::$query->query( $args_with_cache );
 		$queries_after = $wpdb->num_queries;

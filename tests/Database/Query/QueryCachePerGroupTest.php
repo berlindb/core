@@ -12,8 +12,8 @@
  *   | insert                      | rotates               | rotates (all)         |
  *   | delete                      | rotates               | rotates (all)         |
  *
- * The payoff: a write that cannot affect a column's value→ID mapping leaves that
- * column's get_item_by() lookups warm — yet they still resolve fresh objects,
+ * The payoff: a write that cannot affect a column's value->ID mapping leaves that
+ * column's get_item_by() lookups warm - yet they still resolve fresh objects,
  * because resolution goes through the by-id cache, which every write refreshes.
  *
  * The TestSchema fixture has one secondary cache_key column ('status') and the
@@ -142,7 +142,7 @@ class QueryCachePerGroupTest extends TestCase {
 
 	/**
 	 * Updating a non-cache_key column rotates the Query group but leaves the
-	 * secondary 'status' group untouched — the win.
+	 * secondary 'status' group untouched - the win.
 	 *
 	 * @since 3.1.0
 	 */
@@ -218,7 +218,7 @@ class QueryCachePerGroupTest extends TestCase {
 	}
 
 	/**
-	 * Deleting a row rotates every secondary group (its value→ID mappings are
+	 * Deleting a row rotates every secondary group (its value->ID mappings are
 	 * gone).
 	 *
 	 * @since 3.1.0
@@ -245,7 +245,7 @@ class QueryCachePerGroupTest extends TestCase {
 
 	/**
 	 * A warm status lookup that survives an unrelated update must still resolve
-	 * the row's FRESH data — the pointer stays valid, but the object is read
+	 * the row's FRESH data - the pointer stays valid, but the object is read
 	 * through the by-id cache that the update refreshed.
 	 *
 	 * @since 3.1.0

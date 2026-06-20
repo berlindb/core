@@ -242,8 +242,8 @@ trait Sanitizer {
 	 *
 	 * A clean, general validator for the safe subset of CAST targets: BINARY,
 	 * CHAR (optionally length), DATE, DATETIME, TIME, SIGNED, UNSIGNED, and
-	 * DECIMAL (optionally precision/scale). Anything else REJECTS to '' — an
-	 * empty result meaning "no cast" — rather than coercing to a default type.
+	 * DECIMAL (optionally precision/scale). Anything else REJECTS to '' - an
+	 * empty result meaning "no cast" - rather than coercing to a default type.
 	 *
 	 * Unlike Parser::get_cast_for_type(), this carries none of meta_query's
 	 * legacy vocabulary (no NUMERIC fold, no CHAR fallback); that mapper is now
@@ -276,7 +276,7 @@ trait Sanitizer {
 	 *
 	 * The $cast MUST already be normalized (e.g. via sanitize_sql_cast_type() or
 	 * get_cast_for_type()); this method does not validate it. Only an empty $cast
-	 * is a no-op — every other target (including CHAR, which is a valid cast for
+	 * is a no-op - every other target (including CHAR, which is a valid cast for
 	 * string-semantics comparison or LIKE on a numeric column) is wrapped. A
 	 * caller that uses CHAR as a "no cast" sentinel must map it to '' first.
 	 *

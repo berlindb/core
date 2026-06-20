@@ -96,7 +96,7 @@ class TestSchema extends Schema {
 			'sortable'   => true,
 		),
 
-		// UUID column — exercises special_args() UUID branch.
+		// UUID column - exercises special_args() UUID branch.
 		array(
 			'uuid' => true,
 		),

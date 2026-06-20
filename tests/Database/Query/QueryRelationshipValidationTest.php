@@ -4,7 +4,7 @@
  *
  * Query::get_relationship_errors() resolves each remote Query and checks what
  * only it can see: the class is a real sibling Query, and the referenced remote
- * columns exist. It is on demand by design — a plugin's tests or dev tooling call
+ * columns exist. It is on demand by design - a plugin's tests or dev tooling call
  * it explicitly.
  *
  * @package     BerlinDB\Tests

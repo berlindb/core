@@ -121,7 +121,7 @@ class TableSQLAttributesTest extends TestCase {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param string               $suffix Short name suffix — appended to the
+	 * @param string               $suffix Short name suffix - appended to the
 	 *                                     base scratch name to keep tables unique.
 	 * @param array<string, mixed> $args   Additional constructor arguments (e.g.
 	 *                                     engine, row_format, auto_increment).

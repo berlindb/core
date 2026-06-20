@@ -5,7 +5,7 @@
  * These exercise Parsers\Relationship in isolation: a lightweight fake caller
  * supplies the relationship clauses and resolved Relationship objects, and a
  * no-database remote Query fixture supplies the joined schema. No table is
- * installed and no query is executed — the tests assert the JOIN/WHERE SQL the
+ * installed and no query is executed - the tests assert the JOIN/WHERE SQL the
  * parser generates (and its fail-closed behaviour) directly.
  *
  * @package     BerlinDB\Tests
@@ -381,7 +381,7 @@ class RelationshipParserTest extends TestCase {
 
 	/**
 	 * Test that an explicit but invalid cast fails closed (no rows), consistent
-	 * with the rest of the relationship API — a misspelled 'SIGNED' must not fall
+	 * with the rest of the relationship API - a misspelled 'SIGNED' must not fall
 	 * back to a silent lexical string comparison.
 	 *
 	 * @since 3.1.0
@@ -465,7 +465,7 @@ class RelationshipParserTest extends TestCase {
 	/**
 	 * Test that a descriptor-form operand with an unrecognized compare falls back
 	 * to equality (column-to-column), consistent with the bare-operand and Compare
-	 * paths — not to IN, which would reject the operand and fail closed.
+	 * paths - not to IN, which would reject the operand and fail closed.
 	 *
 	 * @since 3.1.0
 	 */
@@ -687,7 +687,7 @@ class RelationshipParserTest extends TestCase {
 			)
 		);
 
-		// EXISTS lives entirely in the WHERE — there is no JOIN.
+		// EXISTS lives entirely in the WHERE - there is no JOIN.
 		$this->assertSame( '', $result['join'] );
 		$this->assertStringContainsString( 'EXISTS ( SELECT 1 FROM', $result['where'] );
 		$this->assertStringContainsString( 'AS `bdb_rel_items`', $result['where'] );
@@ -883,7 +883,7 @@ class RelationshipParserTest extends TestCase {
 				$a, // A
 				array(
 					'relation' => 'OR',
-					$a, // A again, in a DIFFERENT group — must not be suppressed.
+					$a, // A again, in a DIFFERENT group - must not be suppressed.
 					array(
 						'name'  => 'items',
 						'where' => array( 'total' => 100 ), // B
@@ -895,7 +895,7 @@ class RelationshipParserTest extends TestCase {
 			)
 		);
 
-		// Three clauses built (root A, nested A, nested B) → three distinct aliases.
+		// Three clauses built (root A, nested A, nested B) -> three distinct aliases.
 		$this->assertStringContainsString( 'AS `bdb_rel_items`', $result['where'] );
 		$this->assertStringContainsString( 'AS `bdb_rel_items_2`', $result['where'] );
 		$this->assertStringContainsString( 'AS `bdb_rel_items_3`', $result['where'] );
@@ -964,7 +964,7 @@ class RelationshipParserTest extends TestCase {
 
 	/**
 	 * Test that a malformed clause (no name) FAILS CLOSED rather than being
-	 * silently skipped — an explicit-but-misconfigured relationship filter must
+	 * silently skipped - an explicit-but-misconfigured relationship filter must
 	 * match no rows, not all rows.
 	 *
 	 * @since 3.1.0

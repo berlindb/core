@@ -16,7 +16,7 @@ namespace BerlinDB\Database\Operators;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * LIKE operator — partial string match.
+ * LIKE operator - partial string match.
  *
  * The value is trimmed, escaped with wpdb::esc_like(), and wrapped in `%`
  * wildcards before being prepared. Generates: `LIKE '%value%'`.

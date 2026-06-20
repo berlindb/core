@@ -22,7 +22,7 @@ class LifecycleTestDouble {
 
 	use \BerlinDB\Database\Traits\Lifecycle;
 
-	/** @var string[] Ordered call log — entries are 'start' or 'finish'. */
+	/** @var string[] Ordered call log - entries are 'start' or 'finish'. */
 	public $log = array();
 
 	/**
@@ -132,7 +132,7 @@ class LifecycleTest extends \PHPUnit\Framework\TestCase {
 				}
 			);
 		} catch ( \RuntimeException $e ) {
-			// Expected — we only care that finish() still fired.
+			// Expected - we only care that finish() still fired.
 		}
 
 		$this->assertContains( 'finish', $this->subject->log );

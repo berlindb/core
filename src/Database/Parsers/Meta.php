@@ -208,12 +208,12 @@ class Meta extends Base {
 	 * array. When both are present they are combined with an AND relation.
 	 *
 	 * Accepted shorthand keys:
-	 *   meta_key         — the meta key name
-	 *   meta_value       — the meta value to compare against
-	 *   meta_compare     — comparison operator (default '=')
-	 *   meta_type        — cast type for the value (default 'CHAR')
-	 *   meta_compare_key — comparison operator for the key column (default '=')
-	 *   meta_type_key    — cast type for the key column (default 'CHAR')
+	 *   meta_key         - the meta key name
+	 *   meta_value       - the meta value to compare against
+	 *   meta_compare     - comparison operator (default '=')
+	 *   meta_type        - cast type for the value (default 'CHAR')
+	 *   meta_compare_key - comparison operator for the key column (default '=')
+	 *   meta_type_key    - cast type for the key column (default 'CHAR')
 	 *
 	 * @since 3.0.0
 	 *
@@ -227,10 +227,10 @@ class Meta extends Base {
 		 * If $qv is already a meta_query clause array (narrowed by the caller
 		 * before init() ran), return it unchanged. A positional list has a [0];
 		 * a multi-clause group has a 'relation'; a NAMED-only meta_query (its
-		 * clauses keyed by string name, e.g. 'price_clause' => array( … )) has
+		 * clauses keyed by string name, e.g. 'price_clause' => array( ... )) has
 		 * neither, so its members are inspected. Without the named case a
 		 * string-keyed meta_query is mistaken for flat meta_* vars and silently
-		 * dropped — it would neither filter nor sort.
+		 * dropped - it would neither filter nor sort.
 		 */
 		if ( $this->is_meta_query_clauses( $qv ) ) {
 			return $qv;
@@ -283,7 +283,7 @@ class Meta extends Base {
 	 *
 	 * Recognises four shapes: a positional list ( `[0]` is a clause ), a
 	 * multi-clause group ( a 'relation' ), a bare first-order clause ( the array
-	 * IS a single clause, e.g. array( 'key' => …, 'value' => … ) ), and a NAMED
+	 * IS a single clause, e.g. array( 'key' => ..., 'value' => ... ) ), and a NAMED
 	 * set ( string-keyed clauses ). The first two are cheap key checks; the last
 	 * two test for first-order meta keys, since neither carries a structural
 	 * marker of its own.
@@ -415,7 +415,7 @@ class Meta extends Base {
 	 * The params carry no native type and are documented `string` only as the
 	 * expected type: get_sql() is a back-compat entry point, so a legacy caller
 	 * passing a non-string (effectively `mixed` at runtime) is sanitized to false
-	 * here — as it was before this tail was extracted — rather than raising a
+	 * here - as it was before this tail was extracted - rather than raising a
 	 * TypeError. Pass strings; non-strings fail closed.
 	 *
 	 * @param string $type           Meta type (e.g. 'post'); the meta table is derived from it.
@@ -506,7 +506,7 @@ class Meta extends Base {
 
 		/*
 		 * Operators. Unary predicates (IS NULL) aren't built by the meta engine
-		 * yet, so exclude them here — an unrecognized compare falls back to '='
+		 * yet, so exclude them here - an unrecognized compare falls back to '='
 		 * rather than silently no-op'ing. Meta IS NULL support is tracked in #211.
 		 */
 		$non_numeric_operators = $this->get_operators(
@@ -734,7 +734,7 @@ class Meta extends Base {
 			}
 		}
 
-		// meta_value — build_value() normalises the mixed input.
+		// meta_value - build_value() normalises the mixed input.
 		if ( array_key_exists( 'value', $clause ) ) {
 			$where = $this->build_value( $meta_compare, $clause[ 'value' ], '%s' );
 
@@ -798,7 +798,7 @@ class Meta extends Base {
 
 		/*
 		 * Store-backed path: the meta_query was built into relation_query EXISTS,
-		 * so there is no JOIN alias to order on — order by a correlated subquery
+		 * so there is no JOIN alias to order on - order by a correlated subquery
 		 * against the sibling for the key normalize_query_vars() recorded (under
 		 * 'meta_value' / 'meta_value_num' or a named clause). Returns '' when this
 		 * token isn't a recorded store order, falling through to the WP clause path.
@@ -885,7 +885,7 @@ class Meta extends Base {
 	 * store-backed relationship path read this one rule so they cannot drift
 	 * (see berlindb/core#210). Each path then applies the returned type in its
 	 * own idiom (the JOIN engine emits `REGEXP BINARY`, the relationship path a
-	 * `CAST(... AS BINARY)` reference) — both case-sensitive.
+	 * `CAST(... AS BINARY)` reference) - both case-sensitive.
 	 *
 	 * @since 3.1.0
 	 *
@@ -932,16 +932,16 @@ class Meta extends Base {
 			: ( ( 'CHAR' === $cast ) ? '' : $cast );
 	}
 
-	/** meta_query → relationship clauses (store-backed objects, #204 Phase B) */
+	/** meta_query -> relationship clauses (store-backed objects, #204 Phase B) */
 
 	/**
 	 * Build relationship filters from a store-backed meta_query (early, before parsing).
 	 *
 	 * For a caller whose 'meta' relationship resolves to an Interfaces\MetaStore,
-	 * the WordPress-shaped meta vars (meta_query / meta_key / meta_value / …) are
+	 * the WordPress-shaped meta vars (meta_query / meta_key / meta_value / ...) are
 	 * rewritten into relationship EXISTS clauses on relation_query against the
 	 * custom sibling table, and the meta vars are stripped so this parser does not
-	 * also run at build time. Callers WITHOUT a meta store are left untouched — the
+	 * also run at build time. Callers WITHOUT a meta store are left untouched - the
 	 * bespoke engine above remains the WordPress-metadata path.
 	 *
 	 * @since 3.1.0
@@ -969,7 +969,7 @@ class Meta extends Base {
 		 * Preserve the ordered key(s)/cast(s) the query's orderby asks for, before
 		 * the meta vars are stripped (Phase C): get_orderby_sql() still needs them
 		 * to build a correlated subquery against the sibling. This directive is an
-		 * unregistered build-time pointer — it does NOT need to be cache-keyed,
+		 * unregistered build-time pointer - it does NOT need to be cache-keyed,
 		 * because the ordered keys already ride in relation_query (the EXISTS
 		 * filter, registered/cache-keyed) and in the registered `orderby` var.
 		 */
@@ -997,8 +997,8 @@ class Meta extends Base {
 
 		/*
 		 * AND the built meta group with any existing relationship filter.
-		 * Nest the existing query as a subgroup so its own relation — including a
-		 * top-level 'relation' => 'OR' — is preserved, rather than absorbing the
+		 * Nest the existing query as a subgroup so its own relation - including a
+		 * top-level 'relation' => 'OR' - is preserved, rather than absorbing the
 		 * meta group into that OR list (which would wrongly OR-combine them). The
 		 * root group is an implicit AND, so the two sit side by side under it.
 		 */
@@ -1105,8 +1105,8 @@ class Meta extends Base {
 		}
 
 		/*
-		 * A bare first-order associative meta_query (key/value/compare/… at the top
-		 * level) is a single clause, not a list — wrap it so the builder treats
+		 * A bare first-order associative meta_query (key/value/compare/... at the top
+		 * level) is a single clause, not a list - wrap it so the builder treats
 		 * it as one clause rather than iterating its keys as members.
 		 */
 		if ( ! empty( $meta_query ) && $this->is_first_order_meta_clause( $meta_query ) ) {
@@ -1140,7 +1140,7 @@ class Meta extends Base {
 	 *
 	 * WordPress orders `meta_value` by the simple / first clause; mirror that by
 	 * descending to the first leaf clause that carries a scalar `key`. The cast is
-	 * mapped from the clause's `type` ('CHAR' → '' no-cast sentinel).
+	 * mapped from the clause's `type` ('CHAR' -> '' no-cast sentinel).
 	 *
 	 * @since 3.1.0
 	 *
@@ -1181,7 +1181,7 @@ class Meta extends Base {
 	 * @since 3.1.0
 	 *
 	 * @param array<string,mixed> $clause A leaf clause with a scalar 'key'.
-	 * @return array{key: string, cast: string} The ordered key + cast ('CHAR' → '').
+	 * @return array{key: string, cast: string} The ordered key + cast ('CHAR' -> '').
 	 */
 	private function orderby_entry_for_clause( array $clause ): array {
 
@@ -1199,8 +1199,8 @@ class Meta extends Base {
 	 * For a store-backed query, get_orderby_sql() needs each ordered key after the
 	 * meta vars are stripped. Build an unregistered `meta_orderby` directive mapping
 	 * each REQUESTED orderby token to its { key, cast }:
-	 *  - `meta_value` / `meta_value_num` → the simple / first clause (WP-parity),
-	 *  - a NAMED meta_query clause (`'rating' => array( 'key' => 'rating', … )`) →
+	 *  - `meta_value` / `meta_value_num` -> the simple / first clause (WP-parity),
+	 *  - a NAMED meta_query clause (`'rating' => array( 'key' => 'rating', ... )`) ->
 	 *    that clause, claimable by `orderby => 'rating'`.
 	 * Only tokens the orderby actually uses are recorded, so non-meta orders add
 	 * nothing.
@@ -1275,7 +1275,7 @@ class Meta extends Base {
 	 * Return each NAMED meta_query clause's orderby entry, keyed by clause name.
 	 *
 	 * A clause keyed by a STRING in the tree (other than 'relation') is a named
-	 * clause; map name → { key, cast } so `orderby => '<name>'` can claim it.
+	 * clause; map name -> { key, cast } so `orderby => '<name>'` can claim it.
 	 *
 	 * @since 3.1.0
 	 *
@@ -1373,7 +1373,7 @@ class Meta extends Base {
 
 		/*
 		 * Determinism when an object has multiple values for the key: take the
-		 * oldest row by meta_id (the preset's PK) — WP-ish "first value". Guarded
+		 * oldest row by meta_id (the preset's PK) - WP-ish "first value". Guarded
 		 * on the column existing, since a MetaStore need not be the preset; without
 		 * it the subquery falls back to the database's arbitrary first-row pick.
 		 */
@@ -1515,7 +1515,7 @@ class Meta extends Base {
 			 * A negative compare_key means "the object has NO matching key", so the
 			 * whole clause is NOT EXISTS. It cannot also carry a value: that would
 			 * mix object-level key absence with row-level value presence, which a
-			 * single EXISTS clause can't express — fail closed for that combination.
+			 * single EXISTS clause can't express - fail closed for that combination.
 			 */
 			if ( $key_condition[ 'negate' ] ) {
 				if ( array_key_exists( 'value', $meta_clause ) && ! in_array( $compare, array( 'EXISTS', 'NOT EXISTS' ), true ) ) {
@@ -1558,7 +1558,7 @@ class Meta extends Base {
 	 *
 	 * Positive comparisons map directly to the shared Operators. A NEGATIVE key
 	 * comparison (`!=` / `NOT IN` / `NOT LIKE` / `NOT REGEXP` / `NOT EXISTS`) is
-	 * flipped to its positive opposite and the clause is marked to negate — the
+	 * flipped to its positive opposite and the clause is marked to negate - the
 	 * caller emits it as `NOT EXISTS`. That mirrors the bespoke engine's nested
 	 * NOT EXISTS: the semantics are "the object has NO meta row whose key matches"
 	 * (not "has some other key"), which avoids cross-key contamination. `!=` and
@@ -1584,9 +1584,9 @@ class Meta extends Base {
 			: ( is_array( $key ) ? 'IN' : '=' );
 
 		/*
-		 * Negative key operator → flip to its positive opposite and negate the
+		 * Negative key operator -> flip to its positive opposite and negate the
 		 * clause. The Operator object owns both facts: is_positive() and the
-		 * opposite's compare string (e.g. 'NOT REGEXP' → 'REGEXP', '!=' → '=').
+		 * opposite's compare string (e.g. 'NOT REGEXP' -> 'REGEXP', '!=' -> '=').
 		 */
 		$operator = $this->get_operator( $compare_key );
 		$negate   = ( false !== $operator ) && ! $operator->is_positive();
@@ -1598,8 +1598,8 @@ class Meta extends Base {
 
 		/*
 		 * Only a positive, non-numeric, non-unary operator is a valid key
-		 * comparison (=, EXISTS, IN, LIKE, REGEXP, RLIKE). Anything else — an
-		 * unknown compare, a numeric/range operator, or a unary IS NULL — cannot
+		 * comparison (=, EXISTS, IN, LIKE, REGEXP, RLIKE). Anything else - an
+		 * unknown compare, a numeric/range operator, or a unary IS NULL - cannot
 		 * be expressed as a meta_key condition; fail closed.
 		 */
 		if ( ( false === $operator ) || $operator->is_numeric() || $operator->is_unary() ) {
@@ -1609,9 +1609,9 @@ class Meta extends Base {
 		/*
 		 * Shape the relationship where-condition from the operator's descriptors
 		 * rather than a hardcoded compare-string switch:
-		 *  - equality (Equal/Exists, sql_compare '=') → a bare scalar,
-		 *  - multi (IN) → an array,
-		 *  - otherwise a pattern op (LIKE/REGEXP/RLIKE) → an explicit { compare,
+		 *  - equality (Equal/Exists, sql_compare '=') -> a bare scalar,
+		 *  - multi (IN) -> an array,
+		 *  - otherwise a pattern op (LIKE/REGEXP/RLIKE) -> an explicit { compare,
 		 *    value } with the optional type_key BINARY cast.
 		 *
 		 * 'meta_key' is the sibling table's own indexed column name (a

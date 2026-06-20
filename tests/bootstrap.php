@@ -26,7 +26,7 @@ require_once $library_dir . '/vendor/autoload.php';
 // Load yoast WP test utils bootstrap helpers.
 require_once $library_dir . '/vendor/yoast/wp-test-utils/src/WPIntegration/bootstrap-functions.php';
 
-// Resolve WP_TESTS_DIR (env var → constant → /tmp/wordpress-tests-lib).
+// Resolve WP_TESTS_DIR (env var -> constant -> /tmp/wordpress-tests-lib).
 $_tests_dir = WPIntegration\get_path_to_wp_test_dir();
 
 if ( empty( $_tests_dir ) ) {
@@ -47,7 +47,7 @@ if ( ! file_exists( $_tests_dir . '/includes/functions.php' ) ) {
 require_once $_tests_dir . '/includes/functions.php';
 
 /*
- * BerlinDB is a library loaded via Composer — no plugin to activate.
+ * BerlinDB is a library loaded via Composer - no plugin to activate.
  * bootstrap_it() defines ABSPATH, which every src/ file guards against.
  */
 WPIntegration\bootstrap_it();

@@ -5,7 +5,7 @@
  * Kern\Query's *_item_meta() methods are routers: when the relationship named
  * 'meta' resolves to a remote implementing Interfaces\MetaStore, operations
  * delegate to the store; otherwise they fall through to the legacy WordPress
- * metadata path. Both checks are required — the accessor name picks WHICH
+ * metadata path. Both checks are required - the accessor name picks WHICH
  * relationship, the interface proves capability.
  *
  * Uses an in-memory MetaStore fixture (static state, since the resolver
@@ -43,7 +43,7 @@ class RouteStoreSchema extends Schema {
 	);
 }
 
-/** An in-memory MetaStore — static state survives fresh resolution per call. */
+/** An in-memory MetaStore - static state survives fresh resolution per call. */
 class RouteMemoryStoreQuery extends Query implements MetaStore {
 	protected $prefix       = 'rt';
 	protected $table_name   = 'thing_meta';
@@ -119,7 +119,7 @@ class RoutePlainRemoteQuery extends Query {
 	protected $cache_group  = 'plain_meta';
 }
 
-/** Primary schema declaring 'meta' → the MetaStore fixture. */
+/** Primary schema declaring 'meta' -> the MetaStore fixture. */
 class RouteThingSchema extends Schema {
 	public $columns = array(
 		array(
@@ -138,7 +138,7 @@ class RouteThingSchema extends Schema {
 	);
 }
 
-/** Primary schema declaring 'meta' → a NON-store remote. */
+/** Primary schema declaring 'meta' -> a NON-store remote. */
 class RoutePlainSchema extends Schema {
 	public $columns = array(
 		array(
@@ -336,7 +336,7 @@ class QueryMetaStoreRoutingTest extends TestCase {
 	 * A 'meta' relationship to a non-store remote falls back to the WP path.
 	 *
 	 * No {plain}meta table is registered with WordPress, so the legacy path
-	 * returns false — proving the non-store remote was not treated as a store.
+	 * returns false - proving the non-store remote was not treated as a store.
 	 *
 	 * @since 3.1.0
 	 */

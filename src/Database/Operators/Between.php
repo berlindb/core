@@ -16,7 +16,7 @@ namespace BerlinDB\Database\Operators;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * BETWEEN operator — inclusive range comparison.
+ * BETWEEN operator - inclusive range comparison.
  *
  * Generates: `%s AND %s`
  *
@@ -95,7 +95,7 @@ class Between extends Base {
 			? array_slice( $value, 0, 2 )
 			: array();
 
-		// Bail if fewer than two values — BETWEEN requires both a low and high bound.
+		// Bail if fewer than two values - BETWEEN requires both a low and high bound.
 		if ( count( $value ) < 2 ) {
 			return '';
 		}

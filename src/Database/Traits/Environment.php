@@ -66,7 +66,7 @@ trait Environment {
 		static $cache = array();
 		global ${$db_global};
 
-		// Already adapted — return as-is (supports non-WordPress environments).
+		// Already adapted - return as-is (supports non-WordPress environments).
 		if ( ${$db_global} instanceof Connection ) {
 			return ${$db_global};
 		}

@@ -21,8 +21,8 @@ defined( 'ABSPATH' ) || exit;
  *
  * This is the universal config channel: configure() takes the construct args,
  * assigns the ones that form a definition to properties (via set_vars()), and
- * hands back whatever it did not consume. It is define-once — sealed by
- * is_configured() — so an instance's identity cannot be redefined after it has
+ * hands back whatever it did not consume. It is define-once - sealed by
+ * is_configured() - so an instance's identity cannot be redefined after it has
  * been settled.
  *
  * Boot drives this: it calls configure() first in the construction sequence, so
@@ -53,8 +53,8 @@ trait Configuration {
 	 * Stashed copy of constructor arguments and initial property values.
 	 *
 	 * Set by stash_args() during configuration. Keys:
-	 *   'param' — the raw $args passed to __construct()
-	 *   'class' — snapshot of all object properties at construction time
+	 *   'param' - the raw $args passed to __construct()
+	 *   'class' - snapshot of all object properties at construction time
 	 *
 	 * @since 3.0.0
 	 * @var   array<string,mixed>
@@ -64,7 +64,7 @@ trait Configuration {
 	/**
 	 * Whether this instance's definition has been settled.
 	 *
-	 * Set when configure() makes its decision — whether it applies a definition
+	 * Set when configure() makes its decision - whether it applies a definition
 	 * from the construct args, or defers to the class's own property defaults (a
 	 * subclass that hardcodes its identity). Sealing configure() on this flag
 	 * keeps the definition define-once. Set during construction, before $booted.
@@ -77,7 +77,7 @@ trait Configuration {
 	/**
 	 * Accept configuration: assign config arguments to object properties.
 	 *
-	 * This is the universal construction channel — every Kern class configures
+	 * This is the universal construction channel - every Kern class configures
 	 * itself here, before init() derives state from those properties.
 	 * The default treats all $args as configuration and consumes them; a class
 	 * (Query) may override is_configuration() to claim only some args as config
@@ -91,13 +91,13 @@ trait Configuration {
 	 */
 	protected function configure( array $args = array() ): array {
 
-		// Bail if already configured — the definition is sealed.
+		// Bail if already configured - the definition is sealed.
 		if ( $this->is_configured() ) {
 			return $args;
 		}
 
 		/*
-		 * Seal: the definition is settled the moment configure() decides — applied
+		 * Seal: the definition is settled the moment configure() decides - applied
 		 * from these args below, or left as the class's own property defaults when
 		 * the args are not a definition (a subclass that hardcodes its identity).
 		 */
@@ -114,8 +114,8 @@ trait Configuration {
 		/*
 		 * In strict mode, drop (and report) keys that are NOT a declared config
 		 * key (get_config_callbacks()). Recognizing only the declared config
-		 * surface — rather than every visible property — keeps framework-internal
-		 * state (booted, configured, current, logs, …) from being set via config.
+		 * surface - rather than every visible property - keeps framework-internal
+		 * state (booted, configured, current, logs, ...) from being set via config.
 		 */
 		if ( $this->is_strict_config() ) {
 			$recognized = array_fill_keys( array_keys( $this->get_config_callbacks() ), null );
@@ -133,8 +133,8 @@ trait Configuration {
 			/*
 			 * Merge against the current property snapshot, minus the reserved
 			 * construction-machinery vars (get_reserved_vars()). Excluding them
-			 * keeps set_vars() below from re-applying internal state — most
-			 * importantly the empty log — over anything a sanitizer in
+			 * keeps set_vars() below from re-applying internal state - most
+			 * importantly the empty log - over anything a sanitizer in
 			 * validate_args() emitted.
 			 */
 			$reserved = array_flip( $this->get_reserved_vars() );
@@ -155,7 +155,7 @@ trait Configuration {
 	 * Whether the given construct args are configuration (to assign as
 	 * properties), or should be handed back to consume_args() for other handling.
 	 *
-	 * Default: yes — every class treats its construct args as configuration.
+	 * Default: yes - every class treats its construct args as configuration.
 	 *
 	 * Query overrides this to recognize a definition (schema-carrying args) and
 	 * hand query vars back instead. Overriding THIS (rather than configure())
@@ -174,7 +174,7 @@ trait Configuration {
 	/**
 	 * Whether this instance's definition has been settled.
 	 *
-	 * True once configure() has run — whether the definition came from the
+	 * True once configure() has run - whether the definition came from the
 	 * construct args or from the class's own property defaults (a subclass that
 	 * hardcodes its identity). The definition is define-once: configure() is a
 	 * no-op once this is true.
@@ -255,13 +255,13 @@ trait Configuration {
 	 * (get_config_callbacks()).
 	 *
 	 * Default true (opt-out): a key outside the declared config surface is logged
-	 * and dropped instead of reaching set_vars() — which both catches typos and
+	 * and dropped instead of reaching set_vars() - which both catches typos and
 	 * keeps framework-internal state (args, booted, configured, current, logs)
 	 * from being set via config. A class's declared config keys are unaffected.
 	 *
 	 * Override to false on a #[\AllowDynamicProperties] class whose config
-	 * legitimately sets undeclared properties — Row, whose data columns ARE
-	 * dynamic properties (and are not declared in a callback map) — otherwise
+	 * legitimately sets undeclared properties - Row, whose data columns ARE
+	 * dynamic properties (and are not declared in a callback map) - otherwise
 	 * every such key would be (wrongly) dropped.
 	 *
 	 * @since 3.1.0
@@ -278,7 +278,7 @@ trait Configuration {
 	 * These are framework-internal properties (the config stash, the boot/config
 	 * seals, per-run state, and the log store). configure() excludes them from the
 	 * snapshot it merges over, so set_vars() cannot **clobber** internal state with
-	 * snapshot defaults — most importantly resetting the empty log over anything a
+	 * snapshot defaults - most importantly resetting the empty log over anything a
 	 * sanitizer emitted during validate_args(). This guards the snapshot-default
 	 * path only; it does not stop an explicitly-supplied arg of the same name in a
 	 * non-strict (#[AllowDynamicProperties]) class like Row from setting these (for
@@ -341,7 +341,7 @@ trait Configuration {
 	 * callers can compare, reuse, or reset to a prior state.
 	 *
 	 * get_object_vars() is called from within the trait, so it captures all
-	 * properties visible in this scope — including protected ones — not just
+	 * properties visible in this scope - including protected ones - not just
 	 * public properties as it would from an external caller.
 	 *
 	 * @since 3.0.0

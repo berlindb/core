@@ -1,13 +1,13 @@
 <?php
 /**
- * Config-only construction (#204 Phase 0a) — a full table-set (Schema, Table,
+ * Config-only construction (#204 Phase 0a) - a full table-set (Schema, Table,
  * Query) defined purely from config arrays, with NO subclasses.
  *
  * Boot::__construct() -> configure()/set_vars() hydrates any kern class from an
  * array (the path `new Column([...])` uses), set_schema() accepts a Schema
  * instance, and the 2nd constructor arg ($config) lets a Query receive its
  * identity before init() (with empty query vars, so no query fires). This is
- * the foundation a registry/factory for presets (MetaTable, #204) builds on —
+ * the foundation a registry/factory for presets (MetaTable, #204) builds on -
  * no eval / anonymous classes / codegen required.
  *
  * @package     BerlinDB\Tests
@@ -25,7 +25,7 @@ use BerlinDB\Database\Kern\Table;
 use Yoast\WPTestUtils\WPIntegration\TestCase;
 
 /**
- * Named Schema subclass so a Query subclass can reference it by class-string —
+ * Named Schema subclass so a Query subclass can reference it by class-string -
  * the "necessary class properties ARE pre-defined" fixture.
  *
  * @since 3.1.0
@@ -70,7 +70,7 @@ class ConfigDefinedQuery extends Query {
 }
 
 /**
- * Bare Query subclass with NO definition properties — the "necessary class
+ * Bare Query subclass with NO definition properties - the "necessary class
  * properties are NOT pre-defined" fixture; its identity must come from args.
  *
  * @since 3.1.0
@@ -251,7 +251,7 @@ class ConfigConstructionTest extends TestCase {
 	}
 
 	/**
-	 * Subclass case — necessary class properties ARE pre-defined: with no config
+	 * Subclass case - necessary class properties ARE pre-defined: with no config
 	 * array, the definition comes entirely from the class. is_configured() is true
 	 * (settled from properties), and the class's schema/table round-trip.
 	 *
@@ -273,7 +273,7 @@ class ConfigConstructionTest extends TestCase {
 	}
 
 	/**
-	 * Subclass case — necessary class properties are NOT pre-defined: a bare
+	 * Subclass case - necessary class properties are NOT pre-defined: a bare
 	 * subclass must receive its identity from the construct args. is_configured()
 	 * is true (settled from args), and the supplied schema/table round-trip.
 	 *
@@ -305,7 +305,7 @@ class ConfigConstructionTest extends TestCase {
 	}
 
 	/**
-	 * Subclass case — a non-Schema 'table_schema' value on a subclass that ALREADY
+	 * Subclass case - a non-Schema 'table_schema' value on a subclass that ALREADY
 	 * declares its own schema is a query var, NOT a (broken) re-definition. The
 	 * class's schema is preserved, so the round-trip still works.
 	 *

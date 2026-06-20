@@ -261,7 +261,7 @@ class QueryCrudTest extends TestCase {
 	/**
 	 * Test that get_item_by returns false for the string '0' when no row matches.
 	 *
-	 * '0' is a valid lookup value — the guard allows it — but no row has
+	 * '0' is a valid lookup value - the guard allows it - but no row has
 	 * status = '0' in an empty fixture table, so the result is false.
 	 *
 	 * @since 3.0.0
@@ -273,7 +273,7 @@ class QueryCrudTest extends TestCase {
 	/**
 	 * Test that get_item_by returns false for integer 0 when no row matches.
 	 *
-	 * 0 is a valid lookup value — the guard allows it — but no row has
+	 * 0 is a valid lookup value - the guard allows it - but no row has
 	 * priority = 0 in an empty fixture table, so the result is false.
 	 *
 	 * @since 3.0.0
@@ -438,7 +438,7 @@ class QueryCrudTest extends TestCase {
 	}
 
 	/**
-	 * copy_item() ignores a supplied primary key for an auto-increment column —
+	 * copy_item() ignores a supplied primary key for an auto-increment column -
 	 * the database regenerates the ID (only a manual/string key is kept).
 	 *
 	 * @since 3.1.0
@@ -517,7 +517,7 @@ class QueryCrudTest extends TestCase {
 	/**
 	 * Test that copy_item generates a distinct UUID for the copied row.
 	 *
-	 * The original item's UUID must not be duplicated — each row needs its own
+	 * The original item's UUID must not be duplicated - each row needs its own
 	 * globally unique identifier. Before the fix, copy_item() carried the UUID
 	 * through to add_item(), which preserved it unchanged via validate_uuid().
 	 *

@@ -8,7 +8,7 @@
  * test is added or the lifecycle is reshaped, the corresponding doc must move
  * with it or CI fails (the failure message says exactly what to write).
  *
- * Pure filesystem reads — no database, no WordPress.
+ * Pure filesystem reads - no database, no WordPress.
  *
  * @package     BerlinDB\Tests
  * @copyright   2026 - JJJ and all BerlinDB contributors
@@ -40,7 +40,7 @@ class DocDriftTest extends TestCase {
 	 * CLAUDE.md must cite the current test-method count ("<N> test methods").
 	 *
 	 * The "688" cited before this guard had drifted to ~900 unnoticed. This counts
-	 * `function test*()` DECLARATIONS — deterministic and runner-free — which is
+	 * `function test*()` DECLARATIONS - deterministic and runner-free - which is
 	 * deliberately NOT PHPUnit's reported total (data providers expand methods into
 	 * more cases, so the runner reports a higher number). "test methods" is the
 	 * honest phrasing for what this asserts.
@@ -62,7 +62,7 @@ class DocDriftTest extends TestCase {
 	 * Every doc/source line that summarizes the Boot lifecycle must list the hooks
 	 * in canonical order and must not mention the removed setup() hook.
 	 *
-	 * Canonical order (Boot): sunrise → configure → init → consume_args → sunset.
+	 * Canonical order (Boot): sunrise -> configure -> init -> consume_args -> sunset.
 	 *
 	 * @since 3.1.0
 	 */
@@ -122,7 +122,7 @@ class DocDriftTest extends TestCase {
 	 *
 	 * Non-Negotiable #1 (CLAUDE.md): block comments for multi-line, `//` for
 	 * single lines only (WordPress standard). Documentation alone kept failing to
-	 * hold the line, so this turns the convention into a red test — two or more
+	 * hold the line, so this turns the convention into a red test - two or more
 	 * consecutive full-line `//` comments are flagged, with the offending
 	 * locations named. Exempt: `phpcs:` directive lines, and divider banners
 	 * (`// ----` / `// ====`), which break a run so section headers are not
@@ -175,7 +175,7 @@ class DocDriftTest extends TestCase {
 	 * an inline multi-line comment uses slash-star. A double-star block NOT
 	 * attached to a declaration is a misused docblock. Uses the PHP tokenizer so
 	 * single-line double-star label markers (a deliberate convention) are exempt.
-	 * Blocks carrying phpDoc @-tags are also exempt — those are docblocks,
+	 * Blocks carrying phpDoc @-tags are also exempt - those are docblocks,
 	 * including WordPress hook docs that sit before apply_filters()/do_action()
 	 * (phpstan-wordpress reads them). Only tag-less multi-line double-star blocks
 	 * whose next significant token is not a declaration are flagged. Covers
@@ -256,6 +256,49 @@ class DocDriftTest extends TestCase {
 			array(),
 			$offenders,
 			"Multi-line `/**` comments that are not docblocks must use `/*` block syntax.\nOffending blocks:\n" . implode( "\n", $offenders )
+		);
+	}
+
+	/**
+	 * Docblocks and comments stay ASCII-only.
+	 *
+	 * Non-ASCII punctuation (em/en dashes, the rightwards arrow, the ellipsis
+	 * glyph) had crept into comments across the tree; this keeps it from coming
+	 * back. Use ASCII equivalents: `-` for a dash, `->` for "maps to", `...` for
+	 * an ellipsis. The lone exception is BaseSanitizationTest, whose accented
+	 * fixtures are the intentional input that proves sanitization strips them.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_source_and_tests_are_ascii_only() {
+
+		// Files whose non-ASCII bytes are intentional test data, not prose.
+		$allowed = array(
+			'tests/Database/Traits/BaseSanitizationTest.php',
+		);
+
+		$offenders = array();
+
+		foreach ( $this->source_php_files() as $rel => $path ) {
+
+			// Skip files with intentional non-ASCII fixtures.
+			if ( in_array( $rel, $allowed, true ) ) {
+				continue;
+			}
+
+			$lines = explode( "\n", (string) file_get_contents( $path ) );
+
+			foreach ( $lines as $index => $line ) {
+				if ( preg_match( '/[^\x00-\x7F]/', $line ) ) {
+					$offenders[] = "{$rel}:" . ( $index + 1 );
+				}
+			}
+		}
+
+		$this->assertSame(
+			array(),
+			$offenders,
+			"Non-ASCII characters in comments/docblocks; use ASCII (`-`, `->`, `...`).\nOffending lines:\n" . implode( "\n", $offenders )
 		);
 	}
 

@@ -21,7 +21,7 @@ defined( 'ABSPATH' ) || exit;
  *
  * An operator emits `{column} {compare} {operand}`. The default operand is a
  * prepared scalar value, rendered by the operator itself; an Operand object is
- * the opt-in alternative for a non-scalar right-hand side — a column reference,
+ * the opt-in alternative for a non-scalar right-hand side - a column reference,
  * a function-wrapped expression, or a subquery.
  *
  * Operands are built by the parser layer, which resolves and validates them
@@ -34,7 +34,7 @@ defined( 'ABSPATH' ) || exit;
  *           the parser and consumed by it; the public surface is the operand spec
  *           array (`array( 'operand' => 'column', ... )`), not these classes. The
  *           methods are public only because the parser (a separate class) calls
- *           them — PHP has no friend/package visibility.
+ *           them - PHP has no friend/package visibility.
  */
 abstract class Base {
 

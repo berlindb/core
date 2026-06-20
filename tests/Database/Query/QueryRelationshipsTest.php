@@ -20,7 +20,7 @@ use BerlinDB\Database\Kern\Relationship;
 use PHPUnit\Framework\TestCase;
 
 // ---------------------------------------------------------------------------
-// Fixtures — a schema declaring one belongs_to and one has_many relationship.
+// Fixtures - a schema declaring one belongs_to and one has_many relationship.
 // ---------------------------------------------------------------------------
 
 /**

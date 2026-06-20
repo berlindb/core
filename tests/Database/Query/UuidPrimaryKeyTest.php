@@ -2,8 +2,8 @@
 /**
  * End-to-end support for a varchar/UUID primary key (not auto_increment).
  *
- * Proves the full lifecycle — add (with a supplied key), get, query+shape,
- * update, delete, and store-backed meta — works when the primary key is a string
+ * Proves the full lifecycle - add (with a supplied key), get, query+shape,
+ * update, delete, and store-backed meta - works when the primary key is a string
  * rather than a bigint.
  *
  * Tables are uninstalled after the class (DDL bypasses the per-test rollback).

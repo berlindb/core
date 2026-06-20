@@ -32,7 +32,7 @@ defined( 'ABSPATH' ) || exit;
  *     }
  *
  * The primary declares the matching has_many in its own schema, on its primary
- * key column — an ordinary relationship like any other:
+ * key column - an ordinary relationship like any other:
  *
  *     'relationships' => array(
  *         array(
@@ -44,11 +44,11 @@ defined( 'ABSPATH' ) || exit;
  *     ),
  *
  * From the primary, the base derives its table identity ({object}_meta) and
- * generates the EAV schema — meta_id, {object}_id (mirroring the primary key's
- * shape), meta_key, meta_value — plus a belongs_to back to the primary.
+ * generates the EAV schema - meta_id, {object}_id (mirroring the primary key's
+ * shape), meta_key, meta_value - plus a belongs_to back to the primary.
  *
  * Because both the primary and the meta sibling are real classes, the two
- * relationships resolve by class name through the ordinary relationship engine —
+ * relationships resolve by class name through the ordinary relationship engine -
  * no instance binding, no registry, and no preset knowledge in any Kern class.
  * Meta is "just relationships."
  *
@@ -131,7 +131,7 @@ class Query extends KernQuery implements MetaStore {
 
 		/*
 		 * Bail (loudly) when the primary key is composite. This preset generates
-		 * exactly one foreign-key column, so it requires exactly one key column —
+		 * exactly one foreign-key column, so it requires exactly one key column -
 		 * composite keys are unsupported (as they are in the relationship runtime).
 		 */
 		$primary_columns = array_values( $primary_query->get_columns( array( 'primary' => true ) ) );
@@ -190,7 +190,7 @@ class Query extends KernQuery implements MetaStore {
 	 * Return whether this meta query successfully configured from its primary.
 	 *
 	 * False means the stub is misconfigured (see the meta_primary_* warnings) and
-	 * carries only inert default identity — callers building on the meta sibling
+	 * carries only inert default identity - callers building on the meta sibling
 	 * (table provisioning, CRUD routing) should bail.
 	 *
 	 * @since 3.1.0
@@ -247,8 +247,8 @@ class Query extends KernQuery implements MetaStore {
 
 		/*
 		 * Insert through the normal item engine (validation, caching, hooks).
-		 * meta_key/meta_value are this table's own first-class, indexed columns —
-		 * not WP_Query meta vars — so the slow-query heuristic does not apply.
+		 * meta_key/meta_value are this table's own first-class, indexed columns -
+		 * not WP_Query meta vars - so the slow-query heuristic does not apply.
 		 */
 		$added = $this->add_item(
 			array(
@@ -399,12 +399,12 @@ class Query extends KernQuery implements MetaStore {
 			return false;
 		}
 
-		// All entries for the key — for this object, or every object.
+		// All entries for the key - for this object, or every object.
 		$rows = $this->get_meta_rows( $delete_all ? null : $object_id, $meta_key );
 
 		/*
 		 * A present value only deletes matching entries. Core treats only '',
-		 * null, and false as "no value filter" — 0 and '0' are real filter
+		 * null, and false as "no value filter" - 0 and '0' are real filter
 		 * values (delete_metadata() parity).
 		 */
 		$serialized = maybe_serialize( $meta_value );
@@ -527,7 +527,7 @@ class Query extends KernQuery implements MetaStore {
 	 * primary declared on the foreign-key column (resolved by class name).
 	 *
 	 * The foreign key copies the primary key's storage shape (type/length/unsigned/
-	 * etc.) so values and relationship comparisons line up for any key type — but
+	 * etc.) so values and relationship comparisons line up for any key type - but
 	 * never its primary/auto_increment identity.
 	 *
 	 * @since 3.1.0

@@ -5,7 +5,7 @@
  * The meta sibling is a one-line stub naming its primary
  * (protected $primary_query_class = Order::class, extending Presets\Meta\Query); the base
  * derives the meta table identity and EAV schema from the primary and declares a
- * belongs_to back. The primary declares the matching has_many in its own schema —
+ * belongs_to back. The primary declares the matching has_many in its own schema -
  * an ordinary relationship like any other. Both sides are real classes resolved
  * by class name through the relationship engine; Kern classes carry zero preset
  * knowledge.
@@ -26,7 +26,7 @@ use BerlinDB\Database\Kern\Schema;
 use BerlinDB\Database\Presets\Meta\Query as MetaQuery;
 use PHPUnit\Framework\TestCase;
 
-/** A primary schema — declares the has_many to its meta as an ordinary relationship. */
+/** A primary schema - declares the has_many to its meta as an ordinary relationship. */
 class WireOrderSchema extends Schema {
 	public $columns = array(
 		array(
@@ -53,7 +53,7 @@ class WireOrderSchema extends Schema {
 	);
 }
 
-/** The meta sibling — a one-line stub naming its primary. */
+/** The meta sibling - a one-line stub naming its primary. */
 class WireOrderMetaQuery extends MetaQuery {
 	protected $primary_query_class = WireOrderQuery::class;
 }

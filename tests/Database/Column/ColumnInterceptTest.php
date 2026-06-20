@@ -148,7 +148,7 @@ class ColumnInterceptTest extends TestCase {
 	// -------------------------------------------------------------------------
 
 	/**
-	 * intercept_unset_value is private — direct property access is impossible.
+	 * intercept_unset_value is private - direct property access is impossible.
 	 *
 	 * This guards against regressions to protected/public visibility, which
 	 * would mean Query (outside the class hierarchy) was silently reading an

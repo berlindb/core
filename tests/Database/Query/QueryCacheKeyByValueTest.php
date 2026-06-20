@@ -236,7 +236,7 @@ class QueryCacheKeyByValueTest extends TestCase {
 
 	/**
 	 * get_item_by() is documented for unique-value columns only. This test does
-	 * not make non-unique columns a supported feature — it is a regression guard
+	 * not make non-unique columns a supported feature - it is a regression guard
 	 * that the salted, lazily-populated lookup stays coherent with the database
 	 * (cached result equals a fresh WHERE ... LIMIT 1 read) instead of silently
 	 * returning the last-written row, which is what the pre-#203 cache did.
@@ -374,7 +374,7 @@ class QueryCacheKeyByValueTest extends TestCase {
 			)
 		);
 
-		$first  = $query->get_item_by( 'status', '0' );      // DB → cache.
+		$first  = $query->get_item_by( 'status', '0' );      // DB -> cache.
 		$second = $query->get_item_by( 'status', '0' );      // Cache hit.
 
 		$this->assertSame( $id, (int) $first->id );

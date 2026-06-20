@@ -177,7 +177,7 @@ class Index {
 			$sql = 'KEY `' . $this->name . '` (' . $csql . ')';
 		}
 
-		// USING is only valid for regular KEY and UNIQUE KEY — not PRIMARY or FULLTEXT.
+		// USING is only valid for regular KEY and UNIQUE KEY - not PRIMARY or FULLTEXT.
 		if ( ! in_array( $type, array( 'PRIMARY', 'FULLTEXT' ), true ) ) {
 
 			// Prefer explicit "using" over the default method.

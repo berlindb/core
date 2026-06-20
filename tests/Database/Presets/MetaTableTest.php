@@ -122,7 +122,7 @@ class MetaTableTest extends TestCase {
 	/**
 	 * The table derives identity + schema from the stub and is installed.
 	 *
-	 * (Installed by setUpBeforeClass — and Table::init() also auto-upgrades when
+	 * (Installed by setUpBeforeClass - and Table::init() also auto-upgrades when
 	 * testing, so this proves "installed after construction + setup", not the
 	 * install() call path in isolation.)
 	 *

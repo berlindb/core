@@ -23,7 +23,7 @@ defined( 'ABSPATH' ) || exit;
  * per-run lifecycles in Query, Parser, Table, and any other class that has a
  * well-defined unit of work to bound.
  *
- * start() and finish() are template methods — empty by default and meant to be
+ * start() and finish() are template methods - empty by default and meant to be
  * overridden by subclasses. They are not external hooks; they are internal
  * extension points called by run() at the boundaries of each run:
  *

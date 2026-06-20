@@ -16,7 +16,7 @@ namespace BerlinDB\Database\Operators;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * RLIKE operator — MySQL alias for REGEXP.
+ * RLIKE operator - MySQL alias for REGEXP.
  *
  * Functionally identical to REGEXP. Generates a value fragment prepared for
  * use in `{column} RLIKE {pattern}` expressions.

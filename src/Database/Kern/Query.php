@@ -90,7 +90,7 @@ class Query {
 	 * Schema class name or Schema object used to configure columns and indexes.
 	 *
 	 * Accepts either a fully-qualified class name string (the classic subclass
-	 * pattern) or a Schema instance built at runtime — e.g. from a constructor
+	 * pattern) or a Schema instance built at runtime - e.g. from a constructor
 	 * argument or a Schema::from_table() call.
 	 *
 	 * @since 1.0.0
@@ -168,7 +168,7 @@ class Query {
 	 * Memoized 'meta' relationship store, resolved lazily by get_meta_store().
 	 *
 	 * Reused across this instance's *_item_meta() calls because building the store
-	 * instantiates the remote meta Query (and its primary) — wasteful to repeat.
+	 * instantiates the remote meta Query (and its primary) - wasteful to repeat.
 	 *
 	 * Three states in one property: the sentinel `false` means "not resolved yet";
 	 * `null` is a valid resolution (this object has no meta store); a MetaStore is
@@ -232,7 +232,7 @@ class Query {
 	 * Map of instantiated parser descriptor objects, keyed by parser name.
 	 *
 	 * Populated once during set_query_var_defaults() from $query_var_parsers.
-	 * Never mutated after that — see $current[ 'parsers' ] for per-query instances.
+	 * Never mutated after that - see $current[ 'parsers' ] for per-query instances.
 	 *
 	 * @since 3.0.0
 	 * @var   array<string,\BerlinDB\Database\Parsers\Base>
@@ -278,21 +278,21 @@ class Query {
 	 *
 	 * A Query is the one class whose construct args may be EITHER an explicit
 	 * definition (identity properties) OR query vars. Overriding this decision
-	 * hook — rather than configure() itself — lets Boot apply config through the
+	 * hook - rather than configure() itself - lets Boot apply config through the
 	 * shared pipeline (no trait aliasing needed) and hand query vars to
 	 * consume_args() when this returns false.
 	 *
 	 * A definition carries a schema; query vars never do. So the decision keys on
-	 * `table_schema`, but it reads CONTEXT, not just the value — which lets it
+	 * `table_schema`, but it reads CONTEXT, not just the value - which lets it
 	 * defend BOTH ambiguous edges at once:
 	 *
-	 * - The value IS a Schema (instance or class-string) — unambiguously a
+	 * - The value IS a Schema (instance or class-string) - unambiguously a
 	 *   definition (including an explicit override of a subclass's schema).
 	 * - The value is NOT a Schema, and the class already declares its own schema
-	 *   — a query var filtering a same-named column (e.g. an information_schema
+	 *   - a query var filtering a same-named column (e.g. an information_schema
 	 *   mirror with a literal `table_schema` column). Stays query vars.
 	 * - The value is NOT a Schema, and the class has no schema of its own (still
-	 *   the base default) — broken config: routed to the definition path so
+	 *   the base default) - broken config: routed to the definition path so
 	 *   set_schema() reports the bad class instead of silently misrouting a typo
 	 *   onto the query-var path.
 	 *
@@ -303,7 +303,7 @@ class Query {
 	 */
 	protected function is_configuration( array $args ): bool {
 
-		// Bail if no schema reference — query vars never carry one.
+		// Bail if no schema reference - query vars never carry one.
 		if ( ! isset( $args[ 'table_schema' ] ) ) {
 			return false;
 		}
@@ -322,7 +322,7 @@ class Query {
 		 * The value is not a Schema. When the class already declares its own
 		 * schema, treat it as a query var (a filter on a same-named column);
 		 * otherwise the class has no schema to query, so a present-but-invalid
-		 * value is broken config — route it to the definition path. The base
+		 * value is broken config - route it to the definition path. The base
 		 * default mirrors the $table_schema property default above.
 		 */
 		$declares_own_schema = ! empty( $this->table_schema )
@@ -645,7 +645,7 @@ class Query {
 
 			/*
 			 * Instantiate the descriptor with its caller (this Query), so every
-			 * parser method can read $this->caller — descriptors and the transient
+			 * parser method can read $this->caller - descriptors and the transient
 			 * parse-time instances alike. Skip a non-parser class.
 			 */
 			$parser = $this->instantiate_class( $class, '', array(), $this );
@@ -1172,7 +1172,7 @@ class Query {
 	 * - A referenced remote column does not exist on the remote schema.
 	 *
 	 * On demand by design: call it from a plugin's tests or dev tooling. (Local
-	 * column type vs. remote type compatibility is intentionally NOT checked yet —
+	 * column type vs. remote type compatibility is intentionally NOT checked yet -
 	 * exact-type equality produces false positives across int/bigint/unsigned and
 	 * aliases; a family-based check is a follow-up.)
 	 *
@@ -1196,7 +1196,7 @@ class Query {
 
 			/*
 			 * Unresolvable. A missing class is Schema's to report; the distinct
-			 * "class exists but is not a Query" case is ours — this is the tier
+			 * "class exists but is not a Query" case is ours - this is the tier
 			 * that instantiates and can actually tell. Either way, without a
 			 * remote query the remote-column check cannot run.
 			 */
@@ -1270,7 +1270,7 @@ class Query {
 	 * Resolve a relationship's remote Query class to a fresh, guarded instance.
 	 *
 	 * Returns null when the relationship names no class, the class does not exist,
-	 * or it is not a sibling Query — so callers fail closed on a misdeclared or
+	 * or it is not a sibling Query - so callers fail closed on a misdeclared or
 	 * missing remote. Instantiation is setup-only (no query). Preset-composed
 	 * relationships (e.g. meta) name a real class too, so they resolve here exactly
 	 * like declared ones.
@@ -1294,7 +1294,7 @@ class Query {
 	 * Whether a local key value represents "no relation".
 	 *
 	 * POLICY: a foreign key of 0, '0', '', null (or any other empty() value) is
-	 * treated as unset — there is no related row — mirroring WordPress's
+	 * treated as unset - there is no related row - mirroring WordPress's
 	 * convention that 0 is the no-parent/no-object value. This is the single,
 	 * named home for that rule, used by get_related() and the priming collectors,
 	 * so the choice is explicit and testable. If a scheme ever needs a literal
@@ -1391,7 +1391,7 @@ class Query {
 				: array();
 		}
 
-		// belongs_to referencing the remote primary key — cache-friendly.
+		// belongs_to referencing the remote primary key - cache-friendly.
 		if ( $references[0] === $remote->get_primary_column_name() ) {
 			$found = $remote->get_item( $local_value );
 
@@ -1418,9 +1418,9 @@ class Query {
 	 *
 	 * The all-vars counterpart to each parser's own var-local parse_query_vars()
 	 * (which runs later, isolated to its single var). Here every registered parser descriptor
-	 * may rewrite the FULL query vars — translating a high-level directive into
-	 * another parser's canonical var (e.g. store-backed meta_query → relation_query,
-	 * or 'relation' → {fk}__in / relation_query). Runs BEFORE the
+	 * may rewrite the FULL query vars - translating a high-level directive into
+	 * another parser's canonical var (e.g. store-backed meta_query -> relation_query,
+	 * or 'relation' -> {fk}__in / relation_query). Runs BEFORE the
 	 * parse_{items}_query action, so the action and the SQL parsers see canonical
 	 * vars. A descriptor may return a 'query_filter_short_circuit' sentinel to fail
 	 * the query closed; it is consumed here. See berlindb/core #204.
@@ -1519,7 +1519,7 @@ class Query {
 	/**
 	 * Get registered parsers, optionally filtered by property values.
 	 *
-	 * Mirrors get_columns() — pass an $args array of property => value pairs
+	 * Mirrors get_columns() - pass an $args array of property => value pairs
 	 * to narrow the result set. For example:
 	 *
 	 *   get_parsers( array( 'sortable' => true ) )
@@ -1558,14 +1558,14 @@ class Query {
 	 * Return the fully-qualified table name for use in SQL statements.
 	 *
 	 * The WordPress table prefix ($wpdb->prefix) is resolved by looking up
-	 * $wpdb->{$this->table_name} — a dynamic property that Table::set_db_interface()
+	 * $wpdb->{$this->table_name} - a dynamic property that Table::set_db_interface()
 	 * registers when the corresponding Table class is instantiated. This means
 	 * multisite prefix changes (triggered by the switch_blog action) are always
 	 * reflected here automatically, because Table owns and updates that property.
 	 *
 	 * If $wpdb does not have the property registered (i.e. the Table class has
 	 * not been instantiated), this falls back to $this->table_name, which carries
-	 * only the plugin prefix — not the WordPress table prefix.
+	 * only the plugin prefix - not the WordPress table prefix.
 	 *
 	 * @since 1.0.0
 	 *
@@ -1581,7 +1581,7 @@ class Query {
 	 * Return the table alias for use in SQL statements.
 	 *
 	 * The alias is set during init() and carries only the plugin prefix
-	 * ($this->prefix). It is never looked up via $wpdb — aliases are
+	 * ($this->prefix). It is never looked up via $wpdb - aliases are
 	 * SQL-local and do not require the WordPress table prefix.
 	 *
 	 * @since 3.0.0
@@ -1741,7 +1741,7 @@ class Query {
 
 		/*
 		 * Bail if value is non-scalar, boolean false, or empty string.
-		 * Intentionally allows 0 and '0' — both are valid column values.
+		 * Intentionally allows 0 and '0' - both are valid column values.
 		 */
 		if ( ! is_scalar( $column_value ) || false === $column_value || '' === $column_value ) {
 			return false;
@@ -1863,7 +1863,7 @@ class Query {
 			}
 		}
 
-		// Return count results directly — already int (get_var) or array (groupby).
+		// Return count results directly - already int (get_var) or array (groupby).
 		if ( $this->get_query_var( 'count' ) ) {
 			$this->items = $result;
 			return $this->items;
@@ -2029,8 +2029,8 @@ class Query {
 	 * Canonicalize the type-stable structural query vars.
 	 *
 	 * Coerces the fixed, framework-level query vars to their canonical types
-	 * (ints, booleans, ASC/DESC) so that semantically identical queries — e.g.
-	 * number '5' vs 5, order 'asc' vs 'ASC' — produce the SAME cache key instead
+	 * (ints, booleans, ASC/DESC) so that semantically identical queries - e.g.
+	 * number '5' vs 5, order 'asc' vs 'ASC' - produce the SAME cache key instead
 	 * of fragmenting it, and so consumers always see a clean type.
 	 *
 	 * Deliberately scoped: only the closed set of structural vars is touched.
@@ -2128,12 +2128,12 @@ class Query {
 			'where' => array(),
 		);
 
-		// Set join subclauses — strip string keys so parse_join_clause() receives a plain list.
+		// Set join subclauses - strip string keys so parse_join_clause() receives a plain list.
 		if ( ! empty( $parsers[ 'join' ] ) ) {
 			$retval[ 'join' ] = array_values( $parsers[ 'join' ] );
 		}
 
-		// Set where subclauses — strip string keys so parse_where_clause() receives a plain list.
+		// Set where subclauses - strip string keys so parse_where_clause() receives a plain list.
 		if ( ! empty( $parsers[ 'where' ] ) ) {
 			$retval[ 'where' ] = array_values( $parsers[ 'where' ] );
 		}
@@ -2776,7 +2776,7 @@ class Query {
 		 *
 		 * The database returns raw rows as stdClass objects (via get_row()), so
 		 * we must handle both array and object forms here. cast_json() is
-		 * idempotent — calling it on an already-decoded array is a no-op.
+		 * idempotent - calling it on an already-decoded array is a no-op.
 		 */
 		$json_columns = $this->get_columns( array( 'type' => 'json' ) );
 
@@ -3044,7 +3044,7 @@ class Query {
 
 		/*
 		 * Bail if value is non-scalar, boolean false, or empty string.
-		 * Intentionally allows 0 and '0' — both are valid column values.
+		 * Intentionally allows 0 and '0' - both are valid column values.
 		 */
 		if ( ! is_scalar( $column_value ) || false === $column_value || '' === $column_value ) {
 			return $retval;
@@ -3093,7 +3093,7 @@ class Query {
 				return false;
 			}
 
-			// Cache the result — read path, do not bump last_changed.
+			// Cache the result - read path, do not bump last_changed.
 			if ( is_object( $retval ) ) {
 
 				// Always warm the canonical primary by-id object cache.
@@ -3267,7 +3267,7 @@ class Query {
 
 		/*
 		 * Drop the copied primary key when the column auto-increments (the DB
-		 * regenerates it — a supplied override is ignored, preserving long-standing
+		 * regenerates it - a supplied override is ignored, preserving long-standing
 		 * behavior) OR when the caller supplied no replacement. A manual key (e.g. a
 		 * string/UUID) cannot be auto-generated, so a caller-supplied one is kept.
 		 */
@@ -3347,7 +3347,7 @@ class Query {
 			? $this->save_extra_item_meta( $item_id, $meta )
 			: false;
 
-		// Bail if no columns to save — but report a successful meta-only save.
+		// Bail if no columns to save - but report a successful meta-only save.
 		if ( empty( $save ) ) {
 			return $meta_saved;
 		}
@@ -3424,7 +3424,7 @@ class Query {
 
 		/*
 		 * Reduce to the columns the current user can delete; bail if none
-		 * allowed. Keep the original object for cache cleanup — reduce_item
+		 * allowed. Keep the original object for cache cleanup - reduce_item
 		 * returns an array, but clean_item_cache needs the object to look up
 		 * cache keys by property.
 		 */
@@ -3503,7 +3503,7 @@ class Query {
 	 * Let each column intercept its value for a save operation.
 	 *
 	 * Loops every column (not just the keys present in $item, so it can inject
-	 * values the caller omitted — e.g. created/modified) and delegates to
+	 * values the caller omitted - e.g. created/modified) and delegates to
 	 * Column::intercept().
 	 *
 	 * Sits beside reduce_item() and validate_item() in the save pipeline:
@@ -3549,7 +3549,7 @@ class Query {
 	 * appropriate capabilities to select|insert|update|delete.
 	 *
 	 * Always returns an array. Columns not present in the schema are also
-	 * removed — no caps entry resolves to an empty capability string, which
+	 * removed - no caps entry resolves to an empty capability string, which
 	 * fails the current_user_can check.
 	 *
 	 * @since 1.0.0
@@ -3719,21 +3719,21 @@ class Query {
 	 * named 'meta' resolves to a remote implementing Interfaces\MetaStore, meta
 	 * operations delegate to that store (the custom sibling-table path);
 	 * otherwise they fall through to the legacy WordPress metadata API. Both
-	 * checks are required — the accessor name picks WHICH relationship is the
+	 * checks are required - the accessor name picks WHICH relationship is the
 	 * canonical meta relationship; the interface proves the remote can actually
 	 * perform meta operations.
 	 *
 	 * The result is memoized on this instance ($meta_store, with `false` as the
 	 * "not resolved yet" sentinel since `null` validly means "no store") and reused
 	 * by every subsequent *_item_meta() call. Why: resolving the store
-	 * instantiates the remote meta Query — which, for the Meta preset, also builds
-	 * its primary Query and schema (~0.5ms) — so a loop of per-item meta operations
+	 * instantiates the remote meta Query - which, for the Meta preset, also builds
+	 * its primary Query and schema (~0.5ms) - so a loop of per-item meta operations
 	 * on the same Query would otherwise pay that cost on every call.
 	 *
 	 * Reuse is safe: the store is addressed by object ID *per method call* (nothing
 	 * is baked into the instance for a specific object), each store operation runs
 	 * its own lifecycle (per-run ephemeral state is reset by run()), and its reads
-	 * go through the standard query cache with last_changed invalidation — so a
+	 * go through the standard query cache with last_changed invalidation - so a
 	 * memoized store never serves stale meta. (The test suite already reuses a
 	 * single store instance across many operations, exercising this.) The cache is
 	 * not invalidated during the instance's life because a Query's declared
@@ -3928,7 +3928,7 @@ class Query {
 
 		/*
 		 * A global purge ($delete_all) deletes the key across every object, so it
-		 * ignores the item ID — the store and delete_metadata() both do. Otherwise
+		 * ignores the item ID - the store and delete_metadata() both do. Otherwise
 		 * require a valid integer ID (metadata requires integer IDs).
 		 */
 		if ( empty( $delete_all ) && empty( $item_id ) ) {
@@ -4006,7 +4006,7 @@ class Query {
 		/*
 		 * The legacy WordPress path applies two gates: a registered {type}meta
 		 * table must exist, and only register_meta()'d keys are saved. When a
-		 * meta store is declared, both are intentionally skipped — the WP
+		 * meta store is declared, both are intentionally skipped - the WP
 		 * registry is a WP-core-types concept, and for a custom sibling table
 		 * the declared 'meta' relationship IS the registration.
 		 */
@@ -4032,7 +4032,7 @@ class Query {
 		$retval = false;
 
 		/*
-		 * Save or delete meta data — directly on the store when one is declared
+		 * Save or delete meta data - directly on the store when one is declared
 		 * (resolved once above), else through the legacy WordPress helpers.
 		 */
 		foreach ( $meta as $key => $value ) {
@@ -4373,7 +4373,7 @@ class Query {
 				$query   = "SELECT * FROM {$table} WHERE {$primary} IN {$ids}";
 				$results = $this->db()->get_results( $query );
 
-				// Update item cache(s) — read path, do not bump last_changed.
+				// Update item cache(s) - read path, do not bump last_changed.
 				if ( ! empty( $results ) && is_array( $results ) ) {
 					/** @var list<object> $results */
 					$this->update_item_cache( $results, false );
@@ -4582,7 +4582,7 @@ class Query {
 	 * Public entry point used by has_many relationship priming. Performs one
 	 * bulk read of every row whose $fk_column is in $values, warms the by-id
 	 * item cache for those rows, then warms this query's own result-list cache
-	 * for each per-value query — "{$fk_column} => value" — including empty
+	 * for each per-value query - "{$fk_column} => value" - including empty
 	 * results, so childless parents are a cache hit too.
 	 *
 	 * Because the result cache is reused (rather than a bespoke collection
@@ -4638,7 +4638,7 @@ class Query {
 		}
 
 		/*
-		 * Warm each value's native result cache — including empties. 'number' => 0
+		 * Warm each value's native result cache - including empties. 'number' => 0
 		 * (no limit) must match get_related()'s has_many query exactly, so the
 		 * primed key equals the key that lookup computes (the full child set).
 		 */
@@ -4658,7 +4658,7 @@ class Query {
 	 * Warm this query's result-list cache for a set of query vars.
 	 *
 	 * Runs the same parse + cache-key path as query() so the cached entry is
-	 * keyed identically to a real query() call — but skips the database read,
+	 * keyed identically to a real query() call - but skips the database read,
 	 * storing the supplied item IDs instead. A later query() with the same vars
 	 * is then a cache hit.
 	 *
@@ -4968,7 +4968,7 @@ class Query {
 			return;
 		}
 
-		// Bail if no cache key. Allow 0 and '0' — both are valid cache keys.
+		// Bail if no cache key. Allow 0 and '0' - both are valid cache keys.
 		if ( false === $key || '' === $key ) {
 			return;
 		}
@@ -5024,7 +5024,7 @@ class Query {
 			return;
 		}
 
-		// Bail if no cache key. Allow 0 and '0' — both are valid cache keys.
+		// Bail if no cache key. Allow 0 and '0' - both are valid cache keys.
 		if ( false === $key || '' === $key ) {
 			return;
 		}
@@ -5054,7 +5054,7 @@ class Query {
 			return;
 		}
 
-		// Bail if no cache key. Allow 0 and '0' — both are valid cache keys.
+		// Bail if no cache key. Allow 0 and '0' - both are valid cache keys.
 		if ( false === $key || '' === $key ) {
 			return;
 		}

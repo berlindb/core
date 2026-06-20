@@ -191,7 +191,7 @@ class ColumnTest extends TestCase {
 		$this->assertFalse( $column->is_date_time() );
 	}
 
-	// special_args(): primary → cache_key.
+	// special_args(): primary -> cache_key.
 
 	/**
 	 * Test that setting primary to true also forces cache_key to true.
@@ -650,7 +650,7 @@ class ColumnTest extends TestCase {
 		$this->assertTrue( $arr['primary'] );
 	}
 
-	// get_create_string() — type SQL branches.
+	// get_create_string() - type SQL branches.
 
 	/**
 	 * Test that the create string omits any type clause when no type is set.
@@ -735,7 +735,7 @@ class ColumnTest extends TestCase {
 		$this->assertStringContainsString( 'COLLATE utf8mb4_bin', $sql );
 	}
 
-	// get_create_string() — default SQL branches.
+	// get_create_string() - default SQL branches.
 
 	/**
 	 * Test that an allow_null column with a null default produces a "default null" clause.
@@ -858,7 +858,7 @@ class ColumnTest extends TestCase {
 		$this->assertStringContainsString( 'ON UPDATE current_timestamp()', $sql );
 	}
 
-	// Cast attribute — auto-detection.
+	// Cast attribute - auto-detection.
 
 	/**
 	 * Test that a column with args but no type has a null cast after construction.
@@ -1587,7 +1587,7 @@ class ColumnTest extends TestCase {
 		$this->assertSame( 'date', $override->type_category );
 		$this->assertSame( 'date', $override->get_type_category() );
 
-		// An unrecognized category is ignored — inference from the type stands.
+		// An unrecognized category is ignored - inference from the type stands.
 		$bogus = new Column(
 			array(
 				'name'          => 'c',

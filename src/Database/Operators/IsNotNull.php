@@ -19,7 +19,7 @@ use BerlinDB\Database\Kern\Column;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * IS NOT NULL operator — matches rows whose column holds a non-NULL value.
+ * IS NOT NULL operator - matches rows whose column holds a non-NULL value.
  *
  * A unary postfix predicate: it takes no right-hand value, so it emits
  * `{column} IS NOT NULL` directly rather than the trait's
@@ -111,7 +111,7 @@ class IsNotNull extends Base {
 	}
 
 	/**
-	 * Returns an empty string — a unary operator has no value fragment.
+	 * Returns an empty string - a unary operator has no value fragment.
 	 *
 	 * @since 3.1.0
 	 *

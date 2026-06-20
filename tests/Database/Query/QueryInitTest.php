@@ -5,9 +5,9 @@
  * Covers the three private setters introduced in 3.1.0 that run before
  * set_prefixes() to guarantee $table_name and $cache_group are never empty:
  *
- *   set_table_name()   – auto-derives $table_name from $item_name_plural or
+ *   set_table_name()   - auto-derives $table_name from $item_name_plural or
  *                        the short class name when the subclass leaves it blank.
- *   set_cache_group()  – auto-derives $cache_group from $item_name_plural or
+ *   set_cache_group()  - auto-derives $cache_group from $item_name_plural or
  *                        the already-resolved $table_name, ensuring
  *                        apply_prefix('', '-') can never produce the bare
  *                        "prefix-" string that caused cache-group collisions
@@ -18,7 +18,7 @@
  * $cache_group properties via ReflectionProperty after construction.
  *
  * Constructing a Query subclass without arguments triggers init() but does
- * NOT execute a database query — consume_args() returns early on empty input —
+ * NOT execute a database query - consume_args() returns early on empty input -
  * so no live table is required for these tests.
  *
  * @package     BerlinDB\Tests
@@ -34,7 +34,7 @@ use BerlinDB\Tests\Fixtures\TestSchema;
 use PHPUnit\Framework\TestCase;
 
 // ---------------------------------------------------------------------------
-// Fixture subclasses — defined here so static::class resolves predictably.
+// Fixture subclasses - defined here so static::class resolves predictably.
 // ---------------------------------------------------------------------------
 
 /**
@@ -86,11 +86,11 @@ class InitUnderscorePluralQuery extends Query {
  *
  * Expected derivation path (init order):
  *   set_table_name():  'BerlinDB\Tests\InitClassNameQuery'
- *                      → short  = 'InitClassNameQuery'
- *                      → strip  = 'InitClassName'
- *                      → snake  = 'init_class_name'
- *   set_cache_group(): item_name_plural empty → fallback to table_name
- *                      'init_class_name' → 'init-class-name'
+ *                      -> short  = 'InitClassNameQuery'
+ *                      -> strip  = 'InitClassName'
+ *                      -> snake  = 'init_class_name'
+ *   set_cache_group(): item_name_plural empty -> fallback to table_name
+ *                      'init_class_name' -> 'init-class-name'
  *   set_prefixes():    prefix 'cn' applied
  *                      table_name  = 'cn_init_class_name'
  *                      cache_group = 'cn-init-class-name'
@@ -102,7 +102,7 @@ class InitClassNameQuery extends Query {
 }
 
 /**
- * No $prefix set — verifies that the derivation still works and that the
+ * No $prefix set - verifies that the derivation still works and that the
  * absence of a prefix does not corrupt the derived values.
  */
 class InitNoPrefixQuery extends Query {
@@ -170,13 +170,13 @@ class QueryInitTest extends TestCase {
 	public function test_explicit_table_name_is_prefixed_not_overwritten(): void {
 		$query = new InitExplicitQuery();
 
-		// 'myapp' + '_' + 'orders' — set_table_name() must not replace it.
+		// 'myapp' + '_' + 'orders' - set_table_name() must not replace it.
 		$this->assertSame( 'myapp_orders', $this->prop( $query, 'table_name' ) );
 	}
 
 	/**
 	 * When $table_name is empty and $item_name_plural is set, set_table_name()
-	 * must fill $table_name with the plural (hyphens→underscores).
+	 * must fill $table_name with the plural (hyphens->underscores).
 	 *
 	 * @since 3.1.0
 	 */
@@ -196,7 +196,7 @@ class QueryInitTest extends TestCase {
 	public function test_table_name_converts_hyphens_to_underscores(): void {
 		$query = new InitHyphenPluralQuery();
 
-		// item_name_plural = 'order-items' → table fragment = 'order_items'
+		// item_name_plural = 'order-items' -> table fragment = 'order_items'
 		$this->assertSame( 'myapp_order_items', $this->prop( $query, 'table_name' ) );
 	}
 
@@ -205,7 +205,7 @@ class QueryInitTest extends TestCase {
 	 * must derive a snake_case name from the short class name, stripping a
 	 * trailing "Query" suffix.
 	 *
-	 * InitClassNameQuery  →  InitClassName  →  init_class_name
+	 * InitClassNameQuery  ->  InitClassName  ->  init_class_name
 	 *
 	 * @since 3.1.0
 	 */
@@ -242,7 +242,7 @@ class QueryInitTest extends TestCase {
 
 	/**
 	 * When $cache_group is empty and $item_name_plural is set, set_cache_group()
-	 * must fill $cache_group with the plural (underscores→hyphens).
+	 * must fill $cache_group with the plural (underscores->hyphens).
 	 *
 	 * @since 3.1.0
 	 */
@@ -263,26 +263,26 @@ class QueryInitTest extends TestCase {
 	public function test_cache_group_converts_underscores_to_hyphens(): void {
 		$query = new InitUnderscorePluralQuery();
 
-		// item_name_plural = 'order_items' → cache fragment = 'order-items'
+		// item_name_plural = 'order_items' -> cache fragment = 'order-items'
 		$this->assertSame( 'myapp-order-items', $this->prop( $query, 'cache_group' ) );
 	}
 
 	/**
-	 * Hyphens in $item_name_plural must be kept as hyphens in $cache_group —
-	 * the symmetric counterpart to the underscore→hyphen conversion test above.
+	 * Hyphens in $item_name_plural must be kept as hyphens in $cache_group -
+	 * the symmetric counterpart to the underscore->hyphen conversion test above.
 	 *
 	 * @since 3.1.0
 	 */
 	public function test_cache_group_keeps_hyphens_from_item_name_plural(): void {
 		$query = new InitHyphenPluralQuery();
 
-		// item_name_plural = 'order-items' → cache fragment = 'order-items' (unchanged)
+		// item_name_plural = 'order-items' -> cache fragment = 'order-items' (unchanged)
 		$this->assertSame( 'myapp-order-items', $this->prop( $query, 'cache_group' ) );
 	}
 
 	/**
 	 * When both $cache_group and $item_name_plural are empty, set_cache_group()
-	 * must fall back to the already-resolved $table_name (underscores→hyphens).
+	 * must fall back to the already-resolved $table_name (underscores->hyphens).
 	 *
 	 * This path is exercised by InitClassNameQuery which overrides
 	 * $item_name_plural to '' and leaves $table_name empty.
@@ -292,7 +292,7 @@ class QueryInitTest extends TestCase {
 	public function test_cache_group_falls_back_to_table_name_when_plural_empty(): void {
 		$query = new InitClassNameQuery();
 
-		// table fragment = 'init_class_name' → cache fragment = 'init-class-name'
+		// table fragment = 'init_class_name' -> cache fragment = 'init-class-name'
 		$this->assertSame( 'cn-init-class-name', $this->prop( $query, 'cache_group' ) );
 	}
 
@@ -330,7 +330,7 @@ class QueryInitTest extends TestCase {
 	/**
 	 * Two subclasses that share the same $prefix but have different
 	 * $item_name_plural values must receive different $cache_group values after
-	 * init() — the anti-collision guarantee.
+	 * init() - the anti-collision guarantee.
 	 *
 	 * @since 3.1.0
 	 */
@@ -363,7 +363,7 @@ class QueryInitTest extends TestCase {
 	public function test_explicit_table_alias_is_prefixed_not_overwritten(): void {
 		$query = new InitExplicitQuery();
 
-		// prefix='myapp', explicit alias='o' → 'myapp_o'
+		// prefix='myapp', explicit alias='o' -> 'myapp_o'
 		$this->assertSame( 'myapp_o', $this->prop( $query, 'table_alias' ) );
 	}
 
@@ -377,7 +377,7 @@ class QueryInitTest extends TestCase {
 	public function test_table_alias_derived_from_resolved_table_name(): void {
 		$query = new InitPluralDerivedQuery();
 
-		// table_name resolved to 'customers' → first_letters() = 'c' → prefixed 'myapp_c'.
+		// table_name resolved to 'customers' -> first_letters() = 'c' -> prefixed 'myapp_c'.
 		$this->assertSame( 'myapp_c', $this->prop( $query, 'table_alias' ) );
 	}
 

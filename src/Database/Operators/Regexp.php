@@ -16,7 +16,7 @@ namespace BerlinDB\Database\Operators;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * REGEXP operator — regular expression match.
+ * REGEXP operator - regular expression match.
  *
  * Generates a value fragment prepared for use in `{column} REGEXP {pattern}`
  * expressions. The value is passed as-is to wpdb::prepare().

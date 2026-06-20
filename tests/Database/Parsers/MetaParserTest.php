@@ -19,7 +19,7 @@ use Yoast\WPTestUtils\WPIntegration\TestCase;
  * TestMetaQuery overrides get_meta_type() to return 'post' so that the Meta
  * parser resolves against the real wp_postmeta table that exists in every WP
  * test environment. Widget rows are then joined against postmeta rows that
- * share the same numeric ID as the widget — wp_postmeta has no FK constraint,
+ * share the same numeric ID as the widget - wp_postmeta has no FK constraint,
  * so inserting meta for arbitrary object IDs is safe in tests.
  *
  * @since 3.0.0
@@ -43,7 +43,7 @@ class TestMetaQuery extends TestQuery {
  * query vars.
  *
  * Three fixture rows are inserted. Metadata is added for them using
- * add_metadata('post', $widget_id, ...) — this stores rows in wp_postmeta
+ * add_metadata('post', $widget_id, ...) - this stores rows in wp_postmeta
  * keyed by the same numeric ID as the widget. The JOIN produced by the Meta
  * parser then naturally links widget.id = wp_postmeta.post_id.
  *
@@ -167,7 +167,7 @@ class MetaParserTest extends TestCase {
 	 * here. Before Compare scoped itself to its own compare_query, it received
 	 * the full query_vars (its own var being unset), walked the meta_query
 	 * clause, recognised 'status' as a valid column, and emitted a spurious
-	 * `widgets.status = 'shipped'` — which excluded the row the meta JOIN had
+	 * `widgets.status = 'shipped'` - which excluded the row the meta JOIN had
 	 * correctly matched, returning 0 rows instead of 1.
 	 *
 	 * @since 3.1.0
@@ -666,7 +666,7 @@ class MetaParserTest extends TestCase {
 	 * Test that orderby=meta_value_num sorts numerically, not lexically.
 	 *
 	 * Uses rank values '2', '10', '20': string sort gives '10', '2', '20'
-	 * but numeric sort gives 2, 10, 20 — proving CAST(AS SIGNED) is applied.
+	 * but numeric sort gives 2, 10, 20 - proving CAST(AS SIGNED) is applied.
 	 *
 	 * @since 3.0.0
 	 */
@@ -696,7 +696,7 @@ class MetaParserTest extends TestCase {
 	/**
 	 * Test that a named meta_query clause key can be used as an orderby value.
 	 *
-	 * Orders DESC on purpose: scores 10/20/30 descend to Gamma, Beta, Alpha —
+	 * Orders DESC on purpose: scores 10/20/30 descend to Gamma, Beta, Alpha -
 	 * the REVERSE of insertion/id order, so this fails if the named clause is
 	 * dropped and rows fall back to the default primary-key order.
 	 *
@@ -726,7 +726,7 @@ class MetaParserTest extends TestCase {
 	 * A NAMED (string-keyed) meta_query clause must FILTER, like a positional one.
 	 *
 	 * Regression test: the named clause was previously dropped before SQL was
-	 * built (mistaken for flat meta_* vars), so it neither filtered nor sorted —
+	 * built (mistaken for flat meta_* vars), so it neither filtered nor sorted -
 	 * the query returned every row. score >= 20 (NUMERIC) keeps Beta (20) and
 	 * Gamma (30) but not Alpha (10).
 	 *
@@ -884,7 +884,7 @@ class MetaParserTest extends TestCase {
 		$this->assertContains( 'Gamma Gadget', $names );
 	}
 
-	// get_cast_for_type() — meta_query's own cast vocabulary.
+	// get_cast_for_type() - meta_query's own cast vocabulary.
 
 	/**
 	 * Test that get_cast_for_type() accepts supported MySQL cast targets.

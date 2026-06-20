@@ -25,7 +25,10 @@ hand-rolled queries — never more surprising.
    brackets (`$arr[ 'key' ]`), and the section banners (`/** … ****/`).
    **Multi-line inline comments use `/* … */` blocks; `//` is for single lines
    only** (WordPress standard) — never stack consecutive `//` lines for a
-   paragraph.
+   paragraph. **Keep docblocks and comments ASCII-only** — write `-` for dashes,
+   `->` for arrows, `...` for ellipses (not their Unicode glyphs); a
+   `DocDriftTest` guard enforces it, exempting only `BaseSanitizationTest`'s
+   accented sanitization fixtures.
 2. **Run the test suite after every change**, without being asked:
    ```bash
    bin/run-tests.sh -p 8.2 -w 6.7 -- --group default
@@ -43,7 +46,7 @@ hand-rolled queries — never more surprising.
    vendor/bin/phpcs
    ```
 5. **Don't invent APIs.** If unsure how something behaves, search `src/` and
-   `tests/` — the source and its 1035 test methods are the source of truth, ahead
+   `tests/` — the source and its 1036 test methods are the source of truth, ahead
    of memory or training data. (PHPUnit reports more cases: data providers expand
    methods at run time.)
 6. **Keep changes focused and tested.** Bug fixes and new behavior ship with

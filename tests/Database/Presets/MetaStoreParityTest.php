@@ -32,7 +32,7 @@ use Yoast\WPTestUtils\WPIntegration\TestCase;
 // Fixtures
 // ---------------------------------------------------------------------------
 
-/** Primary schema — declares the has_many to its meta sibling. */
+/** Primary schema - declares the has_many to its meta sibling. */
 class GadgetSchema extends Schema {
 	public $columns = array(
 		array(
@@ -404,7 +404,7 @@ class MetaStoreParityTest extends TestCase {
 	}
 
 	/**
-	 * '', null, and false are all "no value filter" — they delete EVERY entry for
+	 * '', null, and false are all "no value filter" - they delete EVERY entry for
 	 * the key (delete_metadata() parity), unlike a real value such as '0'. Locks
 	 * the three-way guard in delete_meta() so it is not "simplified" away
 	 * (maybe_serialize() returns null/false for null/false input).
@@ -420,7 +420,7 @@ class MetaStoreParityTest extends TestCase {
 		$this->assertTrue( $store->delete_meta( 1, 'tag', null ) );
 		$this->assertSame( array(), $store->get_meta( 1, 'tag' ) );
 
-		// false: same — no value filter.
+		// false: same - no value filter.
 		$store->add_meta( 1, 'tag', 'c' );
 		$store->add_meta( 1, 'tag', 'd' );
 		$this->assertTrue( $store->delete_meta( 1, 'tag', false ) );
@@ -428,7 +428,7 @@ class MetaStoreParityTest extends TestCase {
 	}
 
 	/**
-	 * A '0' previous value is NOT a filter — core's empty() semantics.
+	 * A '0' previous value is NOT a filter - core's empty() semantics.
 	 *
 	 * @since 3.1.0
 	 */
@@ -477,7 +477,7 @@ class MetaStoreParityTest extends TestCase {
 	}
 
 	/**
-	 * Bulk meta — extra non-column keys in add_item() — routes to the store.
+	 * Bulk meta - extra non-column keys in add_item() - routes to the store.
 	 *
 	 * The WordPress registered-meta-keys gate is intentionally skipped when a
 	 * store is declared: the 'meta' relationship IS the registration.
@@ -542,7 +542,7 @@ class MetaStoreParityTest extends TestCase {
 
 		$gadget_id = $gadgets->add_item( array( 'label' => 'widget' ) );
 
-		// Only an extra (meta) key — no columns change.
+		// Only an extra (meta) key - no columns change.
 		$this->assertTrue( $gadgets->update_item( $gadget_id, array( 'color' => 'red' ) ) );
 		$this->assertSame( 'red', $store->get_meta( $gadget_id, 'color', true ) );
 
@@ -691,7 +691,7 @@ class MetaStoreParityTest extends TestCase {
 	 * No-store bulk meta honors the register_meta() gate: only registered keys save.
 	 *
 	 * With no meta store declared, save_extra_item_meta() intersects the bulk keys
-	 * with get_registered_meta_keys() before writing — the counterpart to the
+	 * with get_registered_meta_keys() before writing - the counterpart to the
 	 * store path, which intentionally skips that gate. Drives the private no-store
 	 * path directly (no primary table needed) against the real wp_postmeta table.
 	 *

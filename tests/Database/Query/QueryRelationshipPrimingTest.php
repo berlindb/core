@@ -234,7 +234,7 @@ class QueryRelationshipPrimingTest extends TestCase {
 	}
 
 	/**
-	 * Test that priming is quiet by default — the parent is not warmed, so
+	 * Test that priming is quiet by default - the parent is not warmed, so
 	 * fetching it later hits the database.
 	 *
 	 * @since 3.1.0
@@ -346,7 +346,7 @@ class QueryRelationshipPrimingTest extends TestCase {
 	 */
 	public function test_get_related_non_query_class_is_null() {
 		/*
-		 * The 'bogus' relationship points at stdClass — a class that exists but
+		 * The 'bogus' relationship points at stdClass - a class that exists but
 		 * is not a Query, so the remote can't be resolved.
 		 */
 		$item = (object) array( 'status' => 'anything' );
@@ -497,7 +497,7 @@ class QueryRelationshipPrimingTest extends TestCase {
 		$this->assertCount( 101, self::$query->get_related( $parent, 'children' ) );
 	}
 
-	// Relationship filtering — 'in' strategy (#193, Phase 5).
+	// Relationship filtering - 'in' strategy (#193, Phase 5).
 
 	/**
 	 * Test that the 'in' strategy filters local rows by a belongs_to parent's
@@ -576,7 +576,7 @@ class QueryRelationshipPrimingTest extends TestCase {
 		$this->assertSame( array(), $results );
 	}
 
-	// Relationship filtering — 'join' strategy (#193, Phase 5b).
+	// Relationship filtering - 'join' strategy (#193, Phase 5b).
 
 	/**
 	 * Test that the 'join' strategy filters local rows by a belongs_to parent's
@@ -813,7 +813,7 @@ class QueryRelationshipPrimingTest extends TestCase {
 	/**
 	 * Test that a belongs_to LEFT JOIN keeps unmatched local rows. With no
 	 * conditions, both the parent (no parent of its own) and the child are
-	 * returned — unlike an INNER JOIN, which would return only the child.
+	 * returned - unlike an INNER JOIN, which would return only the child.
 	 *
 	 * @since 3.1.0
 	 */
@@ -838,7 +838,7 @@ class QueryRelationshipPrimingTest extends TestCase {
 	}
 
 	/**
-	 * Test that a LEFT JOIN WITH a where condition filters unmatched rows — the
+	 * Test that a LEFT JOIN WITH a where condition filters unmatched rows - the
 	 * condition is emitted into the outer WHERE, so the unmatched parent row
 	 * (parent_id = 0, NULL-joined) is excluded and LEFT behaves like INNER. Pins
 	 * the documented caveat: 'join' => 'left' keeps unmatched rows only when
@@ -868,7 +868,7 @@ class QueryRelationshipPrimingTest extends TestCase {
 
 	/**
 	 * Test that a malformed relation clause (missing 'name', e.g. a 'relationship'
-	 * => 'parent' typo) FAILS CLOSED — returns no rows, never every row.
+	 * => 'parent' typo) FAILS CLOSED - returns no rows, never every row.
 	 *
 	 * @since 3.1.0
 	 */
@@ -885,7 +885,7 @@ class QueryRelationshipPrimingTest extends TestCase {
 	}
 
 	/**
-	 * Test that a non-array (scalar) relation fails closed — `relation =>
+	 * Test that a non-array (scalar) relation fails closed - `relation =>
 	 * 'parent'` is an explicit-but-unusable filter, so it returns no rows rather
 	 * than being ignored and widening to all rows.
 	 *
@@ -903,7 +903,7 @@ class QueryRelationshipPrimingTest extends TestCase {
 
 	/**
 	 * Test that 'with' does NOT segment the result cache key. It only controls
-	 * relationship priming side effects, not which rows return — so a query that
+	 * relationship priming side effects, not which rows return - so a query that
 	 * differs from a cached one ONLY by 'with' must hit the same cache entry.
 	 *
 	 * @since 3.1.0
@@ -919,7 +919,7 @@ class QueryRelationshipPrimingTest extends TestCase {
 			)
 		);
 
-		// The same query WITHOUT 'with' must be a cache hit (no SQL) — same key.
+		// The same query WITHOUT 'with' must be a cache hit (no SQL) - same key.
 		$before  = $wpdb->num_queries;
 		$results = self::$query->query( array( 'status' => 'child' ) );
 		$after   = $wpdb->num_queries;
@@ -931,18 +931,18 @@ class QueryRelationshipPrimingTest extends TestCase {
 
 	/**
 	 * Test the reverse of the above: a result cached WITHOUT 'with' is reused by
-	 * a later query WITH 'with', and priming still runs on that cached result —
+	 * a later query WITH 'with', and priming still runs on that cached result -
 	 * set_items() primes relationships even when the item IDs came from cache.
 	 *
 	 * @since 3.1.0
 	 */
 	public function test_with_primes_relationships_on_cached_result() {
 
-		// Warm the result cache WITHOUT 'with' — priming is quiet, parent cold.
+		// Warm the result cache WITHOUT 'with' - priming is quiet, parent cold.
 		self::$query->query( array( 'status' => 'child' ) );
 
 		/*
-		 * Same query WITH 'with' — served from the cache (same key), but the
+		 * Same query WITH 'with' - served from the cache (same key), but the
 		 * 'with' priming must still warm the parent.
 		 */
 		self::$query->query(
@@ -960,7 +960,7 @@ class QueryRelationshipPrimingTest extends TestCase {
 
 	/**
 	 * Test that two different 'in'-strategy relationship filters resolve to
-	 * distinct cache keys — the second filter must not be served the first's
+	 * distinct cache keys - the second filter must not be served the first's
 	 * cached result. The 'in' strategy rewrites to a {fk}__in var, which already
 	 * segments the key; this pins that it stays true.
 	 *
@@ -995,7 +995,7 @@ class QueryRelationshipPrimingTest extends TestCase {
 			)
 		);
 
-		// Filter to children of the blue parent — must compute a different key.
+		// Filter to children of the blue parent - must compute a different key.
 		$blue = self::$query->query(
 			array(
 				'relation' => array(

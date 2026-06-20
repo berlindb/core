@@ -16,7 +16,7 @@ namespace BerlinDB\Database\Operators;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * IN operator — membership test against a set of values.
+ * IN operator - membership test against a set of values.
  *
  * Generates: `IN (%s, %s, ...)`
  *
@@ -90,7 +90,7 @@ class In extends Base {
 		// Maybe split a comma- or space-delimited string into an array.
 		$value = $this->split_value_list( $value );
 
-		// Bail if empty — IN () is invalid SQL.
+		// Bail if empty - IN () is invalid SQL.
 		if ( empty( $value ) ) {
 			return '';
 		}

@@ -16,7 +16,7 @@ namespace BerlinDB\Database\Operators;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * NOT IN operator — exclusion test against a set of values.
+ * NOT IN operator - exclusion test against a set of values.
  *
  * Generates: `NOT IN (%s, %s, ...)`
  *
@@ -90,7 +90,7 @@ class NotIn extends Base {
 		// Maybe split a comma- or space-delimited string into an array.
 		$value = $this->split_value_list( $value );
 
-		// Bail if empty — NOT IN () is invalid SQL.
+		// Bail if empty - NOT IN () is invalid SQL.
 		if ( empty( $value ) ) {
 			return '';
 		}

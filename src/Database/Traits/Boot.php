@@ -21,24 +21,24 @@ defined( 'ABSPATH' ) || exit;
  * construction once, and seals it.
  *
  * It composes two traits:
- *   - Lifecycle — supplies run()/start()/finish()/$current; boot() wraps the
+ *   - Lifecycle - supplies run()/start()/finish()/$current; boot() wraps the
  *     construction sequence in run() so finish() fires even on exception.
- *   - Configuration — supplies configure() (args → properties), which boot()
+ *   - Configuration - supplies configure() (args -> properties), which boot()
  *     calls after sunrise() so init() sees the configured identity.
  *
  * The full lifecycle is:
  *
- *   __construct → boot → run() → start → sunrise → configure → init → consume_args → sunset → finish
+ *   __construct -> boot -> run() -> start -> sunrise -> configure -> init -> consume_args -> sunset -> finish
  *
  * Construction is define-once: boot() is a no-op once is_booted(); the
  * definition itself is sealed separately by Configuration's is_configured().
  *
- * Hook contract — a class overrides these as needed, and should NOT invent its
+ * Hook contract - a class overrides these as needed, and should NOT invent its
  * own per-class lifecycle methods:
  *   - sunrise(): runs first, before configuration is applied (the dawn bookend
- *     with sunset()). Rare — for any setup that must precede config.
+ *     with sunset()). Rare - for any setup that must precede config.
  *   - configure() / is_configuration(): see Traits\Configuration.
- *   - init(): the construction hook — build state from the just-applied config,
+ *   - init(): the construction hook - build state from the just-applied config,
  *     before consume_args() runs (e.g. Query builds its schema and parsers here).
  *   - consume_args(): handle args not consumed as configuration (Query: query
  *     vars + run). No-op default.
@@ -85,12 +85,12 @@ trait Boot {
 	 */
 	protected function boot( $args = array() ): void {
 
-		// Bail if already booted — construction is define-once (whole lifecycle).
+		// Bail if already booted - construction is define-once (whole lifecycle).
 		if ( $this->is_booted() ) {
 			return;
 		}
 
-		// Row subclasses pass a raw stdClass from the database — normalize to array.
+		// Row subclasses pass a raw stdClass from the database - normalize to array.
 		if ( is_object( $args ) ) {
 			$args = (array) $args;
 		}
@@ -127,7 +127,7 @@ trait Boot {
 	/**
 	 * Wake up: the first lifecycle step, before configuration is applied.
 	 *
-	 * Empty by default — override only for setup that must precede config. The
+	 * Empty by default - override only for setup that must precede config. The
 	 * dawn bookend, paired with sunset().
 	 *
 	 * @since 3.0.0
@@ -137,7 +137,7 @@ trait Boot {
 	/**
 	 * Consume any arguments not claimed as configuration.
 	 *
-	 * Default is a no-op — for most classes configure() consumes everything.
+	 * Default is a no-op - for most classes configure() consumes everything.
 	 * Query overrides this to parse its query vars and run the query.
 	 *
 	 * @since 3.0.0
@@ -151,7 +151,7 @@ trait Boot {
 	 * Build the object's state from the applied configuration.
 	 *
 	 * The construction hook: runs after configure() (so it sees the configured
-	 * identity) and before consume_args(), so anything the work needs is ready —
+	 * identity) and before consume_args(), so anything the work needs is ready -
 	 * e.g. Query builds its schema and query-var parsers here. Decompose into
 	 * named set_*() helpers, as Query/Table do.
 	 *
@@ -172,7 +172,7 @@ trait Boot {
 	 * Whether construction has completed.
 	 *
 	 * Once booted, boot() is a no-op (the lifecycle is define-once). Sealing of
-	 * the definition itself — so configure() will not re-assign properties — is
+	 * the definition itself - so configure() will not re-assign properties - is
 	 * tracked separately by is_configured().
 	 *
 	 * @since 3.1.0

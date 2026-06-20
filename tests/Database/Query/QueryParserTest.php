@@ -468,7 +468,7 @@ class QueryParserTest extends TestCase {
 	}
 
 	/**
-	 * Meta::get_sql() — the BC positional entry — resolves the primary table by
+	 * Meta::get_sql() - the BC positional entry - resolves the primary table by
 	 * NAME (not the ALIAS get_join_where_clauses() uses), and honors explicit args.
 	 *
 	 * Locks the name-vs-alias distinction and the positional fallbacks across the
@@ -500,7 +500,7 @@ class QueryParserTest extends TestCase {
 	 * Meta::get_sql()'s BC entry tolerates a non-string positional arg: it is
 	 * sanitized to a false result, not raised as a TypeError.
 	 *
-	 * The shared tail's params stay untyped for exactly this back-compat reason —
+	 * The shared tail's params stay untyped for exactly this back-compat reason -
 	 * a legacy caller passing e.g. an array must fail closed, as it did before the
 	 * tail was extracted, rather than fataling.
 	 *
@@ -519,7 +519,7 @@ class QueryParserTest extends TestCase {
 	 *
 	 * Counting short-circuits paging and shaping: it forces number=false, clears
 	 * fields and orderby, disables found-rows, and turns off the item/meta cache
-	 * writes — applied before any parser normalizer runs.
+	 * writes - applied before any parser normalizer runs.
 	 *
 	 * @since 3.1.0
 	 */

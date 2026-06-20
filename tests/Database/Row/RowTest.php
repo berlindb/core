@@ -135,7 +135,7 @@ class RowTest extends TestCase {
 		$this->assertTrue( $row->exists() );
 	}
 
-	// Cast trait — $casts applied on construction.
+	// Cast trait - $casts applied on construction.
 
 	/**
 	 * Test that a string is cast to int when $casts maps the property to intval.

@@ -26,8 +26,8 @@ trait Generator {
 	/**
 	 * Generate a random URN UUID (v4).
 	 *
-	 * Uses PHP's native random_int() — a CSPRNG (the same source modern wp_rand()
-	 * wraps), guaranteed on PHP 7+ — for unpredictable values without depending on
+	 * Uses PHP's native random_int() - a CSPRNG (the same source modern wp_rand()
+	 * wraps), guaranteed on PHP 7+ - for unpredictable values without depending on
 	 * WordPress, matching generate_random_string()'s use of random_bytes(). Callers
 	 * are responsible for deciding *when* to generate (e.g. on insert only); this
 	 * method just produces the value.
@@ -90,7 +90,7 @@ trait Generator {
 	 *
 	 * A small seam over PHP's native random_int() (guaranteed on the 7+ floor):
 	 * generate_uuid() routes through it so a subclass can override the source of
-	 * randomness — the override point WordPress's pluggable wp_rand() once gave —
+	 * randomness - the override point WordPress's pluggable wp_rand() once gave -
 	 * with no WordPress dependency.
 	 *
 	 * @since 3.1.0

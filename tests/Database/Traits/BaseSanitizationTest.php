@@ -733,7 +733,7 @@ class BaseSanitizationTest extends \PHPUnit\Framework\TestCase {
 		$this->assertSame( $ref, $this->helper->get_cast_reference( $ref, '' ) );
 
 		/*
-		 * Every non-empty target wraps in CAST() — including CHAR, a valid cast
+		 * Every non-empty target wraps in CAST() - including CHAR, a valid cast
 		 * for string-semantics comparison on a numeric column.
 		 */
 		$this->assertSame( 'CAST(`a`.`col` AS CHAR)', $this->helper->get_cast_reference( $ref, 'CHAR' ) );
@@ -809,7 +809,7 @@ class BaseSanitizationTest extends \PHPUnit\Framework\TestCase {
 	 */
 	public function test_parse_args() {
 
-		// Array over defaults — passed values win, defaults fill the rest.
+		// Array over defaults - passed values win, defaults fill the rest.
 		$this->assertSame(
 			array(
 				'a' => 1,

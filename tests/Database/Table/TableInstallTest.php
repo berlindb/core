@@ -4,11 +4,11 @@
  *
  * Specifically verifies:
  *
- *   1. Autoloading — version and tombstone options must be autoloaded so that
+ *   1. Autoloading - version and tombstone options must be autoloaded so that
  *      get_option() calls inside maybe_upgrade() are always served from
  *      WordPress's in-memory options cache rather than live DB queries.
  *
- *   2. Admin-only scope — maybe_upgrade() must never be attached to a hook
+ *   2. Admin-only scope - maybe_upgrade() must never be attached to a hook
  *      that fires on frontend page loads; it must only run on admin_init.
  *
  * @package     BerlinDB\Tests
@@ -201,7 +201,7 @@ class TableInstallTest extends TestCase {
 		foreach ( $frontend_hooks as $hook ) {
 			$this->assertFalse(
 				has_action( $hook, array( $table, 'maybe_upgrade' ) ),
-				"maybe_upgrade() must not be hooked to '{$hook}' — upgrade checks must only run in the admin."
+				"maybe_upgrade() must not be hooked to '{$hook}' - upgrade checks must only run in the admin."
 			);
 		}
 	}

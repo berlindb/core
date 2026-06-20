@@ -31,7 +31,7 @@ trait Instantiator {
 	 * The single home for the recurring "class_exists() then new" pattern: an
 	 * empty or unloadable class always fails closed to null. Available on every
 	 * class composing this trait (which also composes Log), so the same guarded
-	 * instantiation — and the same structured failure log — is one call away
+	 * instantiation - and the same structured failure log - is one call away
 	 * across Kern, Presets, and Parsers.
 	 *
 	 * Construction exceptions are handled by mode: pass $log_code to emit a

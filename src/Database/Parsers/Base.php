@@ -148,7 +148,7 @@ abstract class Base {
 		 * non-empty suffix to append, OR no container var at all (a per-column-
 		 * only parser like By, whose shorthand IS the bare column name). A
 		 * container-only parser that inherits the empty Base suffix (e.g.
-		 * Relationship) claims no per-column keys — it would otherwise grab every
+		 * Relationship) claims no per-column keys - it would otherwise grab every
 		 * column name, since an empty column_filter matches all columns.
 		 */
 		if ( ( '' !== $this->column_suffix ) || empty( $query_var ) ) {
@@ -182,8 +182,8 @@ abstract class Base {
 	/**
 	 * Recover a column name from a per-column query var key.
 	 *
-	 * Strips this parser's {@see $column_suffix} from the end of the key — e.g.
-	 * 'status__in' => 'status', 'date_created_query' => 'date_created' — so the
+	 * Strips this parser's {@see $column_suffix} from the end of the key - e.g.
+	 * 'status__in' => 'status', 'date_created_query' => 'date_created' - so the
 	 * several per-column parsers (In, NotIn, Search, Date) don't each re-implement
 	 * the same string surgery. Returns false when the key does not carry this
 	 * parser's suffix, so callers can skip keys that aren't theirs.
@@ -229,7 +229,7 @@ abstract class Base {
 	 *
 	 * The per-column parsers (By, In, NotIn, Search) all derive their first-order
 	 * keys identically: every column matching {@see $column_filter}, suffixed with
-	 * {@see $column_suffix} — e.g. 'status__in', 'name_search', or the bare column
+	 * {@see $column_suffix} - e.g. 'status__in', 'name_search', or the bare column
 	 * name for By. This shared default replaces those near-identical overrides; it
 	 * is the inverse of {@see strip_column_suffix()}.
 	 *

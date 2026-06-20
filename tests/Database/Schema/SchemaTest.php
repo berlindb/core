@@ -786,7 +786,7 @@ class SchemaTest extends TestCase {
 	public function test_get_create_table_string_returns_empty_for_invalid_schema() {
 		$schema = new TestSchema();
 		$schema->clear();
-		$schema->add_column( array( 'type' => 'bigint' ) ); // no name — invalid
+		$schema->add_column( array( 'type' => 'bigint' ) ); // no name - invalid
 		$this->assertSame( '', $schema->get_create_table_string() );
 	}
 
@@ -907,7 +907,7 @@ class SchemaTest extends TestCase {
 				'name'          => 'shop_id',
 				'type'          => 'bigint',
 				'relationships' => array(
-					// Explicitly named 'order' — collides with the derived one.
+					// Explicitly named 'order' - collides with the derived one.
 					array(
 						'name'   => 'order',
 						'query'  => 'Acme\\Queries\\Shop',
