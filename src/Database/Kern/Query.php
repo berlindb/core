@@ -2578,13 +2578,13 @@ class Query {
 	 */
 	private function parse_where_clause( $where = array() ): string {
 
-		// Bail if no where.
-		if ( empty( $where ) ) {
-			return '';
-		}
+		// Combine the parser WHERE fragments with a boolean AND.
+		$sql = ( new \BerlinDB\Database\Clauses\BooleanGroup( 'AND', array_values( (array) $where ) ) )->get_sql();
 
-		// Return SQL.
-		return 'WHERE ' . implode( ' AND ', $where );
+		// Prefix WHERE only when there is something to filter.
+		return ( '' === $sql )
+			? ''
+			: "WHERE {$sql}";
 	}
 
 	/**

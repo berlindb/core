@@ -1047,22 +1047,9 @@ trait Parser {
 				// This is a first-order clause.
 				if ( $this->is_first_order_clause( $clause ) ) {
 
-					// Get clauses & where count.
-					$clause_sql  = $this->get_sql_for_clause( $clause, $query, $key );
-					$where_count = count( $clause_sql[ 'where' ] );
-
-					// Empty SQL.
-					if ( 0 === $where_count ) {
-						$sql[ 'where' ][] = '';
-
-						// Add clause.
-					} elseif ( 1 === $where_count ) {
-						$sql[ 'where' ][] = reset( $clause_sql[ 'where' ] );
-
-						// Implode many clauses.
-					} else {
-						$sql[ 'where' ][] = '( ' . implode( ' AND ', $clause_sql[ 'where' ] ) . ' )';
-					}
+					// Get clauses, then combine them (none -> '', one -> bare, many -> AND group).
+					$clause_sql       = $this->get_sql_for_clause( $clause, $query, $key );
+					$sql[ 'where' ][] = ( new \BerlinDB\Database\Clauses\BooleanGroup( 'AND', array_values( $clause_sql[ 'where' ] ) ) )->get_sql();
 
 					// Merge joins.
 					$sql[ 'join' ] = array_merge( $sql[ 'join' ], $clause_sql[ 'join' ] );
