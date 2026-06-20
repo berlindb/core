@@ -101,6 +101,19 @@ class Column {
 	);
 
 	/**
+	 * Coarse type categories — a SQL-type taxonomy used by type-sensitive callers
+	 * (e.g. operand function validation) instead of a parallel pile of literals.
+	 *
+	 * Derived from the column type (sanitize_type_category) but settable, with the
+	 * declared type as the sane default; a future ColumnType handler (#194) is the
+	 * natural home for this alongside pattern, cast, and the is_*() predicates.
+	 *
+	 * @since 3.1.0
+	 * @var array<int,string>
+	 */
+	private const CATEGORIES = array( 'numeric', 'string', 'date', 'time', 'year' );
+
+	/**
 	 * Relationship types recognised by BerlinDB.
 	 *
 	 * Used by sanitize_relationships() to validate the relationship direction.
@@ -363,6 +376,20 @@ class Column {
 	 * @var   '%s'|'%d'|'%f' Default empty string.
 	 */
 	public $pattern = '%s';
+
+	/**
+	 * Coarse type category — 'numeric', 'string', 'date', 'time', or 'year'.
+	 *
+	 * Like $pattern, this is inferred from the column type when not provided
+	 * (sanitize_type_category) and used by type-sensitive callers — currently
+	 * operand function validation (a date function rejecting a numeric column).
+	 * Settable, WordPress-style, for the rare column whose type does not imply the
+	 * right category; an empty value triggers auto-inference at construction.
+	 *
+	 * @since 3.1.0
+	 * @var   string One of self::CATEGORIES once inferred; '' until then.
+	 */
+	public $type_category = '';
 
 	/**
 	 * Is this column searchable?
@@ -670,6 +697,7 @@ class Column {
 
 			// Extras.
 			'pattern'       => array( $this, 'sanitize_pattern' ),
+			'type_category' => array( $this, 'sanitize_type_category' ),
 			'cast'          => array( $this, 'sanitize_cast' ),
 			'validate'      => array( $this, 'sanitize_validation' ),
 			'caps'          => array( $this, 'sanitize_capabilities' ),
@@ -791,6 +819,49 @@ class Column {
 			),
 			$type
 		);
+	}
+
+	/**
+	 * Return if a column type is date-bearing (date, datetime, or timestamp).
+	 *
+	 * The date-bearing subset of is_date_time() — excludes time-only and year, so
+	 * a date-part function (YEAR, MONTH, DAYOF*) can require a real date.
+	 *
+	 * @since 3.1.0
+	 * @param string $type Optional type string to test. Defaults to $this->type.
+	 * @return bool
+	 */
+	public function is_date( $type = '' ) {
+		return $this->is_type(
+			array(
+				'date',
+				'datetime',
+				'timestamp',
+			),
+			$type
+		);
+	}
+
+	/**
+	 * Return if a column type is time-only.
+	 *
+	 * @since 3.1.0
+	 * @param string $type Optional type string to test. Defaults to $this->type.
+	 * @return bool
+	 */
+	public function is_time( $type = '' ) {
+		return $this->is_type( array( 'time' ), $type );
+	}
+
+	/**
+	 * Return if a column type is year.
+	 *
+	 * @since 3.1.0
+	 * @param string $type Optional type string to test. Defaults to $this->type.
+	 * @return bool
+	 */
+	public function is_year( $type = '' ) {
+		return $this->is_type( array( 'year' ), $type );
 	}
 
 	/**
@@ -1269,6 +1340,46 @@ class Column {
 
 		// Return.
 		return $retval;
+	}
+
+	/**
+	 * Sanitize the type category, inferring it from the column type when absent.
+	 *
+	 * Mirrors sanitize_pattern(): an explicit, recognized category is honored;
+	 * anything else (the common case — not provided) is inferred from the declared
+	 * type via the is_*() predicates. Date-bearing / time-only / year are kept
+	 * distinct so a date function does not accept a TIME or YEAR column.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $category Default empty string. A category to honor as-is, if recognized.
+	 * @return string One of self::CATEGORIES.
+	 */
+	private function sanitize_type_category( $category = '' ): string {
+
+		// Honor an explicit, recognized category.
+		if ( is_string( $category ) && in_array( $category, self::CATEGORIES, true ) ) {
+			return $category;
+		}
+
+		// Otherwise infer from the column type.
+		if ( $this->is_date() ) {
+			return 'date';
+		}
+
+		if ( $this->is_time() ) {
+			return 'time';
+		}
+
+		if ( $this->is_year() ) {
+			return 'year';
+		}
+
+		if ( $this->is_numeric() ) {
+			return 'numeric';
+		}
+
+		return 'string';
 	}
 
 	/**
@@ -1986,20 +2097,22 @@ class Column {
 	}
 
 	/**
-	 * Return this column's type category — 'date', 'time', 'year', 'numeric', or
-	 * 'string'. Lets a type-sensitive caller validate a column without re-deriving
-	 * type knowledge (e.g. a date function rejecting a numeric column).
+	 * Return this column's effective type category — 'date', 'time', 'year',
+	 * 'numeric', or 'string'. Lets a type-sensitive caller validate a column
+	 * without re-deriving type knowledge (e.g. a date function rejecting a numeric
+	 * column).
 	 *
-	 * An optional CAST overrides the declared type — mirroring get_name_sql(), so
-	 * the category matches the SQL that will actually render: a SIGNED/DECIMAL cast
-	 * is 'numeric', a DATETIME cast is 'date', etc. Date-bearing types (date /
-	 * datetime / timestamp) report 'date'; time-only and year are distinct, so a
-	 * date function on a TIME or YEAR column does not pass as date-bearing.
+	 * Without a cast, this returns the $type_category property (set explicitly or
+	 * inferred from the declared type by sanitize_type_category). An optional CAST
+	 * overrides it — mirroring get_name_sql(), so the category matches the SQL that
+	 * will actually render: a SIGNED/DECIMAL cast is 'numeric', a DATETIME cast is
+	 * 'date', etc.
 	 *
 	 * @since 3.1.0
 	 *
 	 * @param string $cast Optional. A normalized CAST target overriding the declared type.
-	 * @return 'date'|'time'|'year'|'numeric'|'string'
+	 * @return string One of self::CATEGORIES (a manually-set $type_category may be
+	 *                any string; callers match it against a known category list).
 	 */
 	public function get_type_category( string $cast = '' ): string {
 
@@ -2034,27 +2147,10 @@ class Column {
 			return 'string';
 		}
 
-		$type = strtolower( (string) $this->type );
-
-		// Date-bearing temporal types.
-		if ( in_array( $type, array( 'date', 'datetime', 'timestamp' ), true ) ) {
-			return 'date';
-		}
-
-		// Time-only and year are their own categories (not date-bearing).
-		if ( 'time' === $type ) {
-			return 'time';
-		}
-
-		if ( 'year' === $type ) {
-			return 'year';
-		}
-
-		if ( $this->is_numeric() ) {
-			return 'numeric';
-		}
-
-		return 'string';
+		// No cast: the (type-inferred or explicitly set) category property decides.
+		return ( '' !== $this->type_category )
+			? $this->type_category
+			: $this->sanitize_type_category();
 	}
 
 	/**

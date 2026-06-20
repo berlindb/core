@@ -1568,6 +1568,73 @@ class ColumnTest extends TestCase {
 	}
 
 	/**
+	 * Test that an explicit type_category overrides the inferred one (settable,
+	 * WordPress-style, even when it does not match the declared type), and that an
+	 * unrecognized value is ignored in favor of inference.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_type_category_property_override() {
+
+		// Explicit, recognized category wins over the type's inference.
+		$override = new Column(
+			array(
+				'name'          => 'c',
+				'type'          => 'varchar',
+				'type_category' => 'date',
+			)
+		);
+		$this->assertSame( 'date', $override->type_category );
+		$this->assertSame( 'date', $override->get_type_category() );
+
+		// An unrecognized category is ignored — inference from the type stands.
+		$bogus = new Column(
+			array(
+				'name'          => 'c',
+				'type'          => 'bigint',
+				'type_category' => 'not-a-category',
+			)
+		);
+		$this->assertSame( 'numeric', $bogus->get_type_category() );
+	}
+
+	/**
+	 * Test the granular temporal predicates that back category inference.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_temporal_type_predicates() {
+
+		$datetime = new Column(
+			array(
+				'name' => 'c',
+				'type' => 'datetime',
+			)
+		);
+		$this->assertTrue( $datetime->is_date() );
+		$this->assertFalse( $datetime->is_time() );
+		$this->assertFalse( $datetime->is_year() );
+
+		$time = new Column(
+			array(
+				'name' => 'c',
+				'type' => 'time',
+			)
+		);
+		$this->assertTrue( $time->is_time() );
+		$this->assertFalse( $time->is_date() );
+
+		$year = new Column(
+			array(
+				'name' => 'c',
+				'type' => 'year',
+			)
+		);
+		$this->assertTrue( $year->is_year() );
+		$this->assertFalse( $year->is_date() );
+	}
+
+	/**
 	 * Test that get_name_sql wraps the reference in CAST only when a cast is given.
 	 *
 	 * @since 3.1.0

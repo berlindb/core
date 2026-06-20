@@ -103,7 +103,7 @@ class Column extends Base {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @return 'date'|'time'|'year'|'numeric'|'string'
+	 * @return string A type category (see Column::get_type_category()).
 	 */
 	public function get_type_category(): string {
 		return $this->column->get_type_category( $this->cast );
