@@ -633,6 +633,9 @@ class Query {
 
 			// Relationship priming (quiet by default; array of names to prime).
 			'with'              => false,
+
+			// Cross-parser criteria tree (empty = implicit AND across parsers, the default).
+			'criteria'          => array(),
 		);
 
 		/* Query Parsers ******************************************************/
@@ -2119,27 +2122,39 @@ class Query {
 	 */
 	private function parse_join_where( array $query_vars = array() ): array {
 
-		// Parse the join/where parsers (the sole caller passes already-parsed vars).
+		// Phase 1: run the parsers (the sole caller passes already-parsed vars).
 		$parsers = $this->parse_join_where_parsers( $query_vars );
 
-		// Default return value.
-		$retval = array(
-			'join'  => array(),
-			'where' => array(),
+		/*
+		 * Read the cross-parser directive only when 'criteria' is NOT a real column.
+		 * A same-named column makes the var a column filter (the 'by' parser handles
+		 * it); its value - or its unset sentinel - must not be mistaken for the
+		 * directive and failed closed. With no such column, the directive is read as
+		 * given (an array tree applies; a malformed scalar fails closed).
+		 */
+		$criteria = in_array( 'criteria', $this->get_column_names(), true )
+			? array()
+			: $this->get_query_var( 'criteria' );
+
+		// Phase 2: assemble their per-parser fragments into the final clause lists.
+		$builder = new \BerlinDB\Database\Clauses\Builder(
+			array(
+				'criteria' => $criteria,
+				'join'     => $parsers[ 'join' ],
+				'where'    => $parsers[ 'where' ],
+				'parsers'  => array_keys( $this->parsers ),
+			)
 		);
 
-		// Set join subclauses - strip string keys so parse_join_clause() receives a plain list.
-		if ( ! empty( $parsers[ 'join' ] ) ) {
-			$retval[ 'join' ] = array_values( $parsers[ 'join' ] );
+		// Surface any criteria misconfiguration the builder recorded.
+		foreach ( $builder->get_warnings() as $warning ) {
+			$this->log( 'warning', 'criteria', $warning );
 		}
 
-		// Set where subclauses - strip string keys so parse_where_clause() receives a plain list.
-		if ( ! empty( $parsers[ 'where' ] ) ) {
-			$retval[ 'where' ] = array_values( $parsers[ 'where' ] );
-		}
-
-		// Return join and where clauses.
-		return $retval;
+		return array(
+			'join'  => $builder->get_join_clauses(),
+			'where' => $builder->get_where_clauses(),
+		);
 	}
 
 	/**

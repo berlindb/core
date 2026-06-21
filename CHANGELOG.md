@@ -40,6 +40,18 @@ Notable changes to BerlinDB are documented here.
   `DAYOFWEEK`/`HOUR`/`MINUTE`/`SECOND`, each declaring the column-type categories it
   accepts — a column argument whose declared type is wrong for the function (e.g.
   `YEAR()` of a numeric column, `ABS()` of a string column) fails the clause closed.
+- Adds cross-parser boolean composition via the `criteria` query var (#211): a
+  top-level tree combines whole parser WHERE fragments with `OR`/`AND` (nestable)
+  instead of the historical implicit `AND`, e.g.
+  `'criteria' => array( 'relation' => 'OR', 'columns', 'meta' )` for
+  `( <columns> OR <meta> )`. Leaves are parser buckets (`columns` aliases the direct
+  column conditions; `meta`/`date`/`compare`/`relation`/`search`/`in`/`not_in`), not
+  raw comparisons; any parser the tree does not name is `AND`-ed on. Fails closed on a
+  malformed tree, an unknown leaf, or a `JOIN`-emitting parser under `OR` (its `JOIN`
+  pre-filters rows, so the `OR` could not widen). Built on a new inert clause builder
+  (`Clauses\Builder` assembling `Clauses\Join` / `Clauses\Where`) that constructs the
+  `JOIN`/`WHERE` without executing — the reusable seam future write operations
+  (`delete_by_where`) will share. Absent `criteria`, behavior is unchanged.
 - Adds end-to-end support for a string/UUID primary key (not `auto_increment`):
   `add_item()` with a supplied key returns that key, and `get_item()`,
   `update_item()`, `delete_item()`, `copy_item()`, query result-shaping, the

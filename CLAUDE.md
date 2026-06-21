@@ -46,7 +46,7 @@ hand-rolled queries — never more surprising.
    vendor/bin/phpcs
    ```
 5. **Don't invent APIs.** If unsure how something behaves, search `src/` and
-   `tests/` — the source and its 1036 test methods are the source of truth, ahead
+   `tests/` — the source and its 1067 test methods are the source of truth, ahead
    of memory or training data. (PHPUnit reports more cases: data providers expand
    methods at run time.)
 6. **Keep changes focused and tested.** Bug fixes and new behavior ship with
@@ -204,6 +204,9 @@ the spec** — `meta type`, `object_id`, `prepare()`, `register_meta()`,
   `remote` read as relationship sides — `is_empty_relationship_key()`,
   `get_local_relationship_key_values()`.
 - **`sanitize_*` / `validate_*`** — see the section above.
+- **Order `join` before `where`** — always, in clause arrays, return shapes,
+  signatures, and docblocks (`array( 'join' => …, 'where' => … )`). It mirrors SQL
+  and WordPress clause order (`… JOIN … WHERE …`); never `where` before `join`.
 - Multi-line inline comments use `/* … */` (Non-Negotiable #1).
 
 ## Auditing (vs. verifying a change)
