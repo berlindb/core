@@ -482,4 +482,67 @@ class IndexTest extends TestCase {
 		$this->assertSame( array(), $index->lengths );
 		$this->assertStringContainsString( '(`a`, `b`, `c`)', $index->get_create_string() );
 	}
+
+	/**
+	 * Test that a plain multi-column index keeps clean names, no lengths, and lists
+	 * every column in declared order.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_plain_multi_column_has_no_lengths() {
+		$index = new Index(
+			array(
+				'name'    => 'multi_idx',
+				'type'    => 'key',
+				'columns' => array( 'name', 'status', 'priority' ),
+			)
+		);
+
+		$this->assertSame( array( 'name', 'status', 'priority' ), $index->columns );
+		$this->assertSame( array(), $index->lengths );
+		$this->assertStringContainsString(
+			'KEY `multi_idx` (`name`, `status`, `priority`)',
+			$index->get_create_string()
+		);
+	}
+
+	/**
+	 * Test a composite UNIQUE index where only one of several columns has a prefix.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_composite_index_with_one_prefixed_column() {
+		$index = new Index(
+			array(
+				'name'    => 'name_slug_idx',
+				'type'    => 'unique',
+				'columns' => array( 'name', 'slug(50)', 'status' ),
+			)
+		);
+
+		$this->assertSame( array( 'name', 'slug', 'status' ), $index->columns );
+		$this->assertSame( array( 'slug' => 50 ), $index->lengths );
+		$this->assertStringContainsString(
+			'UNIQUE KEY `name_slug_idx` (`name`, `slug`(50), `status`)',
+			$index->get_create_string()
+		);
+	}
+
+	/**
+	 * Test a composite PRIMARY KEY with a prefix length on one column.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_primary_composite_with_prefix() {
+		$index = new Index(
+			array(
+				'type'    => 'primary',
+				'columns' => array( 'tenant_id', 'slug(20)' ),
+			)
+		);
+
+		$this->assertSame( array( 'tenant_id', 'slug' ), $index->columns );
+		$this->assertSame( array( 'slug' => 20 ), $index->lengths );
+		$this->assertStringContainsString( 'PRIMARY KEY (`tenant_id`, `slug`(20))', $index->get_create_string() );
+	}
 }

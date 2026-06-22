@@ -260,17 +260,11 @@ class Index {
 			// Keyed form: 'name' => length.
 			if ( is_string( $key ) ) {
 				$raw_name = $key;
-				$length   = $value;
+				$length   = is_numeric( $value ) ? (int) $value : 0;
 
 				// String form: 'name', or 'name(length)'.
 			} elseif ( is_string( $value ) ) {
-				$raw_name = $value;
-				$length   = 0;
-
-				if ( preg_match( '/^(.+)\((\d+)\)$/', $value, $matches ) ) {
-					$raw_name = $matches[ 1 ];
-					$length   = $matches[ 2 ];
-				}
+				list( $raw_name, $length ) = $this->split_column_length( $value );
 
 				// Anything else is not a column.
 			} else {
@@ -284,12 +278,7 @@ class Index {
 				continue;
 			}
 
-			// A positive integer prefix length; anything else means the whole column.
-			$length = is_numeric( $length )
-				? (int) $length
-				: 0;
-
-			// Emit the canonical form for init() to split.
+			// Emit the canonical form ('name' or 'name(length)') for init() to split.
 			$sanitized[] = ( $length > 0 )
 				? "{$name}({$length})"
 				: $name;
@@ -314,15 +303,33 @@ class Index {
 		$lengths = array();
 
 		foreach ( $this->columns as $column ) {
-			if ( preg_match( '/^(.+)\((\d+)\)$/', $column, $matches ) ) {
-				$names[]                  = $matches[ 1 ];
-				$lengths[ $matches[ 1 ] ] = (int) $matches[ 2 ];
-			} else {
-				$names[] = $column;
+			list( $name, $length ) = $this->split_column_length( $column );
+
+			$names[] = $name;
+
+			if ( $length > 0 ) {
+				$lengths[ $name ] = $length;
 			}
 		}
 
 		$this->columns = $names;
 		$this->lengths = $lengths;
+	}
+
+	/**
+	 * Split a `name` or `name(length)` string into its column name and prefix length.
+	 *
+	 * The single place the `(length)` suffix is parsed, shared by sanitize_columns()
+	 * (the string input form) and init() (the canonical entries).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $entry A column entry, optionally with a `(length)` suffix.
+	 * @return array{0: string, 1: int} The [ name, length ] pair; length 0 = whole column.
+	 */
+	private function split_column_length( string $entry ): array {
+		return preg_match( '/^(.+)\((\d+)\)$/', $entry, $matches )
+			? array( $matches[ 1 ], (int) $matches[ 2 ] )
+			: array( $entry, 0 );
 	}
 }
