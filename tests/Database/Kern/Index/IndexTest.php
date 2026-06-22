@@ -545,4 +545,162 @@ class IndexTest extends TestCase {
 		$this->assertSame( array( 'slug' => 20 ), $index->lengths );
 		$this->assertStringContainsString( 'PRIMARY KEY (`tenant_id`, `slug`(20))', $index->get_create_string() );
 	}
+
+	/**
+	 * Test a DESC direction in string form: name stays clean, direction in
+	 * $directions, and the CREATE renders `col` DESC.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_direction_string_form() {
+		$index = new Index(
+			array(
+				'name'    => 'pri_idx',
+				'type'    => 'key',
+				'columns' => array( 'priority DESC' ),
+			)
+		);
+
+		$this->assertSame( array( 'priority' ), $index->columns );
+		$this->assertSame( array( 'priority' => 'DESC' ), $index->directions );
+		$this->assertStringContainsString( 'KEY `pri_idx` (`priority` DESC)', $index->get_create_string() );
+	}
+
+	/**
+	 * Test a DESC direction in keyed form ( 'name' => 'DESC' ).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_direction_keyed_form() {
+		$index = new Index(
+			array(
+				'name'    => 'pri_idx',
+				'type'    => 'key',
+				'columns' => array( 'priority' => 'DESC' ),
+			)
+		);
+
+		$this->assertSame( array( 'priority' ), $index->columns );
+		$this->assertSame( array( 'priority' => 'DESC' ), $index->directions );
+		$this->assertStringContainsString( '(`priority` DESC)', $index->get_create_string() );
+	}
+
+	/**
+	 * Test a column carrying both a prefix length and a DESC direction (string form).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_direction_with_prefix_length() {
+		$index = new Index(
+			array(
+				'name'    => 'title_idx',
+				'type'    => 'key',
+				'columns' => array( 'title(191) DESC' ),
+			)
+		);
+
+		$this->assertSame( array( 'title' ), $index->columns );
+		$this->assertSame( array( 'title' => 191 ), $index->lengths );
+		$this->assertSame( array( 'title' => 'DESC' ), $index->directions );
+		$this->assertStringContainsString( '(`title`(191) DESC)', $index->get_create_string() );
+	}
+
+	/**
+	 * Test that ASC is the default and emitted as nothing (string and keyed forms).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_asc_is_default_and_omitted() {
+		$string = new Index(
+			array(
+				'name'    => 's_idx',
+				'type'    => 'key',
+				'columns' => array( 'name ASC' ),
+			)
+		);
+		$keyed  = new Index(
+			array(
+				'name'    => 'k_idx',
+				'type'    => 'key',
+				'columns' => array( 'name' => 'ASC' ),
+			)
+		);
+
+		foreach ( array( $string, $keyed ) as $index ) {
+			$this->assertSame( array( 'name' ), $index->columns );
+			$this->assertSame( array(), $index->directions );
+			$this->assertStringNotContainsString( 'ASC', $index->get_create_string() );
+		}
+	}
+
+	/**
+	 * Test that FULLTEXT indexes never emit a direction (MySQL rejects them there).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_fulltext_ignores_direction() {
+		$index = new Index(
+			array(
+				'name'    => 'body_idx',
+				'type'    => 'fulltext',
+				'columns' => array( 'body DESC' ),
+			)
+		);
+
+		// Parsed into $directions, but never rendered for FULLTEXT.
+		$this->assertSame( array( 'body' => 'DESC' ), $index->directions );
+
+		$sql = $index->get_create_string();
+		$this->assertStringContainsString( 'FULLTEXT KEY `body_idx` (`body`)', $sql );
+		$this->assertStringNotContainsString( 'DESC', $sql );
+	}
+
+	/**
+	 * Test a composite index mixing a plain column, a prefixed column, and a DESC
+	 * column - lengths and directions land on the right columns and render in order.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_composite_mixed_lengths_and_directions() {
+		$index = new Index(
+			array(
+				'name'    => 'mix_idx',
+				'type'    => 'key',
+				'columns' => array(
+					'name',
+					'slug(10)',
+					'priority' => 'DESC',
+				),
+			)
+		);
+
+		$this->assertSame( array( 'name', 'slug', 'priority' ), $index->columns );
+		$this->assertSame( array( 'slug' => 10 ), $index->lengths );
+		$this->assertSame( array( 'priority' => 'DESC' ), $index->directions );
+		$this->assertStringContainsString(
+			'KEY `mix_idx` (`name`, `slug`(10), `priority` DESC)',
+			$index->get_create_string()
+		);
+	}
+
+	/**
+	 * Test that incidental padding around a string-form entry is tolerated, just as
+	 * it is for a plain column name - the direction is still parsed, not folded into
+	 * the column name.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_direction_string_form_tolerates_padding() {
+		$index = new Index(
+			array(
+				'name'    => 'pad_idx',
+				'type'    => 'key',
+				'columns' => array( '  priority DESC  ' ),
+			)
+		);
+
+		$this->assertSame( array( 'priority' ), $index->columns );
+		$this->assertSame( array( 'priority' => 'DESC' ), $index->directions );
+		$this->assertStringContainsString( '(`priority` DESC)', $index->get_create_string() );
+	}
 }

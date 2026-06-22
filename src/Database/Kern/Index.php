@@ -29,7 +29,9 @@ defined( 'ABSPATH' ) || exit;
  *     @type string   $name      Name of the index.
  *     @type string   $type      Index type: primary, unique, key, fulltext.
  *     @type array    $columns   Column names in this index; a name may carry a prefix
- *                               length as `'title(191)'` or `'title' => 191`.
+ *                               length and/or a sort direction -- e.g. `'title(191)'`,
+ *                               `'priority DESC'`, `'title(191) DESC'`, or keyed
+ *                               `'title' => 191` / `'priority' => 'DESC'`.
  *     @type bool     $unique    Is this index unique?
  *     @type string   $method    Index method: BTREE, HASH, etc.
  *     @type string   $comment   Optional comment for the index.
@@ -80,6 +82,18 @@ class Index {
 	public $lengths = array();
 
 	/**
+	 * Optional per-column index sort direction ('DESC'), keyed by column name; a
+	 * column absent here is ascending (the MySQL default, emitted as nothing).
+	 * Derived from the `columns` config (`'priority DESC'` or `'priority' => 'DESC'`).
+	 * Descending indexes are a MySQL 8.0 feature; older MySQL/MariaDB accept the
+	 * syntax and index ascending. Ignored for FULLTEXT (no per-column order).
+	 *
+	 * @since 3.1.0
+	 * @var   array<string,string>  Default empty array.
+	 */
+	public $directions = array();
+
+	/**
 	 * Is this index unique?
 	 *
 	 * @since 3.0.0
@@ -112,32 +126,39 @@ class Index {
 	public $using = '';
 
 	/**
-	 * Split the canonical `name(length)` column entries into the column-name list
-	 * and the per-column prefix lengths.
+	 * Split the canonical column entries into the column-name list, the per-column
+	 * prefix lengths, and the per-column sort directions.
 	 *
 	 * Runs after configure() has sanitized `columns` into canonical form, so the
-	 * derived $columns / $lengths cannot be clobbered by the config defaults merge.
+	 * derived $columns / $lengths / $directions cannot be clobbered by the config
+	 * defaults merge.
 	 *
 	 * @since 3.1.0
 	 *
 	 * @return void
 	 */
 	protected function init(): void {
-		$names   = array();
-		$lengths = array();
+		$names      = array();
+		$lengths    = array();
+		$directions = array();
 
 		foreach ( $this->columns as $column ) {
-			list( $name, $length ) = $this->split_column_length( $column );
+			list( $name, $length, $direction ) = $this->split_column_entry( $column );
 
 			$names[] = $name;
 
 			if ( $length > 0 ) {
 				$lengths[ $name ] = $length;
 			}
+
+			if ( 'DESC' === $direction ) {
+				$directions[ $name ] = 'DESC';
+			}
 		}
 
-		$this->columns = $names;
-		$this->lengths = $lengths;
+		$this->columns    = $names;
+		$this->lengths    = $lengths;
+		$this->directions = $directions;
 	}
 
 	/** Argument Validation ***************************************************/
@@ -183,16 +204,23 @@ class Index {
 		$type = strtoupper( $this->type );
 
 		/*
-		 * Back-tick each column, appending any prefix length. FULLTEXT indexes whole
-		 * columns, so MySQL rejects a length there - never emit one for FULLTEXT.
+		 * Back-tick each column, appending any prefix length and DESC direction.
+		 * FULLTEXT indexes whole columns in their own order, so MySQL rejects both a
+		 * length and a direction there - never emit either for FULLTEXT.
 		 */
 		$columns = array();
 
 		foreach ( $this->columns as $name ) {
 			$column = $this->quote_identifier( $name );
 
-			if ( ( 'FULLTEXT' !== $type ) && isset( $this->lengths[ $name ] ) ) {
-				$column .= '(' . $this->lengths[ $name ] . ')';
+			if ( 'FULLTEXT' !== $type ) {
+				if ( isset( $this->lengths[ $name ] ) ) {
+					$column .= '(' . $this->lengths[ $name ] . ')';
+				}
+
+				if ( isset( $this->directions[ $name ] ) ) {
+					$column .= ' ' . $this->directions[ $name ];
+				}
 			}
 
 			$columns[] = $column;
@@ -259,19 +287,20 @@ class Index {
 	/** Private Sanitizers ****************************************************/
 
 	/**
-	 * Sanitize the columns array into canonical `name` / `name(length)` entries.
+	 * Sanitize the columns array into canonical `name(length) DESC` entries.
 	 *
-	 * A column may carry an optional prefix length in either the keyed form
-	 * (`'title' => 191`) or the string form (`'title(191)'`); the two forms may be
-	 * mixed with plain names. Names are sanitized and a positive integer length is
-	 * kept (anything else means the whole column). The canonical entries are split
-	 * into $columns (names) + $lengths by init(), which runs after the config merge
-	 * (so the result cannot be clobbered by it).
+	 * A column may carry an optional prefix length and/or sort direction. The keyed
+	 * form takes one or the other (`'title' => 191`, `'priority' => 'DESC'`); the
+	 * string form takes both (`'title(191) DESC'`); and either mixes with plain
+	 * names. Names are sanitized; a positive integer length and a `DESC` direction
+	 * are kept (ASC is the default and dropped). The canonical entries are split
+	 * into $columns (names) + $lengths + $directions by init(), which runs after the
+	 * config merge (so the result cannot be clobbered by it).
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param mixed $columns Array of column names, optionally carrying prefix lengths.
-	 * @return list<string> Canonical `name` / `name(length)` entries.
+	 * @param mixed $columns Array of column names, optionally with prefix lengths / directions.
+	 * @return list<string> Canonical `name` / `name(length)` / `name DESC` entries.
 	 */
 	private function sanitize_columns( $columns = array() ): array {
 
@@ -283,17 +312,18 @@ class Index {
 		// Default return value.
 		$sanitized = array();
 
-		// Split each entry into a column name and an optional prefix length.
+		// Split each entry into a name plus an optional prefix length and direction.
 		foreach ( $columns as $key => $value ) {
 
-			// Keyed form: 'name' => length.
+			// Keyed form: 'name' => length, or 'name' => 'ASC'|'DESC'.
 			if ( is_string( $key ) ) {
-				$raw_name = $key;
-				$length   = is_numeric( $value ) ? (int) $value : 0;
+				$raw_name  = $key;
+				$length    = is_numeric( $value ) ? (int) $value : 0;
+				$direction = ( is_string( $value ) && ( 'DESC' === strtoupper( $value ) ) ) ? 'DESC' : '';
 
-				// String form: 'name', or 'name(length)'.
+				// String form: 'name', 'name(length)', 'name DESC', 'name(length) DESC'.
 			} elseif ( is_string( $value ) ) {
-				list( $raw_name, $length ) = $this->split_column_length( $value );
+				list( $raw_name, $length, $direction ) = $this->split_column_entry( $value );
 
 				// Anything else is not a column.
 			} else {
@@ -307,29 +337,57 @@ class Index {
 				continue;
 			}
 
-			// Emit the canonical form ('name' or 'name(length)') for init() to split.
-			$sanitized[] = ( $length > 0 )
-				? "{$name}({$length})"
-				: $name;
+			// Re-emit the canonical form for init() to split.
+			$canonical = $name;
+
+			if ( $length > 0 ) {
+				$canonical .= "({$length})";
+			}
+
+			if ( 'DESC' === $direction ) {
+				$canonical .= ' DESC';
+			}
+
+			$sanitized[] = $canonical;
 		}
 
 		return $sanitized;
 	}
 
 	/**
-	 * Split a `name` or `name(length)` string into its column name and prefix length.
+	 * Split a column entry into its name, optional prefix length, and direction.
 	 *
-	 * The single place the `(length)` suffix is parsed, shared by sanitize_columns()
-	 * (the string input form) and init() (the canonical entries).
+	 * The single place the `(length)` and ` ASC|DESC` suffixes are parsed, shared by
+	 * sanitize_columns() (the string input form) and init() (the canonical entries).
+	 * ASC is normalized away (the default), so direction is `'DESC'` or `''`.
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param string $entry A column entry, optionally with a `(length)` suffix.
-	 * @return array{0: string, 1: int} The [ name, length ] pair; length 0 = whole column.
+	 * @param string $entry A column entry, e.g. `name`, `name(191)`, `name DESC`, `name(191) DESC`.
+	 * @return array{0: string, 1: int, 2: string} The [ name, length, direction ] triple.
 	 */
-	private function split_column_length( string $entry ): array {
-		return preg_match( '/^(.+)\((\d+)\)$/', $entry, $matches )
-			? array( $matches[ 1 ], (int) $matches[ 2 ] )
-			: array( $entry, 0 );
+	private function split_column_entry( string $entry ): array {
+		$length    = 0;
+		$direction = '';
+
+		// Tolerate incidental padding, like the column-name sanitizer does.
+		$entry = trim( $entry );
+
+		// Peel a trailing ASC/DESC direction (ASC is the default, so dropped).
+		if ( preg_match( '/^(.+?)\s+(ASC|DESC)$/i', $entry, $matches ) ) {
+			$entry = $matches[ 1 ];
+
+			if ( 'DESC' === strtoupper( $matches[ 2 ] ) ) {
+				$direction = 'DESC';
+			}
+		}
+
+		// Peel a trailing (length) prefix.
+		if ( preg_match( '/^(.+)\((\d+)\)$/', $entry, $matches ) ) {
+			$entry  = $matches[ 1 ];
+			$length = (int) $matches[ 2 ];
+		}
+
+		return array( $entry, $length, $direction );
 	}
 }
