@@ -111,7 +111,36 @@ class Index {
 	 */
 	public $using = '';
 
-	/** Argument validation ***************************************************/
+	/**
+	 * Split the canonical `name(length)` column entries into the column-name list
+	 * and the per-column prefix lengths.
+	 *
+	 * Runs after configure() has sanitized `columns` into canonical form, so the
+	 * derived $columns / $lengths cannot be clobbered by the config defaults merge.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return void
+	 */
+	protected function init(): void {
+		$names   = array();
+		$lengths = array();
+
+		foreach ( $this->columns as $column ) {
+			list( $name, $length ) = $this->split_column_length( $column );
+
+			$names[] = $name;
+
+			if ( $length > 0 ) {
+				$lengths[ $name ] = $length;
+			}
+		}
+
+		$this->columns = $names;
+		$this->lengths = $lengths;
+	}
+
+	/** Argument Validation ***************************************************/
 
 	/**
 	 * Sanitization callbacks for an Index's configuration arguments.
@@ -285,35 +314,6 @@ class Index {
 		}
 
 		return $sanitized;
-	}
-
-	/**
-	 * Split the canonical `name(length)` column entries into the column-name list
-	 * and the per-column prefix lengths.
-	 *
-	 * Runs after configure() has sanitized `columns` into canonical form, so the
-	 * derived $columns / $lengths cannot be clobbered by the config defaults merge.
-	 *
-	 * @since 3.1.0
-	 *
-	 * @return void
-	 */
-	protected function init(): void {
-		$names   = array();
-		$lengths = array();
-
-		foreach ( $this->columns as $column ) {
-			list( $name, $length ) = $this->split_column_length( $column );
-
-			$names[] = $name;
-
-			if ( $length > 0 ) {
-				$lengths[ $name ] = $length;
-			}
-		}
-
-		$this->columns = $names;
-		$this->lengths = $lengths;
 	}
 
 	/**
