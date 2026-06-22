@@ -809,68 +809,7 @@ class Query {
 		$this->set_current( 'found_items', (int) $retval );
 	}
 
-	/** Public Setters ********************************************************/
-
-	/**
-	 * Set a query var, to both defaults and request arrays.
-	 *
-	 * This method is used to expose the private $query_vars array to hooks,
-	 * allowing them to manipulate query vars just-in-time.
-	 *
-	 * @since 1.0.0
-	 *
-	 * @param string $key Query variable key.
-	 * @param string $value The value.
-	 */
-	public function set_query_var( $key = '', $value = '' ): void {
-		$this->query_var_defaults[ $key ] = $value;
-		$this->query_vars[ $key ]         = $value;
-	}
-
-	/**
-	 * Check whether a query variable strictly equals the unique default
-	 * starting value.
-	 *
-	 * @since 1.1.0
-	 * @param string $key Query variable key.
-	 * @return bool
-	 */
-	public function is_query_var_default( $key = '' ): bool {
-		return ( $this->get_query_var( $key ) === $this->query_var_default_value );
-	}
-
-	/**
-	 * Check whether a raw query variable value strictly equals the unique default
-	 * starting value.
-	 *
-	 * Internal collaborator API for Query parsers; public so parser objects can
-	 * identify the unset sentinel without knowing its generated value.
-	 *
-	 * @since 3.1.0
-	 * @internal
-	 *
-	 * @param mixed $value Query variable value.
-	 * @return bool
-	 */
-	public function is_query_var_default_value( $value = null ): bool {
-		return ( $value === $this->query_var_default_value );
-	}
-
-	/**
-	 * Return the query-var default sentinel (the "unset" marker).
-	 *
-	 * Internal collaborator API for Query parsers; public so a parser can resolve
-	 * its registered default (Parsers\Base::get_query_var_default()) without
-	 * reaching into a protected Query property.
-	 *
-	 * @since 3.1.0
-	 * @internal
-	 *
-	 * @return string
-	 */
-	public function get_query_var_default_value(): string {
-		return $this->query_var_default_value;
-	}
+	/** Public Columns ********************************************************/
 
 	/**
 	 * Is a column valid?
@@ -889,8 +828,6 @@ class Query {
 		// Return if column exists.
 		return ( $this->get_column_by( array( 'name' => $column_name ) ) instanceof Column );
 	}
-
-	/** Public Columns ********************************************************/
 
 	/**
 	 * Return array of column names.
@@ -1608,38 +1545,6 @@ class Query {
 		return $this->filter_query_var_parsers( $parsers );
 	}
 
-	/**
-	 * Get the value of a single query variable by key.
-	 *
-	 * Returns null when the key is not present in $query_vars. Exposed as
-	 * public so parser hooks (e.g. In::get_orderby_sql()) can read the
-	 * query vars set for the current run.
-	 *
-	 * @since 3.0.0
-	 *
-	 * @param string $key Query var key.
-	 * @return mixed Value, or null if not set.
-	 */
-	public function get_query_var( $key = '' ) {
-		return isset( $this->query_vars[ $key ] )
-			? $this->query_vars[ $key ]
-			: null;
-	}
-
-	/**
-	 * Get the full array of query variables for the current run.
-	 *
-	 * Exposed as public so parser hooks can read the query vars set for the current
-	 * run.
-	 *
-	 * @since 3.1.0
-	 *
-	 * @return array<string,mixed> Parsed query vars for the current run.
-	 */
-	public function get_query_vars(): array {
-		return $this->query_vars;
-	}
-
 	/** Private Getters *******************************************************/
 
 	/**
@@ -2027,6 +1932,99 @@ class Query {
 	}
 
 	/** Query Variables *******************************************************/
+
+	/**
+	 * Get the value of a single query variable by key.
+	 *
+	 * Returns null when the key is not present in $query_vars. Exposed as
+	 * public so parser hooks (e.g. In::get_orderby_sql()) can read the
+	 * query vars set for the current run.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param string $key Query var key.
+	 * @return mixed Value, or null if not set.
+	 */
+	public function get_query_var( $key = '' ) {
+		return isset( $this->query_vars[ $key ] )
+			? $this->query_vars[ $key ]
+			: null;
+	}
+
+	/**
+	 * Get the full array of query variables for the current run.
+	 *
+	 * Exposed as public so parser hooks can read the query vars set for the current
+	 * run.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return array<string,mixed> Parsed query vars for the current run.
+	 */
+	public function get_query_vars(): array {
+		return $this->query_vars;
+	}
+
+	/**
+	 * Set a query var, to both defaults and request arrays.
+	 *
+	 * This method is used to expose the private $query_vars array to hooks,
+	 * allowing them to manipulate query vars just-in-time.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @param string $key Query variable key.
+	 * @param string $value The value.
+	 */
+	public function set_query_var( $key = '', $value = '' ): void {
+		$this->query_var_defaults[ $key ] = $value;
+		$this->query_vars[ $key ]         = $value;
+	}
+
+	/**
+	 * Check whether a query variable strictly equals the unique default
+	 * starting value.
+	 *
+	 * @since 1.1.0
+	 * @param string $key Query variable key.
+	 * @return bool
+	 */
+	public function is_query_var_default( $key = '' ): bool {
+		return ( $this->get_query_var( $key ) === $this->query_var_default_value );
+	}
+
+	/**
+	 * Check whether a raw query variable value strictly equals the unique default
+	 * starting value.
+	 *
+	 * Internal collaborator API for Query parsers; public so parser objects can
+	 * identify the unset sentinel without knowing its generated value.
+	 *
+	 * @since 3.1.0
+	 * @internal
+	 *
+	 * @param mixed $value Query variable value.
+	 * @return bool
+	 */
+	public function is_query_var_default_value( $value = null ): bool {
+		return ( $value === $this->query_var_default_value );
+	}
+
+	/**
+	 * Return the query-var default sentinel (the "unset" marker).
+	 *
+	 * Internal collaborator API for Query parsers; public so a parser can resolve
+	 * its registered default (Parsers\Base::get_query_var_default()) without
+	 * reaching into a protected Query property.
+	 *
+	 * @since 3.1.0
+	 * @internal
+	 *
+	 * @return string
+	 */
+	public function get_query_var_default_value(): string {
+		return $this->query_var_default_value;
+	}
 
 	/**
 	 * Parses arguments passed to the item query with default query parameters.
