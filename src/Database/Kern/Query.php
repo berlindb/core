@@ -1429,107 +1429,6 @@ class Query {
 			: null;
 	}
 
-	/**
-	 * Normalize the query vars early, before parsing.
-	 *
-	 * The all-vars counterpart to each parser's own var-local parse_query_vars()
-	 * (which runs later, isolated to its single var). Here every registered parser descriptor
-	 * may rewrite the FULL query vars - translating a high-level directive into
-	 * another parser's canonical var (e.g. store-backed meta_query -> relation_query,
-	 * or 'relation' -> {fk}__in / relation_query). Runs BEFORE the
-	 * parse_{items}_query action, so the action and the SQL parsers see canonical
-	 * vars. A descriptor may return a 'query_filter_short_circuit' sentinel to fail
-	 * the query closed; it is consumed here. See berlindb/core #204.
-	 *
-	 * @since 3.1.0
-	 *
-	 * @param array<string,mixed> $query_vars The validated query vars.
-	 * @return array<string,mixed> The normalized query vars.
-	 */
-	private function normalize_query_vars( array $query_vars = array() ): array {
-
-		// One per-run reset for every normalizer below.
-		$this->set_current( 'query_filter_short_circuit', false );
-
-		/*
-		 * Counting overrides the other structural vars (count was canonicalized
-		 * to a boolean by validate_query_vars()).
-		 */
-		if ( ! empty( $query_vars[ 'count' ] ) ) {
-			$query_vars[ 'number' ]            = false;
-			$query_vars[ 'fields' ]            = '';
-			$query_vars[ 'orderby' ]           = '';
-			$query_vars[ 'no_found_rows' ]     = true;
-			$query_vars[ 'update_item_cache' ] = false;
-			$query_vars[ 'update_meta_cache' ] = false;
-		}
-
-		// Each registered parser descriptor may rewrite the full query vars.
-		foreach ( $this->parsers as $descriptor ) {
-			$query_vars = $descriptor->normalize_query_vars( $query_vars, $this );
-		}
-
-		// Apply any fail-closed sentinel a descriptor returned.
-		return $this->consume_query_filter_sentinel( $query_vars );
-	}
-
-	/**
-	 * Consume a fail-closed sentinel a normalizer left in the query vars.
-	 *
-	 * A parser descriptor cannot reach Query's private short-circuit helper, so it
-	 * signals fail-closed by returning a 'query_filter_short_circuit' query var
-	 * (array{source, reason}); this applies and removes it.
-	 *
-	 * @since 3.1.0
-	 *
-	 * @param array<string,mixed> $query_vars The normalized query vars.
-	 * @return array<string,mixed> The query vars without the sentinel.
-	 */
-	private function consume_query_filter_sentinel( array $query_vars ): array {
-
-		$sentinel = $query_vars[ 'query_filter_short_circuit' ] ?? null;
-
-		// Nothing to consume.
-		if ( empty( $sentinel ) ) {
-			return $query_vars;
-		}
-
-		// Remove it so it never reaches the cache key or the SQL parsers.
-		unset( $query_vars[ 'query_filter_short_circuit' ] );
-
-		$source = is_array( $sentinel ) ? (string) ( $sentinel[ 'source' ] ?? 'query_filter' ) : 'query_filter';
-		$reason = is_array( $sentinel ) ? (string) ( $sentinel[ 'reason' ] ?? '' ) : '';
-
-		$this->short_circuit_query_filter( $source, $reason );
-
-		return $query_vars;
-	}
-
-	/**
-	 * Flag the current run to return no rows (fail-closed query filter).
-	 *
-	 * Shared by the high-level query-filter translators (relationship filters and
-	 * meta_query translation). An empty $reason marks a legitimate empty match (no
-	 * log); a non-empty $reason marks a misconfigured filter and is logged as a
-	 * warning under the $source channel so the failure is attributable.
-	 *
-	 * @since 3.1.0
-	 *
-	 * @param string               $source  Log channel/code (e.g. 'relation_filter', 'meta_query').
-	 * @param string               $reason  Why the filter could not be applied.
-	 * @param array<string,mixed> $context Optional log context.
-	 */
-	private function short_circuit_query_filter( string $source, string $reason = '', array $context = array() ): void {
-
-		// Flag the current run to return no rows.
-		$this->set_current( 'query_filter_short_circuit', true );
-
-		// Log misconfigured filters; an empty reason is a legitimate no-match.
-		if ( '' !== $reason ) {
-			$this->log( 'warning', $source, $reason, $context );
-		}
-	}
-
 	/** Public Parsers ********************************************************/
 
 	/**
@@ -2127,7 +2026,7 @@ class Query {
 		return $retval;
 	}
 
-	/** Private Parsers *******************************************************/
+	/** Query Variables *******************************************************/
 
 	/**
 	 * Parses arguments passed to the item query with default query parameters.
@@ -2222,6 +2121,109 @@ class Query {
 
 		return $query_vars;
 	}
+
+	/**
+	 * Normalize the query vars early, before parsing.
+	 *
+	 * The all-vars counterpart to each parser's own var-local parse_query_vars()
+	 * (which runs later, isolated to its single var). Here every registered parser descriptor
+	 * may rewrite the FULL query vars - translating a high-level directive into
+	 * another parser's canonical var (e.g. store-backed meta_query -> relation_query,
+	 * or 'relation' -> {fk}__in / relation_query). Runs BEFORE the
+	 * parse_{items}_query action, so the action and the SQL parsers see canonical
+	 * vars. A descriptor may return a 'query_filter_short_circuit' sentinel to fail
+	 * the query closed; it is consumed here. See berlindb/core #204.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string,mixed> $query_vars The validated query vars.
+	 * @return array<string,mixed> The normalized query vars.
+	 */
+	private function normalize_query_vars( array $query_vars = array() ): array {
+
+		// One per-run reset for every normalizer below.
+		$this->set_current( 'query_filter_short_circuit', false );
+
+		/*
+		 * Counting overrides the other structural vars (count was canonicalized
+		 * to a boolean by validate_query_vars()).
+		 */
+		if ( ! empty( $query_vars[ 'count' ] ) ) {
+			$query_vars[ 'number' ]            = false;
+			$query_vars[ 'fields' ]            = '';
+			$query_vars[ 'orderby' ]           = '';
+			$query_vars[ 'no_found_rows' ]     = true;
+			$query_vars[ 'update_item_cache' ] = false;
+			$query_vars[ 'update_meta_cache' ] = false;
+		}
+
+		// Each registered parser descriptor may rewrite the full query vars.
+		foreach ( $this->parsers as $descriptor ) {
+			$query_vars = $descriptor->normalize_query_vars( $query_vars, $this );
+		}
+
+		// Apply any fail-closed sentinel a descriptor returned.
+		return $this->consume_query_filter_sentinel( $query_vars );
+	}
+
+	/**
+	 * Consume a fail-closed sentinel a normalizer left in the query vars.
+	 *
+	 * A parser descriptor cannot reach Query's private short-circuit helper, so it
+	 * signals fail-closed by returning a 'query_filter_short_circuit' query var
+	 * (array{source, reason}); this applies and removes it.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string,mixed> $query_vars The normalized query vars.
+	 * @return array<string,mixed> The query vars without the sentinel.
+	 */
+	private function consume_query_filter_sentinel( array $query_vars ): array {
+
+		$sentinel = $query_vars[ 'query_filter_short_circuit' ] ?? null;
+
+		// Nothing to consume.
+		if ( empty( $sentinel ) ) {
+			return $query_vars;
+		}
+
+		// Remove it so it never reaches the cache key or the SQL parsers.
+		unset( $query_vars[ 'query_filter_short_circuit' ] );
+
+		$source = is_array( $sentinel ) ? (string) ( $sentinel[ 'source' ] ?? 'query_filter' ) : 'query_filter';
+		$reason = is_array( $sentinel ) ? (string) ( $sentinel[ 'reason' ] ?? '' ) : '';
+
+		$this->short_circuit_query_filter( $source, $reason );
+
+		return $query_vars;
+	}
+
+	/**
+	 * Flag the current run to return no rows (fail-closed query filter).
+	 *
+	 * Shared by the high-level query-filter translators (relationship filters and
+	 * meta_query translation). An empty $reason marks a legitimate empty match (no
+	 * log); a non-empty $reason marks a misconfigured filter and is logged as a
+	 * warning under the $source channel so the failure is attributable.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string               $source  Log channel/code (e.g. 'relation_filter', 'meta_query').
+	 * @param string               $reason  Why the filter could not be applied.
+	 * @param array<string,mixed> $context Optional log context.
+	 */
+	private function short_circuit_query_filter( string $source, string $reason = '', array $context = array() ): void {
+
+		// Flag the current run to return no rows.
+		$this->set_current( 'query_filter_short_circuit', true );
+
+		// Log misconfigured filters; an empty reason is a legitimate no-match.
+		if ( '' !== $reason ) {
+			$this->log( 'warning', $source, $reason, $context );
+		}
+	}
+
+	/** Clause Parsers ********************************************************/
 
 	/**
 	 * Parse all of the $query_vars.
