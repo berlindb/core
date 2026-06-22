@@ -308,6 +308,12 @@ Current limitations:
   `false` when nothing needs saving after diffing and capability reduction
   (including a meta-only update to an identical value).
 - `delete_item()` returns `true` or `false`.
+- `delete_items()` (3.1.0) deletes a *set*: a single ID, a list of IDs, or a
+  query-var filter (same vocabulary as `query()`, e.g.
+  `delete_items( array( 'status__in' => array( 'spam' ) ) )`). It resolves the
+  matching IDs and loops `delete_item()` (so hooks/cache/meta cleanup all fire), and
+  returns the number deleted or `false`. An empty input or a filter with no `WHERE`
+  deletes nothing — it never means "delete everything".
 - `update_item()` and `delete_item()` expect the primary-key value, not a slug
   or other business key.
 - `number` can intentionally limit queries that also use `__in` or `__not_in`.

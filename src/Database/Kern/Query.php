@@ -388,14 +388,20 @@ class Query {
 	 * @since 3.0.0
 	 */
 	protected function start(): void {
-		$clause_keys = array( 'explain', 'select', 'fields', 'from', 'join', 'where', 'groupby', 'orderby', 'limits' );
+		$clause_keys = array( 'explain', 'select', 'distinct', 'fields', 'from', 'join', 'where', 'groupby', 'orderby', 'limits' );
 
 		$this->init_current(
 			array(
 				'parsers'             => array(),
 				'item_shape'          => $this->item_shape,
 				'query_var_originals' => array(),
-				'query_clauses'       => array_combine( $clause_keys, array( '', '', '', '', array(), array(), '', '', '' ) ),
+				'query_clauses'       => array_merge(
+					array_fill_keys( $clause_keys, '' ),
+					array(
+						'join'  => array(),
+						'where' => array(),
+					)
+				),
 				'request_clauses'     => array_fill_keys( $clause_keys, '' ),
 				'request'             => '',
 				'found_items'         => 0,
@@ -608,6 +614,7 @@ class Query {
 
 			// Statements.
 			'explain'           => false,
+			'distinct'          => false,
 			'select'            => '',
 
 			// Fields.
@@ -767,12 +774,18 @@ class Query {
 			 */
 		} elseif ( ! $this->get_query_var( 'no_found_rows' ) && $this->get_query_var( 'number' ) ) {
 
-			// Override a few request clauses.
+			/*
+			 * The found-items count reuses the request clauses with a few overrides.
+			 * parse_count() renders COUNT(DISTINCT primary) when DISTINCT is active, so
+			 * a row-multiplying JOIN does not inflate the total; the standalone DISTINCT
+			 * keyword is dropped (it belongs inside the COUNT, not before it).
+			 */
 			$r = $this->parse_args(
 				array(
-					'fields'  => 'COUNT(*)',
-					'limits'  => '',
-					'orderby' => '',
+					'fields'   => $this->parse_count( true ),
+					'limits'   => '',
+					'orderby'  => '',
+					'distinct' => '',
 				),
 				$this->get_current_array( 'request_clauses' )
 			);
@@ -1774,16 +1787,24 @@ class Query {
 	}
 
 	/**
-	 * Retrieves a list of items matching the query vars.
+	 * Fire the "pre_get_{plural}" action, where installs scope a query just in time.
 	 *
-	 * @since 1.0.0
+	 * Shared by get_items() (the SELECT path) and select_ids() (delete-by-filter), so
+	 * an install's pre-get scoping constrains both equally.
 	 *
-	 * @return array<int|string,mixed>|int Array of items, or number of items when 'count' is passed as a query var.
+	 * @since 3.1.0
+	 *
+	 * @return void
 	 */
-	private function get_items(): array|int {
+	private function pre_get_items(): void {
 
 		// Generate action name based on the plural item name.
 		$action_name = $this->apply_prefix( 'pre_get_' . $this->get_item_name_plural() );
+
+		// Bail if no action name.
+		if ( '' === $action_name ) {
+			return;
+		}
 
 		/**
 		 * Fires before object items are retrieved.
@@ -1792,14 +1813,25 @@ class Query {
 		 *
 		 * @param \BerlinDB\Database\Kern\Query $query Current instance passed by reference.
 		 */
-		if ( '' !== $action_name ) {
-			do_action_ref_array(
-				$action_name,
-				array(
-					&$this,
-				)
-			);
-		}
+		do_action_ref_array(
+			$action_name,
+			array(
+				&$this,
+			)
+		);
+	}
+
+	/**
+	 * Get the items, populate them, and return them.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @return array<int|string,mixed>|int Array of items, or number of items when 'count' is passed as a query var.
+	 */
+	private function get_items(): array|int {
+
+		// Fire the pre-get action, where installs scope the query just in time.
+		$this->pre_get_items();
 
 		/*
 		 * A normalized query directive resolved to no possible matches: return
@@ -1921,6 +1953,127 @@ class Query {
 
 		// Return parsed IDs.
 		return wp_parse_list( $item_ids );
+	}
+
+	/**
+	 * Select the primary IDs of the rows matching a set of query-var filters.
+	 *
+	 * A narrow, side-effect-free companion to get_item_ids(): it compiles the
+	 * passed vars into a JOIN/WHERE (running the parsers + Clauses\Builder, the
+	 * same construction the SELECT path uses) and returns the distinct primary IDs,
+	 * without the get_item_ids() lifecycle - no cache, no found_items, no count or
+	 * pagination handling, and no mutation of the query's stored clauses/request.
+	 *
+	 * Fails closed: if the filters compile to no WHERE, this refuses and returns an
+	 * empty array rather than selecting every row. A malformed 'criteria' tree
+	 * compiles to a non-empty "1 = 0" WHERE (the Clauses\Where safeguard) and so
+	 * simply matches nothing. DISTINCT guards against JOINs multiplying rows.
+	 *
+	 * @since 3.1.0
+	 * @internal Operation collaborator (Operations\Delete, and later Update).
+	 *
+	 * @param array<string,mixed> $query_vars Query-var filters (same vocabulary as query()).
+	 * @return array<int,int|string> Distinct primary IDs, or an empty array when refused / unmatched.
+	 */
+	public function select_ids( array $query_vars = array() ): array {
+
+		/*
+		 * Mirror the SELECT path's parse_query preparation, but ON $this->query_vars
+		 * and snapshot/restore so it leaves no trace. Parser callbacks read state
+		 * back off the Query (e.g. the Relationship parser fetches its translated
+		 * relation_query via caller()->get_query_var()), so the normalized vars must
+		 * be the Query's vars for the whole build, not just a local copy.
+		 */
+		/*
+		 * Snapshot both the vars and their defaults: a scoping hook may call
+		 * set_query_var(), which writes both, and this transient ID selection must
+		 * leave no trace on the reused Query instance.
+		 */
+		$saved_query_vars     = $this->query_vars;
+		$saved_query_defaults = $this->query_var_defaults;
+
+		try {
+
+			/*
+			 * Run the SELECT path's full preparation on $this->query_vars: merge
+			 * defaults, canonicalize, normalize high-level directives (relation,
+			 * store-backed meta_query, ...) AND fire the parse_{plural}_query action,
+			 * where installs scope the query via set_query_var(). Parser callbacks read
+			 * these vars back off the Query, so skipping any step would let a delete
+			 * reach rows a normal query() would have excluded.
+			 */
+			$this->parse_query( $query_vars );
+
+			// Fire the same pre-get scoping action a normal read does, before SQL.
+			$this->pre_get_items();
+
+			// A filter normalized to "no possible matches" resolves to nothing.
+			if ( true === $this->get_current( 'query_filter_short_circuit', false ) ) {
+				return array();
+			}
+
+			// Compile the JOIN/WHERE via the parsers and Clauses\Builder.
+			$join_where = $this->parse_join_where( $this->query_vars );
+
+			// Render the WHERE and JOIN fragments.
+			$where = $this->parse_where_clause( $join_where[ 'where' ] );
+			$join  = $this->parse_join_clause( $join_where[ 'join' ] );
+
+			/*
+			 * Fail closed: a delete must never resolve to "all rows", so require a WHERE
+			 * constraint. A JOIN alone is not safe to rely on -- a LEFT JOIN does not
+			 * constrain the primary table, and even an INNER JOIN's effect depends on
+			 * its ON clause -- so a filter that compiles to only a JOIN deletes nothing
+			 * rather than risk an unbounded delete. (A relationship filter that bounds
+			 * solely through a JOIN, with no remote WHERE, is therefore a no-op here for
+			 * now; constrain via a WHERE, or add explicit JOIN-strategy support later.)
+			 */
+			if ( '' === $where ) {
+				$this->log( 'warning', 'operation', 'Refusing to select IDs without a WHERE clause.' );
+				return array();
+			}
+
+			/*
+			 * Assemble a narrow "SELECT DISTINCT primary" clause set, in the same shape
+			 * the SELECT path produces (so the query-clauses filter sees every key).
+			 */
+			$primary = $this->get_primary_column_name();
+			$clauses = array(
+				'explain'  => '',
+				'select'   => $this->parse_select(),
+				'distinct' => $this->parse_distinct( true ),
+				'fields'   => $this->get_quoted_column_name_aliased( $primary ),
+				'from'     => $this->parse_from(),
+				'join'     => $join,
+				'where'    => $where,
+				'groupby'  => '',
+				'orderby'  => '',
+				'limits'   => '',
+			);
+
+			/*
+			 * Apply the same {plural}_query_clauses filter the SELECT path runs, so any
+			 * install-level scoping (tenant/ownership/status/capability predicates a site
+			 * adds to WHERE/JOIN) also constrains which rows can be resolved and deleted.
+			 * The empty-WHERE refusal above is intentionally checked on the user's filter
+			 * BEFORE this: site scoping narrows a delete, it never enables an unbounded one.
+			 */
+			$clauses = $this->filter_query_clauses( $clauses );
+
+			// Join the non-empty fragments into a single statement.
+			$request = implode( ' ', array_map( 'trim', array_filter( $clauses ) ) );
+
+			// Execute, then shape each raw ID to the primary column type.
+			$item_ids = $this->db()->get_col( $request );
+
+			return array_map( array( $this, 'shape_item_id' ), wp_parse_list( $item_ids ) );
+
+		} finally {
+
+			// Always restore the Query's own vars and defaults, even on an early return.
+			$this->query_vars         = $saved_query_vars;
+			$this->query_var_defaults = $saved_query_defaults;
+		}
 	}
 
 	/**
@@ -2052,6 +2205,7 @@ class Query {
 			'number'            => 'intval',
 			'order'             => array( $this, 'parse_order' ),
 			'explain'           => array( $this, 'sanitize_boolean' ),
+			'distinct'          => array( $this, 'sanitize_boolean' ),
 			'count'             => array( $this, 'sanitize_boolean' ),
 			'no_found_rows'     => array( $this, 'sanitize_boolean' ),
 			'cache_results'     => array( $this, 'sanitize_boolean' ),
@@ -2097,15 +2251,16 @@ class Query {
 
 		// Parse all clauses.
 		$clauses = array(
-			'explain' => $this->parse_explain( $r[ 'explain' ] ),
-			'select'  => $this->parse_select(),
-			'fields'  => $this->parse_fields( $r[ 'fields' ], $r[ 'count' ], $r[ 'groupby' ] ),
-			'from'    => $this->parse_from(),
-			'join'    => $this->parse_join_clause( $join_where[ 'join' ] ),
-			'where'   => $this->parse_where_clause( $join_where[ 'where' ] ),
-			'groupby' => $this->parse_groupby( $r[ 'groupby' ], 'GROUP BY' ),
-			'orderby' => $this->parse_orderby( $r[ 'orderby' ], $r[ 'order' ], 'ORDER BY' ),
-			'limits'  => $this->parse_limits( $r[ 'number' ], $r[ 'offset' ] ),
+			'explain'  => $this->parse_explain( $r[ 'explain' ] ),
+			'select'   => $this->parse_select(),
+			'distinct' => empty( $r[ 'count' ] ) ? $this->parse_distinct( $r[ 'distinct' ] ) : '',
+			'fields'   => $this->parse_fields( $r[ 'fields' ], $r[ 'count' ], $r[ 'groupby' ] ),
+			'from'     => $this->parse_from(),
+			'join'     => $this->parse_join_clause( $join_where[ 'join' ] ),
+			'where'    => $this->parse_where_clause( $join_where[ 'where' ] ),
+			'groupby'  => $this->parse_groupby( $r[ 'groupby' ], 'GROUP BY' ),
+			'orderby'  => $this->parse_orderby( $r[ 'orderby' ], $r[ 'order' ], 'ORDER BY' ),
+			'limits'   => $this->parse_limits( $r[ 'number' ], $r[ 'offset' ] ),
 		);
 
 		// Return clauses.
@@ -2126,15 +2281,17 @@ class Query {
 		$parsers = $this->parse_join_where_parsers( $query_vars );
 
 		/*
-		 * Read the cross-parser directive only when 'criteria' is NOT a real column.
-		 * A same-named column makes the var a column filter (the 'by' parser handles
-		 * it); its value - or its unset sentinel - must not be mistaken for the
-		 * directive and failed closed. With no such column, the directive is read as
-		 * given (an array tree applies; a malformed scalar fails closed).
+		 * Read the cross-parser directive from the passed vars only when 'criteria'
+		 * is NOT a real column. A same-named column makes the var a column filter
+		 * (the 'by' parser handles it); its value - or its unset sentinel - must not
+		 * be mistaken for the directive and failed closed. With no such column, the
+		 * directive is read as given (an array tree applies; a malformed scalar fails
+		 * closed). Reading it from $query_vars (rather than $this) keeps this method
+		 * pure on its input, so Operations can compile a WHERE from arbitrary vars.
 		 */
 		$criteria = in_array( 'criteria', $this->get_column_names(), true )
 			? array()
-			: $this->get_query_var( 'criteria' );
+			: ( $query_vars[ 'criteria' ] ?? array() );
 
 		// Phase 2: assemble their per-parser fragments into the final clause lists.
 		$builder = new \BerlinDB\Database\Clauses\Builder(
@@ -2331,6 +2488,29 @@ class Query {
 	}
 
 	/**
+	 * Parse whether the "SELECT" should be DISTINCT.
+	 *
+	 * Driven by the 'distinct' query var (like 'explain'); Operations\Delete's ID
+	 * selection also asks for it explicitly by passing true.
+	 *
+	 * @since 3.1.0
+	 * @param bool $distinct Default false. True to de-duplicate the selected rows.
+	 * @return string Default empty string, or "DISTINCT".
+	 */
+	private function parse_distinct( $distinct = false ): string {
+
+		// Maybe fallback to $query_vars.
+		if ( empty( $distinct ) ) {
+			$distinct = $this->get_query_var( 'distinct' );
+		}
+
+		// Return SQL.
+		return ! empty( $distinct )
+			? 'DISTINCT'
+			: '';
+	}
+
+	/**
 	 * Parse which fields to query for.
 	 *
 	 * If making a 'count' request, this will return either an empty string or
@@ -2391,13 +2571,15 @@ class Query {
 	 * prevent errors.
 	 *
 	 * @since 3.0.0
+	 * @since 3.1.0 Added the $distinct parameter.
 	 * @param bool   $count Whether to return a count instead of results.
 	 * @param string $groupby Column name to group results by.
 	 * @param string $name Column name.
 	 * @param bool   $alias Whether to include the table alias prefix.
+	 * @param bool   $distinct Count distinct primary IDs (COUNT(DISTINCT id)) instead of rows.
 	 * @return string
 	 */
-	private function parse_count( $count = false, $groupby = '', $name = 'count', $alias = true ): string {
+	private function parse_count( $count = false, $groupby = '', $name = 'count', $alias = true, $distinct = false ): string {
 
 		// Maybe fallback to $query_vars.
 		if ( empty( $count ) ) {
@@ -2409,8 +2591,19 @@ class Query {
 			return '';
 		}
 
-		// Default return value.
-		$retval = 'COUNT(*)';
+		// Maybe fallback to $query_vars.
+		if ( empty( $distinct ) ) {
+			$distinct = $this->get_query_var( 'distinct' );
+		}
+
+		/*
+		 * Count distinct primary IDs when DISTINCT is requested, so a JOIN that
+		 * multiplies rows does not inflate the total; a bare COUNT(*) would. The
+		 * DISTINCT belongs inside the COUNT, not as a standalone SELECT keyword.
+		 */
+		$retval = ! empty( $distinct )
+			? 'COUNT(DISTINCT ' . $this->get_quoted_column_name_aliased( $this->get_primary_column_name(), $alias ) . ')'
+			: 'COUNT(*)';
 
 		// Check for "GROUP BY".
 		$groupby_names = $this->parse_groupby( $groupby, '', $alias );
@@ -3493,6 +3686,30 @@ class Query {
 
 		// Return.
 		return (bool) $retval;
+	}
+
+	/**
+	 * Delete a set of items, named by ID(s) or by a query-var filter.
+	 *
+	 * The plural companion to delete_item(): the input resolves to a list of
+	 * primary IDs and each is removed through delete_item(), so per-item capability
+	 * reduction, meta cleanup, cache invalidation, and the {item}_deleted action
+	 * all still fire. The input may be:
+	 *
+	 *  - a single ID            - delete_items( 5 )
+	 *  - a list of IDs          - delete_items( array( 5, 6, 7 ) )
+	 *  - a query-var filter     - delete_items( array( 'status__in' => array( 'spam' ) ) )
+	 *
+	 * An empty input, or a filter that compiles to no WHERE, deletes nothing - the
+	 * empty set never widens to "delete everything".
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param int|string|array<int|string,mixed> $query_vars A single ID, a list of IDs, or a query-var filter array.
+	 * @return int|false Number of items deleted, or false when there was nothing to delete.
+	 */
+	public function delete_items( $query_vars = array() ) {
+		return ( new \BerlinDB\Database\Operations\Delete( $this ) )->delete( $query_vars );
 	}
 
 	/**

@@ -10,7 +10,7 @@ cleanly onto a layer, that is the bespoke alarm (it is how `with` and the origin
 
 | Layer | What it is | SQL members | Where it lives in BerlinDB |
 |---|---|---|---|
-| **Statement** | the executable verb | DML: SELECT/INSERT/UPDATE/DELETE/REPLACE; DDL: CREATE/ALTER/DROP/TRUNCATE; TCL: BEGIN/COMMIT/ROLLBACK; DCL: GRANT/REVOKE; Utility: EXPLAIN/SHOW | `Operations/` (planned: `Base` + `Select`/`Delete`/`Update`) |
+| **Statement** | the executable verb | DML: SELECT/INSERT/UPDATE/DELETE/REPLACE; DDL: CREATE/ALTER/DROP/TRUNCATE; TCL: BEGIN/COMMIT/ROLLBACK; DCL: GRANT/REVOKE; Utility: EXPLAIN/SHOW | `Operations/` (`Base` + `Delete` shipped; `Select`/`Update` planned) |
 | **Clause** | a part of a statement | projection, FROM, JOIN, WHERE, GROUP BY, HAVING, ORDER BY, LIMIT, WINDOW, WITH (CTE), VALUES, SET, RETURNING | `Clauses/` (`BooleanGroup`, `Where`, `Join`) |
 | **Expression** | yields a value | Operators; Operands; Functions (scalar/aggregate/window); **Predicates** (boolean: `=`, BETWEEN, IN, LIKE, EXISTS, IS NULL); CASE; subqueries | `Operators/` + `Operands/` (incl. `Func`) |
 | **Identifier / object** | named, persistent things | Database/Schema, Table, View, Column, Index, Constraint (PK/FK/UNIQUE/CHECK/DEFAULT), Sequence, Trigger, Alias | `Kern/` (`Schema`, `Table`, `Column`, `Index`, `Relationship`) |
@@ -45,9 +45,17 @@ string — which is why it became `criteria`, not `where_query`.
 
 filters -> Query runs parsers -> **builder** (`Clauses\Builder` assembles via
 `Clauses\Join` / `Clauses\Where`) -> `{join, where}` -> **operation** (renders + runs
-SELECT today; DELETE/UPDATE later). The builder is *inert* (building never executes),
-which is what lets a future `delete_by_where()` reuse the same construction without
-pretending to be a SELECT.
+its verb). The builder is *inert* (building never executes), which is what lets a
+write operation reuse the same construction without pretending to be a SELECT.
+
+`Operations\Delete` (via `Query::delete_items()`) is the first operation to cash this
+in: it resolves matching primary IDs through `Query::select_ids()` (which runs the
+*full* read preparation — `parse_query` + the `parse_{plural}_query` / `pre_get_{plural}`
+scoping actions + the `{plural}_query_clauses` filter — so a delete is scoped exactly
+as a read is) and then loops `delete_item()`. It fails closed: a filter that compiles
+to no `WHERE` deletes nothing (a `JOIN` alone is not trusted — a `LEFT JOIN` does not
+constrain the base table). The SELECT path is still bespoke in `get_items()`; an
+`Operations\Select` that owns it (with `Query::query()` delegating) is the next step.
 
 ## The rule
 

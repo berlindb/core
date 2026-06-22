@@ -50,8 +50,21 @@ Notable changes to BerlinDB are documented here.
   malformed tree, an unknown leaf, or a `JOIN`-emitting parser under `OR` (its `JOIN`
   pre-filters rows, so the `OR` could not widen). Built on a new inert clause builder
   (`Clauses\Builder` assembling `Clauses\Join` / `Clauses\Where`) that constructs the
-  `JOIN`/`WHERE` without executing — the reusable seam future write operations
-  (`delete_by_where`) will share. Absent `criteria`, behavior is unchanged.
+  `JOIN`/`WHERE` without executing — the reusable seam write operations share.
+  Absent `criteria`, behavior is unchanged.
+- Adds `delete_items()` (#214, #130) — delete a set of items by a single ID, a list
+  of IDs (numeric keys tolerated), or a query-var filter (the same vocabulary as
+  `query()`, including `criteria` and store-backed `meta_query`). Filter deletes
+  resolve the matching primary IDs and loop `delete_item()`, preserving per-item
+  capability checks, meta cleanup, cache invalidation, and the `{item}_deleted`
+  action. An empty or unconstrained (no-`WHERE`) filter deletes nothing — the empty
+  set never widens to "all rows" — and resolution honors the same scoping hooks a
+  read does (`parse_{plural}_query`, `pre_get_{plural}`, `{plural}_query_clauses`).
+  This is the first `Operations\` verb (`Operations\Base` + `Operations\Delete`),
+  consuming the inert `Clauses\Builder` seam. Returns the number deleted, or `false`.
+- Adds a `distinct` query var: `'distinct' => true` renders `SELECT DISTINCT` (and
+  `COUNT(DISTINCT id)` when counting or computing found rows), so a relationship or
+  meta `JOIN` that multiplies rows does not duplicate results or inflate counts.
 - Adds end-to-end support for a string/UUID primary key (not `auto_increment`):
   `add_item()` with a supplied key returns that key, and `get_item()`,
   `update_item()`, `delete_item()`, `copy_item()`, query result-shaping, the

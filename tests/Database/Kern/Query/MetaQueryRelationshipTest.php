@@ -958,4 +958,30 @@ class MetaQueryRelationshipTest extends TestCase {
 		$args[ 'orderby' ][ 'score_clause' ] = 'DESC';
 		$this->assertSame( array( 'B', 'A', 'C' ), $this->ordered_labels( $args ) );
 	}
+
+	/**
+	 * Test that delete_items() honors a store-backed meta_query.
+	 *
+	 * Proves delete-by-filter runs the same normalization the SELECT path does:
+	 * the high-level meta_query is translated into the relationship EXISTS filter
+	 * before IDs are selected. Without that step the filter would be ignored and
+	 * nothing deleted. size=large matches A and B, leaving only C.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_delete_items_by_meta_query() {
+		$deleted = ( new MqThingQuery() )->delete_items(
+			array(
+				'meta_query' => array(
+					array(
+						'key'   => 'size',
+						'value' => 'large',
+					),
+				),
+			)
+		);
+
+		$this->assertSame( 2, $deleted );
+		$this->assertSame( array( 'C' ), $this->labels( array() ) );
+	}
 }
