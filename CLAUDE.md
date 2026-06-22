@@ -53,6 +53,16 @@ hand-rolled queries — never more surprising.
    tests. No unrelated formatting or refactors in the same change.
 7. **Back-compat matters.** Downstream plugins (EDD, Sugar Calendar, etc.) build
    on these internals. Call out any compatibility tradeoff explicitly.
+8. **Verify mechanism before building on it.** Before stating how this codebase
+   does something — *especially* as the basis for an analysis, recommendation,
+   plan, or tradeoff — confirm it in the actual source this session and cite the
+   `file:line` you read. Never infer behavior from WordPress/plugin convention,
+   training data, or what a class "probably" does. (Real miss: assuming schema
+   installs run through `dbDelta` when `Table::create()` runs a direct
+   `CREATE TABLE` and upgrades are explicit version-gated routines — no `dbDelta`
+   anywhere.) A mechanism you have not read is *unknown*, even when it feels
+   obvious — go grep it or say you haven't checked. A wrong premise poisons every
+   decision built on it, and unwinding that costs far more than the grep would have.
 
 ## Full Verification Gate
 
