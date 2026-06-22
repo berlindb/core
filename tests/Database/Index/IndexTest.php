@@ -366,4 +366,120 @@ class IndexTest extends TestCase {
 		$this->assertArrayHasKey( 'type', $arr );
 		$this->assertArrayHasKey( 'columns', $arr );
 	}
+
+	/**
+	 * Test a prefix length in string form: name stays in $columns, length in
+	 * $lengths, and the CREATE renders `col`(length).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_prefix_length_string_form() {
+		$index = new Index(
+			array(
+				'name'    => 'title_idx',
+				'type'    => 'key',
+				'columns' => array( 'title(191)' ),
+			)
+		);
+
+		$this->assertSame( array( 'title' ), $index->columns );
+		$this->assertSame( array( 'title' => 191 ), $index->lengths );
+		$this->assertStringContainsString( 'KEY `title_idx` (`title`(191))', $index->get_create_string() );
+	}
+
+	/**
+	 * Test a prefix length in keyed form ( 'name' => length ).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_prefix_length_keyed_form() {
+		$index = new Index(
+			array(
+				'name'    => 'title_idx',
+				'type'    => 'key',
+				'columns' => array( 'title' => 191 ),
+			)
+		);
+
+		$this->assertSame( array( 'title' ), $index->columns );
+		$this->assertSame( array( 'title' => 191 ), $index->lengths );
+		$this->assertStringContainsString( '(`title`(191))', $index->get_create_string() );
+	}
+
+	/**
+	 * Test that plain names, string-form, and keyed-form prefixes mix in one index.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_prefix_lengths_mixed_forms() {
+		$index = new Index(
+			array(
+				'name'    => 'mix_idx',
+				'type'    => 'key',
+				'columns' => array(
+					'status',
+					'slug(10)',
+					'title' => 191,
+				),
+			)
+		);
+
+		$this->assertSame( array( 'status', 'slug', 'title' ), $index->columns );
+		$this->assertSame(
+			array(
+				'slug'  => 10,
+				'title' => 191,
+			),
+			$index->lengths
+		);
+		$this->assertStringContainsString(
+			'KEY `mix_idx` (`status`, `slug`(10), `title`(191))',
+			$index->get_create_string()
+		);
+	}
+
+	/**
+	 * Test that FULLTEXT indexes never emit a prefix length (MySQL rejects them).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_fulltext_ignores_prefix_length() {
+		$index = new Index(
+			array(
+				'name'    => 'body_idx',
+				'type'    => 'fulltext',
+				'columns' => array( 'body(191)' ),
+			)
+		);
+
+		// The length is still parsed, but never rendered for FULLTEXT.
+		$this->assertSame( array( 'body' => 191 ), $index->lengths );
+
+		$sql = $index->get_create_string();
+		$this->assertStringContainsString( 'FULLTEXT KEY `body_idx` (`body`)', $sql );
+		$this->assertStringNotContainsString( '(191)', $sql );
+	}
+
+	/**
+	 * Test that a non-positive or non-numeric prefix length means the whole column.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_invalid_prefix_length_is_whole_column() {
+		$index = new Index(
+			array(
+				'name'    => 'idx',
+				'type'    => 'key',
+				'columns' => array(
+					'a' => 0,
+					'b' => -5,
+					'c' => 'nope',
+				),
+			)
+		);
+
+		$this->assertSame( array( 'a', 'b', 'c' ), $index->columns );
+		$this->assertSame( array(), $index->lengths );
+		$this->assertStringContainsString( '(`a`, `b`, `c`)', $index->get_create_string() );
+	}
 }

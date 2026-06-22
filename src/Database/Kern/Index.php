@@ -28,7 +28,8 @@ defined( 'ABSPATH' ) || exit;
  *
  *     @type string   $name      Name of the index.
  *     @type string   $type      Index type: primary, unique, key, fulltext.
- *     @type array    $columns   Array of column names included in this index.
+ *     @type array    $columns   Column names in this index; a name may carry a prefix
+ *                               length as `'title(191)'` or `'title' => 191`.
  *     @type bool     $unique    Is this index unique?
  *     @type string   $method    Index method: BTREE, HASH, etc.
  *     @type string   $comment   Optional comment for the index.
@@ -65,6 +66,18 @@ class Index {
 	 * @var   list<string>  Default empty array.
 	 */
 	public $columns = array();
+
+	/**
+	 * Optional per-column index prefix lengths (MySQL "Sub_part"), keyed by column
+	 * name; a column absent here is indexed in full. Derived from the `columns`
+	 * config (`'title(191)'` or `'title' => 191`). Only meaningful for string/blob
+	 * columns - MySQL rejects a prefix on other types (the caller's responsibility,
+	 * as an Index does not know column types) and on FULLTEXT indexes (ignored here).
+	 *
+	 * @since 3.1.0
+	 * @var   array<string,int>  Default empty array.
+	 */
+	public $lengths = array();
 
 	/**
 	 * Is this index unique?
@@ -137,11 +150,26 @@ class Index {
 			return '';
 		}
 
-		// Prepare the column list as back-ticked for SQL.
-		$columns = array_map( array( $this, 'quote_identifier' ), $this->columns );
-
-		// Standardize the index type and prepare base SQL fragment.
+		// Standardize the index type up front.
 		$type = strtoupper( $this->type );
+
+		/*
+		 * Back-tick each column, appending any prefix length. FULLTEXT indexes whole
+		 * columns, so MySQL rejects a length there - never emit one for FULLTEXT.
+		 */
+		$columns = array();
+
+		foreach ( $this->columns as $name ) {
+			$column = $this->quote_identifier( $name );
+
+			if ( ( 'FULLTEXT' !== $type ) && isset( $this->lengths[ $name ] ) ) {
+				$column .= '(' . $this->lengths[ $name ] . ')';
+			}
+
+			$columns[] = $column;
+		}
+
+		// Prepare base SQL fragment.
 		$sql  = '';
 		$csql = implode( ', ', $columns );
 
@@ -202,12 +230,19 @@ class Index {
 	/** Private Sanitizers ****************************************************/
 
 	/**
-	 * Sanitize the columns array.
+	 * Sanitize the columns array into canonical `name` / `name(length)` entries.
+	 *
+	 * A column may carry an optional prefix length in either the keyed form
+	 * (`'title' => 191`) or the string form (`'title(191)'`); the two forms may be
+	 * mixed with plain names. Names are sanitized and a positive integer length is
+	 * kept (anything else means the whole column). The canonical entries are split
+	 * into $columns (names) + $lengths by init(), which runs after the config merge
+	 * (so the result cannot be clobbered by it).
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param list<string> $columns Array of column names.
-	 * @return list<string>
+	 * @param mixed $columns Array of column names, optionally carrying prefix lengths.
+	 * @return list<string> Canonical `name` / `name(length)` entries.
 	 */
 	private function sanitize_columns( $columns = array() ): array {
 
@@ -219,21 +254,75 @@ class Index {
 		// Default return value.
 		$sanitized = array();
 
-		// Loop through columns and sanitize each one.
-		foreach ( (array) $columns as $column ) {
-			if ( is_string( $column ) ) {
+		// Split each entry into a column name and an optional prefix length.
+		foreach ( $columns as $key => $value ) {
 
-				// Sanitize the column name.
-				$name = $this->sanitize_index_name( $column );
+			// Keyed form: 'name' => length.
+			if ( is_string( $key ) ) {
+				$raw_name = $key;
+				$length   = $value;
 
-				// Only include valid column names.
-				if ( is_string( $name ) ) {
-					$sanitized[] = $name;
+				// String form: 'name', or 'name(length)'.
+			} elseif ( is_string( $value ) ) {
+				$raw_name = $value;
+				$length   = 0;
+
+				if ( preg_match( '/^(.+)\((\d+)\)$/', $value, $matches ) ) {
+					$raw_name = $matches[ 1 ];
+					$length   = $matches[ 2 ];
 				}
+
+				// Anything else is not a column.
+			} else {
+				continue;
+			}
+
+			// Sanitize the column name; skip anything that does not survive.
+			$name = $this->sanitize_index_name( $raw_name );
+
+			if ( ! is_string( $name ) || ( '' === $name ) ) {
+				continue;
+			}
+
+			// A positive integer prefix length; anything else means the whole column.
+			$length = is_numeric( $length )
+				? (int) $length
+				: 0;
+
+			// Emit the canonical form for init() to split.
+			$sanitized[] = ( $length > 0 )
+				? "{$name}({$length})"
+				: $name;
+		}
+
+		return $sanitized;
+	}
+
+	/**
+	 * Split the canonical `name(length)` column entries into the column-name list
+	 * and the per-column prefix lengths.
+	 *
+	 * Runs after configure() has sanitized `columns` into canonical form, so the
+	 * derived $columns / $lengths cannot be clobbered by the config defaults merge.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return void
+	 */
+	protected function init(): void {
+		$names   = array();
+		$lengths = array();
+
+		foreach ( $this->columns as $column ) {
+			if ( preg_match( '/^(.+)\((\d+)\)$/', $column, $matches ) ) {
+				$names[]                  = $matches[ 1 ];
+				$lengths[ $matches[ 1 ] ] = (int) $matches[ 2 ];
+			} else {
+				$names[] = $column;
 			}
 		}
 
-		// Return the sanitized columns array.
-		return $sanitized;
+		$this->columns = $names;
+		$this->lengths = $lengths;
 	}
 }
