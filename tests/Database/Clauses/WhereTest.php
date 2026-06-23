@@ -375,4 +375,96 @@ class WhereTest extends TestCase {
 		$this->assertSame( array( '1 = 0' ), $clause->get_clauses() );
 		$this->assertNotEmpty( $clause->get_warnings() );
 	}
+
+	/**
+	 * Test that 'not' => true negates a single-parser group.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_not_negates_single_parser() {
+		$clause = $this->where_clause(
+			array(
+				'relation' => 'AND',
+				'not'      => true,
+				'by',
+			),
+			array( 'by' => 'status = 1' ),
+			array(),
+			array( 'by' )
+		);
+
+		$this->assertSame( array( 'NOT ( status = 1 )' ), $clause->get_clauses() );
+		$this->assertSame( array(), $clause->get_warnings() );
+	}
+
+	/**
+	 * Test that 'not' => true negates a multi-parser OR group.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_not_negates_or_group() {
+		$clause = $this->where_clause(
+			array(
+				'relation' => 'OR',
+				'not'      => true,
+				'by',
+				'meta',
+			),
+			array(
+				'by'   => 'x = 1',
+				'meta' => 'y = 2',
+			),
+			array(),
+			array( 'by', 'meta' )
+		);
+
+		$this->assertSame( array( 'NOT ( x = 1 OR y = 2 )' ), $clause->get_clauses() );
+		$this->assertSame( array(), $clause->get_warnings() );
+	}
+
+	/**
+	 * Test that a negated group still AND-es on an unreferenced active parser.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_not_group_ands_unreferenced_parser() {
+		$clause = $this->where_clause(
+			array(
+				'relation' => 'AND',
+				'not'      => true,
+				'by',
+			),
+			array(
+				'by'   => 'x = 1',
+				'meta' => 'y = 2',
+			),
+			array(),
+			array( 'by', 'meta' )
+		);
+
+		$this->assertSame( array( 'NOT ( x = 1 )', 'y = 2' ), $clause->get_clauses() );
+		$this->assertSame( array(), $clause->get_warnings() );
+	}
+
+	/**
+	 * Test that a JOIN-emitting parser under NOT fails closed (its INNER JOIN
+	 * pre-filters rows, so the negation cannot be expressed).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_join_under_not_fails_closed() {
+		$clause = $this->where_clause(
+			array(
+				'relation' => 'AND',
+				'not'      => true,
+				'rel',
+			),
+			array( 'rel' => 'r.x = 1' ),
+			array( 'rel' => 'INNER JOIN r ON r.id = t.rel_id' ),
+			array( 'rel' )
+		);
+
+		$this->assertSame( array( '1 = 0' ), $clause->get_clauses() );
+		$this->assertNotEmpty( $clause->get_warnings() );
+	}
 }

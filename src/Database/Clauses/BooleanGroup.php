@@ -29,9 +29,9 @@ defined( 'ABSPATH' ) || exit;
  * - Multiple items render `( item1 {relation} item2 ... )`.
  * - A negated group wraps in `NOT ( ... )`.
  *
- * Negation is supported by the renderer so the object model is complete (AND/OR
- * are n-ary relations, NOT is unary negation); exposing it through a public query
- * var is a separate, later decision.
+ * Negation completes the object model (AND/OR are n-ary relations, NOT is unary
+ * negation). It is surfaced through the 'criteria' query var by a group's
+ * 'not' => true flag (see Clauses\Where).
  *
  * @since 3.1.0
  * @internal Query/Parser collaborator API; built by the parser layer.

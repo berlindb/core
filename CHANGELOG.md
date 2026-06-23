@@ -46,9 +46,13 @@ Notable changes to BerlinDB are documented here.
   `'criteria' => array( 'relation' => 'OR', 'columns', 'meta' )` for
   `( <columns> OR <meta> )`. Leaves are parser buckets (`columns` aliases the direct
   column conditions; `meta`/`date`/`compare`/`relation`/`search`/`in`/`not_in`), not
-  raw comparisons; any parser the tree does not name is `AND`-ed on. Fails closed on a
-  malformed tree, an unknown leaf, or a `JOIN`-emitting parser under `OR` (its `JOIN`
-  pre-filters rows, so the `OR` could not widen). Built on a new inert clause builder
+  raw comparisons; any parser the tree does not name is `AND`-ed on. A group may also
+  carry `'not' => true` to negate it, e.g.
+  `array( 'relation' => 'OR', 'not' => true, 'columns', 'compare' )` for
+  `NOT ( <columns> OR <compare> )` (standard SQL three-valued logic — a negated
+  comparison excludes `NULL` rows). Fails closed on a malformed tree, an unknown leaf,
+  or a `JOIN`-emitting parser under `OR` *or* `NOT` (its `JOIN` pre-filters rows, so
+  `OR` cannot widen it and `NOT` cannot invert it). Built on a new inert clause builder
   (`Clauses\Builder` assembling `Clauses\Join` / `Clauses\Where`) that constructs the
   `JOIN`/`WHERE` without executing — the reusable seam write operations share.
   Absent `criteria`, behavior is unchanged.

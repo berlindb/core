@@ -373,4 +373,52 @@ class CriteriaIntegrationTest extends TestCase {
 		);
 		$this->assertSame( array(), $and );
 	}
+
+	/**
+	 * Test group negation: NOT ( status='active' OR priority>=40 ) excludes the
+	 * union (Alpha, Beta active; Delta 40, Epsilon 50) and leaves only Gamma.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_not_group_across_parsers() {
+		$names = $this->names(
+			array(
+				'status'        => 'active',
+				'compare_query' => array(
+					'key'     => 'priority',
+					'value'   => 40,
+					'compare' => '>=',
+				),
+				'criteria'      => array(
+					'relation' => 'OR',
+					'not'      => true,
+					'columns',
+					'compare',
+				),
+			)
+		);
+
+		$this->assertSame( array( 'Gamma Gadget' ), $names );
+	}
+
+	/**
+	 * Test that an explicit AND-NOT criteria narrows correctly: NOT ( status =
+	 * 'active' ) keeps the three non-active rows (Gamma, Delta, Epsilon).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_not_single_parser() {
+		$names = $this->names(
+			array(
+				'status'   => 'active',
+				'criteria' => array(
+					'relation' => 'AND',
+					'not'      => true,
+					'columns',
+				),
+			)
+		);
+
+		$this->assertSame( array( 'Delta Gadget', 'Epsilon Widget', 'Gamma Gadget' ), $names );
+	}
 }

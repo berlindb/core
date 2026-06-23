@@ -195,17 +195,20 @@ class Where {
 	/**
 	 * Recursively render one 'criteria' group to SQL.
 	 *
-	 * A group is array( 'relation' => 'AND'|'OR', <item>, <item>, ... ) where each
-	 * positional item is either a parser-name string (a leaf) or a nested group.
+	 * A group is array( 'relation' => 'AND'|'OR', 'not' => bool, <item>, <item>, ... )
+	 * where each positional item is either a parser-name string (a leaf) or a nested
+	 * group. The optional 'not' flag wraps the whole group in NOT( ... ). Note the
+	 * standard SQL three-valued semantics: NOT( col = x ) excludes rows where col IS
+	 * NULL (NULL is not "not equal", it is unknown), so negate deliberately.
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param mixed              $node       The group node to render.
-	 * @param bool               $under_or   Whether an ancestor group used OR (JOIN-unsafe context).
-	 * @param array<string,bool> $referenced Set of referenced parser names, by reference.
+	 * @param mixed              $node        The group node to render.
+	 * @param bool               $join_unsafe Whether an ancestor (OR or NOT) makes JOIN-emitting leaves unsafe.
+	 * @param array<string,bool> $referenced  Set of referenced parser names, by reference.
 	 * @return string|null Rendered SQL, or null to fail the whole query closed.
 	 */
-	private function build_group( $node, bool $under_or, array &$referenced ): ?string {
+	private function build_group( $node, bool $join_unsafe, array &$referenced ): ?string {
 
 		// A group must be an array.
 		if ( ! is_array( $node ) ) {
@@ -221,22 +224,28 @@ class Where {
 			return $this->fail( "criteria relation must be AND or OR, got '{$relation}'" );
 		}
 
-		// An OR anywhere in the ancestry makes JOIN-emitting leaves unsafe.
-		$under_or = $under_or || ( 'OR' === $relation );
+		// Optional group negation (wraps the group in NOT).
+		$negated = ! empty( $node[ 'not' ] );
 
-		// Render each positional item (the 'relation' key is not an item).
+		/*
+		 * OR or NOT anywhere in the ancestry makes JOIN-emitting leaves unsafe: a
+		 * JOIN's INNER pre-filtering cannot be widened by OR nor inverted by NOT.
+		 */
+		$join_unsafe = $join_unsafe || ( 'OR' === $relation ) || $negated;
+
+		// Render each positional item (the 'relation'/'not' keys are not items).
 		$rendered = array();
 
 		foreach ( $node as $key => $item ) {
-			if ( 'relation' === $key ) {
+			if ( ( 'relation' === $key ) || ( 'not' === $key ) ) {
 				continue;
 			}
 
 			// A string item is a parser leaf; an array item is a nested group.
 			if ( is_string( $item ) ) {
-				$fragment = $this->resolve_leaf( $item, $under_or, $referenced );
+				$fragment = $this->resolve_leaf( $item, $join_unsafe, $referenced );
 			} elseif ( is_array( $item ) ) {
-				$fragment = $this->build_group( $item, $under_or, $referenced );
+				$fragment = $this->build_group( $item, $join_unsafe, $referenced );
 			} else {
 				return $this->fail( 'criteria item must be a parser name or a nested group' );
 			}
@@ -257,6 +266,7 @@ class Where {
 		return ( new BooleanGroup(
 			array(
 				'relation' => $relation,
+				'negated'  => $negated,
 				'items'    => $rendered,
 			)
 		) )->get_sql();
@@ -267,12 +277,12 @@ class Where {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param string             $name       The leaf's parser name (public 'columns' aliases 'by').
-	 * @param bool               $under_or   Whether this leaf sits under an OR.
-	 * @param array<string,bool> $referenced Set of referenced parser names, by reference.
+	 * @param string             $name        The leaf's parser name (public 'columns' aliases 'by').
+	 * @param bool               $join_unsafe Whether this leaf sits under an OR or NOT.
+	 * @param array<string,bool> $referenced  Set of referenced parser names, by reference.
 	 * @return string|null The fragment ('' when the parser is inactive), or null to fail closed.
 	 */
-	private function resolve_leaf( string $name, bool $under_or, array &$referenced ): ?string {
+	private function resolve_leaf( string $name, bool $join_unsafe, array &$referenced ): ?string {
 
 		// Map the public name to the internal parser name.
 		$parser = self::ALIASES[ $name ] ?? $name;
@@ -282,9 +292,9 @@ class Where {
 			return $this->fail( "criteria references unknown parser '{$name}'" );
 		}
 
-		// A JOIN-emitting parser cannot sit under an OR: its JOIN pre-filters rows.
-		if ( $under_or && ! empty( $this->join[ $parser ] ) ) {
-			return $this->fail( "criteria cannot OR the JOIN-emitting '{$name}' parser" );
+		// A JOIN-emitting parser cannot sit under an OR or NOT: its JOIN pre-filters rows.
+		if ( $join_unsafe && ! empty( $this->join[ $parser ] ) ) {
+			return $this->fail( "criteria cannot OR/NOT the JOIN-emitting '{$name}' parser" );
 		}
 
 		// Remember it so the additive pass does not AND it on again.
