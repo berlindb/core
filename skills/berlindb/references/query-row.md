@@ -130,6 +130,75 @@ $total = $query->get_found_items();
 both the result-list cache read and write for a single query — useful inside
 write-path hooks where the cache may not yet reflect a just-committed insert.
 
+## Negation
+
+Negation lives in two layers. Pick by *what* you are negating — they generate
+different SQL and are not interchangeable.
+
+**Condition-level (one field / value)** — use the parser or operator the column
+owns. This is almost always what "field is not X" means:
+
+```php
+'status__not_in' => array( 'publish' ),   // ... WHERE status NOT IN ('publish')
+'compare_query'  => array(                 // ... WHERE status != 'publish'
+    'key'     => 'status',
+    'value'   => 'publish',
+    'compare' => '!=',
+),
+```
+
+(plus the `!=` / `NOT IN` / `NOT LIKE` / `NOT BETWEEN` / `NOT EXISTS` / `IS NOT NULL`
+operators the parsers expose.)
+
+**Group-level (a whole parser bucket, or a grouped boolean)** — use `criteria`
+with `'not' => true`. The leaves of `criteria` are parser *buckets*, not
+conditions, so this wraps the bucket's combined SQL in `NOT ( ... )`:
+
+```php
+'status'        => 'active',
+'compare_query' => array( 'key' => 'priority', 'value' => 40, 'compare' => '>=' ),
+'criteria'      => array(
+    'relation' => 'OR',
+    'not'      => true,
+    'columns',   // the direct-column bucket (status = 'active')
+    'compare',   // the compare_query bucket  (priority >= 40)
+),
+// -> WHERE NOT ( ( status = 'active' ) OR ( priority >= 40 ) )
+```
+
+Negate one bucket while keeping another positive by **nesting** a negated group:
+
+```php
+'criteria' => array(
+    'relation' => 'AND',
+    'columns',
+    array( 'not' => true, 'compare' ),   // ( <columns> AND NOT ( <compare> ) )
+),
+```
+
+### Three things to know about `criteria` NOT
+
+1. **It negates the whole bucket.** The `columns` bucket holds *all* direct-column
+   equality, so `NOT ( columns )` over `status='publish'` and `type='post'` is
+   `NOT ( status='publish' AND type='post' )` — not `status!='publish' AND type='post'`.
+   To negate just one column, route it through its own bucket (`compare_query`) or
+   use `{column}__not_in`.
+2. **SQL three-valued logic — NULL rows are excluded.** `NOT ( status = 'publish' )`
+   does *not* return rows where `status IS NULL` (the comparison is `UNKNOWN`, and
+   `NOT UNKNOWN` is still `UNKNOWN`, never `TRUE`). The same holds for `!=` and
+   `NOT IN`. If you need NULL rows back, say so explicitly (e.g. an `IS NULL`
+   condition combined in via its own bucket).
+3. **JOIN-emitting buckets can't be negated (or OR-ed).** A bucket whose parser
+   emits a `JOIN` (a relationship/meta `join` strategy) under `NOT` or `OR` fails
+   closed — the query returns nothing (`1 = 0`) and logs a warning — because an
+   `INNER JOIN` pre-filters rows before the boolean runs, so it cannot be inverted
+   or widened at the criteria layer. Negate inside the parser instead (e.g. a
+   `NOT EXISTS` relationship strategy).
+
+`criteria` only takes `'not' => true` (a boolean), never `'not' => array( ... )`:
+the tree composes parser *buckets*, and raw conditions belong in the query vars
+that feed those buckets.
+
 ## JSON And Complex Values
 
 BerlinDB does not magically know an arbitrary PHP array should be stored as

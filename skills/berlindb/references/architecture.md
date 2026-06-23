@@ -41,6 +41,19 @@ So `with` is a *result* directive wearing a query-var costume, and the cross-par
 boolean is a *construction* directive (a Predicate-layer tree), not a SELECT `WHERE`
 string — which is why it became `criteria`, not `where_query`.
 
+**Negation lives in two layers, deliberately.** `criteria`'s `'not' => true` is a
+*structure* operator: it negates a whole parser *bucket* or grouped boolean
+(`NOT ( <columns> OR <compare> )`), peer to `relation => AND/OR`, and a JOIN-emitting
+bucket under it fails closed (same reason as under `OR`). Negating a single *condition*
+(`status != 'x'`) is the within-parser layer's job — the `NotEqual`/`NotIn`/`NotLike`/
+`NotBetween`/`NotExists`/`IsNotNull` operators and `{col}__not_in`. So `'not'` stays a
+boolean flag and never takes an array of conditions: that would either smuggle raw
+predicates into a tree whose leaves are parser *names* (breaking the invariant + the
+fail-safe model), or duplicate what a nested negated group already expresses
+(`array( 'not' => true, 'compare' )`). Bucket granularity vs condition granularity is
+the line; finer needs are solved in the parser/operator layer, not by overloading
+`criteria` leaves. See `references/query-row.md` for the consumer-facing when-to-use guide.
+
 ## The reusable construction path (in progress)
 
 filters -> Query runs parsers -> **builder** (`Clauses\Builder` assembles via
