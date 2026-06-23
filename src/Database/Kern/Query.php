@@ -436,7 +436,7 @@ class Query {
 		return $result;
 	}
 
-	/** Private Setters *******************************************************/
+	/** Boot / Setup *********************************************************/
 
 	/**
 	 * Set up the table name if not already set in the class.
@@ -673,140 +673,6 @@ class Query {
 				$this->query_var_defaults[ $key ] = $default;
 			}
 		}
-	}
-
-	/**
-	 * Set query_clauses by parsing $query_vars.
-	 *
-	 * @since 3.0.0
-	 */
-	private function set_query_clauses(): void {
-		$this->set_current( 'query_clauses', $this->parse_query_vars() );
-	}
-
-	/**
-	 * Set the request_clauses.
-	 *
-	 * @since 1.0.0
-	 * @since 3.0.0 Uses parse_query_clauses() with support for new clauses.
-	 */
-	private function set_request_clauses(): void {
-		$this->set_current( 'request_clauses', $this->parse_query_clauses() );
-	}
-
-	/**
-	 * Set the request SQL string.
-	 *
-	 * @since 1.0.0
-	 * @since 3.0.0 Uses parse_request_clauses() on request_clauses.
-	 */
-	private function set_request(): void {
-		$this->set_current( 'request', $this->parse_request_clauses() );
-	}
-
-	/**
-	 * Set items by mapping them through the single item callback.
-	 *
-	 * @since 1.0.0
-	 * @since 3.0.0 Moved 'count' logic back into get_items().
-	 * @param list<int|string> $item_ids List of item IDs.
-	 */
-	private function set_items( $item_ids = array() ): void {
-
-		// Validate primary column values.
-		$callback = array( $this, 'shape_item_id' );
-		$item_ids = array_map( $callback, $item_ids );
-
-		// Prime item caches.
-		$this->prime_item_caches( $item_ids );
-
-		// Shape the items.
-		$this->items = $this->shape_items( $item_ids );
-
-		// Prime caches for declared relationships (quiet unless requested).
-		$this->prime_relationship_caches();
-	}
-
-	/**
-	 * Populates found_items for the current query.
-	 *
-	 * If the limit clause was used.
-	 *
-	 * @since 1.0.0
-	 * @since 3.0.0 Uses filter_found_items_query().
-	 *
-	 * @param mixed $item_ids Optional array of item IDs, or count from a COUNT query.
-	 */
-	private function set_found_items( $item_ids = array() ): void {
-
-		/*
-		 * Default to count of item IDs.
-		 *
-		 * This is relevant for any kind of query. Either it is literal item IDs
-		 * or it is the number of results returned by a 'count' and 'groupby'
-		 * query.
-		 */
-		$retval = count( (array) $item_ids );
-
-		/*
-		 * Count query.
-		 *
-		 * Possibly grouping results by some other columns.
-		 */
-		if ( $this->get_query_var( 'count' ) ) {
-
-			// Not grouped.
-			if ( is_numeric( $item_ids ) && ! $this->get_query_var( 'groupby' ) ) {
-				$retval = $item_ids;
-			}
-
-			/**
-			 * Maybe perform a second COUNT(*) query immediately if:
-			 *
-			 * - 'count' query var is not truthy
-			 * - 'no_found_row' query var is not truthy
-			 * - 'number' query var is not falsy
-			 *
-			 * This second query uses most of the previously parsed $request_clauses
-			 * and overrides a few to correct the SQL syntax.
-			 *
-			 * @since 3.0.0 Performs a COUNT(*) query using $request_clauses.
-			 */
-		} elseif ( ! $this->get_query_var( 'no_found_rows' ) && $this->get_query_var( 'number' ) ) {
-
-			/*
-			 * The found-items count reuses the request clauses with a few overrides.
-			 * parse_count() renders COUNT(DISTINCT primary) when DISTINCT is active, so
-			 * a row-multiplying JOIN does not inflate the total; the standalone DISTINCT
-			 * keyword is dropped (it belongs inside the COUNT, not before it).
-			 */
-			$r = $this->parse_args(
-				array(
-					'fields'   => $this->parse_count( true ),
-					'limits'   => '',
-					'orderby'  => '',
-					'distinct' => '',
-				),
-				$this->get_current_array( 'request_clauses' )
-			);
-
-			// Parse the new clauses.
-			$query = $this->parse_request_clauses( $r );
-
-			// Filter the found items query.
-			$query = $this->filter_found_items_query( $query );
-
-			// Get the database interface.
-			$db = $this->db();
-
-			// Maybe query for found items.
-			if ( ! empty( $query ) ) {
-				$retval = $this->db()->get_var( $query );
-			}
-		}
-
-		// Set found items.
-		$this->set_current( 'found_items', (int) $retval );
 	}
 
 	/** Public Columns ********************************************************/
@@ -1369,6 +1235,34 @@ class Query {
 	/** Public Parsers ********************************************************/
 
 	/**
+	 * Get the default query parser class list.
+	 *
+	 * This is filterable so plugins can register additional parser classes
+	 * without replacing the entire Query implementation.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @return string[]
+	 */
+	protected function get_query_var_parser_classes() {
+
+		// Default set of query parser classes.
+		$parsers = array(
+			'BerlinDB\\Database\\Parsers\\By',
+			'BerlinDB\\Database\\Parsers\\In',
+			'BerlinDB\\Database\\Parsers\\NotIn',
+			'BerlinDB\\Database\\Parsers\\Search',
+			'BerlinDB\\Database\\Parsers\\Date',
+			'BerlinDB\\Database\\Parsers\\Meta',
+			'BerlinDB\\Database\\Parsers\\Compare',
+			'BerlinDB\\Database\\Parsers\\Relationship',
+		);
+
+		// Return the query var parser classes, filtered.
+		return $this->filter_query_var_parsers( $parsers );
+	}
+
+	/**
 	 * Get registered parsers, optionally filtered by property values.
 	 *
 	 * Mirrors get_columns() - pass an $args array of property => value pairs
@@ -1404,7 +1298,7 @@ class Query {
 			: array();
 	}
 
-	/** Public Getters ********************************************************/
+	/** Identity *************************************************************/
 
 	/**
 	 * Return the fully-qualified table name for use in SQL statements.
@@ -1447,6 +1341,43 @@ class Query {
 	}
 
 	/**
+	 * Return the singular item name.
+	 *
+	 * @since 3.0.0
+	 * @api
+	 *
+	 * @return string
+	 */
+	public function get_item_name() {
+		return $this->item_name;
+	}
+
+	/**
+	 * Return the plural item name.
+	 *
+	 * @since 3.0.0
+	 * @api
+	 *
+	 * @return string
+	 */
+	public function get_item_name_plural(): string {
+		return (string) $this->item_name_plural;
+	}
+
+	/**
+	 * Return this query's plugin prefix.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return string
+	 */
+	public function get_prefix(): string {
+		return (string) $this->prefix;
+	}
+
+	/** Results ***************************************************************/
+
+	/**
 	 * Return the final SQL string from the most recent query() call.
 	 *
 	 * @since 3.0.0
@@ -1482,113 +1413,7 @@ class Query {
 		return $this->get_current_int( 'max_num_pages' );
 	}
 
-	/**
-	 * Return the singular item name.
-	 *
-	 * @since 3.0.0
-	 * @api
-	 *
-	 * @return string
-	 */
-	public function get_item_name() {
-		return $this->item_name;
-	}
-
-	/**
-	 * Return the plural item name.
-	 *
-	 * @since 3.0.0
-	 * @api
-	 *
-	 * @return string
-	 */
-	public function get_item_name_plural(): string {
-		return (string) $this->item_name_plural;
-	}
-
-	/**
-	 * Return this query's plugin prefix.
-	 *
-	 * @since 3.1.0
-	 *
-	 * @return string
-	 */
-	public function get_prefix(): string {
-		return (string) $this->prefix;
-	}
-
-	/**
-	 * Get the default query parser class list.
-	 *
-	 * This is filterable so plugins can register additional parser classes
-	 * without replacing the entire Query implementation.
-	 *
-	 * @since 3.0.0
-	 *
-	 * @return string[]
-	 */
-	protected function get_query_var_parser_classes() {
-
-		// Default set of query parser classes.
-		$parsers = array(
-			'BerlinDB\\Database\\Parsers\\By',
-			'BerlinDB\\Database\\Parsers\\In',
-			'BerlinDB\\Database\\Parsers\\NotIn',
-			'BerlinDB\\Database\\Parsers\\Search',
-			'BerlinDB\\Database\\Parsers\\Date',
-			'BerlinDB\\Database\\Parsers\\Meta',
-			'BerlinDB\\Database\\Parsers\\Compare',
-			'BerlinDB\\Database\\Parsers\\Relationship',
-		);
-
-		// Return the query var parser classes, filtered.
-		return $this->filter_query_var_parsers( $parsers );
-	}
-
-	/** Private Getters *******************************************************/
-
-	/**
-	 * Get a single database row by any column and value, skipping cache.
-	 *
-	 * @since 1.0.0
-	 * @since 3.0.0 Uses is_valid_column()
-	 *
-	 * @param string $column_name  Name of database column.
-	 * @param mixed  $column_value Value to query for.
-	 * @return object|false False if empty/error, Object if successful
-	 */
-	private function get_item_raw( $column_name = '', $column_value = '' ): object|false {
-
-		/*
-		 * Bail if value is non-scalar, boolean false, or empty string.
-		 * Intentionally allows 0 and '0' - both are valid column values.
-		 */
-		if ( ! is_scalar( $column_value ) || false === $column_value || '' === $column_value ) {
-			return false;
-		}
-
-		// Bail if invalid column.
-		if ( ! $this->is_valid_column( $column_name ) ) {
-			return false;
-		}
-
-		// Get query parts.
-		$table       = $this->get_table_name();
-		$pattern_str = $this->get_column_field( array( 'name' => $column_name ), 'pattern', '%s' );
-
-		// Query database.
-		$query  = "SELECT * FROM {$table} WHERE {$column_name} = {$pattern_str} LIMIT 1";
-		$select = $this->db()->prepare( $query, $column_value );
-		$result = $this->db()->get_row( $select );
-
-		// Bail on failure.
-		if ( ! $this->is_success( $result ) || ! is_object( $result ) ) {
-			return false;
-		}
-
-		// Return row.
-		return $result;
-	}
+	/** Select Execution *****************************************************/
 
 	/**
 	 * Fire the "pre_get_{plural}" action, where installs scope a query just in time.
@@ -1718,6 +1543,35 @@ class Query {
 
 		// Return array of items.
 		return is_array( $this->items ) ? $this->items : array();
+	}
+
+	/**
+	 * Set query_clauses by parsing $query_vars.
+	 *
+	 * @since 3.0.0
+	 */
+	private function set_query_clauses(): void {
+		$this->set_current( 'query_clauses', $this->parse_query_vars() );
+	}
+
+	/**
+	 * Set the request_clauses.
+	 *
+	 * @since 1.0.0
+	 * @since 3.0.0 Uses parse_query_clauses() with support for new clauses.
+	 */
+	private function set_request_clauses(): void {
+		$this->set_current( 'request_clauses', $this->parse_query_clauses() );
+	}
+
+	/**
+	 * Set the request SQL string.
+	 *
+	 * @since 1.0.0
+	 * @since 3.0.0 Uses parse_request_clauses() on request_clauses.
+	 */
+	private function set_request(): void {
+		$this->set_current( 'request', $this->parse_request_clauses() );
 	}
 
 	/**
@@ -2963,7 +2817,112 @@ class Query {
 			: 'DESC';
 	}
 
-	/** Private Shapers *******************************************************/
+	/** Hydration *************************************************************/
+
+	/**
+	 * Set items by mapping them through the single item callback.
+	 *
+	 * @since 1.0.0
+	 * @since 3.0.0 Moved 'count' logic back into get_items().
+	 * @param list<int|string> $item_ids List of item IDs.
+	 */
+	private function set_items( $item_ids = array() ): void {
+
+		// Validate primary column values.
+		$callback = array( $this, 'shape_item_id' );
+		$item_ids = array_map( $callback, $item_ids );
+
+		// Prime item caches.
+		$this->prime_item_caches( $item_ids );
+
+		// Shape the items.
+		$this->items = $this->shape_items( $item_ids );
+
+		// Prime caches for declared relationships (quiet unless requested).
+		$this->prime_relationship_caches();
+	}
+
+	/**
+	 * Populates found_items for the current query.
+	 *
+	 * If the limit clause was used.
+	 *
+	 * @since 1.0.0
+	 * @since 3.0.0 Uses filter_found_items_query().
+	 *
+	 * @param mixed $item_ids Optional array of item IDs, or count from a COUNT query.
+	 */
+	private function set_found_items( $item_ids = array() ): void {
+
+		/*
+		 * Default to count of item IDs.
+		 *
+		 * This is relevant for any kind of query. Either it is literal item IDs
+		 * or it is the number of results returned by a 'count' and 'groupby'
+		 * query.
+		 */
+		$retval = count( (array) $item_ids );
+
+		/*
+		 * Count query.
+		 *
+		 * Possibly grouping results by some other columns.
+		 */
+		if ( $this->get_query_var( 'count' ) ) {
+
+			// Not grouped.
+			if ( is_numeric( $item_ids ) && ! $this->get_query_var( 'groupby' ) ) {
+				$retval = $item_ids;
+			}
+
+			/**
+			 * Maybe perform a second COUNT(*) query immediately if:
+			 *
+			 * - 'count' query var is not truthy
+			 * - 'no_found_row' query var is not truthy
+			 * - 'number' query var is not falsy
+			 *
+			 * This second query uses most of the previously parsed $request_clauses
+			 * and overrides a few to correct the SQL syntax.
+			 *
+			 * @since 3.0.0 Performs a COUNT(*) query using $request_clauses.
+			 */
+		} elseif ( ! $this->get_query_var( 'no_found_rows' ) && $this->get_query_var( 'number' ) ) {
+
+			/*
+			 * The found-items count reuses the request clauses with a few overrides.
+			 * parse_count() renders COUNT(DISTINCT primary) when DISTINCT is active, so
+			 * a row-multiplying JOIN does not inflate the total; the standalone DISTINCT
+			 * keyword is dropped (it belongs inside the COUNT, not before it).
+			 */
+			$r = $this->parse_args(
+				array(
+					'fields'   => $this->parse_count( true ),
+					'limits'   => '',
+					'orderby'  => '',
+					'distinct' => '',
+				),
+				$this->get_current_array( 'request_clauses' )
+			);
+
+			// Parse the new clauses.
+			$query = $this->parse_request_clauses( $r );
+
+			// Filter the found items query.
+			$query = $this->filter_found_items_query( $query );
+
+			// Get the database interface.
+			$db = $this->db();
+
+			// Maybe query for found items.
+			if ( ! empty( $query ) ) {
+				$retval = $this->db()->get_var( $query );
+			}
+		}
+
+		// Set found items.
+		$this->set_current( 'found_items', (int) $retval );
+	}
 
 	/**
 	 * Shape an item from the database into the type of object it always wanted
@@ -3209,6 +3168,49 @@ class Query {
 	}
 
 	/** Queries ***************************************************************/
+
+	/**
+	 * Get a single database row by any column and value, skipping cache.
+	 *
+	 * @since 1.0.0
+	 * @since 3.0.0 Uses is_valid_column()
+	 *
+	 * @param string $column_name  Name of database column.
+	 * @param mixed  $column_value Value to query for.
+	 * @return object|false False if empty/error, Object if successful
+	 */
+	private function get_item_raw( $column_name = '', $column_value = '' ): object|false {
+
+		/*
+		 * Bail if value is non-scalar, boolean false, or empty string.
+		 * Intentionally allows 0 and '0' - both are valid column values.
+		 */
+		if ( ! is_scalar( $column_value ) || false === $column_value || '' === $column_value ) {
+			return false;
+		}
+
+		// Bail if invalid column.
+		if ( ! $this->is_valid_column( $column_name ) ) {
+			return false;
+		}
+
+		// Get query parts.
+		$table       = $this->get_table_name();
+		$pattern_str = $this->get_column_field( array( 'name' => $column_name ), 'pattern', '%s' );
+
+		// Query database.
+		$query  = "SELECT * FROM {$table} WHERE {$column_name} = {$pattern_str} LIMIT 1";
+		$select = $this->db()->prepare( $query, $column_value );
+		$result = $this->db()->get_row( $select );
+
+		// Bail on failure.
+		if ( ! $this->is_success( $result ) || ! is_object( $result ) ) {
+			return false;
+		}
+
+		// Return row.
+		return $result;
+	}
 
 	/**
 	 * Get a single database row by the primary column ID, possibly from cache.
