@@ -62,6 +62,14 @@ Notable changes to BerlinDB are documented here.
   read does (`parse_{plural}_query`, `pre_get_{plural}`, `{plural}_query_clauses`).
   This is the first `Operations\` verb (`Operations\Base` + `Operations\Delete`),
   consuming the inert `Clauses\Builder` seam. Returns the number deleted, or `false`.
+- Adds `update_items()` (#214) — the write sibling of `delete_items()`: write one
+  set of column values to a set of items named by a single ID, a list of IDs, or a
+  query-var filter. Resolves the matching primary IDs (shared `Operations\Base`
+  resolution) and loops `update_item( $id, $data )`, so per-item validation,
+  capability reduction, meta handling, cache invalidation, and the
+  `transition_{item}_{key}` actions all still fire. Empty `$data`, an empty input,
+  or a filter with no `WHERE` updates nothing — the empty set never widens to "all
+  rows". `Operations\Update` returns the number updated, or `false`.
 - Adds a `distinct` query var: `'distinct' => true` renders `SELECT DISTINCT` (and
   `COUNT(DISTINCT id)` when counting or computing found rows), so a relationship or
   meta `JOIN` that multiplies rows does not duplicate results or inflate counts.

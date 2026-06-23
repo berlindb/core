@@ -3715,6 +3715,31 @@ class Query {
 	}
 
 	/**
+	 * Update a set of items, named by ID(s) or by a query-var filter.
+	 *
+	 * The write companion to delete_items(): the input resolves to a list of
+	 * primary IDs and the same $data is written to each through update_item(), so
+	 * per-item validation, capability reduction, meta handling, cache invalidation,
+	 * and the transition actions all still fire. The input may be:
+	 *
+	 *  - a single ID         - update_items( 5, $data )
+	 *  - a list of IDs       - update_items( array( 5, 6, 7 ), $data )
+	 *  - a query-var filter  - update_items( array( 'status' => 'draft' ), $data )
+	 *
+	 * Empty $data, an empty input, or a filter that compiles to no WHERE updates
+	 * nothing - the empty set never widens to "update everything".
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param int|string|array<int|string,mixed> $query_vars A single ID, a list of IDs, or a query-var filter array.
+	 * @param array<string,mixed>                $data       Column => value pairs to write to each matched item.
+	 * @return int|false Number of items updated, or false when there was nothing to update.
+	 */
+	public function update_items( $query_vars = array(), $data = array() ) {
+		return ( new \BerlinDB\Database\Operations\Update( $this ) )->update( $query_vars, $data );
+	}
+
+	/**
 	 * Validate an item before it is updated in or added to the database.
 	 *
 	 * @since 1.0.0

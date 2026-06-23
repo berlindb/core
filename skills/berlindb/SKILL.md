@@ -314,6 +314,10 @@ Current limitations:
   matching IDs and loops `delete_item()` (so hooks/cache/meta cleanup all fire), and
   returns the number deleted or `false`. An empty input or a filter with no `WHERE`
   deletes nothing — it never means "delete everything".
+- `update_items( $target, $data )` (3.1.0) is the write sibling: it writes `$data`
+  to a *set* named the same three ways (single ID / list of IDs / query-var
+  filter), looping `update_item()`. Returns the number updated or `false`. Empty
+  `$data`, an empty input, or a filter with no `WHERE` updates nothing.
 - `update_item()` and `delete_item()` expect the primary-key value, not a slug
   or other business key.
 - `number` can intentionally limit queries that also use `__in` or `__not_in`.

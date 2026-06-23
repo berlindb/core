@@ -10,7 +10,7 @@ cleanly onto a layer, that is the bespoke alarm (it is how `with` and the origin
 
 | Layer | What it is | SQL members | Where it lives in BerlinDB |
 |---|---|---|---|
-| **Statement** | the executable verb | DML: SELECT/INSERT/UPDATE/DELETE/REPLACE; DDL: CREATE/ALTER/DROP/TRUNCATE; TCL: BEGIN/COMMIT/ROLLBACK; DCL: GRANT/REVOKE; Utility: EXPLAIN/SHOW | `Operations/` (`Base` + `Delete` shipped; `Select`/`Update` planned) |
+| **Statement** | the executable verb | DML: SELECT/INSERT/UPDATE/DELETE/REPLACE; DDL: CREATE/ALTER/DROP/TRUNCATE; TCL: BEGIN/COMMIT/ROLLBACK; DCL: GRANT/REVOKE; Utility: EXPLAIN/SHOW | `Operations/` (`Base` + `Delete` + `Update` shipped; `Select` planned) |
 | **Clause** | a part of a statement | projection, FROM, JOIN, WHERE, GROUP BY, HAVING, ORDER BY, LIMIT, WINDOW, WITH (CTE), VALUES, SET, RETURNING | `Clauses/` (`BooleanGroup`, `Where`, `Join`) |
 | **Expression** | yields a value | Operators; Operands; Functions (scalar/aggregate/window); **Predicates** (boolean: `=`, BETWEEN, IN, LIKE, EXISTS, IS NULL); CASE; subqueries | `Operators/` + `Operands/` (incl. `Func`) |
 | **Identifier / object** | named, persistent things | Database/Schema, Table, View, Column, Index, Constraint (PK/FK/UNIQUE/CHECK/DEFAULT), Sequence, Trigger, Alias | `Kern/` (`Schema`, `Table`, `Column`, `Index`, `Relationship`) |

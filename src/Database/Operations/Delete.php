@@ -68,41 +68,4 @@ final class Delete extends Base {
 		// Return the number deleted.
 		return $deleted;
 	}
-
-	/**
-	 * Resolve the delete input into a concrete list of primary IDs.
-	 *
-	 * A scalar is one ID. An array with any string key is query-var filters and is
-	 * compiled to a WHERE before the matching IDs are selected. An array with only
-	 * integer keys is a list of IDs - including non-sequential ones from
-	 * array_filter()/wp_list_pluck() - and is taken as-is. An empty array is an
-	 * empty list of IDs (not an unfiltered "everything"), so it resolves to nothing.
-	 *
-	 * @since 3.1.0
-	 *
-	 * @param mixed $input A single ID, a list of IDs, or a query-vars filter array.
-	 * @return array<int,mixed> Candidate primary IDs, each shaped by delete_item() (possibly empty).
-	 */
-	private function resolve_ids( $input ): array {
-
-		// A single scalar ID.
-		if ( is_scalar( $input ) ) {
-			return array( $input );
-		}
-
-		// Anything that is not an array resolves to nothing.
-		if ( ! is_array( $input ) ) {
-			return array();
-		}
-
-		// Any string key means these are query-var filters -> compile and select IDs.
-		foreach ( array_keys( $input ) as $key ) {
-			if ( is_string( $key ) ) {
-				return $this->query()->select_ids( $input );
-			}
-		}
-
-		// Otherwise an all-integer-keyed array is a list of IDs (gaps tolerated).
-		return array_values( $input );
-	}
 }
