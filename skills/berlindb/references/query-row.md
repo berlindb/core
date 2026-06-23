@@ -110,6 +110,12 @@ Column-specific parser support depends on Schema flags:
 `number` limits result count even when using `__in` or `__not_in`. Do not remove
 or bypass limits unless the caller explicitly needs all matching rows.
 
+A per-column `orderby` direction may add `NULLS FIRST` / `NULLS LAST`, e.g.
+`'orderby' => array( 'priority' => 'ASC NULLS LAST', 'name' => 'DESC' )`. MySQL has
+no native syntax, so it is emulated with a leading `ISNULL( col )` sort key; a plain
+direction (`'ASC'`/`'DESC'`) keeps MySQL's default null grouping (NULLs first under
+`ASC`, last under `DESC`).
+
 `no_found_rows` defaults to `true`, meaning no separate `COUNT(*)` query is run.
 In that mode, `get_found_items()` returns only the count of items on the current
 page — not the total number of matching rows. This is not useful for pagination.

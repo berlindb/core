@@ -2584,8 +2584,7 @@ class Query {
 		// Fallback to default orderby & order.
 		if ( empty( $orderby ) ) {
 			$parsed = $this->parse_single_orderby( (string) $orderby, $alias );
-			$order  = $this->parse_order( $order );
-			$retval = "{$parsed} {$order}";
+			$retval = $this->parse_single_orderby_fragment( $parsed, $order );
 
 			// Ordering by something, so figure it out.
 		} else {
@@ -2612,8 +2611,8 @@ class Query {
 					continue;
 				}
 
-				// Append parsed orderby to array.
-				$orderby_array[] = $parsed . ' ' . $this->parse_order( $value );
+				// Append the orderby fragment (with optional NULLS emulation) to array.
+				$orderby_array[] = $this->parse_single_orderby_fragment( $parsed, $value );
 			}
 
 			// Only set if valid orderby.
@@ -2811,10 +2810,42 @@ class Query {
 			return 'DESC';
 		}
 
-		// Ascending or Descending.
-		return ( 'ASC' === strtoupper( $order ) )
+		// Compare the leading word, so a trailing NULLS FIRST/LAST is ignored here.
+		return ( 'ASC' === strtoupper( (string) strtok( trim( $order ), ' ' ) ) )
 			? 'ASC'
 			: 'DESC';
+	}
+
+	/**
+	 * Build one column's ORDER BY fragment, emulating an optional NULLS FIRST/LAST.
+	 *
+	 * Combines the already-resolved column SQL with its ASC/DESC direction. MySQL has
+	 * no NULLS FIRST/LAST syntax (it groups NULLs first under ASC, last under DESC),
+	 * so when the direction value carries a trailing "NULLS FIRST"/"NULLS LAST" (e.g.
+	 * 'ASC NULLS LAST'), a leading ISNULL( col ) sort key forces the grouping
+	 * deterministically -- ISNULL is 1 for NULL, so DESC floats nulls first and ASC
+	 * sinks them last.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $column_sql The already-resolved column SQL to order by.
+	 * @param string $value      Direction ('ASC'/'DESC'), optionally with 'NULLS FIRST'/'NULLS LAST'.
+	 * @return string The ORDER BY fragment ('col ASC|DESC', optionally ISNULL-prefixed).
+	 */
+	private function parse_single_orderby_fragment( string $column_sql, $value = '' ): string {
+
+		// The ASC/DESC direction; parse_order() reads the leading word, ignoring NULLS.
+		$order = $this->parse_order( $value );
+
+		// The single place the NULLS FIRST/LAST suffix is parsed; absent -> plain term.
+		if ( ! is_string( $value ) || ! preg_match( '/\bNULLS\s+(FIRST|LAST)\b/i', $value, $matches ) ) {
+			return "{$column_sql} {$order}";
+		}
+
+		// ISNULL( col ) is 1 for NULL, so DESC floats nulls first, ASC sinks them last.
+		$nulls_order = ( 'FIRST' === strtoupper( $matches[ 1 ] ) ) ? 'DESC' : 'ASC';
+
+		return "ISNULL( {$column_sql} ) {$nulls_order}, {$column_sql} {$order}";
 	}
 
 	/** Hydration *************************************************************/

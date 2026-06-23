@@ -77,6 +77,12 @@ Notable changes to BerlinDB are documented here.
 - Adds a `distinct` query var: `'distinct' => true` renders `SELECT DISTINCT` (and
   `COUNT(DISTINCT id)` when counting or computing found rows), so a relationship or
   meta `JOIN` that multiplies rows does not duplicate results or inflate counts.
+- Adds per-column `NULLS FIRST` / `NULLS LAST` ordering (#211): a per-column orderby
+  direction may carry the suffix, e.g.
+  `'orderby' => array( 'priority' => 'ASC NULLS LAST' )`. MySQL has no native
+  syntax, so it is emulated with a leading `ISNULL( col )` sort key (`DESC` floats
+  NULLs first, `ASC` sinks them last); a plain direction is unchanged. Applies to a
+  single sort key; the rest of the orderby list orders normally.
 - Adds end-to-end support for a string/UUID primary key (not `auto_increment`):
   `add_item()` with a supplied key returns that key, and `get_item()`,
   `update_item()`, `delete_item()`, `copy_item()`, query result-shaping, the
