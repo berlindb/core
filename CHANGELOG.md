@@ -74,6 +74,15 @@ Notable changes to BerlinDB are documented here.
   `transition_{item}_{key}` actions all still fire. Empty `$data`, an empty input,
   or a filter with no `WHERE` updates nothing — the empty set never widens to "all
   rows". `Operations\Update` returns the number updated, or `false`.
+- Adds `add_items()` (#214, #18) — the create sibling of `delete_items()` /
+  `update_items()`: insert a list of new items, one data array per item. Unlike the
+  other two it takes no set selector (the rows do not exist yet) — the input is
+  always a plain list of data arrays — and it loops `add_item()`, so per-item
+  default values, primary-key/UUID generation, sanitization, meta handling, and
+  cache priming all still happen. Because the new IDs are the point of a batch
+  insert, `Operations\Add` returns them in input order (each slot the new ID, or
+  `false` where that one insert failed) rather than a count; an empty input inserts
+  nothing and returns `array()`.
 - Adds a `distinct` query var: `'distinct' => true` renders `SELECT DISTINCT` (and
   `COUNT(DISTINCT id)` when counting or computing found rows), so a relationship or
   meta `JOIN` that multiplies rows does not duplicate results or inflate counts.

@@ -318,6 +318,11 @@ Current limitations:
   to a *set* named the same three ways (single ID / list of IDs / query-var
   filter), looping `update_item()`. Returns the number updated or `false`. Empty
   `$data`, an empty input, or a filter with no `WHERE` updates nothing.
+- `add_items( $rows )` (3.1.0) is the create sibling: it inserts a *list of data
+  arrays*, one new item each, looping `add_item()`. It takes no set selector (the
+  rows do not exist yet), and returns the new IDs in input order — each slot the new
+  ID, or `false` where that insert failed — rather than a count. An empty input
+  inserts nothing and returns `array()`.
 - `update_item()` and `delete_item()` expect the primary-key value, not a slug
   or other business key.
 - `number` can intentionally limit queries that also use `__in` or `__not_in`.

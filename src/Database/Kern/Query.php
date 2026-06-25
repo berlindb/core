@@ -3771,6 +3771,33 @@ class Query {
 	}
 
 	/**
+	 * Add a set of new items, one per data array.
+	 *
+	 * The create companion to delete_items() and update_items(): each element of
+	 * $rows is one new item's data and is inserted through add_item(), so per-item
+	 * default values, primary-key/UUID generation, sanitization, meta handling, and
+	 * cache priming all still happen. Unlike the other two, the input is not a set
+	 * selector - the rows do not exist yet - so it is always a list of data arrays:
+	 *
+	 *  - add_items( array( array( 'name' => 'A' ), array( 'name' => 'B' ) ) )
+	 *
+	 * Because the new IDs are the point of a batch insert, this returns them in
+	 * input order rather than a count: each slot holds the new item ID, or false
+	 * where that one insert failed. An empty input inserts nothing and returns array().
+	 *
+	 * Like its siblings this loops the per-item primitive rather than emitting a
+	 * single multi-row INSERT, trading raw throughput for per-row correctness.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<int,array<string,mixed>> $rows List of data arrays, one per new item.
+	 * @return array<int,int|string|false> New item IDs in input order; false in any slot whose insert failed.
+	 */
+	public function add_items( $rows = array() ): array {
+		return ( new \BerlinDB\Database\Operations\Add( $this ) )->add( (array) $rows );
+	}
+
+	/**
 	 * Validate an item before it is updated in or added to the database.
 	 *
 	 * @since 1.0.0
