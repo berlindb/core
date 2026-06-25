@@ -616,6 +616,7 @@ class Query {
 			'explain'           => false,
 			'distinct'          => false,
 			'select'            => '',
+			'index_hints'       => array(),
 
 			// Fields.
 			'fields'            => '',
@@ -1962,6 +1963,7 @@ class Query {
 			'cache_results'     => array( $this, 'sanitize_boolean' ),
 			'update_item_cache' => array( $this, 'sanitize_boolean' ),
 			'update_meta_cache' => array( $this, 'sanitize_boolean' ),
+			'index_hints'       => array( $this, 'sanitize_index_hints' ),
 		);
 
 		// Coerce each present structural var to its canonical type.
@@ -2109,7 +2111,7 @@ class Query {
 			'select'   => $this->parse_select(),
 			'distinct' => empty( $r[ 'count' ] ) ? $this->parse_distinct( $r[ 'distinct' ] ) : '',
 			'fields'   => $this->parse_fields( $r[ 'fields' ], $r[ 'count' ], $r[ 'groupby' ] ),
-			'from'     => $this->parse_from(),
+			'from'     => $this->parse_from() . $this->parse_index_hints( $this->sanitize_index_hints( $r[ 'index_hints' ] ) ),
 			'join'     => $this->parse_join_clause( $join_where[ 'join' ] ),
 			'where'    => $this->parse_where_clause( $join_where[ 'where' ] ),
 			'groupby'  => $this->parse_groupby( $r[ 'groupby' ], 'GROUP BY' ),
@@ -2495,6 +2497,252 @@ class Query {
 
 		// Return.
 		return "FROM {$table} {$alias}";
+	}
+
+	/**
+	 * Sanitize the 'index_hints' query var into a clean list of validated specs.
+	 *
+	 * Accepts a single associative spec or a list of them. Each spec shapes to:
+	 *   array(
+	 *     'type'    => 'use' | 'force' | 'ignore',
+	 *     'indexes' => list of declared index names (or 'primary'),
+	 *     'for'     => '' | 'join' | 'order by' | 'group by',
+	 *   )
+	 *
+	 * A hint never affects which rows return, so this fails OPEN: an unknown index
+	 * name, an unknown type, or a USE/FORCE conflict drops the offending name/spec
+	 * and logs it rather than failing the query. Index names are validated against
+	 * the schema's declared indexes plus PRIMARY, which also closes off injection.
+	 *
+	 * MySQL forbids mixing USE and FORCE on one table reference, so the first of the
+	 * two seen wins and later conflicting specs are dropped. IGNORE always coexists.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param mixed $hints A single hint spec, or a list of them.
+	 * @return array<int,array{type:string,indexes:list<string>,for:string}> Clean specs, possibly empty.
+	 */
+	private function sanitize_index_hints( $hints = array() ): array {
+
+		// Nothing to do for an empty or non-array value.
+		if ( empty( $hints ) || ! is_array( $hints ) ) {
+			return array();
+		}
+
+		// A single associative spec (carrying a recognized key) is a one-element list.
+		if ( isset( $hints[ 'type' ] ) || isset( $hints[ 'indexes' ] ) || isset( $hints[ 'for' ] ) ) {
+			$hints = array( $hints );
+		}
+
+		// Allowed type vocabulary, and the FOR-scope vocabulary (with friendly aliases).
+		$types   = array( 'use', 'force', 'ignore' );
+		$for_map = array(
+			''         => '',
+			'join'     => 'join',
+			'order by' => 'order by',
+			'group by' => 'group by',
+			'orderby'  => 'order by',
+			'groupby'  => 'group by',
+		);
+
+		// Normalize each spec.
+		$clean     = array();
+		$exclusive = ''; // First of use|force wins; the other conflicts (USE+FORCE is a MySQL error).
+
+		foreach ( $hints as $hint ) {
+
+			// A spec must be an array carrying a type.
+			if ( ! is_array( $hint ) || ! isset( $hint[ 'type' ] ) ) {
+				$this->log( 'warning', 'index_hints', 'Dropped a malformed index hint (not a spec).' );
+				continue;
+			}
+
+			// Type must be one of the closed set.
+			$type = is_string( $hint[ 'type' ] )
+				? strtolower( trim( $hint[ 'type' ] ) )
+				: '';
+
+			if ( ! in_array( $type, $types, true ) ) {
+				$this->log( 'warning', 'index_hints', 'Dropped an index hint with an unknown type.' );
+				continue;
+			}
+
+			// USE and FORCE cannot be mixed for the same table; the first one wins.
+			if ( in_array( $type, array( 'use', 'force' ), true ) ) {
+				if ( '' === $exclusive ) {
+					$exclusive = $type;
+				} elseif ( $type !== $exclusive ) {
+					$this->log( 'warning', 'index_hints', 'Dropped a conflicting index hint (USE and FORCE cannot be mixed).' );
+					continue;
+				}
+			}
+
+			// FOR scope is optional; an unknown value coerces to no scope.
+			$raw_for = isset( $hint[ 'for' ] ) && is_string( $hint[ 'for' ] )
+				? strtolower( trim( $hint[ 'for' ] ) )
+				: '';
+
+			if ( ! array_key_exists( $raw_for, $for_map ) ) {
+				$this->log( 'warning', 'index_hints', 'Ignored an unknown FOR scope on an index hint.' );
+				$raw_for = '';
+			}
+
+			// Validate each index name against declared indexes (+ PRIMARY); dedupe.
+			$raw_indexes = isset( $hint[ 'indexes' ] )
+				? (array) $hint[ 'indexes' ]
+				: array();
+
+			$names = array();
+
+			foreach ( $raw_indexes as $name ) {
+				$canonical = $this->canonical_index_name( $name );
+
+				if ( null === $canonical ) {
+					$this->log( 'warning', 'index_hints', 'Dropped an unknown index name from an index hint.' );
+					continue;
+				}
+
+				if ( ! in_array( $canonical, $names, true ) ) {
+					$names[] = $canonical;
+				}
+			}
+
+			// A hint with no valid index is dropped (v1 does not emit USE INDEX ()).
+			if ( empty( $names ) ) {
+				$this->log( 'warning', 'index_hints', 'Dropped an index hint with no valid indexes.' );
+				continue;
+			}
+
+			$clean[] = array(
+				'type'    => $type,
+				'indexes' => $names,
+				'for'     => $for_map[ $raw_for ],
+			);
+		}
+
+		return $clean;
+	}
+
+	/**
+	 * Resolve a requested index name to its canonical declared form, or null.
+	 *
+	 * 'primary' (any case) maps to the literal MySQL primary-key index name PRIMARY.
+	 * Any other name must be a declared index in the schema (matched case-insensitively);
+	 * the declared casing is returned. An unknown name returns null so the caller can
+	 * drop and log it.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param mixed $name Requested index name.
+	 * @return string|null Canonical index name, or null if not declared.
+	 */
+	private function canonical_index_name( $name ): ?string {
+
+		// Only non-empty string names are valid.
+		if ( ! is_string( $name ) ) {
+			return null;
+		}
+
+		$name = trim( $name );
+
+		if ( '' === $name ) {
+			return null;
+		}
+
+		// The primary key is always addressable as PRIMARY.
+		if ( 'primary' === strtolower( $name ) ) {
+			return 'PRIMARY';
+		}
+
+		// Otherwise it must be a declared index; return its canonical declared name.
+		if ( ( $this->schema_object instanceof Schema ) && $this->schema_object->has_index( $name ) ) {
+			$index = $this->schema_object->get_index( $name );
+
+			return ( $index instanceof Index )
+				? $index->name
+				: null;
+		}
+
+		return null;
+	}
+
+	/**
+	 * Render validated index-hint specs as the SQL that follows the table reference.
+	 *
+	 * The caller passes the value through sanitize_index_hints() immediately before
+	 * this - even though validate_query_vars() already did so - because a
+	 * parse_{plural}_query / pre_get_{plural} hook can replace the 'index_hints' query
+	 * var via set_query_var() AFTER validation, and that raw value would otherwise
+	 * render unvalidated (an undeclared index name reaching MySQL breaks fail-open).
+	 * So every spec arriving here is valid. Specs are declarative, not sequential -
+	 * MySQL collects them by type and scope - so the order here is cosmetic. PRIMARY
+	 * is emitted bare; every other name is quoted. Returns a leading-space fragment
+	 * (so it appends after "FROM t a"), or ''.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param mixed $hints Sanitized list of specs.
+	 * @return string e.g. " FORCE INDEX FOR JOIN (`idx_status`)", or '' when there are none.
+	 */
+	private function parse_index_hints( $hints = array() ): string {
+
+		// Nothing to render.
+		if ( empty( $hints ) || ! is_array( $hints ) ) {
+			return '';
+		}
+
+		// Keyword + scope vocabularies (INDEX and KEY are synonyms; we emit INDEX).
+		$keywords = array(
+			'use'    => 'USE INDEX',
+			'force'  => 'FORCE INDEX',
+			'ignore' => 'IGNORE INDEX',
+		);
+		$scopes   = array(
+			'join'     => ' FOR JOIN',
+			'order by' => ' FOR ORDER BY',
+			'group by' => ' FOR GROUP BY',
+		);
+
+		// Render each spec.
+		$parts = array();
+
+		foreach ( $hints as $hint ) {
+
+			// Defensive: the sanitizer guarantees the shape, but never trust blindly.
+			if ( ! is_array( $hint ) ) {
+				continue;
+			}
+
+			$type    = isset( $hint[ 'type' ] ) && is_string( $hint[ 'type' ] ) ? $hint[ 'type' ] : '';
+			$for     = isset( $hint[ 'for' ] ) && is_string( $hint[ 'for' ] ) ? $hint[ 'for' ] : '';
+			$indexes = isset( $hint[ 'indexes' ] ) && is_array( $hint[ 'indexes' ] ) ? $hint[ 'indexes' ] : array();
+
+			if ( ! isset( $keywords[ $type ] ) || empty( $indexes ) ) {
+				continue;
+			}
+
+			// Quote each index name (PRIMARY is a special name and stays bare).
+			$names = array();
+
+			foreach ( $indexes as $name ) {
+				$name    = (string) $name;
+				$names[] = ( 'PRIMARY' === $name )
+					? 'PRIMARY'
+					: $this->quote_identifier( $name );
+			}
+
+			// Assemble: KEYWORD [FOR SCOPE] (name, ...).
+			$scope   = ( '' !== $for ) && isset( $scopes[ $for ] ) ? $scopes[ $for ] : '';
+			$parts[] = $keywords[ $type ] . $scope . ' (' . implode( ', ', $names ) . ')';
+		}
+
+		// Bail if nothing rendered.
+		if ( empty( $parts ) ) {
+			return '';
+		}
+
+		// Leading space so this appends cleanly after "FROM {table} {alias}".
+		return ' ' . implode( ' ', $parts );
 	}
 
 	/**

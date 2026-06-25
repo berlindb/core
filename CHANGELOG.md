@@ -92,6 +92,19 @@ Notable changes to BerlinDB are documented here.
   syntax, so it is emulated with a leading `ISNULL( col )` sort key (`DESC` floats
   NULLs first, `ASC` sinks them last); a plain direction is unchanged. Applies to a
   single sort key; the rest of the orderby list orders normally.
+- Adds an `index_hints` query var (#219) for MySQL/MariaDB index hints
+  (`USE` / `FORCE` / `IGNORE INDEX`). Takes one spec or a list of them -
+  `array( 'type' => 'force', 'indexes' => array( 'idx_status' ), 'for' => 'join' )` -
+  and renders the hint(s) right after the base table reference (e.g.
+  `FROM ... a FORCE INDEX FOR JOIN (idx_status)`). Index names are validated against the schema's
+  declared indexes plus `PRIMARY` (which also closes off injection); `type` and the
+  optional `for` scope (`join` / `order by` / `group by`) are closed enums.
+  A hint never changes which rows return, so it **fails open**: an unknown index
+  name, an unknown type, or an illegal `USE`+`FORCE` mix is dropped and logged, and
+  the query runs un-hinted. Applies to the base table of the read path only (not
+  relationship JOIN targets, and not the `delete_items()`/`update_items()`
+  ID-resolution path). MySQL/MariaDB only - cross-engine rendering is tracked in
+  the dialect audit #220.
 - Adds end-to-end support for a string/UUID primary key (not `auto_increment`):
   `add_item()` with a supplied key returns that key, and `get_item()`,
   `update_item()`, `delete_item()`, `copy_item()`, query result-shaping, the

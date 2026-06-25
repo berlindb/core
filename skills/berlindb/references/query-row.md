@@ -136,6 +136,33 @@ $total = $query->get_found_items();
 both the result-list cache read and write for a single query — useful inside
 write-path hooks where the cache may not yet reflect a just-committed insert.
 
+## Index Hints
+
+`index_hints` adds a MySQL/MariaDB index hint (`USE` / `FORCE` / `IGNORE INDEX`) to
+the base table of a read query. It takes one spec, or a list of them:
+
+```php
+'index_hints' => array(
+    'type'    => 'force',              // use | force | ignore
+    'indexes' => array( 'idx_status' ), // declared index name(s), or 'primary'
+    'for'     => 'join',               // optional: join | order by | group by
+),
+// -> FROM ...table a FORCE INDEX FOR JOIN (`idx_status`)
+```
+
+- Index names are validated against the schema's **declared indexes plus
+  `PRIMARY`**; `primary` (any case) renders as the bare `PRIMARY` index name.
+- A hint never changes which rows return, so it **fails open**: an unknown index
+  name, an unknown `type`, or an illegal `USE` + `FORCE` combination is dropped and
+  logged, and the query runs un-hinted. Don't rely on a hint as a filter.
+- Multiple specs are **declarative, not ordered** — MySQL collects hints by type and
+  scope. An omitted `for` applies to all scopes on MySQL but `FOR JOIN` on MariaDB,
+  so set `for` explicitly if you need cross-engine certainty.
+- Applies to the base table of the read path only — not relationship `JOIN` targets,
+  and not the `delete_items()` / `update_items()` ID-resolution path.
+- **MySQL/MariaDB only.** Other engines hint differently (Postgres `pg_hint_plan`,
+  SQLite `INDEXED BY`); BerlinDB renders the MySQL form.
+
 ## Negation
 
 Negation lives in two layers. Pick by *what* you are negating — they generate
