@@ -21,7 +21,7 @@ use Yoast\WPTestUtils\WPIntegration\TestCase;
  * connection is required, though a WordPress bootstrap is needed for
  * wp_parse_args() and related helpers.
  *
- * Row shapes are modelled after known wp_posts and wp_users columns so the
+ * Row shapes are modeled after known wp_posts and wp_users columns so the
  * fixtures stay grounded in real-world MySQL metadata.
  *
  * @since 3.0.0
@@ -117,7 +117,7 @@ class ColumnFromMysqlTest extends TestCase {
 	/**
 	 * bigint unsigned primary key maps the base type without modifiers.
 	 *
-	 * Column::sanitize_args() normalises type to uppercase via strtoupper.
+	 * Column::sanitize_args() normalizes type to uppercase via strtoupper.
 	 *
 	 * @since 3.0.0
 	 */
@@ -155,7 +155,7 @@ class ColumnFromMysqlTest extends TestCase {
 	/**
 	 * bigint unsigned primary key maps auto_increment in extra.
 	 *
-	 * Column::sanitize_extra() normalises extra to uppercase.
+	 * Column::sanitize_extra() normalizes extra to uppercase.
 	 *
 	 * @since 3.0.0
 	 */
@@ -186,7 +186,7 @@ class ColumnFromMysqlTest extends TestCase {
 	/**
 	 * varchar column maps name and type.
 	 *
-	 * Column::sanitize_args() normalises type to uppercase via strtoupper.
+	 * Column::sanitize_args() normalizes type to uppercase via strtoupper.
 	 *
 	 * @since 3.0.0
 	 */
@@ -230,7 +230,7 @@ class ColumnFromMysqlTest extends TestCase {
 	/**
 	 * datetime column has no length component.
 	 *
-	 * Column::sanitize_length() normalises the absence of a length to 0.
+	 * Column::sanitize_length() normalizes the absence of a length to 0.
 	 *
 	 * @since 3.0.0
 	 */
@@ -359,7 +359,7 @@ class ColumnFromMysqlTest extends TestCase {
 	/**
 	 * decimal type maps the base type without the precision spec.
 	 *
-	 * Column::sanitize_args() normalises type to uppercase via strtoupper.
+	 * Column::sanitize_args() normalizes type to uppercase via strtoupper.
 	 *
 	 * @since 3.0.0
 	 */
@@ -511,7 +511,7 @@ class ColumnFromMysqlTest extends TestCase {
 	/**
 	 * longtext type has no length component.
 	 *
-	 * Column::sanitize_length() normalises the absence of a length to 0.
+	 * Column::sanitize_length() normalizes the absence of a length to 0.
 	 *
 	 * @since 3.0.0
 	 */

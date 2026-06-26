@@ -13,7 +13,7 @@ namespace BerlinDB\Tests;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Test subject for Boot trait behaviour.
+ * Test subject for Boot trait behavior.
  *
  * @since 3.0.0
  */

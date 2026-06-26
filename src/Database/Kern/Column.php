@@ -69,7 +69,7 @@ class Column {
 	/** Constants *************************************************************/
 
 	/**
-	 * Extra column attributes recognised by BerlinDB.
+	 * Extra column attributes recognized by BerlinDB.
 	 *
 	 * Used by sanitize_extra() to validate values before they are interpolated
 	 * into SQL strings.
@@ -87,7 +87,7 @@ class Column {
 	);
 
 	/**
-	 * Printf-style value patterns recognised by BerlinDB.
+	 * Printf-style value patterns recognized by BerlinDB.
 	 *
 	 * Used by sanitize_pattern() to validate the format placeholder.
 	 *
@@ -114,7 +114,7 @@ class Column {
 	private const CATEGORIES = array( 'numeric', 'string', 'date', 'time', 'year' );
 
 	/**
-	 * Relationship types recognised by BerlinDB.
+	 * Relationship types recognized by BerlinDB.
 	 *
 	 * Used by sanitize_relationships() to validate the relationship direction.
 	 * Mirrors Relationship::TYPES; kept as a private const here under the same
@@ -1507,7 +1507,7 @@ class Column {
 	 *
 	 * Uses filter_var() to correctly handle common string representations
 	 * ('yes'/'no', 'on'/'off', 'true'/'false', '1'/'0') before falling back
-	 * to a straight (bool) cast for unrecognised values.
+	 * to a straight (bool) cast for unrecognized values.
 	 *
 	 * @since 3.0.0
 	 * @param mixed $value Value to cast.

@@ -4,7 +4,7 @@
  *
  * intercept() is the per-column save-time value hook: it stamps created/modified
  * timestamps and passes every other column's value through unchanged. Built-in
- * behaviour keys off the existing created/modified flags.
+ * behavior keys off the existing created/modified flags.
  *
  * @package     BerlinDB\Tests
  * @copyright   2026 - JJJ and all BerlinDB contributors

@@ -587,7 +587,7 @@ class Date extends Base {
 			}
 		}
 
-		// Straight value compare - build_value() normalises the mixed input.
+		// Straight value compare - build_value() normalizes the mixed input.
 		if ( isset( $clause[ 'value' ] ) ) {
 			$value   = $this->build_value( $compare, $clause[ 'value' ] );
 			$where[] = "{$column} {$compare} {$value}";

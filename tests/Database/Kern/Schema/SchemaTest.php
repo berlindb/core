@@ -335,7 +335,7 @@ class SchemaTest extends TestCase {
 	}
 
 	/**
-	 * Test that add_item returns false when given an unrecognised type string.
+	 * Test that add_item returns false when given an unrecognized type string.
 	 *
 	 * @since 3.0.0
 	 */

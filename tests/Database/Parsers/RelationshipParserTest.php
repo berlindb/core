@@ -6,7 +6,7 @@
  * supplies the relationship clauses and resolved Relationship objects, and a
  * no-database remote Query fixture supplies the joined schema. No table is
  * installed and no query is executed - the tests assert the JOIN/WHERE SQL the
- * parser generates (and its fail-closed behaviour) directly.
+ * parser generates (and its fail-closed behavior) directly.
  *
  * @package     BerlinDB\Tests
  * @copyright   2026 - JJJ and all BerlinDB contributors

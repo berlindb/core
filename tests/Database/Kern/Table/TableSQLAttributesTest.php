@@ -274,7 +274,7 @@ class TableSQLAttributesTest extends TestCase {
 	}
 
 	/**
-	 * engine() must return false for an unrecognised engine name.
+	 * engine() must return false for an unrecognized engine name.
 	 *
 	 * @since 3.1.0
 	 */

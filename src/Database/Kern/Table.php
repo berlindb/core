@@ -46,7 +46,7 @@ class Table {
 	/** Constants *************************************************************/
 
 	/**
-	 * Storage engines recognised by MySQL / MariaDB in WordPress environments.
+	 * Storage engines recognized by MySQL / MariaDB in WordPress environments.
 	 *
 	 * Used by sanitize_engine() and engine() to validate values before they
 	 * are interpolated into SQL strings.
@@ -57,7 +57,7 @@ class Table {
 	private const ENGINES = array( 'INNODB', 'MYISAM', 'MEMORY', 'ARCHIVE', 'CSV', 'BLACKHOLE', 'MERGE', 'ARIA' );
 
 	/**
-	 * Row formats recognised by MySQL / MariaDB.
+	 * Row formats recognized by MySQL / MariaDB.
 	 *
 	 * Used by sanitize_row_format() to validate values before they are
 	 * interpolated into SQL strings.
@@ -347,7 +347,7 @@ class Table {
 	 *
 	 * Returns the uppercase engine name when it is in the set of engines
 	 * known to be available in MySQL / MariaDB installations used alongside
-	 * WordPress, or an empty string for unrecognised values.
+	 * WordPress, or an empty string for unrecognized values.
 	 *
 	 * @since 3.1.0
 	 *
@@ -366,7 +366,7 @@ class Table {
 	 * Sanitize a row format name.
 	 *
 	 * Returns the uppercase format name when it is in the set of formats
-	 * recognised by MySQL / MariaDB, or an empty string for unrecognised values.
+	 * recognized by MySQL / MariaDB, or an empty string for unrecognized values.
 	 *
 	 * @since 3.1.0
 	 *
@@ -788,7 +788,7 @@ class Table {
 	 * Convert the storage engine for this table.
 	 *
 	 * Runs ALTER TABLE ... ENGINE=X. Returns false immediately for engine names
-	 * that are not in the recognised set, without issuing a query.
+	 * that are not in the recognized set, without issuing a query.
 	 *
 	 * @since 3.1.0
 	 *
@@ -800,7 +800,7 @@ class Table {
 		// Sanitize and validate the engine name.
 		$engine = $this->sanitize_engine( $engine );
 
-		// Bail if the engine name is not recognised.
+		// Bail if the engine name is not recognized.
 		if ( empty( $engine ) ) {
 			return false;
 		}

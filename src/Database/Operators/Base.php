@@ -19,7 +19,7 @@ defined( 'ABSPATH' ) || exit;
 /**
  * Abstract base class for all comparison operator classes.
  *
- * Provides shared descriptor properties and SQL-generation behaviour via
+ * Provides shared descriptor properties and SQL-generation behavior via
  * Traits\Operator. Concrete operator subclasses only need to declare the
  * descriptor properties that differ from the trait defaults ($name, $compare,
  * $positive, $opposite_compare, $multi, $numeric, $unary, $regex).

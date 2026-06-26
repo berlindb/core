@@ -382,7 +382,7 @@ class Query {
 	 * Reset per-run ephemeral state at the start of each action.
 	 *
 	 * Called by boot() during construction and by query() before each run.
-	 * Initialises $current with all keys that are rebuilt on every run so
+	 * Initializes $current with all keys that are rebuilt on every run so
 	 * that stale state from a prior call can never bleed through.
 	 *
 	 * @since 3.0.0
@@ -775,12 +775,12 @@ class Query {
 	 * @since 1.0.0
 	 * @since 3.0.0
 	 *
-	 * @static array               $columns  Local static copy of columns, abstracted to
-	 *                                       support different storage locations.
+	 * @static array              $columns  Local static copy of columns, abstracted to
+	 *                                      support different storage locations.
 	 * @param array<string,mixed> $args     Arguments to filter columns by.
-	 * @param string               $operator Optional. The logical operation to perform.
-	 * @param bool|string          $field    Optional. A field from the object to place
-	 *                                       instead of the entire object. Default false.
+	 * @param string              $operator Optional. The logical operation to perform.
+	 * @param bool|string         $field    Optional. A field from the object to place
+	 *                                      instead of the entire object. Default false.
 	 * @return Column[]|list<mixed> Array of Column objects, or field values if $field is set.
 	 */
 	public function get_columns( $args = array(), $operator = 'and', $field = false ): array {
@@ -4118,7 +4118,7 @@ class Query {
 			return array();
 		}
 
-		// Normalise to an array for uniform processing.
+		// Normalize to an array for uniform processing.
 		if ( is_object( $item ) ) {
 			$work = (array) $item;
 		} elseif ( is_array( $item ) ) {
@@ -4711,7 +4711,7 @@ class Query {
 	/** Cache *****************************************************************/
 
 	/**
-	 * Query vars that change behaviour but NOT which rows (IDs) a query returns,
+	 * Query vars that change behavior but NOT which rows (IDs) a query returns,
 	 * so they must be excluded from the result-cache key.
 	 *
 	 * get_cache_key() keys on the matching-ID set, so two queries differing only by
@@ -5395,7 +5395,7 @@ class Query {
 	 * Low-level primitive. Prefer the semantic wrappers
 	 * update_primary_last_changed_cache() and
 	 * update_secondary_last_changed_caches() at write sites; this is also used
-	 * by get_last_changed_cache() to lazily initialise a group.
+	 * by get_last_changed_cache() to lazily initialize a group.
 	 *
 	 * @since 1.0.0
 	 *
@@ -5476,7 +5476,7 @@ class Query {
 		// Get the last changed cache value.
 		$last_changed = $this->cache_get( 'last_changed', $group );
 
-		// Maybe initialise the last changed value.
+		// Maybe initialize the last changed value.
 		if ( false === $last_changed ) {
 			$last_changed = $this->set_last_changed( $group );
 		}

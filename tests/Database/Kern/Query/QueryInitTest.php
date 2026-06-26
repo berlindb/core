@@ -1,6 +1,6 @@
 <?php
 /**
- * Tests for Query::init() property-initialisation methods.
+ * Tests for Query::init() property-initialization methods.
  *
  * Covers the three private setters introduced in 3.1.0 that run before
  * set_prefixes() to guarantee $table_name and $cache_group are never empty:
@@ -133,7 +133,7 @@ class InitCollisionBQuery extends Query {
 // ---------------------------------------------------------------------------
 
 /**
- * Tests for the init() property-initialisation methods introduced in 3.1.0.
+ * Tests for the init() property-initialization methods introduced in 3.1.0.
  *
  * @since 3.1.0
  */

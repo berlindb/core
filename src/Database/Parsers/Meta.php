@@ -179,7 +179,7 @@ class Meta extends Base {
 	public $table_aliases = array();
 
 	/**
-	 * Determines what first-order keys this parser recognises.
+	 * Determines what first-order keys this parser recognizes.
 	 *
 	 * Overrides the Parser trait default to fix the set of keys for meta
 	 * queries: 'key', 'value', and 'meta_query'.
@@ -199,9 +199,9 @@ class Meta extends Base {
 	}
 
 	/**
-	 * Normalises 'meta_*' shorthand vars into a structured meta_query array.
+	 * Normalizes 'meta_*' shorthand vars into a structured meta_query array.
 	 *
-	 * Called by Parser::init() as a pre-processing hook. Returns the normalised
+	 * Called by Parser::init() as a pre-processing hook. Returns the normalized
 	 * array; init() then proceeds with it rather than the raw query vars.
 	 *
 	 * The shorthand keys are a flat alternative to passing a full meta_query
@@ -219,7 +219,7 @@ class Meta extends Base {
 	 *
 	 * @param array<string,mixed> $qv The query variables.
 	 *
-	 * @return array<string,mixed> The normalised meta_query array.
+	 * @return array<string,mixed> The normalized meta_query array.
 	 */
 	protected function parse_query_vars( $qv = array() ) {
 
@@ -273,7 +273,7 @@ class Meta extends Base {
 			$meta_query = $existing_meta_query;
 		}
 
-		// Return the normalised meta_query array; Parser::init() will process it.
+		// Return the normalized meta_query array; Parser::init() will process it.
 		return $meta_query;
 	}
 
@@ -281,7 +281,7 @@ class Meta extends Base {
 	 * Whether $qv is already a formed meta_query (a set of clauses) rather than
 	 * the flat top-level query vars.
 	 *
-	 * Recognises four shapes: a positional list ( `[0]` is a clause ), a
+	 * Recognizes four shapes: a positional list ( `[0]` is a clause ), a
 	 * multi-clause group ( a 'relation' ), a bare first-order clause ( the array
 	 * IS a single clause, e.g. array( 'key' => ..., 'value' => ... ) ), and a NAMED
 	 * set ( string-keyed clauses ). The first two are cheap key checks; the last
@@ -734,7 +734,7 @@ class Meta extends Base {
 			}
 		}
 
-		// meta_value - build_value() normalises the mixed input.
+		// meta_value - build_value() normalizes the mixed input.
 		if ( array_key_exists( 'value', $clause ) ) {
 			$where = $this->build_value( $meta_compare, $clause[ 'value' ], '%s' );
 

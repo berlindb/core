@@ -11,7 +11,7 @@
 namespace BerlinDB\Tests;
 
 /**
- * Test subject for Log trait behaviour.
+ * Test subject for Log trait behavior.
  *
  * @since 3.0.0
  */

@@ -17,7 +17,7 @@ use Yoast\WPTestUtils\WPIntegration\TestCase;
 
 /**
  * Guards Query::get_cache_key() against the class of bug where a results-invariant
- * query var (one that changes behaviour but NOT which rows a query returns) leaks
+ * query var (one that changes behavior but NOT which rows a query returns) leaks
  * into the result-cache key and needlessly fragments it.
  *
  * The result cache stores the matching primary-ID set, so two queries that differ
@@ -28,7 +28,7 @@ use Yoast\WPTestUtils\WPIntegration\TestCase;
  *  - prove each listed var really does not segment the key (and a real filter does),
  *  - lock the list against drift, and
  *  - FAIL when a new clause key is introduced without classifying its cache
- *    behaviour - the forcing function the maintainer asked for.
+ *    behavior - the forcing function the maintainer asked for.
  *
  * @since 3.1.0
  */
@@ -262,7 +262,7 @@ class CacheKeyGuardTest extends TestCase {
 	/**
 	 * The forcing function: every SQL clause key must be accounted for here. Adding a
 	 * clause key (the usual home of a new query-var feature) fails this test until the
-	 * author classifies its cache behaviour - and, if results-invariant, adds the
+	 * author classifies its cache behavior - and, if results-invariant, adds the
 	 * backing var to Query::RESULTS_INVARIANT_VARS so it is excluded from the key.
 	 *
 	 * @since 3.1.0
@@ -282,7 +282,7 @@ class CacheKeyGuardTest extends TestCase {
 		$this->assertSame(
 			$expected,
 			$actual,
-			'A SQL clause key was added or removed. Classify its cache behaviour: if the '
+			'A SQL clause key was added or removed. Classify its cache behavior: if the '
 			. "query var backing it does NOT change which rows return (like 'index_hints' "
 			. "or 'with'), add that var to Query::RESULTS_INVARIANT_VARS so it is excluded "
 			. 'from the result-cache key. Then update EXPECTED_CLAUSE_KEYS here.'

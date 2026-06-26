@@ -85,7 +85,7 @@ class Relationship {
 	/** Constants *************************************************************/
 
 	/**
-	 * Relationship types recognised by BerlinDB.
+	 * Relationship types recognized by BerlinDB.
 	 *
 	 * Used by sanitize_type() to validate the relationship direction.
 	 *
@@ -95,7 +95,7 @@ class Relationship {
 	private const TYPES = array( 'belongs_to', 'has_many' );
 
 	/**
-	 * Referential actions recognised by MySQL / MariaDB for foreign keys.
+	 * Referential actions recognized by MySQL / MariaDB for foreign keys.
 	 *
 	 * Used by sanitize_referential_action() to validate ON DELETE / ON UPDATE
 	 * values before they are interpolated into SQL strings.

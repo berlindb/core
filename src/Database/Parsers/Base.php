@@ -22,7 +22,7 @@ defined( 'ABSPATH' ) || exit;
  * Owns the Traits\Parser use so that concrete parsers only need to extend
  * this class. Traits\Parser provides a Column-aware default implementation of
  * get_sql_for_clause(); concrete parsers override it only when they require
- * specialised JOIN logic, type casting, or column handling.
+ * specialized JOIN logic, type casting, or column handling.
  *
  * @since 3.0.0
  *

@@ -55,7 +55,7 @@ trait Lifecycle {
 	 * Template method called at the start of each run, before the main work.
 	 *
 	 * Override in a subclass to initialize per-run state or perform setup.
-	 * Call parent::start() to preserve behaviour from any intermediate class.
+	 * Call parent::start() to preserve behavior from any intermediate class.
 	 *
 	 * @since 3.0.0
 	 *
@@ -67,7 +67,7 @@ trait Lifecycle {
 	 * Template method called at the end of each run, after the main work.
 	 *
 	 * Override in a subclass for cleanup or logging.
-	 * Call parent::finish() to preserve behaviour from any intermediate class.
+	 * Call parent::finish() to preserve behavior from any intermediate class.
 	 *
 	 * @since 3.0.0
 	 *

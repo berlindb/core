@@ -166,7 +166,7 @@ class MetaParserTest extends TestCase {
 	 * 'status' is both a real column on the widgets table and the meta key used
 	 * here. Before Compare scoped itself to its own compare_query, it received
 	 * the full query_vars (its own var being unset), walked the meta_query
-	 * clause, recognised 'status' as a valid column, and emitted a spurious
+	 * clause, recognized 'status' as a valid column, and emitted a spurious
 	 * `widgets.status = 'shipped'` - which excluded the row the meta JOIN had
 	 * correctly matched, returning 0 rows instead of 1.
 	 *
@@ -859,7 +859,7 @@ class MetaParserTest extends TestCase {
 	 * Test that meta_query with an array value and IN compare returns matching rows.
 	 *
 	 * Exercises the clause['value'] path in Meta::build_clause_sql() now that
-	 * build_value() handles array normalisation directly. Scores 10 and 30
+	 * build_value() handles array normalization directly. Scores 10 and 30
 	 * belong to Alpha Widget and Gamma Gadget respectively.
 	 *
 	 * @since 3.0.0

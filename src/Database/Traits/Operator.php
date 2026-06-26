@@ -24,7 +24,7 @@ use BerlinDB\Database\Kern\Column;
  * Concrete operator classes (in the Operators/ directory) use this trait and
  * declare their descriptor properties. The default get_value_sql() handles all
  * scalar operators (=, !=, >, >=, <, <=, EXISTS, REGEXP, NOT REGEXP, RLIKE).
- * Operator classes with non-scalar behaviour (IN, BETWEEN, LIKE, NOT EXISTS,
+ * Operator classes with non-scalar behavior (IN, BETWEEN, LIKE, NOT EXISTS,
  * etc.) override get_value_sql() directly.
  *
  * get_sql() assembles the full WHERE expression ({column} {compare} {value})

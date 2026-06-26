@@ -6,7 +6,7 @@
  * intentionally uninstalled from being recreated automatically on the next
  * admin page load (berlindb/core discussions #176):
  *
- *   Tombstone  - uninstall() writes a persistent option that is recognised
+ *   Tombstone  - uninstall() writes a persistent option that is recognized
  *                by is_upgradeable(), causing maybe_upgrade() to bail.
  *                install() clears it so the table can be intentionally
  *                reinstalled later.

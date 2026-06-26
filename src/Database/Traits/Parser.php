@@ -191,7 +191,7 @@ trait Parser {
 	 */
 	protected function init( array $query_vars = array(), mixed $caller = null ): void {
 
-		// Allow subclasses to normalise query vars before the rest of init() runs.
+		// Allow subclasses to normalize query vars before the rest of init() runs.
 		$query_vars = $this->parse_query_vars( $query_vars );
 
 		// Set the caller & first_keys.
@@ -227,7 +227,7 @@ trait Parser {
 	 * Pre-process query vars before init() runs.
 	 *
 	 * Subclasses may override this to transform raw query vars into the
-	 * normalised structure that init() expects. The default is a no-op.
+	 * normalized structure that init() expects. The default is a no-op.
 	 *
 	 * @since 3.0.0
 	 *
@@ -1099,7 +1099,7 @@ trait Parser {
 	 * Default Column-aware implementation. Validates the clause key against the
 	 * schema, derives quoting and pattern from the Column object, and delegates
 	 * full expression assembly to the operator. Concrete parsers should override
-	 * this method when they require specialised JOIN logic, type casting, or
+	 * this method when they require specialized JOIN logic, type casting, or
 	 * column filtering beyond what the schema lookup provides.
 	 *
 	 * @since 3.0.0
@@ -1831,7 +1831,7 @@ trait Parser {
 	/**
 	 * Builds and validates a value string based on the comparison operator.
 	 *
-	 * Accepts any type and normalises before passing to the operator: arrays
+	 * Accepts any type and normalizes before passing to the operator: arrays
 	 * pass through (for IN/BETWEEN), floats are cast to string, other scalars
 	 * pass through, and unsupported types (bool, object, null) become null.
 	 * Callers do not need to pre-narrow their values before calling this method.
@@ -1849,7 +1849,7 @@ trait Parser {
 		// Look up the operator instance for this compare string.
 		$operator = $this->get_operator( $compare );
 
-		// Fall back to Equal for any unrecognised compare string.
+		// Fall back to Equal for any unrecognized compare string.
 		if ( false === $operator ) {
 			$operator = $this->get_operator( '=' );
 		}
@@ -1860,7 +1860,7 @@ trait Parser {
 		}
 
 		/*
-		 * Normalise value: arrays pass through; floats become strings;
+		 * Normalize value: arrays pass through; floats become strings;
 		 * other scalars are unchanged; bools, objects, and null become null.
 		 */
 		if ( is_array( $value ) ) {

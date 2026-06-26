@@ -4,7 +4,7 @@
  *
  * Unit tests work against Column objects directly. Integration tests use a
  * self-contained schema/table/query trio defined in this file so the shared
- * TestSchema is not modified - JSON is a transparent type behaviour, not a
+ * TestSchema is not modified - JSON is a transparent type behavior, not a
  * named special column like uuid or date_created.
  *
  * @package     BerlinDB\Tests

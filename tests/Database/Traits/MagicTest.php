@@ -11,7 +11,7 @@
 namespace BerlinDB\Tests;
 
 /**
- * Test subject for Magic trait behaviour.
+ * Test subject for Magic trait behavior.
  *
  * - $prop_with_getter: protected property that also has a get_*() method,
  *   so the getter should win over raw property access.
@@ -115,7 +115,7 @@ class MagicTest extends \PHPUnit\Framework\TestCase {
 	/**
 	 * Same-family protected property access bypasses __get().
 	 *
-	 * This preserves PHP's native protected-property behaviour: a subclass can
+	 * This preserves PHP's native protected-property behavior: a subclass can
 	 * read a protected property declared on an ancestor from another object in
 	 * that inheritance family, so the raw property value is returned.
 	 *

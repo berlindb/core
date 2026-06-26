@@ -26,7 +26,7 @@ defined( 'ABSPATH' ) || exit;
  * been settled.
  *
  * Boot drives this: it calls configure() first in the construction sequence, so
- * init() sees the configured identity. A class tunes the behaviour by
+ * init() sees the configured identity. A class tunes the behavior by
  * overriding the hooks, NOT configure() itself:
  *   - is_configuration(): whether the args are a definition (default: yes).
  *   - get_config_callbacks(): per-key sanitization map for validate_args().

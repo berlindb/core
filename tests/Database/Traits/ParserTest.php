@@ -14,7 +14,7 @@ use BerlinDB\Database\Parsers\Base as ParserBase;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Test subject for shared Parser trait behaviour.
+ * Test subject for shared Parser trait behavior.
  *
  * @since 3.0.0
  */
