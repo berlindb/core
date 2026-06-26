@@ -187,6 +187,23 @@ class Index {
 	/** Public Helpers ********************************************************/
 
 	/**
+	 * Get the index name as it appears in SQL.
+	 *
+	 * A PRIMARY KEY is always the reserved index name PRIMARY in MySQL, whatever the
+	 * declared $name (which is empty for a primary); every other index uses its
+	 * declared name. Used where an index must be referenced by name, e.g. index hints.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return string
+	 */
+	public function get_index_name(): string {
+		return ( 'PRIMARY' === strtoupper( $this->type ) )
+			? 'PRIMARY'
+			: $this->name;
+	}
+
+	/**
 	 * Get the CREATE clause for this index.
 	 *
 	 * @since 3.0.0

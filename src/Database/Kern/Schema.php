@@ -829,6 +829,28 @@ class Schema {
 	}
 
 	/**
+	 * Resolve an index reference to its canonical SQL name, or '' if not declared.
+	 *
+	 * Accepts 'primary' (any case) or a declared index name (matched case-insensitively)
+	 * and returns the name as it appears in SQL - PRIMARY for the primary key, the
+	 * declared name otherwise - so callers (e.g. index hints) can validate a reference
+	 * and render it without re-deriving index identity. An unknown reference returns ''
+	 * (a resolvable index always has a non-empty name), so callers need no type check.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $ref Index reference: 'primary', or a declared index name.
+	 * @return string Canonical SQL index name, or '' if not declared.
+	 */
+	public function canonical_index_name( $ref = '' ): string {
+		$index = $this->get_index( $ref );
+
+		return ( $index instanceof Index )
+			? $index->get_index_name()
+			: '';
+	}
+
+	/**
 	 * Check whether this schema has an index by name.
 	 *
 	 * @since 3.0.0

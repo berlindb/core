@@ -128,6 +128,11 @@ class IndexHintsTest extends TestCase {
 						'index_hints'   => $hints,
 						'number'        => 10,
 						'no_found_rows' => true,
+						/*
+						 * index_hints is excluded from the cache key (it does not change
+						 * results), so bypass the cache to force SQL on every call.
+						 */
+						'cache_results' => false,
 					)
 				);
 			}
@@ -237,6 +242,7 @@ class IndexHintsTest extends TestCase {
 						),
 						'number'        => 10,
 						'no_found_rows' => true,
+						'cache_results' => false,
 					)
 				);
 			}
@@ -369,6 +375,7 @@ class IndexHintsTest extends TestCase {
 					array(
 						'number'        => 10,
 						'no_found_rows' => true,
+						'cache_results' => false,
 					)
 				);
 			}
@@ -405,6 +412,7 @@ class IndexHintsTest extends TestCase {
 					array(
 						'number'        => 10,
 						'no_found_rows' => true,
+						'cache_results' => false,
 					)
 				);
 			}
@@ -434,6 +442,7 @@ class IndexHintsTest extends TestCase {
 					array(
 						'number'        => 10,
 						'no_found_rows' => true,
+						'cache_results' => false,
 					)
 				);
 			}

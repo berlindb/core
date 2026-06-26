@@ -961,4 +961,33 @@ class SchemaTest extends TestCase {
 			$relationship->get_create_string( 'wp_acme_orders' )
 		);
 	}
+
+	/**
+	 * Test Index::get_index_name() returns the SQL name (PRIMARY for the primary key).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_index_get_index_name() {
+		$this->assertSame( 'status', self::$schema->get_index( 'status' )->get_index_name() );
+		$this->assertSame( 'PRIMARY', self::$schema->get_index( 'primary' )->get_index_name() );
+	}
+
+	/**
+	 * Test Schema::canonical_index_name() resolves references (and PRIMARY), or null.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_schema_canonical_index_name() {
+		// Declared index, matched case-insensitively, returns its declared name.
+		$this->assertSame( 'status', self::$schema->canonical_index_name( 'status' ) );
+		$this->assertSame( 'status', self::$schema->canonical_index_name( 'STATUS' ) );
+
+		// The primary key resolves to the reserved PRIMARY name, in any casing.
+		$this->assertSame( 'PRIMARY', self::$schema->canonical_index_name( 'primary' ) );
+		$this->assertSame( 'PRIMARY', self::$schema->canonical_index_name( 'PRIMARY' ) );
+
+		// Unknown or empty references return '' (a resolvable index is never empty).
+		$this->assertSame( '', self::$schema->canonical_index_name( 'not_a_real_index' ) );
+		$this->assertSame( '', self::$schema->canonical_index_name( '' ) );
+	}
 }

@@ -103,8 +103,10 @@ Notable changes to BerlinDB are documented here.
   name, an unknown type, or an illegal `USE`+`FORCE` mix is dropped and logged, and
   the query runs un-hinted. Applies to the base table of the read path only (not
   relationship JOIN targets, and not the `delete_items()`/`update_items()`
-  ID-resolution path). MySQL/MariaDB only - cross-engine rendering is tracked in
-  the dialect audit #220.
+  ID-resolution path). Because a hint never changes which rows return, it is
+  **excluded from the result-cache key** (like `with`), so a hinted and an unhinted
+  query share one cache entry. MySQL/MariaDB only - cross-engine rendering is
+  tracked in the dialect audit #220.
 - Adds end-to-end support for a string/UUID primary key (not `auto_increment`):
   `add_item()` with a supplied key returns that key, and `get_item()`,
   `update_item()`, `delete_item()`, `copy_item()`, query result-shaping, the

@@ -128,6 +128,33 @@ class QueryCacheTest extends TestCase {
 	}
 
 	/**
+	 * An EXPLAIN query is never served from (or stored in) the result cache: it
+	 * returns the current optimizer plan, so a repeated EXPLAIN must hit the database
+	 * again rather than reuse a prior result.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_explain_query_is_not_cached() {
+		global $wpdb;
+
+		$args = array(
+			'explain' => true,
+			'number'  => 10,
+			'status'  => 'active',
+		);
+
+		// Run once (a cached query would store its result here).
+		self::$query->query( $args );
+
+		// A second identical EXPLAIN must run SQL again, not hit a cache entry.
+		$queries_before = $wpdb->num_queries;
+		self::$query->query( $args );
+		$queries_after = $wpdb->num_queries;
+
+		$this->assertGreaterThan( $queries_before, $queries_after );
+	}
+
+	/**
 	 * After deleting an item, re-querying with the same args on the same
 	 * instance must reflect the deletion - not return the stale cached result.
 	 *

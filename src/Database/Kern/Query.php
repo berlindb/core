@@ -388,7 +388,7 @@ class Query {
 	 * @since 3.0.0
 	 */
 	protected function start(): void {
-		$clause_keys = array( 'explain', 'select', 'distinct', 'fields', 'from', 'join', 'where', 'groupby', 'orderby', 'limits' );
+		$clause_keys = array( 'explain', 'select', 'distinct', 'fields', 'from', 'index_hints', 'join', 'where', 'groupby', 'orderby', 'limits' );
 
 		$this->init_current(
 			array(
@@ -1478,8 +1478,12 @@ class Query {
 			return $this->items;
 		}
 
-		// Check the cache.
-		$cache_results = (bool) $this->get_query_var( 'cache_results' );
+		/*
+		 * Check the cache. EXPLAIN returns a plan (not rows) and must reflect the
+		 * current optimizer state, so it is never served from or stored in the cache.
+		 */
+		$cache_results = (bool) $this->get_query_var( 'cache_results' )
+			&& empty( $this->get_query_var( 'explain' ) );
 		$cache_key     = $this->get_cache_key();
 		$cache_value   = ( true === $cache_results )
 			? $this->cache_get( $cache_key, $this->cache_group )
@@ -1698,16 +1702,17 @@ class Query {
 			 */
 			$primary = $this->get_primary_column_name();
 			$clauses = array(
-				'explain'  => '',
-				'select'   => $this->parse_select(),
-				'distinct' => $this->parse_distinct( true ),
-				'fields'   => $this->get_quoted_column_name_aliased( $primary ),
-				'from'     => $this->parse_from(),
-				'join'     => $join,
-				'where'    => $where,
-				'groupby'  => '',
-				'orderby'  => '',
-				'limits'   => '',
+				'explain'     => '',
+				'select'      => $this->parse_select(),
+				'distinct'    => $this->parse_distinct( true ),
+				'fields'      => $this->get_quoted_column_name_aliased( $primary ),
+				'from'        => $this->parse_from(),
+				'index_hints' => '', // ID resolution is deliberately un-hinted.
+				'join'        => $join,
+				'where'       => $where,
+				'groupby'     => '',
+				'orderby'     => '',
+				'limits'      => '',
 			);
 
 			/*
@@ -1963,7 +1968,6 @@ class Query {
 			'cache_results'     => array( $this, 'sanitize_boolean' ),
 			'update_item_cache' => array( $this, 'sanitize_boolean' ),
 			'update_meta_cache' => array( $this, 'sanitize_boolean' ),
-			'index_hints'       => array( $this, 'sanitize_index_hints' ),
 		);
 
 		// Coerce each present structural var to its canonical type.
@@ -2107,16 +2111,17 @@ class Query {
 
 		// Parse all clauses.
 		$clauses = array(
-			'explain'  => $this->parse_explain( $r[ 'explain' ] ),
-			'select'   => $this->parse_select(),
-			'distinct' => empty( $r[ 'count' ] ) ? $this->parse_distinct( $r[ 'distinct' ] ) : '',
-			'fields'   => $this->parse_fields( $r[ 'fields' ], $r[ 'count' ], $r[ 'groupby' ] ),
-			'from'     => $this->parse_from() . $this->parse_index_hints( $this->sanitize_index_hints( $r[ 'index_hints' ] ) ),
-			'join'     => $this->parse_join_clause( $join_where[ 'join' ] ),
-			'where'    => $this->parse_where_clause( $join_where[ 'where' ] ),
-			'groupby'  => $this->parse_groupby( $r[ 'groupby' ], 'GROUP BY' ),
-			'orderby'  => $this->parse_orderby( $r[ 'orderby' ], $r[ 'order' ], 'ORDER BY' ),
-			'limits'   => $this->parse_limits( $r[ 'number' ], $r[ 'offset' ] ),
+			'explain'     => $this->parse_explain( $r[ 'explain' ] ),
+			'select'      => $this->parse_select(),
+			'distinct'    => $this->parse_distinct( $r[ 'distinct' ], $r[ 'count' ] ),
+			'fields'      => $this->parse_fields( $r[ 'fields' ], $r[ 'count' ], $r[ 'groupby' ] ),
+			'from'        => $this->parse_from(),
+			'index_hints' => $this->parse_index_hints( $r[ 'index_hints' ] ),
+			'join'        => $this->parse_join_clause( $join_where[ 'join' ] ),
+			'where'       => $this->parse_where_clause( $join_where[ 'where' ] ),
+			'groupby'     => $this->parse_groupby( $r[ 'groupby' ], 'GROUP BY' ),
+			'orderby'     => $this->parse_orderby( $r[ 'orderby' ], $r[ 'order' ], 'ORDER BY' ),
+			'limits'      => $this->parse_limits( $r[ 'number' ], $r[ 'offset' ] ),
 		);
 
 		// Return clauses.
@@ -2347,13 +2352,22 @@ class Query {
 	 * Parse whether the "SELECT" should be DISTINCT.
 	 *
 	 * Driven by the 'distinct' query var (like 'explain'); Operations\Delete's ID
-	 * selection also asks for it explicitly by passing true.
+	 * selection also asks for it explicitly by passing true. Suppressed when counting:
+	 * COUNT carries its own DISTINCT (see parse_count()), so a standalone SELECT
+	 * DISTINCT keyword would be redundant. Owning that guard here keeps the clause
+	 * assembly a clean one-liner (the same way parse_fields() reads 'count').
 	 *
 	 * @since 3.1.0
 	 * @param bool $distinct Default false. True to de-duplicate the selected rows.
+	 * @param bool $count    Default false. True when this is a COUNT request.
 	 * @return string Default empty string, or "DISTINCT".
 	 */
-	private function parse_distinct( $distinct = false ): string {
+	private function parse_distinct( $distinct = false, $count = false ): string {
+
+		// A COUNT carries its own DISTINCT; no standalone keyword.
+		if ( ! empty( $count ) ) {
+			return '';
+		}
 
 		// Maybe fallback to $query_vars.
 		if ( empty( $distinct ) ) {
@@ -2497,252 +2511,6 @@ class Query {
 
 		// Return.
 		return "FROM {$table} {$alias}";
-	}
-
-	/**
-	 * Sanitize the 'index_hints' query var into a clean list of validated specs.
-	 *
-	 * Accepts a single associative spec or a list of them. Each spec shapes to:
-	 *   array(
-	 *     'type'    => 'use' | 'force' | 'ignore',
-	 *     'indexes' => list of declared index names (or 'primary'),
-	 *     'for'     => '' | 'join' | 'order by' | 'group by',
-	 *   )
-	 *
-	 * A hint never affects which rows return, so this fails OPEN: an unknown index
-	 * name, an unknown type, or a USE/FORCE conflict drops the offending name/spec
-	 * and logs it rather than failing the query. Index names are validated against
-	 * the schema's declared indexes plus PRIMARY, which also closes off injection.
-	 *
-	 * MySQL forbids mixing USE and FORCE on one table reference, so the first of the
-	 * two seen wins and later conflicting specs are dropped. IGNORE always coexists.
-	 *
-	 * @since 3.1.0
-	 *
-	 * @param mixed $hints A single hint spec, or a list of them.
-	 * @return array<int,array{type:string,indexes:list<string>,for:string}> Clean specs, possibly empty.
-	 */
-	private function sanitize_index_hints( $hints = array() ): array {
-
-		// Nothing to do for an empty or non-array value.
-		if ( empty( $hints ) || ! is_array( $hints ) ) {
-			return array();
-		}
-
-		// A single associative spec (carrying a recognized key) is a one-element list.
-		if ( isset( $hints[ 'type' ] ) || isset( $hints[ 'indexes' ] ) || isset( $hints[ 'for' ] ) ) {
-			$hints = array( $hints );
-		}
-
-		// Allowed type vocabulary, and the FOR-scope vocabulary (with friendly aliases).
-		$types   = array( 'use', 'force', 'ignore' );
-		$for_map = array(
-			''         => '',
-			'join'     => 'join',
-			'order by' => 'order by',
-			'group by' => 'group by',
-			'orderby'  => 'order by',
-			'groupby'  => 'group by',
-		);
-
-		// Normalize each spec.
-		$clean     = array();
-		$exclusive = ''; // First of use|force wins; the other conflicts (USE+FORCE is a MySQL error).
-
-		foreach ( $hints as $hint ) {
-
-			// A spec must be an array carrying a type.
-			if ( ! is_array( $hint ) || ! isset( $hint[ 'type' ] ) ) {
-				$this->log( 'warning', 'index_hints', 'Dropped a malformed index hint (not a spec).' );
-				continue;
-			}
-
-			// Type must be one of the closed set.
-			$type = is_string( $hint[ 'type' ] )
-				? strtolower( trim( $hint[ 'type' ] ) )
-				: '';
-
-			if ( ! in_array( $type, $types, true ) ) {
-				$this->log( 'warning', 'index_hints', 'Dropped an index hint with an unknown type.' );
-				continue;
-			}
-
-			// USE and FORCE cannot be mixed for the same table; the first one wins.
-			if ( in_array( $type, array( 'use', 'force' ), true ) ) {
-				if ( '' === $exclusive ) {
-					$exclusive = $type;
-				} elseif ( $type !== $exclusive ) {
-					$this->log( 'warning', 'index_hints', 'Dropped a conflicting index hint (USE and FORCE cannot be mixed).' );
-					continue;
-				}
-			}
-
-			// FOR scope is optional; an unknown value coerces to no scope.
-			$raw_for = isset( $hint[ 'for' ] ) && is_string( $hint[ 'for' ] )
-				? strtolower( trim( $hint[ 'for' ] ) )
-				: '';
-
-			if ( ! array_key_exists( $raw_for, $for_map ) ) {
-				$this->log( 'warning', 'index_hints', 'Ignored an unknown FOR scope on an index hint.' );
-				$raw_for = '';
-			}
-
-			// Validate each index name against declared indexes (+ PRIMARY); dedupe.
-			$raw_indexes = isset( $hint[ 'indexes' ] )
-				? (array) $hint[ 'indexes' ]
-				: array();
-
-			$names = array();
-
-			foreach ( $raw_indexes as $name ) {
-				$canonical = $this->canonical_index_name( $name );
-
-				if ( null === $canonical ) {
-					$this->log( 'warning', 'index_hints', 'Dropped an unknown index name from an index hint.' );
-					continue;
-				}
-
-				if ( ! in_array( $canonical, $names, true ) ) {
-					$names[] = $canonical;
-				}
-			}
-
-			// A hint with no valid index is dropped (v1 does not emit USE INDEX ()).
-			if ( empty( $names ) ) {
-				$this->log( 'warning', 'index_hints', 'Dropped an index hint with no valid indexes.' );
-				continue;
-			}
-
-			$clean[] = array(
-				'type'    => $type,
-				'indexes' => $names,
-				'for'     => $for_map[ $raw_for ],
-			);
-		}
-
-		return $clean;
-	}
-
-	/**
-	 * Resolve a requested index name to its canonical declared form, or null.
-	 *
-	 * 'primary' (any case) maps to the literal MySQL primary-key index name PRIMARY.
-	 * Any other name must be a declared index in the schema (matched case-insensitively);
-	 * the declared casing is returned. An unknown name returns null so the caller can
-	 * drop and log it.
-	 *
-	 * @since 3.1.0
-	 *
-	 * @param mixed $name Requested index name.
-	 * @return string|null Canonical index name, or null if not declared.
-	 */
-	private function canonical_index_name( $name ): ?string {
-
-		// Only non-empty string names are valid.
-		if ( ! is_string( $name ) ) {
-			return null;
-		}
-
-		$name = trim( $name );
-
-		if ( '' === $name ) {
-			return null;
-		}
-
-		// The primary key is always addressable as PRIMARY.
-		if ( 'primary' === strtolower( $name ) ) {
-			return 'PRIMARY';
-		}
-
-		// Otherwise it must be a declared index; return its canonical declared name.
-		if ( ( $this->schema_object instanceof Schema ) && $this->schema_object->has_index( $name ) ) {
-			$index = $this->schema_object->get_index( $name );
-
-			return ( $index instanceof Index )
-				? $index->name
-				: null;
-		}
-
-		return null;
-	}
-
-	/**
-	 * Render validated index-hint specs as the SQL that follows the table reference.
-	 *
-	 * The caller passes the value through sanitize_index_hints() immediately before
-	 * this - even though validate_query_vars() already did so - because a
-	 * parse_{plural}_query / pre_get_{plural} hook can replace the 'index_hints' query
-	 * var via set_query_var() AFTER validation, and that raw value would otherwise
-	 * render unvalidated (an undeclared index name reaching MySQL breaks fail-open).
-	 * So every spec arriving here is valid. Specs are declarative, not sequential -
-	 * MySQL collects them by type and scope - so the order here is cosmetic. PRIMARY
-	 * is emitted bare; every other name is quoted. Returns a leading-space fragment
-	 * (so it appends after "FROM t a"), or ''.
-	 *
-	 * @since 3.1.0
-	 *
-	 * @param mixed $hints Sanitized list of specs.
-	 * @return string e.g. " FORCE INDEX FOR JOIN (`idx_status`)", or '' when there are none.
-	 */
-	private function parse_index_hints( $hints = array() ): string {
-
-		// Nothing to render.
-		if ( empty( $hints ) || ! is_array( $hints ) ) {
-			return '';
-		}
-
-		// Keyword + scope vocabularies (INDEX and KEY are synonyms; we emit INDEX).
-		$keywords = array(
-			'use'    => 'USE INDEX',
-			'force'  => 'FORCE INDEX',
-			'ignore' => 'IGNORE INDEX',
-		);
-		$scopes   = array(
-			'join'     => ' FOR JOIN',
-			'order by' => ' FOR ORDER BY',
-			'group by' => ' FOR GROUP BY',
-		);
-
-		// Render each spec.
-		$parts = array();
-
-		foreach ( $hints as $hint ) {
-
-			// Defensive: the sanitizer guarantees the shape, but never trust blindly.
-			if ( ! is_array( $hint ) ) {
-				continue;
-			}
-
-			$type    = isset( $hint[ 'type' ] ) && is_string( $hint[ 'type' ] ) ? $hint[ 'type' ] : '';
-			$for     = isset( $hint[ 'for' ] ) && is_string( $hint[ 'for' ] ) ? $hint[ 'for' ] : '';
-			$indexes = isset( $hint[ 'indexes' ] ) && is_array( $hint[ 'indexes' ] ) ? $hint[ 'indexes' ] : array();
-
-			if ( ! isset( $keywords[ $type ] ) || empty( $indexes ) ) {
-				continue;
-			}
-
-			// Quote each index name (PRIMARY is a special name and stays bare).
-			$names = array();
-
-			foreach ( $indexes as $name ) {
-				$name    = (string) $name;
-				$names[] = ( 'PRIMARY' === $name )
-					? 'PRIMARY'
-					: $this->quote_identifier( $name );
-			}
-
-			// Assemble: KEYWORD [FOR SCOPE] (name, ...).
-			$scope   = ( '' !== $for ) && isset( $scopes[ $for ] ) ? $scopes[ $for ] : '';
-			$parts[] = $keywords[ $type ] . $scope . ' (' . implode( ', ', $names ) . ')';
-		}
-
-		// Bail if nothing rendered.
-		if ( empty( $parts ) ) {
-			return '';
-		}
-
-		// Leading space so this appends cleanly after "FROM {table} {alias}".
-		return ' ' . implode( ' ', $parts );
 	}
 
 	/**
@@ -3094,6 +2862,220 @@ class Query {
 		$nulls_order = ( 'FIRST' === strtoupper( $matches[ 1 ] ) ) ? 'DESC' : 'ASC';
 
 		return "ISNULL( {$column_sql} ) {$nulls_order}, {$column_sql} {$order}";
+	}
+
+	/** Index Hints ***********************************************************/
+
+	/**
+	 * Sanitize the 'index_hints' query var into a clean list of validated specs.
+	 *
+	 * Accepts a single associative spec or a list of them. Each spec shapes to:
+	 *   array(
+	 *     'type'    => 'use' | 'force' | 'ignore',
+	 *     'indexes' => list of declared index names (or 'primary'),
+	 *     'for'     => '' | 'join' | 'order by' | 'group by',
+	 *   )
+	 *
+	 * A hint never affects which rows return, so this fails OPEN: an unknown index
+	 * name, an unknown type, or a USE/FORCE conflict drops the offending name/spec
+	 * and logs it rather than failing the query. Index names are validated against
+	 * the schema's declared indexes plus PRIMARY, which also closes off injection.
+	 *
+	 * MySQL forbids mixing USE and FORCE on one table reference, so the first of the
+	 * two seen wins and later conflicting specs are dropped. IGNORE always coexists.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param mixed $hints A single hint spec, or a list of them.
+	 * @return array<int,array{type:string,indexes:list<string>,for:string}> Clean specs, possibly empty.
+	 */
+	private function sanitize_index_hints( $hints = array() ): array {
+
+		// Nothing to do for an empty or non-array value.
+		if ( empty( $hints ) || ! is_array( $hints ) ) {
+			return array();
+		}
+
+		// A single associative spec (carrying a recognized key) is a one-element list.
+		if ( isset( $hints[ 'type' ] ) || isset( $hints[ 'indexes' ] ) || isset( $hints[ 'for' ] ) ) {
+			$hints = array( $hints );
+		}
+
+		// Allowed type vocabulary, and the FOR-scope vocabulary (with friendly aliases).
+		$types   = array( 'use', 'force', 'ignore' );
+		$for_map = array(
+			''         => '',
+			'join'     => 'join',
+			'order by' => 'order by',
+			'group by' => 'group by',
+			'orderby'  => 'order by',
+			'groupby'  => 'group by',
+		);
+
+		// The schema owns index identity; null if unavailable (every name then drops).
+		$schema = ( $this->schema_object instanceof Schema )
+			? $this->schema_object
+			: null;
+
+		// Normalize each spec.
+		$clean     = array();
+		$exclusive = ''; // First of use|force wins; the other conflicts (USE+FORCE is a MySQL error).
+
+		foreach ( $hints as $hint ) {
+
+			// A spec must be an array carrying a type.
+			if ( ! is_array( $hint ) || ! isset( $hint[ 'type' ] ) ) {
+				$this->log( 'warning', 'index_hints', 'Dropped a malformed index hint (not a spec).' );
+				continue;
+			}
+
+			// Type must be one of the closed set.
+			$type = is_string( $hint[ 'type' ] )
+				? strtolower( trim( $hint[ 'type' ] ) )
+				: '';
+
+			if ( ! in_array( $type, $types, true ) ) {
+				$this->log( 'warning', 'index_hints', 'Dropped an index hint with an unknown type.' );
+				continue;
+			}
+
+			// USE and FORCE cannot be mixed for the same table; the first one wins.
+			if ( in_array( $type, array( 'use', 'force' ), true ) ) {
+				if ( '' === $exclusive ) {
+					$exclusive = $type;
+				} elseif ( $type !== $exclusive ) {
+					$this->log( 'warning', 'index_hints', 'Dropped a conflicting index hint (USE and FORCE cannot be mixed).' );
+					continue;
+				}
+			}
+
+			// FOR scope is optional; an unknown value coerces to no scope.
+			$raw_for = isset( $hint[ 'for' ] ) && is_string( $hint[ 'for' ] )
+				? strtolower( trim( $hint[ 'for' ] ) )
+				: '';
+
+			if ( ! array_key_exists( $raw_for, $for_map ) ) {
+				$this->log( 'warning', 'index_hints', 'Ignored an unknown FOR scope on an index hint.' );
+				$raw_for = '';
+			}
+
+			// Validate each index name against declared indexes (+ PRIMARY); dedupe.
+			$raw_indexes = isset( $hint[ 'indexes' ] )
+				? (array) $hint[ 'indexes' ]
+				: array();
+
+			$names = array();
+
+			foreach ( $raw_indexes as $name ) {
+				$canonical = ( null !== $schema )
+					? $schema->canonical_index_name( $name )
+					: '';
+
+				if ( '' === $canonical ) {
+					$this->log( 'warning', 'index_hints', 'Dropped an unknown index name from an index hint.' );
+					continue;
+				}
+
+				if ( ! in_array( $canonical, $names, true ) ) {
+					$names[] = $canonical;
+				}
+			}
+
+			// A hint with no valid index is dropped (v1 does not emit USE INDEX ()).
+			if ( empty( $names ) ) {
+				$this->log( 'warning', 'index_hints', 'Dropped an index hint with no valid indexes.' );
+				continue;
+			}
+
+			$clean[] = array(
+				'type'    => $type,
+				'indexes' => $names,
+				'for'     => $for_map[ $raw_for ],
+			);
+		}
+
+		return $clean;
+	}
+
+	/**
+	 * Render the 'index_hints' query var as the SQL that follows the table reference.
+	 *
+	 * Self-sanitizing: it runs sanitize_index_hints() itself rather than trusting the
+	 * caller, because a parse_{plural}_query / pre_get_{plural} hook can replace the
+	 * 'index_hints' var via set_query_var() after validation, and raw input reaching
+	 * MySQL would break fail-open. Keeping the "raw input -> safe SQL" boundary inside
+	 * the renderer means no call site can bypass it. Specs are declarative, not
+	 * sequential - MySQL collects them by type and scope - so the order here is
+	 * cosmetic. PRIMARY is emitted bare; every other name is quoted. The fragment has
+	 * NO leading space (it is its own clause slot; the assembler space-joins clauses).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param mixed $hints The 'index_hints' query var (raw or sanitized).
+	 * @return string e.g. "FORCE INDEX FOR JOIN (`idx_status`)", or '' when there are none.
+	 */
+	private function parse_index_hints( $hints = array() ): string {
+
+		// Sanitize at the render boundary (handles hook-mutated raw input).
+		$hints = $this->sanitize_index_hints( $hints );
+
+		// Nothing to render.
+		if ( empty( $hints ) ) {
+			return '';
+		}
+
+		// Keyword + scope vocabularies (INDEX and KEY are synonyms; we emit INDEX).
+		$keywords = array(
+			'use'    => 'USE INDEX',
+			'force'  => 'FORCE INDEX',
+			'ignore' => 'IGNORE INDEX',
+		);
+		$scopes   = array(
+			'join'     => ' FOR JOIN',
+			'order by' => ' FOR ORDER BY',
+			'group by' => ' FOR GROUP BY',
+		);
+
+		// Render each spec.
+		$parts = array();
+
+		foreach ( $hints as $hint ) {
+
+			// Defensive: the sanitizer guarantees the shape, but never trust blindly.
+			if ( ! is_array( $hint ) ) {
+				continue;
+			}
+
+			$type    = isset( $hint[ 'type' ] ) && is_string( $hint[ 'type' ] ) ? $hint[ 'type' ] : '';
+			$for     = isset( $hint[ 'for' ] ) && is_string( $hint[ 'for' ] ) ? $hint[ 'for' ] : '';
+			$indexes = isset( $hint[ 'indexes' ] ) && is_array( $hint[ 'indexes' ] ) ? $hint[ 'indexes' ] : array();
+
+			if ( ! isset( $keywords[ $type ] ) || empty( $indexes ) ) {
+				continue;
+			}
+
+			// Quote each index name (PRIMARY is a special name and stays bare).
+			$names = array();
+
+			foreach ( $indexes as $name ) {
+				$name    = (string) $name;
+				$names[] = ( 'PRIMARY' === $name )
+					? 'PRIMARY'
+					: $this->quote_identifier( $name );
+			}
+
+			// Assemble: KEYWORD [FOR SCOPE] (name, ...).
+			$scope   = ( '' !== $for ) && isset( $scopes[ $for ] ) ? $scopes[ $for ] : '';
+			$parts[] = $keywords[ $type ] . $scope . ' (' . implode( ', ', $names ) . ')';
+		}
+
+		// Bail if nothing rendered.
+		if ( empty( $parts ) ) {
+			return '';
+		}
+
+		// No leading space: this is its own clause slot, space-joined by the assembler.
+		return implode( ' ', $parts );
 	}
 
 	/** Hydration *************************************************************/
@@ -4729,6 +4711,25 @@ class Query {
 	/** Cache *****************************************************************/
 
 	/**
+	 * Query vars that change behaviour but NOT which rows (IDs) a query returns,
+	 * so they must be excluded from the result-cache key.
+	 *
+	 * get_cache_key() keys on the matching-ID set, so two queries differing only by
+	 * one of these return identical IDs and MUST share one cache entry. Rationale:
+	 *  - 'fields'        - whole items are cached by primary ID, never by field list.
+	 *  - 'cache_results' - toggles cache USE, not which rows match.
+	 *  - 'with'          - relationship cache PRIMING side effect only.
+	 *  - 'index_hints'   - an optimizer hint changes the PLAN, never the result set.
+	 *
+	 * Adding a results-invariant query var (e.g. a new hint or priming directive)?
+	 * Add it here. CacheKeyGuardTest fails until a new clause-backed var is classified.
+	 *
+	 * @since 3.1.0
+	 * @var list<string>
+	 */
+	private const RESULTS_INVARIANT_VARS = array( 'fields', 'cache_results', 'with', 'index_hints' );
+
+	/**
 	 * Get cache key from $query_vars and $query_var_defaults.
 	 *
 	 * Performs the following operations to create a consistent cache-key:
@@ -4753,13 +4754,8 @@ class Query {
 		// Slice query_vars by query_var_defaults keys, ordered by defaults.
 		foreach ( $this->query_var_defaults as $key => $_default ) {
 
-			/*
-			 * Skip vars that change behaviour but must not segment the cache key.
-			 * 'with' only controls relationship cache PRIMING side effects, not
-			 * which rows this query returns, so two otherwise-identical queries
-			 * that differ only by 'with' must share one result-cache entry.
-			 */
-			if ( in_array( $key, array( 'fields', 'cache_results', 'with' ), true ) ) {
+			// Skip results-invariant vars (a hint or priming flag returns the same rows).
+			if ( in_array( $key, self::RESULTS_INVARIANT_VARS, true ) ) {
 				continue;
 			}
 

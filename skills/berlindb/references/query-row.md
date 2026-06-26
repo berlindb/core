@@ -160,6 +160,8 @@ the base table of a read query. It takes one spec, or a list of them:
   so set `for` explicitly if you need cross-engine certainty.
 - Applies to the base table of the read path only — not relationship `JOIN` targets,
   and not the `delete_items()` / `update_items()` ID-resolution path.
+- It is **excluded from the result-cache key** (a hint does not change which rows
+  return), so a hinted and an unhinted query share one cache entry.
 - **MySQL/MariaDB only.** Other engines hint differently (Postgres `pg_hint_plan`,
   SQLite `INDEXED BY`); BerlinDB renders the MySQL form.
 
