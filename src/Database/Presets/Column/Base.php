@@ -23,19 +23,24 @@ defined( 'ABSPATH' ) || exit;
  *
  * A preset is NOT a Column subclass. It is a small strategy object that a Column
  * delegates to once a special-column DECLARATION is in play (the `uuid`/`created`/
- * `modified`/`version` flags, or a `preset` key). It does not set its own trigger;
- * the declaration does that. The preset only PROVIDES the bespoke behavior the
- * trigger implies, at three seams that used to be if/elseif chains on Column:
+ * `modified`/`version`/`id`/`primary` flags, or a `SERIAL` extra). The preset does
+ * not invent its own trigger: it OWNS the trigger via matches(), and PROVIDES the
+ * bespoke behavior the trigger implies, at the three seams that used to be if/elseif
+ * chains on Column:
  *
- *  - set_args()   - shape the column args (the old Column::special_args() branch).
- *  - default_name - the fallback column name, applied only when none was given.
- *  - intercept()  - generate/stamp the value on save, mirroring Column::intercept().
+ *  - matches()     - is this preset's declaration present in the column args?
+ *  - SHAPE         - the column args this preset forces (the old special_args branch),
+ *                    merged over the incoming args by set_args().
+ *  - default_name  - the fallback column name, applied only when the caller gave none.
+ *  - intercept()   - generate/stamp the value on save (mirrors Column::intercept()).
  *
- * Validation stays a separate, OPTIONAL capability: a preset that needs a specialty
- * validator (e.g. UUID) simply defines a public validate( $value, $column ) method,
- * which Column detects via is_callable() (the way sanitize_validation already detects
- * callbacks). Presets that do not fall through to Column's generic type-based
- * validators (datetime/int/numeric/...).
+ * More than one preset can apply to a single column (e.g. `uuid` + `primary`). Column
+ * collects every preset whose matches() is true, in an explicit precedence order, and
+ * applies their SHAPEs in turn, then threads the value through their intercepts.
+ *
+ * Validation is deliberately NOT a preset concern: Column keeps its own type-based
+ * validators (validate_uuid()/validate_datetime()/...), keyed on the mirror flags. A
+ * preset shapes and stamps; it does not validate.
  *
  * Presets are resolved through Presets\Column\Registry and are pluggable.
  *
@@ -44,13 +49,41 @@ defined( 'ABSPATH' ) || exit;
 abstract class Base {
 
 	/**
-	 * The preset's stable key (matches its declaration flag, e.g. 'uuid').
+	 * The column args this preset forces onto a matching column.
+	 *
+	 * Declared at the top of each preset so the intended shape is readable at a glance.
+	 * set_args() merges it over the incoming args, so a SHAPE key always wins. Presets
+	 * with no fixed shape (e.g. date stamps) leave this empty and act only at intercept.
+	 *
+	 * @since 3.1.0
+	 * @var   array<string,mixed>
+	 */
+	protected const SHAPE = array();
+
+	/**
+	 * The preset's stable key (e.g. 'uuid'), used to register and resolve it.
 	 *
 	 * @since 3.1.0
 	 *
 	 * @return string
 	 */
 	abstract public function key(): string;
+
+	/**
+	 * Whether this preset's declaration is present in the given column args.
+	 *
+	 * The default trigger is a truthy flag named after the key (e.g. `uuid => true`),
+	 * matching the historical `! empty( $args[ 'uuid' ] )` checks. Presets keyed on a
+	 * different signal (e.g. a SERIAL extra) override this.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string,mixed> $args Column args, or the column's own vars.
+	 * @return bool
+	 */
+	public function matches( array $args ): bool {
+		return ! empty( $args[ $this->key() ] );
+	}
 
 	/**
 	 * The fallback column name, used only when the caller supplied none.
@@ -64,15 +97,19 @@ abstract class Base {
 	}
 
 	/**
-	 * Set the preset's column shape onto the incoming args (type/length/etc.).
+	 * Merge this preset's SHAPE over the incoming args (SHAPE keys win).
+	 *
+	 * The $column is passed for presets whose shape is conditional on the column (e.g.
+	 * SERIAL, which only promotes integer types). Shape-only presets ignore it.
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param array<string,mixed> $args Incoming column args.
+	 * @param array<string,mixed> $args   Incoming column args.
+	 * @param Column              $column The column being shaped (not yet configured).
 	 * @return array<string,mixed> The shaped args.
 	 */
-	public function set_args( array $args ): array {
-		return $args;
+	public function set_args( array $args, Column $column ): array {
+		return array_merge( $args, static::SHAPE );
 	}
 
 	/**

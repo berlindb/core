@@ -20,16 +20,32 @@ use BerlinDB\Database\Traits\Generator;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * A urn:uuid: identifier column: varchar(100), generated on insert, validated by format.
+ * A urn:uuid: identifier column: varchar(100), generated on insert.
  *
- * Provides a specialty validate() (Column detects it the same way sanitize_validation
- * already detects callbacks - via is_callable - so no marker interface is needed).
+ * Triggered by `uuid => true`. Validation by format stays on Column (validate_uuid(),
+ * keyed on the $uuid mirror flag); this preset only shapes and generates the value.
  *
  * @since 3.1.0
  */
 final class Uuid extends Base {
 
 	use Generator;
+
+	/**
+	 * Force a non-searchable, non-sortable varchar(100) string.
+	 *
+	 * @since 3.1.0
+	 * @var   array<string,mixed>
+	 */
+	protected const SHAPE = array(
+		'type'       => 'varchar',
+		'length'     => '100',
+		'pattern'    => '%s',
+		'in'         => false,
+		'not_in'     => false,
+		'searchable' => false,
+		'sortable'   => false,
+	);
 
 	/**
 	 * The preset key.
@@ -49,41 +65,6 @@ final class Uuid extends Base {
 	 */
 	public function default_name(): string {
 		return 'uuid';
-	}
-
-	/**
-	 * Shape the column as a non-searchable, non-sortable varchar(100) string.
-	 *
-	 * @since 3.1.0
-	 *
-	 * @param array<string,mixed> $args Incoming args.
-	 * @return array<string,mixed>
-	 */
-	public function set_args( array $args ): array {
-		$args[ 'type' ]       = 'varchar';
-		$args[ 'length' ]     = '100';
-		$args[ 'pattern' ]    = '%s';
-		$args[ 'in' ]         = false;
-		$args[ 'not_in' ]     = false;
-		$args[ 'searchable' ] = false;
-		$args[ 'sortable' ]   = false;
-
-		return $args;
-	}
-
-	/**
-	 * Validate by format: a urn:uuid: string passes; anything else falls to the default.
-	 *
-	 * @since 3.1.0
-	 *
-	 * @param mixed  $value  Value to validate.
-	 * @param Column $column The column (for its default).
-	 * @return string
-	 */
-	public function validate( $value, Column $column ): string {
-		return ( is_string( $value ) && ( 0 === strpos( $value, 'urn:uuid:' ) ) )
-			? $value
-			: (string) $column->default;
 	}
 
 	/**

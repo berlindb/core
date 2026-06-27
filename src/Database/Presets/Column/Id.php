@@ -19,15 +19,33 @@ defined( 'ABSPATH' ) || exit;
 /**
  * The conventional auto-increment primary key: unsigned bigint(20), AUTO_INCREMENT.
  *
- * This preset only PRODUCES the standard primary-id args (it SETS primary => true);
- * it does not replace the `primary` property or change how Query reasons about the
- * primary column - $column->primary stays the single authority. It consolidates the
- * id shape that was split across the SERIAL/AUTO_INCREMENT alias switch and the
- * primary branch of Column::special_args().
+ * Triggered by `id => true`, a one-flag shorthand for the full primary-id shape. It
+ * SETS primary => true (so the Primary preset's cache_key follows) but does not
+ * replace the `primary` property: $column->primary stays the single authority Query
+ * reasons about. Distinct from Serial, which preserves a caller's own integer type.
  *
  * @since 3.1.0
  */
 final class Id extends Base {
+
+	/**
+	 * Force the conventional auto-increment primary key shape.
+	 *
+	 * @since 3.1.0
+	 * @var   array<string,mixed>
+	 */
+	protected const SHAPE = array(
+		'type'       => 'bigint',
+		'length'     => '20',
+		'unsigned'   => true,
+		'primary'    => true,
+		'extra'      => 'AUTO_INCREMENT',
+		'cache_key'  => true,
+		'allow_null' => false,
+		'default'    => false,
+		'pattern'    => '%d',
+		'sortable'   => true,
+	);
 
 	/**
 	 * The preset key.
@@ -47,28 +65,5 @@ final class Id extends Base {
 	 */
 	public function default_name(): string {
 		return 'id';
-	}
-
-	/**
-	 * Set the shape onto the conventional auto-increment primary key.
-	 *
-	 * @since 3.1.0
-	 *
-	 * @param array<string,mixed> $args Incoming args.
-	 * @return array<string,mixed>
-	 */
-	public function set_args( array $args ): array {
-		$args[ 'type' ]       = 'bigint';
-		$args[ 'length' ]     = '20';
-		$args[ 'unsigned' ]   = true;
-		$args[ 'primary' ]    = true;
-		$args[ 'extra' ]      = 'AUTO_INCREMENT';
-		$args[ 'cache_key' ]  = true;
-		$args[ 'allow_null' ] = false;
-		$args[ 'default' ]    = false;
-		$args[ 'pattern' ]    = '%d';
-		$args[ 'sortable' ]   = true;
-
-		return $args;
 	}
 }

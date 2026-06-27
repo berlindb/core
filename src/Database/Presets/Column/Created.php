@@ -21,6 +21,10 @@ defined( 'ABSPATH' ) || exit;
 /**
  * A created-date column: stamps the current UTC time once, on insert.
  *
+ * Defaults the column to datetime, but respects a caller's date-bearing type
+ * (DATE/DATETIME/TIMESTAMP) - unlike Uuid or Version (one canonical type), that
+ * choice belongs to the caller. Beyond the type floor it owns only the stamp.
+ *
  * @since 3.1.0
  */
 final class Created extends Base {
@@ -43,6 +47,26 @@ final class Created extends Base {
 	 */
 	public function default_name(): string {
 		return 'date_created';
+	}
+
+	/**
+	 * Default to datetime unless the caller chose a date-bearing type.
+	 *
+	 * A date stamp must land in a date column, but DATE/DATETIME/TIMESTAMP is the
+	 * caller's choice (is_date()); only a missing or non-date type is forced.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string,mixed> $args   Incoming column args.
+	 * @param Column              $column The column being shaped.
+	 * @return array<string,mixed>
+	 */
+	public function set_args( array $args, Column $column ): array {
+		if ( empty( $args[ 'type' ] ) || ! $column->is_date( $args[ 'type' ] ) ) {
+			$args[ 'type' ] = 'datetime';
+		}
+
+		return $args;
 	}
 
 	/**

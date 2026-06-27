@@ -324,6 +324,267 @@ class ColumnTest extends TestCase {
 		$this->assertTrue( $column->unsigned );
 	}
 
+	/**
+	 * Test that SERIAL DEFAULT VALUE preserves the caller's integer type (not BIGINT).
+	 *
+	 * This is what makes the Serial preset distinct from the Id preset: it promotes any
+	 * integer type to an auto-increment primary key without forcing it to bigint.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_serial_default_value_preserves_caller_int_type() {
+		$column = new Column(
+			array(
+				'name'  => 'id',
+				'type'  => 'int',
+				'extra' => 'SERIAL DEFAULT VALUE',
+			)
+		);
+		$this->assertSame( 'INT', $column->type );
+		$this->assertTrue( $column->primary );
+		$this->assertSame( 'AUTO_INCREMENT', $column->extra );
+	}
+
+	// version preset.
+
+	/**
+	 * Test that version => true forces the column type to BIGINT.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_version_true_forces_bigint_type() {
+		$column = new Column( array( 'version' => true ) );
+		$this->assertSame( 'BIGINT', $column->type );
+	}
+
+	/**
+	 * Test that version => true forces the column length to 20.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_version_true_forces_length_to_20() {
+		$column = new Column( array( 'version' => true ) );
+		$this->assertSame( 20, $column->length );
+	}
+
+	/**
+	 * Test that version => true defaults the stored value to 0.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_version_true_defaults_to_zero() {
+		$column = new Column( array( 'version' => true ) );
+		$this->assertSame( 0, $column->default );
+	}
+
+	/**
+	 * Test that version => true disallows null.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_version_true_disallows_null() {
+		$column = new Column( array( 'version' => true ) );
+		$this->assertFalse( $column->allow_null );
+	}
+
+	/**
+	 * Test that version => true soft-defaults the column name to "version".
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_version_true_defaults_name_to_version() {
+		$column = new Column( array( 'version' => true ) );
+		$this->assertSame( 'version', $column->name );
+	}
+
+	// id preset.
+
+	/**
+	 * Test that id => true forces the primary flag to true.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_id_true_forces_primary_true() {
+		$column = new Column( array( 'id' => true ) );
+		$this->assertTrue( $column->primary );
+	}
+
+	/**
+	 * Test that id => true forces the extra field to AUTO_INCREMENT.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_id_true_forces_auto_increment() {
+		$column = new Column( array( 'id' => true ) );
+		$this->assertSame( 'AUTO_INCREMENT', $column->extra );
+	}
+
+	/**
+	 * Test that id => true forces cache_key to true (via the Primary preset).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_id_true_forces_cache_key_true() {
+		$column = new Column( array( 'id' => true ) );
+		$this->assertTrue( $column->cache_key );
+	}
+
+	/**
+	 * Test that id => true soft-defaults the column name to "id".
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_id_true_defaults_name_to_id() {
+		$column = new Column( array( 'id' => true ) );
+		$this->assertSame( 'id', $column->name );
+	}
+
+	// created / modified preset type fallback.
+
+	/**
+	 * Test that created => true with no type defaults the column to datetime.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_created_defaults_type_to_datetime() {
+		$column = new Column( array( 'created' => true ) );
+		$this->assertSame( 'DATETIME', $column->type );
+	}
+
+	/**
+	 * Test that created => true respects a caller's date-bearing type (timestamp).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_created_respects_caller_timestamp_type() {
+		$column = new Column(
+			array(
+				'name'    => 'date_created',
+				'type'    => 'timestamp',
+				'created' => true,
+			)
+		);
+		$this->assertSame( 'TIMESTAMP', $column->type );
+	}
+
+	/**
+	 * Test that created => true forces datetime over a non-date type.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_created_forces_datetime_over_non_date_type() {
+		$column = new Column(
+			array(
+				'name'    => 'date_created',
+				'type'    => 'varchar',
+				'created' => true,
+			)
+		);
+		$this->assertSame( 'DATETIME', $column->type );
+	}
+
+	/**
+	 * Test that modified => true with no type defaults the column to datetime.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_modified_defaults_type_to_datetime() {
+		$column = new Column( array( 'modified' => true ) );
+		$this->assertSame( 'DATETIME', $column->type );
+	}
+
+	// Multiple presets compose.
+
+	/**
+	 * Test that uuid and primary together apply BOTH presets (varchar shape + cache_key).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_uuid_and_primary_compose() {
+		$column = new Column(
+			array(
+				'uuid'    => true,
+				'primary' => true,
+			)
+		);
+		$this->assertSame( 'VARCHAR', $column->type );
+		$this->assertTrue( $column->primary );
+		$this->assertTrue( $column->cache_key );
+	}
+
+	/**
+	 * Test that an explicit name is NOT overridden by a preset's soft default.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_preset_does_not_override_explicit_name() {
+		$column = new Column(
+			array(
+				'name' => 'guid',
+				'uuid' => true,
+			)
+		);
+		$this->assertSame( 'guid', $column->name );
+		$this->assertSame( 'VARCHAR', $column->type );
+	}
+
+	// get_active_presets().
+
+	/**
+	 * Test that get_active_presets() returns the active preset for a uuid column.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_get_presets_returns_uuid_preset() {
+		$column = new Column( array( 'uuid' => true ) );
+		$keys   = array_map(
+			static function ( $preset ) {
+				return $preset->key();
+			},
+			$column->get_active_presets()
+		);
+		$this->assertSame( array( 'uuid' ), $keys );
+	}
+
+	/**
+	 * Test that get_active_presets() still reports Serial after its trigger is consumed.
+	 *
+	 * SERIAL shaping rewrites extra to AUTO_INCREMENT, so the preset must be cached
+	 * from the pre-shape declaration - not re-resolved from the mutated column.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_get_presets_retains_serial_after_shaping() {
+		$column = new Column(
+			array(
+				'name'  => 'id',
+				'extra' => 'SERIAL',
+			)
+		);
+		$keys   = array_map(
+			static function ( $preset ) {
+				return $preset->key();
+			},
+			$column->get_active_presets()
+		);
+		$this->assertContains( 'serial', $keys );
+	}
+
+	/**
+	 * Test that a plain column with no special declaration has no active presets.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_get_presets_is_empty_for_plain_column() {
+		$column = new Column(
+			array(
+				'name' => 'title',
+				'type' => 'varchar',
+			)
+		);
+		$this->assertSame( array(), $column->get_active_presets() );
+	}
+
 	// get_create_string().
 
 	/**

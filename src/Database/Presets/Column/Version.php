@@ -29,6 +29,26 @@ defined( 'ABSPATH' ) || exit;
 final class Version extends Base {
 
 	/**
+	 * Force an unsigned bigint(20), NOT NULL, default 0 - the ID column's numeric
+	 * shape minus auto_increment/primary.
+	 *
+	 * @since 3.1.0
+	 * @var   array<string,mixed>
+	 */
+	protected const SHAPE = array(
+		'type'       => 'bigint',
+		'length'     => '20',
+		'unsigned'   => true,
+		'default'    => 0,
+		'allow_null' => false,
+		'pattern'    => '%d',
+		'in'         => false,
+		'not_in'     => false,
+		'searchable' => false,
+		'sortable'   => false,
+	);
+
+	/**
 	 * The preset key.
 	 *
 	 * @since 3.1.0
@@ -46,29 +66,5 @@ final class Version extends Base {
 	 */
 	public function default_name(): string {
 		return 'version';
-	}
-
-	/**
-	 * Set the shape onto as an unsigned bigint(20), NOT NULL, default 0 - the ID column's numeric
-	 * shape minus auto_increment/primary.
-	 *
-	 * @since 3.1.0
-	 *
-	 * @param array<string,mixed> $args Incoming args.
-	 * @return array<string,mixed>
-	 */
-	public function set_args( array $args ): array {
-		$args[ 'type' ]       = 'bigint';
-		$args[ 'length' ]     = '20';
-		$args[ 'unsigned' ]   = true;
-		$args[ 'default' ]    = 0;
-		$args[ 'allow_null' ] = false;
-		$args[ 'pattern' ]    = '%d';
-		$args[ 'in' ]         = false;
-		$args[ 'not_in' ]     = false;
-		$args[ 'searchable' ] = false;
-		$args[ 'sortable' ]   = false;
-
-		return $args;
 	}
 }

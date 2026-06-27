@@ -100,13 +100,23 @@ merges over, so `set_vars()` cannot reset the log a sanitizer just wrote to.
 
 ## Presets
 
-A preset is a **recipe base class a plugin extends with a thin stub** — it lives
-in `src/Database/Presets/{Recipe}/` (one directory per recipe) and is built
-entirely from the public Kern surface. **No Kern class references a preset**: a
-preset is just a conventional way to assemble ordinary Schemas, Tables, Queries,
-and relationships, so Kern stays preset-agnostic and any number of recipes can
-exist. (For *using* the Meta preset, see the recipe in `SKILL.md`; this section is
-about the extension points if you author or extend one.)
+`src/Database/Presets/` holds two distinct families, both pluggable, both keyed by
+their subdirectory:
+
+- **Recipe presets** (`Presets/{Recipe}/`, e.g. `Meta`) — base classes a plugin
+  extends with a thin stub, built entirely from the public Kern surface. **No Kern
+  class references a recipe preset**: it is just a conventional way to assemble
+  ordinary Schemas, Tables, Queries, and relationships, so Kern stays recipe-agnostic
+  and any number of recipes can exist.
+- **Column presets** (`Presets\Column\*`) — small strategy objects that re-home the
+  "special column" shapes Kern's `Column` used to hard-code. Unlike recipe presets,
+  `Column` *does* delegate to these (resolving them through `Presets\Column\Registry`),
+  so they are an extension point on Kern itself rather than a plugin-assembly convention.
+
+(For *using* the Meta preset, see the recipe in `SKILL.md`; this section is about the
+extension points if you author or extend one.)
+
+### Recipe presets
 
 The Meta preset is the reference recipe. Its two base classes derive everything
 from one named counterpart, in `init()` (the Boot construction hook), and **fail
@@ -150,6 +160,44 @@ relationship, the interface proves capability. Otherwise it falls back to the
 legacy WordPress metadata path unchanged. `MetaStore` is an ordinary interface:
 implement it on any class (e.g. a WP-core-backed adapter) and the same router will
 delegate to it.
+
+### Column presets
+
+A Column preset re-homes one "special column" shape that `Column` used to branch on.
+The built-ins are `id`, `primary`, `serial`, `uuid`, `created`, `modified`, and
+`version`; each is triggered by a column declaration (a flag like `uuid => true`, or
+the `SERIAL` extra) and provides up to four things, all optional except the key:
+
+- **`key()`** — the stable key it registers and resolves under.
+- **`matches( $args )`** — whether the declaration is present (defaults to a truthy
+  flag named after the key; override for a different signal, as `Serial` does for the
+  `extra` value).
+- **`SHAPE`** — a `const` array of column args the preset forces; `set_args()` merges
+  it over the incoming args (a SHAPE key wins). Override `set_args()` only for a shape
+  that depends on the column (as `Serial` does, promoting only integer types).
+- **`default_name()`** — a SOFT default name, applied only when the caller gave none.
+- **`intercept()`** — generate/stamp the stored value on save (mirrors
+  `Column::intercept()`; return the unset sentinel to remove the field).
+
+More than one preset can apply to a single column (e.g. `uuid` + `primary`). `Column`
+collects every preset whose `matches()` is true, in the fixed `PRESET_PRECEDENCE`
+order (not registry order), applies their SHAPEs in turn, then threads the value
+through their intercepts. Validation is NOT a preset concern — `Column` keeps its own
+type-based `validate_*` methods, keyed on the mirror flags.
+
+Register or override one through the registry (e.g. in a bootstrap):
+
+```php
+use BerlinDB\Database\Presets\Column\Registry as ColumnPresets;
+
+ColumnPresets::register( new My_Uuid_Preset() ); // overrides the built-in 'uuid'
+```
+
+A registered preset overrides the built-in of the same key; `Registry::reset()` drops
+registrations (call it in a test teardown). New keys are inert until a column declares
+them and `Column::PRESET_PRECEDENCE` lists them, so adding a brand-new trigger is a
+core change, not a drop-in — overriding an existing built-in is the open extension
+point.
 
 ## Query-var normalization (two points)
 

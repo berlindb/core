@@ -13,6 +13,9 @@ declare( strict_types = 1 );
 
 namespace BerlinDB\Database\Kern;
 
+use BerlinDB\Database\Presets\Column\Base as ColumnPreset;
+use BerlinDB\Database\Presets\Column\Registry as ColumnPresets;
+
 // Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
 
@@ -124,6 +127,27 @@ class Column {
 	 * @var   array<int,string>
 	 */
 	private const RELATIONSHIP_TYPES = array( 'belongs_to', 'has_many' );
+
+	/**
+	 * The order Column presets resolve and apply in.
+	 *
+	 * Fixed and immutable (not registry insertion order, which is mutable): a later
+	 * preset's SHAPE wins on a conflicting key, and the first preset with a default
+	 * name wins the soft name. Id seeds the full shape, Primary/Serial add cache_key,
+	 * Uuid/Created/Modified/Version layer their own concerns on top.
+	 *
+	 * @since 3.1.0
+	 * @var   array<int,string>
+	 */
+	private const PRESET_PRECEDENCE = array(
+		'id',
+		'primary',
+		'serial',
+		'uuid',
+		'created',
+		'modified',
+		'version',
+	);
 
 	/** Attributes ************************************************************/
 
@@ -360,6 +384,44 @@ class Column {
 	 * @var   bool Default false.
 	 */
 	public $uuid = false;
+
+	/**
+	 * Is this the conventional auto-increment primary id column?
+	 *
+	 * A one-flag shorthand: `id => true` shapes the column as an unsigned bigint(20)
+	 * AUTO_INCREMENT primary key via the Id preset. By default, columns are not the id.
+	 *
+	 * @since 3.1.0
+	 * @var   bool Default false.
+	 */
+	public $id = false;
+
+	/**
+	 * Is this an optimistic-lock version column?
+	 *
+	 * By default, columns do not track a row's version. `version => true` shapes the
+	 * column as an unsigned bigint(20), NOT NULL, default 0, via the Version preset.
+	 * The increment-on-update guard that makes it a working lock is a later issue.
+	 *
+	 * @since 3.1.0
+	 * @var   bool Default false.
+	 */
+	public $version = false;
+
+	/**
+	 * The column presets active on this column, in precedence order.
+	 *
+	 * Resolved exactly once at construction: by special_args() (from the pre-shape
+	 * declaration) for any column built from args, else by init()'s fallback. The
+	 * null default distinguishes "not yet resolved" from "resolved to none", so the
+	 * two sites never both fire. Not a configurable property - it rides the
+	 * special_args() return through set_vars() rather than being caller-supplied. See
+	 * get_active_presets().
+	 *
+	 * @since 3.1.0
+	 * @var   array<int,ColumnPreset>|null
+	 */
+	protected $active_presets = null;
 
 	/** Query Attributes ******************************************************/
 
@@ -652,6 +714,16 @@ class Column {
 	 */
 	protected function init(): void {
 		$this->intercept_unset_value = $this->generate_random_string();
+
+		/*
+		 * special_args() already cached the active presets for any column built from
+		 * args. Only fall back to resolving from the configured vars when it never ran
+		 * (still null) - e.g. a subclass that hard-codes a special flag and is built
+		 * with no construct args - so such a column still generates/stamps on save.
+		 */
+		if ( null === $this->active_presets ) {
+			$this->active_presets = $this->resolve_presets( get_object_vars( $this ) );
+		}
 	}
 
 	/**
@@ -685,6 +757,8 @@ class Column {
 			'created'       => array( $this, 'sanitize_boolean' ),
 			'modified'      => array( $this, 'sanitize_boolean' ),
 			'uuid'          => array( $this, 'sanitize_boolean' ),
+			'id'            => array( $this, 'sanitize_boolean' ),
+			'version'       => array( $this, 'sanitize_boolean' ),
 
 			// Query.
 			'searchable'    => array( $this, 'sanitize_boolean' ),
@@ -709,62 +783,92 @@ class Column {
 	/**
 	 * Handle special column argument values.
 	 *
+	 * Collects every Column preset whose declaration is present (in precedence order),
+	 * then merges each preset's forced shape over the incoming args and soft-defaults
+	 * the name from the first preset that offers one. More than one preset can apply
+	 * (e.g. uuid + primary), and a SHAPE key from a later preset wins.
+	 *
 	 * See: https://dev.mysql.com/doc/refman/8.0/en/data-type-defaults.html
 	 *
 	 * @since 1.0.0
 	 * @since 3.0.0 Added support for SERIAL "extra" values.
+	 * @since 3.1.0 Re-homed the per-shape branches into Presets\Column\* presets.
 	 * @param array<string,mixed> $args Default empty array.
 	 * @return array<string,mixed>
 	 */
 	protected function special_args( $args = array() ) {
+		$args = (array) $args;
 
-		// Handle specific "extra" aliases.
-		if ( ! empty( $args[ 'extra' ] ) ) {
+		// Collect every preset whose declaration is present, in precedence order.
+		$presets = $this->resolve_presets( $args );
 
-			/*
-			 * The special "extra" values below are built into MySQL as
-			 * shorthand for commonly used combinations of Column arguments.
-			 */
-			switch ( strtoupper( $args[ 'extra' ] ) ) {
+		// Merge each preset's forced shape over the incoming args, in order.
+		foreach ( $presets as $preset ) {
+			$args = $preset->set_args( $args, $this );
+		}
 
-				// Bigint.
-				case 'SERIAL':
-					$args[ 'type' ]     = 'bigint';
-					$args[ 'length' ]   = '20';
-					$args[ 'unsigned' ] = true;
-					// No break; keep going.
+		// Soft-default the name from the first preset that offers one, only when none was given.
+		if ( empty( $args[ 'name' ] ) ) {
+			foreach ( $presets as $preset ) {
+				$default = $preset->default_name();
 
-					// Any int.
-				case 'SERIAL DEFAULT VALUE':
-					// Skip if not an int type.
-					if ( $this->is_int( $args[ 'type' ] ) ) {
-						$args[ 'allow_null' ] = false;
-						$args[ 'default' ]    = false;
-						$args[ 'primary' ]    = true;
-						$args[ 'pattern' ]    = '%d';
-						$args[ 'extra' ]      = 'AUTO_INCREMENT';
-					}
+				if ( '' !== $default ) {
+					$args[ 'name' ] = $default;
+					break;
+				}
 			}
 		}
 
-		// Primary columns are expected (by Query) to always be cache keys.
-		if ( ! empty( $args[ 'primary' ] ) ) {
-			$args[ 'cache_key' ] = true;
-
-			// All UUID columns require these specific criteria.
-		} elseif ( ! empty( $args[ 'uuid' ] ) ) {
-			$args[ 'name' ]       = 'uuid';
-			$args[ 'type' ]       = 'varchar';
-			$args[ 'length' ]     = '100';
-			$args[ 'pattern' ]    = '%s';
-			$args[ 'in' ]         = false;
-			$args[ 'not_in' ]     = false;
-			$args[ 'searchable' ] = false;
-			$args[ 'sortable' ]   = false;
-		}
+		/*
+		 * Cache the matched presets HERE, from the pre-shape args, so a preset whose
+		 * trigger its own shaping consumes (Serial turns extra=SERIAL into AUTO_INCREMENT)
+		 * is not lost. The list rides the return value into set_vars(), so it survives
+		 * the configure() snapshot/merge. init() only re-resolves when this never ran.
+		 */
+		$args[ 'active_presets' ] = $presets;
 
 		// Return arguments.
-		return (array) $args;
+		return $args;
+	}
+
+	/** Presets ***************************************************************/
+
+	/**
+	 * Resolve the Column presets whose declaration is present, in precedence order.
+	 *
+	 * Shared by special_args() (shaping from the incoming args) and init()'s fallback
+	 * (resolving from the configured column's own vars), so both see the same set.
+	 *
+	 * @since 3.1.0
+	 * @param array<string,mixed> $args Column args, or the column's own vars.
+	 * @return array<int,ColumnPreset>
+	 */
+	private function resolve_presets( array $args ): array {
+		$presets = array();
+
+		foreach ( self::PRESET_PRECEDENCE as $key ) {
+			$preset = ColumnPresets::get( $key );
+
+			if ( ( null !== $preset ) && $preset->matches( $args ) ) {
+				$presets[] = $preset;
+			}
+		}
+
+		return $presets;
+	}
+
+	/**
+	 * Return the Column presets active on this column, in precedence order.
+	 *
+	 * The set that matched the column's declaration (including a Serial whose trigger
+	 * its own shaping later consumes). Used by the value seams; exposed for tooling
+	 * and tests.
+	 *
+	 * @since 3.1.0
+	 * @return array<int,ColumnPreset>
+	 */
+	public function get_active_presets(): array {
+		return (array) $this->active_presets;
 	}
 
 	/** Public Helpers ********************************************************/
@@ -986,6 +1090,17 @@ class Column {
 		);
 	}
 
+	/**
+	 * Whether this column auto-increments (the database assigns its value).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return bool
+	 */
+	public function is_auto_increment(): bool {
+		return $this->is_extra( 'AUTO_INCREMENT' );
+	}
+
 	/** Private Helpers *******************************************************/
 
 	/**
@@ -1047,17 +1162,6 @@ class Column {
 
 		// Return if match.
 		return in_array( $extra, $extras, true );
-	}
-
-	/**
-	 * Whether this column auto-increments (the database assigns its value).
-	 *
-	 * @since 3.1.0
-	 *
-	 * @return bool
-	 */
-	public function is_auto_increment(): bool {
-		return $this->is_extra( 'AUTO_INCREMENT' );
 	}
 
 	/** Private Sanitizers ****************************************************/
@@ -1846,10 +1950,9 @@ class Column {
 	/**
 	 * Intercept this column's value for a save operation.
 	 *
-	 * Returns the value to store. The base implementation manages the built-in
-	 * "created" and "modified" flags by stamping the current time. It also
-	 * returns the unset sentinel for UUID copy operations so add_item() can
-	 * regenerate them.
+	 * Threads the value through each active Column preset's intercept(), in precedence
+	 * order, so a preset can generate (UUID on insert), stamp (created/modified dates),
+	 * or return the unset sentinel (UUID on copy) for the caller to remove the field.
 	 *
 	 * Contract: returns the (possibly replaced) value to store. The caller
 	 * (Query::intercept_item()) writes it back only when it differs from the
@@ -1863,37 +1966,12 @@ class Column {
 	 */
 	public function intercept( $method = 'insert', $value = null ) {
 
-		// Copy: clear values that must be regenerated for the new row.
-		if ( 'copy' === $method ) {
-			if ( ! empty( $this->uuid ) ) {
-				return $this->intercept_unset_value;
-			}
-
-			return $value;
+		// Let each active preset shape the value in turn.
+		foreach ( (array) $this->active_presets as $preset ) {
+			$value = $preset->intercept( (string) $method, $value, $this );
 		}
 
-		// UUID: generate on insert when empty; never touch on update.
-		if ( ! empty( $this->uuid ) && ( 'insert' === $method ) && empty( $value ) ) {
-			return $this->generate_uuid();
-		}
-
-		// Created: stamp on insert when empty or still the column default.
-		if ( ! empty( $this->created ) && ( 'insert' === $method ) && ( empty( $value ) || ( $value === $this->default ) ) ) {
-			return gmdate( 'Y-m-d H:i:s' );
-		}
-
-		// Modified: stamp on every update, and on insert when empty or default.
-		if ( ! empty( $this->modified ) ) {
-			if ( 'update' === $method ) {
-				return gmdate( 'Y-m-d H:i:s' );
-			}
-
-			if ( ( 'insert' === $method ) && ( empty( $value ) || ( $value === $this->default ) ) ) {
-				return gmdate( 'Y-m-d H:i:s' );
-			}
-		}
-
-		// No interception: leave the value untouched.
+		// Return the (possibly replaced) value to store.
 		return $value;
 	}
 

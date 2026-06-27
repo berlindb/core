@@ -19,14 +19,33 @@ defined( 'ABSPATH' ) || exit;
 /**
  * Resolves column-preset keys to preset instances.
  *
- * The built-ins (uuid/created/modified/version/id) are memoized lazily; a registered
- * preset of the same key overrides a built-in. Keys are the extensibility surface,
+ * The built-ins (id/primary/serial/uuid/created/modified/version) are memoized lazily;
+ * a registered preset of the same key overrides a built-in. Keys are the extensibility surface,
  * including namespaced keys like 'laravel.timestamps' for a future convention family
  * (no PHP-namespace grouping). Built-ins follow BerlinDB/WordPress conventions.
  *
  * @since 3.1.0
  */
 final class Registry {
+
+	/**
+	 * The built-in preset classes, in no significant order (keyed by key() below).
+	 *
+	 * A declarative list: adding a built-in is one line here. Column owns the order
+	 * presets actually apply in (Column::PRESET_PRECEDENCE); this is just the catalog.
+	 *
+	 * @since 3.1.0
+	 * @var   array<int,class-string<Base>>
+	 */
+	private const BUILTINS = array(
+		Id::class,
+		Primary::class,
+		Serial::class,
+		Uuid::class,
+		Created::class,
+		Modified::class,
+		Version::class,
+	);
 
 	/**
 	 * Registered (custom / override) presets, keyed by Base::key().
@@ -99,7 +118,9 @@ final class Registry {
 		if ( null === $builtins ) {
 			$builtins = array();
 
-			foreach ( array( new Uuid(), new Created(), new Modified(), new Version(), new Id() ) as $preset ) {
+			foreach ( self::BUILTINS as $class ) {
+				$preset = new $class();
+
 				$builtins[ $preset->key() ] = $preset;
 			}
 		}

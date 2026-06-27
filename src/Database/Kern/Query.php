@@ -763,7 +763,9 @@ class Query {
 			? reset( $filter )
 			: false;
 
-		return $column instanceof Column ? $column : false;
+		return ( $column instanceof Column )
+			? $column
+			: false;
 	}
 
 	/**

@@ -241,6 +241,24 @@ Notable changes to BerlinDB are documented here.
   non-fatal warning identifying the column and the reason. Call
   `Query::get_relationship_errors()` to validate the remote side of the surviving
   relationships on demand.
+- Re-homes the "special column" shapes into pluggable `Presets\Column\*` strategy
+  objects (#201): each preset declares its trigger (`matches()`), the column shape it
+  forces (a declarative `SHAPE` const), an optional soft default name, and an
+  optional value `intercept()`. The built-ins are `id`, `primary`, `serial`, `uuid`,
+  `created`, `modified`, and `version`; resolve and override them through
+  `Presets\Column\Registry`. More than one preset can apply to a column (e.g.
+  `uuid` + `primary`), applied in a fixed precedence order. Behavior is unchanged for
+  existing columns; the preset name is now a SOFT default (an explicit `name` is no
+  longer overridden). Validation stays on `Column`.
+- Adds an `id => true` column shorthand for the conventional unsigned `bigint(20)`
+  AUTO_INCREMENT primary key (the Id preset), and a `version => true` shorthand for
+  an optimistic-lock column (unsigned `bigint(20)`, NOT NULL, default `0`). The
+  version column is declaration-only for now; the increment-on-update guard that
+  makes it a working lock is a later, opt-in change (#218).
+- A `created`/`modified` column now defaults its type to `datetime` when none (or a
+  non-date type) is given, while respecting an explicit date-bearing type
+  (`DATE`/`DATETIME`/`TIMESTAMP`). Existing declarations that already set `datetime`
+  are unaffected.
 
 ## 3.0.0 - 2026-06-01
 
