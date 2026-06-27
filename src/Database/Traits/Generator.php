@@ -77,12 +77,16 @@ trait Generator {
 	 * sentinel value for query_var_default_value so that Query can distinguish
 	 * "not set" from any real query-var value.
 	 *
+	 * The value is an opaque, ephemeral sentinel - compared by identity, never
+	 * stored - so it is deliberately NOT prefixed. Keeping it prefix-free leaves
+	 * Generator free of the Prefix trait.
+	 *
 	 * @since 3.1.0
 	 *
-	 * @return string Prefixed random hex string.
+	 * @return string Random hex string.
 	 */
 	protected function generate_random_string(): string {
-		return $this->apply_prefix( bin2hex( random_bytes( 18 ) ) );
+		return bin2hex( random_bytes( 18 ) );
 	}
 
 	/**

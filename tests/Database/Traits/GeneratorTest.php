@@ -162,34 +162,15 @@ class GeneratorTest extends TestCase {
 	}
 
 	/**
-	 * Without a prefix the raw random value is returned untouched.
+	 * The value is a plain, unprefixed random hex string (an opaque sentinel).
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_generate_random_string_without_prefix(): void {
-		$this->assertNotEmpty( $this->make_subject()->random_string() );
-	}
+	public function test_generate_random_string_is_unprefixed_hex(): void {
+		$value = $this->make_subject( 'test' )->random_string();
 
-	/**
-	 * With a prefix set the result starts with prefix + underscore separator.
-	 *
-	 * @since 3.1.0
-	 */
-	public function test_generate_random_string_prepends_prefix(): void {
-		$this->assertStringStartsWith( 'test_', $this->make_subject( 'test' )->random_string() );
-	}
-
-	/**
-	 * The prefix is not applied twice across repeated calls on the same subject.
-	 *
-	 * @since 3.1.0
-	 */
-	public function test_generate_random_string_does_not_double_prefix(): void {
-		$subject = $this->make_subject( 'myprefix' );
-
-		foreach ( range( 1, 3 ) as $_ ) {
-			$this->assertEquals( 1, substr_count( $subject->random_string(), 'myprefix_' ) );
-		}
+		$this->assertMatchesRegularExpression( '/^[0-9a-f]+$/', $value );
+		$this->assertStringStartsNotWith( 'test_', $value );
 	}
 
 	/**

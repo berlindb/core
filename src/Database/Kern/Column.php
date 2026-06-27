@@ -2226,4 +2226,19 @@ class Column {
 	public function is_unset_sentinel( $value ): bool {
 		return ( $value === $this->intercept_unset_value );
 	}
+
+	/**
+	 * Return this column's unset sentinel value.
+	 *
+	 * Lets an intercepting collaborator (e.g. a Presets\Column preset) ask this
+	 * column to drop a field - returning the sentinel from intercept() removes it,
+	 * mirroring the in-class UUID-on-copy behavior.
+	 *
+	 * @since 3.1.0
+	 * @internal Collaborator-facing; pairs with is_unset_sentinel().
+	 * @return string
+	 */
+	public function get_unset_sentinel(): string {
+		return $this->intercept_unset_value;
+	}
 }
