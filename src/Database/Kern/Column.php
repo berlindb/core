@@ -327,9 +327,10 @@ class Column {
 	/**
 	 * Is this column constrained to unique values?
 	 *
-	 * By default, no. `unique => true` makes the Schema derive a single-column
-	 * UNIQUE index named after the column, unless an index of that name already
-	 * exists. The flag is the semantic marker; the derived index emits the DDL.
+	 * By default, no. `unique => true` makes the Schema derive a single-column UNIQUE
+	 * index named after the column, unless an existing index already satisfies it. The
+	 * flag is the semantic marker; the derived index emits the DDL. For a column too
+	 * long to index in full, declare an explicit Index with a prefix length instead.
 	 *
 	 * @since 3.1.0
 	 * @var   bool Default false.
@@ -340,7 +341,7 @@ class Column {
 	 * Should this column have its own single-column index?
 	 *
 	 * By default, no. `index => true` makes the Schema derive a single-column KEY
-	 * named after the column, unless an index of that name already exists. A `unique`
+	 * named after the column, unless an existing index already covers it. A `unique`
 	 * column takes precedence (a UNIQUE index already serves as a plain one).
 	 *
 	 * @since 3.1.0

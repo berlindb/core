@@ -103,11 +103,66 @@ class SchemaDerivedIndexTest extends TestCase {
 	}
 
 	/**
-	 * An explicit index of the same name suppresses the derived one (no duplicate).
+	 * An explicit UNIQUE index on the column satisfies the unique flag (no derivation).
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_explicit_same_name_index_suppresses_derivation() {
+	public function test_explicit_unique_index_satisfies_unique_flag() {
+		$schema = $this->schema(
+			array(
+				array(
+					'name'   => 'email',
+					'type'   => 'varchar',
+					'length' => '100',
+					'unique' => true,
+				),
+			),
+			array(
+				array(
+					'name'    => 'email',
+					'type'    => 'unique',
+					'columns' => array( 'email' ),
+				),
+			)
+		);
+
+		$this->assertSame( array( 'email' ), $this->index_names( $schema ) );
+		$this->assertSame( array(), $schema->get_validation_errors() );
+	}
+
+	/**
+	 * An existing single-column index under a DIFFERENT name still satisfies the flag.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_differently_named_index_satisfies_flag() {
+		$schema = $this->schema(
+			array(
+				array(
+					'name'  => 'user_id',
+					'type'  => 'bigint',
+					'index' => true,
+				),
+			),
+			array(
+				array(
+					'name'    => 'uid_idx',
+					'columns' => array( 'user_id' ),
+				),
+			)
+		);
+
+		$this->assertSame( array( 'uid_idx' ), $this->index_names( $schema ) );
+		$this->assertSame( array(), $schema->get_validation_errors() );
+	}
+
+	/**
+	 * A plain index does NOT satisfy the unique flag: the derived UNIQUE index clashes
+	 * by name with the plain one, surfacing as a validation error (not a silent drop).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_plain_index_does_not_satisfy_unique_flag() {
 		$schema = $this->schema(
 			array(
 				array(
@@ -125,8 +180,7 @@ class SchemaDerivedIndexTest extends TestCase {
 			)
 		);
 
-		$this->assertSame( array( 'email' ), $this->index_names( $schema ) );
-		$this->assertSame( array(), $schema->get_validation_errors() );
+		$this->assertNotSame( array(), $schema->get_validation_errors() );
 	}
 
 	/**

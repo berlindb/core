@@ -210,13 +210,21 @@ class Schema {
 	}
 
 	/**
-	 * Add indexes implied by column flags that no explicit index already covers.
+	 * Add indexes implied by column flags that no existing index already satisfies.
 	 *
 	 * Derives a single-column index named after each `unique => true` (UNIQUE) or
 	 * `index => true` (plain KEY) column - the flag is the semantic marker, this
 	 * emits the DDL. `unique` wins over `index` (a UNIQUE index is also a plain one).
-	 * Skips a primary column (already indexed) and any column an index of that name
-	 * already covers (so an explicit index wins, with no duplicate-name conflict).
+	 *
+	 * Skips a primary column (already indexed) and any column an existing index
+	 * SATISFIES - an exact single-column index, requiring UNIQUE for the unique flag.
+	 * A column an unrelated index merely shares a name with still derives, surfacing
+	 * the clash as a duplicate-index-name validation error rather than silently
+	 * dropping the constraint.
+	 *
+	 * Single-column only, indexed in full: a column too long to index whole (a long
+	 * varchar/text) needs an explicit Index with a prefix length - the shorthand does
+	 * not guess one, since a prefix would change a UNIQUE constraint's meaning.
 	 *
 	 * @since 3.1.0
 	 */
@@ -236,8 +244,8 @@ class Schema {
 				$type = 'key';
 			}
 
-			// Skip unflagged columns, or one a same-named index already covers.
-			if ( ( '' === $type ) || $this->has_index_named( $column->name ) ) {
+			// Skip an unflagged column, or one an existing index already satisfies.
+			if ( ( '' === $type ) || $this->is_column_index_satisfied( $column->name, 'unique' === $type ) ) {
 				continue;
 			}
 
@@ -252,21 +260,51 @@ class Schema {
 	}
 
 	/**
-	 * Whether an index with the given name is already declared.
+	 * Whether an existing index already satisfies a single-column flag on a column.
+	 *
+	 * Satisfaction is exact single-column coverage (a composite index does not count,
+	 * even on its leading column - it promises less than a column's own index, and a
+	 * composite UNIQUE does not make one column unique). The unique flag additionally
+	 * requires the covering index to be UNIQUE (or PRIMARY).
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param string $name Index name to look for.
+	 * @param string $column         The column name.
+	 * @param bool   $require_unique Whether the covering index must be unique.
 	 * @return bool
 	 */
-	private function has_index_named( string $name ): bool {
+	private function is_column_index_satisfied( string $column, bool $require_unique ): bool {
 		foreach ( $this->get_indexes() as $index ) {
-			if ( $name === $index->name ) {
+
+			// Must be an exact single-column index on this column (case-insensitive).
+			if ( ( 1 !== count( $index->columns ) ) || ( 0 !== strcasecmp( $column, (string) $index->columns[0] ) ) ) {
+				continue;
+			}
+
+			// A plain index satisfies `index`; `unique` needs a UNIQUE (or PRIMARY) index.
+			if ( ! $require_unique || $this->is_unique_index( $index ) ) {
 				return true;
 			}
 		}
 
 		return false;
+	}
+
+	/**
+	 * Whether an index enforces uniqueness (a UNIQUE or PRIMARY index).
+	 *
+	 * Mirrors Index::get_create_string(), where either the $unique flag or a UNIQUE
+	 * type emits a UNIQUE KEY; a PRIMARY KEY is unique by definition.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param Index $index The index to test.
+	 * @return bool
+	 */
+	private function is_unique_index( Index $index ): bool {
+		$type = strtoupper( (string) $index->type );
+
+		return ! empty( $index->unique ) || ( 'UNIQUE' === $type ) || ( 'PRIMARY' === $type );
 	}
 
 	/** Public Item Core ******************************************************/
