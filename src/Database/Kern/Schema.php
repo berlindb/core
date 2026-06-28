@@ -181,53 +181,70 @@ class Schema {
 	/** Lifecycle Methods *****************************************************/
 
 	/**
-	 * Late lifecycle hook, called by Traits\Boot after class properties are
-	 * assigned. The single point that hydrates $columns and $indexes into
-	 * objects - it runs after set_vars(), so it sees both subclass-declared
-	 * arrays and any passed as constructor args.
+	 * The construction hook (Traits\Boot), called after class properties are
+	 * assigned. Builds the schema's items in two phases: first hydrate the
+	 * DECLARED $columns and $indexes arrays into objects (running after set_vars(),
+	 * so it sees both subclass-declared arrays and any passed as constructor args),
+	 * then derive the indexes IMPLIED by column flags.
 	 *
 	 * Supports the legacy pre-set $columns/$indexes arrays (the only way to
 	 * register columns before 3.0.0); that support will not be removed.
 	 *
 	 * @since 3.0.0
+	 * @since 3.1.0 Derives column-flag indexes after hydration.
 	 */
 	protected function init(): void {
 
-		// Hydrate pre-set $columns into Column objects.
+		// Phase 1: hydrate the declared $columns into Column objects.
 		if ( ! empty( $this->columns ) && is_array( $this->columns ) ) {
 			$this->setup_items( 'columns', $this->columns );
 		}
 
-		// Hydrate pre-set $indexes into Index objects.
+		// Phase 1: hydrate the declared $indexes into Index objects.
 		if ( ! empty( $this->indexes ) && is_array( $this->indexes ) ) {
 			$this->setup_items( 'indexes', $this->indexes );
 		}
 
-		// Derive indexes implied by column flags (runs after both are hydrated).
+		// Phase 2: derive the indexes implied by column flags (needs phase 1 done).
 		$this->add_derived_indexes();
 	}
 
 	/**
 	 * Add indexes implied by column flags that no explicit index already covers.
 	 *
-	 * Currently derives a single-column UNIQUE index for each `unique => true`
-	 * column - the flag is the semantic marker, this emits the DDL - skipping a
-	 * primary column (already unique) or a column an index of that name covers.
+	 * Derives a single-column index named after each `unique => true` (UNIQUE) or
+	 * `index => true` (plain KEY) column - the flag is the semantic marker, this
+	 * emits the DDL. `unique` wins over `index` (a UNIQUE index is also a plain one).
+	 * Skips a primary column (already indexed) and any column an index of that name
+	 * already covers (so an explicit index wins, with no duplicate-name conflict).
 	 *
 	 * @since 3.1.0
 	 */
 	private function add_derived_indexes(): void {
 		foreach ( $this->get_columns() as $column ) {
 
-			// Only unique, non-primary columns with no same-named index.
-			if ( empty( $column->unique ) || ! empty( $column->primary ) || $this->has_index_named( $column->name ) ) {
+			// Primary columns are already indexed by the primary key.
+			if ( ! empty( $column->primary ) ) {
+				continue;
+			}
+
+			// UNIQUE takes precedence over a plain KEY; a column with neither is skipped.
+			$type = '';
+			if ( ! empty( $column->unique ) ) {
+				$type = 'unique';
+			} elseif ( ! empty( $column->index ) ) {
+				$type = 'key';
+			}
+
+			// Skip unflagged columns, or one a same-named index already covers.
+			if ( ( '' === $type ) || $this->has_index_named( $column->name ) ) {
 				continue;
 			}
 
 			$this->add_index(
 				array(
 					'name'    => $column->name,
-					'type'    => 'unique',
+					'type'    => $type,
 					'columns' => array( $column->name ),
 				)
 			);

@@ -1,11 +1,12 @@
 <?php
 /**
- * Schema unique-index derivation tests.
+ * Schema derived-index tests.
  *
- * A column flagged `unique => true` makes the Schema derive a single-column UNIQUE
- * index named after the column - the flag is the semantic marker, the derived index
- * emits the DDL - unless the column is primary (already unique) or an index of that
- * name already exists.
+ * A column flagged `unique => true` (UNIQUE) or `index => true` (plain KEY) makes the
+ * Schema derive a single-column index named after the column - the flag is the
+ * semantic marker, the derived index emits the DDL - unless the column is primary
+ * (already indexed) or an index of that name already exists. `unique` wins over
+ * `index`.
  *
  * @package     BerlinDB\Tests
  * @copyright   2026 - JJJ and all BerlinDB contributors
@@ -19,11 +20,11 @@ use BerlinDB\Database\Kern\Schema;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Tests for unique-index derivation from the `unique` column flag.
+ * Tests for index derivation from the `unique` and `index` column flags.
  *
  * @since 3.1.0
  */
-class SchemaUniqueIndexTest extends TestCase {
+class SchemaDerivedIndexTest extends TestCase {
 
 	/**
 	 * Build a schema from columns + indexes definition arrays.
@@ -153,5 +154,50 @@ class SchemaUniqueIndexTest extends TestCase {
 
 		$this->assertNotContains( 'id', $this->index_names( $schema ) );
 		$this->assertStringNotContainsString( 'UNIQUE KEY', $schema->get_create_table_string() );
+	}
+
+	/**
+	 * An index-flagged column derives a plain KEY (not UNIQUE) named after the column.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_index_flag_derives_plain_key() {
+		$schema = $this->schema(
+			array(
+				array(
+					'name'  => 'user_id',
+					'type'  => 'bigint',
+					'index' => true,
+				),
+			)
+		);
+
+		$create = $schema->get_create_table_string();
+		$this->assertContains( 'user_id', $this->index_names( $schema ) );
+		$this->assertStringContainsString( 'KEY `user_id`', $create );
+		$this->assertStringNotContainsString( 'UNIQUE KEY', $create );
+		$this->assertSame( array(), $schema->get_validation_errors() );
+	}
+
+	/**
+	 * unique wins over index: a column flagged both derives a single UNIQUE index.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_unique_wins_over_index() {
+		$schema = $this->schema(
+			array(
+				array(
+					'name'   => 'email',
+					'type'   => 'varchar',
+					'length' => '100',
+					'index'  => true,
+					'unique' => true,
+				),
+			)
+		);
+
+		$this->assertSame( array( 'email' ), $this->index_names( $schema ) );
+		$this->assertStringContainsString( 'UNIQUE KEY `email`', $schema->get_create_table_string() );
 	}
 }

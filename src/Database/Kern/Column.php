@@ -337,6 +337,18 @@ class Column {
 	public $unique = false;
 
 	/**
+	 * Should this column have its own single-column index?
+	 *
+	 * By default, no. `index => true` makes the Schema derive a single-column KEY
+	 * named after the column, unless an index of that name already exists. A `unique`
+	 * column takes precedence (a UNIQUE index already serves as a plain one).
+	 *
+	 * @since 3.1.0
+	 * @var   bool Default false.
+	 */
+	public $index = false;
+
+	/**
 	 * Is this the column used as a created date?
 	 *
 	 * Use this with the "datetime" column type.
@@ -728,6 +740,7 @@ class Column {
 			 */
 			'primary'       => array( $this, 'sanitize_boolean' ),
 			'unique'        => array( $this, 'sanitize_boolean' ),
+			'index'         => array( $this, 'sanitize_boolean' ),
 			'created'       => array( $this, 'sanitize_boolean' ),
 			'modified'      => array( $this, 'sanitize_boolean' ),
 			'uuid'          => array( $this, 'sanitize_boolean' ),
