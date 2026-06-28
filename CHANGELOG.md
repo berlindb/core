@@ -269,6 +269,10 @@ Notable changes to BerlinDB are documented here.
   from the Registry's order, and is consumed during shaping when it has no backing
   property. Registering a preset with a brand-new flag is a drop-in — no `Column`
   change required.
+- Adds a `unique => true` column flag: the `Schema` derives a single-column UNIQUE
+  index named after the column, skipping a primary column (already unique) or a
+  column an index of that name already covers. The flag is the semantic marker; the
+  derived index emits the DDL (the first slice of #221).
 
 ## 3.0.0 - 2026-06-01
 

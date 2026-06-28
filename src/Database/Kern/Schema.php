@@ -202,6 +202,54 @@ class Schema {
 		if ( ! empty( $this->indexes ) && is_array( $this->indexes ) ) {
 			$this->setup_items( 'indexes', $this->indexes );
 		}
+
+		// Derive indexes implied by column flags (runs after both are hydrated).
+		$this->add_derived_indexes();
+	}
+
+	/**
+	 * Add indexes implied by column flags that no explicit index already covers.
+	 *
+	 * Currently derives a single-column UNIQUE index for each `unique => true`
+	 * column - the flag is the semantic marker, this emits the DDL - skipping a
+	 * primary column (already unique) or a column an index of that name covers.
+	 *
+	 * @since 3.1.0
+	 */
+	private function add_derived_indexes(): void {
+		foreach ( $this->get_columns() as $column ) {
+
+			// Only unique, non-primary columns with no same-named index.
+			if ( empty( $column->unique ) || ! empty( $column->primary ) || $this->has_index_named( $column->name ) ) {
+				continue;
+			}
+
+			$this->add_index(
+				array(
+					'name'    => $column->name,
+					'type'    => 'unique',
+					'columns' => array( $column->name ),
+				)
+			);
+		}
+	}
+
+	/**
+	 * Whether an index with the given name is already declared.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $name Index name to look for.
+	 * @return bool
+	 */
+	private function has_index_named( string $name ): bool {
+		foreach ( $this->get_indexes() as $index ) {
+			if ( $name === $index->name ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/** Public Item Core ******************************************************/

@@ -325,6 +325,18 @@ class Column {
 	public $primary = false;
 
 	/**
+	 * Is this column constrained to unique values?
+	 *
+	 * By default, no. `unique => true` makes the Schema derive a single-column
+	 * UNIQUE index named after the column, unless an index of that name already
+	 * exists. The flag is the semantic marker; the derived index emits the DDL.
+	 *
+	 * @since 3.1.0
+	 * @var   bool Default false.
+	 */
+	public $unique = false;
+
+	/**
 	 * Is this the column used as a created date?
 	 *
 	 * Use this with the "datetime" column type.
@@ -715,6 +727,7 @@ class Column {
 			 * are added from the Registry at the end of this method, not listed here.
 			 */
 			'primary'       => array( $this, 'sanitize_boolean' ),
+			'unique'        => array( $this, 'sanitize_boolean' ),
 			'created'       => array( $this, 'sanitize_boolean' ),
 			'modified'      => array( $this, 'sanitize_boolean' ),
 			'uuid'          => array( $this, 'sanitize_boolean' ),
