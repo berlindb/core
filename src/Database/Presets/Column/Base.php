@@ -70,6 +70,23 @@ abstract class Base {
 	abstract public function key(): string;
 
 	/**
+	 * The boolean declaration flag that triggers this preset (e.g. 'uuid').
+	 *
+	 * Column reads this to auto-recognize the flag as a config arg and to consume it
+	 * after shaping (so no per-preset wiring is needed on Column). Defaults to key().
+	 * A preset triggered by something other than a dedicated boolean flag - e.g. Serial,
+	 * which keys off the `extra` value - returns '' (it relies on an already-recognized
+	 * arg) and overrides matches().
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return string The flag arg key, or '' for none.
+	 */
+	public function flag(): string {
+		return $this->key();
+	}
+
+	/**
 	 * Whether this preset's declaration is present in the given column args.
 	 *
 	 * The default trigger is a truthy flag named after the key (e.g. `uuid => true`),
@@ -82,7 +99,7 @@ abstract class Base {
 	 * @return bool
 	 */
 	public function matches( array $args ): bool {
-		return ! empty( $args[ $this->key() ] );
+		return ! empty( $args[ $this->flag() ] );
 	}
 
 	/**

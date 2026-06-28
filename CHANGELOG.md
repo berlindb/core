@@ -259,6 +259,16 @@ Notable changes to BerlinDB are documented here.
   non-date type) is given, while respecting an explicit date-bearing type
   (`DATE`/`DATETIME`/`TIMESTAMP`). Existing declarations that already set `datetime`
   are unaffected.
+- Adds `wp_meta_key => true` (varchar(191) named `meta_key`) and `wp_meta_value => true`
+  (nullable `longtext` named `meta_value`) shorthands for the columns of a key/value
+  meta table; the Meta recipe's `build_schema()` now builds its own columns from these
+  and the `id` preset. The flags are `wp_`-namespaced so they neither overpromise (the
+  191 length is a WordPress convention) nor trip `WordPress.DB.SlowDBQuery`.
+- Column-preset wiring is now derived from the `Presets\Column\Registry`: a registered
+  preset's boolean flag is auto-recognized as a config arg, takes a precedence slot
+  from the Registry's order, and is consumed during shaping when it has no backing
+  property. Registering a preset with a brand-new flag is a drop-in — no `Column`
+  change required.
 
 ## 3.0.0 - 2026-06-01
 

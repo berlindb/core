@@ -50,6 +50,17 @@ final class Serial extends Base {
 	}
 
 	/**
+	 * No dedicated boolean flag: this preset triggers off the (already-recognized)
+	 * `extra` value, so there is nothing for Column to recognize or consume.
+	 *
+	 * @since 3.1.0
+	 * @return string
+	 */
+	public function flag(): string {
+		return '';
+	}
+
+	/**
 	 * Match a SERIAL or SERIAL DEFAULT VALUE "extra", case-insensitively.
 	 *
 	 * @since 3.1.0

@@ -128,27 +128,6 @@ class Column {
 	 */
 	private const RELATIONSHIP_TYPES = array( 'belongs_to', 'has_many' );
 
-	/**
-	 * The order Column presets resolve and apply in.
-	 *
-	 * Fixed and immutable (not registry insertion order, which is mutable): a later
-	 * preset's SHAPE wins on a conflicting key, and the first preset with a default
-	 * name wins the soft name. Id seeds the full shape, Primary/Serial add cache_key,
-	 * Uuid/Created/Modified/Version layer their own concerns on top.
-	 *
-	 * @since 3.1.0
-	 * @var   array<int,string>
-	 */
-	private const PRESET_PRECEDENCE = array(
-		'id',
-		'primary',
-		'serial',
-		'uuid',
-		'created',
-		'modified',
-		'version',
-	);
-
 	/** Attributes ************************************************************/
 
 	/**
@@ -384,29 +363,6 @@ class Column {
 	 * @var   bool Default false.
 	 */
 	public $uuid = false;
-
-	/**
-	 * Is this the conventional auto-increment primary id column?
-	 *
-	 * A one-flag shorthand: `id => true` shapes the column as an unsigned bigint(20)
-	 * AUTO_INCREMENT primary key via the Id preset. By default, columns are not the id.
-	 *
-	 * @since 3.1.0
-	 * @var   bool Default false.
-	 */
-	public $id = false;
-
-	/**
-	 * Is this an optimistic-lock version column?
-	 *
-	 * By default, columns do not track a row's version. `version => true` shapes the
-	 * column as an unsigned bigint(20), NOT NULL, default 0, via the Version preset.
-	 * The increment-on-update guard that makes it a working lock is a later issue.
-	 *
-	 * @since 3.1.0
-	 * @var   bool Default false.
-	 */
-	public $version = false;
 
 	/**
 	 * The column presets active on this column, in precedence order.
@@ -729,14 +685,16 @@ class Column {
 	/**
 	 * Sanitization callbacks for a Column's configuration arguments.
 	 *
-	 * Applied by validate_args() (Traits\Configuration) during construction.
+	 * Applied by validate_args() (Traits\Configuration) during construction. Every
+	 * Column preset's boolean flag is added from the Registry, so a registered preset's
+	 * trigger is recognized (not dropped as an unknown key) without editing this map.
 	 *
 	 * @since 3.1.0
 	 *
 	 * @return array<string,mixed> Map of config key => sanitization callback.
 	 */
 	protected function get_config_callbacks(): array {
-		return array(
+		$callbacks = array(
 
 			// Table.
 			'name'          => array( $this, 'sanitize_column_name' ),
@@ -752,13 +710,14 @@ class Column {
 			'collation'     => 'wp_kses_data',
 			'comment'       => array( $this, 'sanitize_comment' ),
 
-			// Special.
+			/*
+			 * Special: the property-backed preset flags. The trigger-only preset flags
+			 * are added from the Registry at the end of this method, not listed here.
+			 */
 			'primary'       => array( $this, 'sanitize_boolean' ),
 			'created'       => array( $this, 'sanitize_boolean' ),
 			'modified'      => array( $this, 'sanitize_boolean' ),
 			'uuid'          => array( $this, 'sanitize_boolean' ),
-			'id'            => array( $this, 'sanitize_boolean' ),
-			'version'       => array( $this, 'sanitize_boolean' ),
 
 			// Query.
 			'searchable'    => array( $this, 'sanitize_boolean' ),
@@ -778,6 +737,17 @@ class Column {
 			'aliases'       => array( $this, 'sanitize_aliases' ),
 			'relationships' => array( $this, 'sanitize_relationships' ),
 		);
+
+		// Recognize every preset's boolean flag (de-dupes against the map above).
+		foreach ( ColumnPresets::all() as $preset ) {
+			$flag = $preset->flag();
+
+			if ( '' !== $flag ) {
+				$callbacks[ $flag ] = array( $this, 'sanitize_boolean' );
+			}
+		}
+
+		return $callbacks;
 	}
 
 	/**
@@ -820,6 +790,19 @@ class Column {
 		}
 
 		/*
+		 * Consume each preset's trigger flag that has no backing Column property, so
+		 * set_vars() does not create a dynamic property for it. A flag a property DOES
+		 * exist for (uuid/created/modified/primary) is left to persist as today.
+		 */
+		foreach ( ColumnPresets::all() as $preset ) {
+			$flag = $preset->flag();
+
+			if ( ( '' !== $flag ) && ! property_exists( $this, $flag ) ) {
+				unset( $args[ $flag ] );
+			}
+		}
+
+		/*
 		 * Cache the matched presets HERE, from the pre-shape args, so a preset whose
 		 * trigger its own shaping consumes (Serial turns extra=SERIAL into AUTO_INCREMENT)
 		 * is not lost. The list rides the return value into set_vars(), so it survives
@@ -836,8 +819,9 @@ class Column {
 	/**
 	 * Resolve the Column presets whose declaration is present, in precedence order.
 	 *
-	 * Shared by special_args() (shaping from the incoming args) and init()'s fallback
-	 * (resolving from the configured column's own vars), so both see the same set.
+	 * Precedence is the Registry's stable order (Registry::all()). Shared by
+	 * special_args() (shaping from the incoming args) and init()'s fallback (resolving
+	 * from the configured column's own vars), so both see the same set.
 	 *
 	 * @since 3.1.0
 	 * @param array<string,mixed> $args Column args, or the column's own vars.
@@ -846,10 +830,8 @@ class Column {
 	private function resolve_presets( array $args ): array {
 		$presets = array();
 
-		foreach ( self::PRESET_PRECEDENCE as $key ) {
-			$preset = ColumnPresets::get( $key );
-
-			if ( ( null !== $preset ) && $preset->matches( $args ) ) {
+		foreach ( ColumnPresets::all() as $preset ) {
+			if ( $preset->matches( $args ) ) {
 				$presets[] = $preset;
 			}
 		}

@@ -164,14 +164,17 @@ delegate to it.
 ### Column presets
 
 A Column preset re-homes one "special column" shape that `Column` used to branch on.
-The built-ins are `id`, `primary`, `serial`, `uuid`, `created`, `modified`, and
-`version`; each is triggered by a column declaration (a flag like `uuid => true`, or
-the `SERIAL` extra) and provides up to four things, all optional except the key:
+The built-ins are `id`, `primary`, `serial`, `uuid`, `created`, `modified`, `version`,
+and the meta-table pair `wp_meta_key` / `wp_meta_value`; each is triggered by a column
+declaration (a flag like `uuid => true`, or the `SERIAL` extra) and provides up to
+five things, all optional except the key:
 
 - **`key()`** — the stable key it registers and resolves under.
+- **`flag()`** — the boolean declaration flag (defaults to `key()`; a preset triggered
+  by something else, like `Serial` off the `extra` value, returns `''`). `Column`
+  reads this to auto-recognize the flag and to consume it after shaping.
 - **`matches( $args )`** — whether the declaration is present (defaults to a truthy
-  flag named after the key; override for a different signal, as `Serial` does for the
-  `extra` value).
+  `flag()`; override for a different signal, as `Serial` does for the `extra` value).
 - **`SHAPE`** — a `const` array of column args the preset forces; `set_args()` merges
   it over the incoming args (a SHAPE key wins). Override `set_args()` only for a shape
   that depends on the column (as `Serial` does, promoting only integer types).
@@ -180,24 +183,26 @@ the `SERIAL` extra) and provides up to four things, all optional except the key:
   `Column::intercept()`; return the unset sentinel to remove the field).
 
 More than one preset can apply to a single column (e.g. `uuid` + `primary`). `Column`
-collects every preset whose `matches()` is true, in the fixed `PRESET_PRECEDENCE`
-order (not registry order), applies their SHAPEs in turn, then threads the value
-through their intercepts. Validation is NOT a preset concern — `Column` keeps its own
-type-based `validate_*` methods, keyed on the mirror flags.
+collects every preset whose `matches()` is true, in the Registry's stable order
+(built-ins first, registered presets appended), applies their SHAPEs in turn, then
+threads the value through their intercepts. Validation is NOT a preset concern —
+`Column` keeps its own type-based `validate_*` methods, keyed on the mirror flags.
 
 Register or override one through the registry (e.g. in a bootstrap):
 
 ```php
 use BerlinDB\Database\Presets\Column\Registry as ColumnPresets;
 
-ColumnPresets::register( new My_Uuid_Preset() ); // overrides the built-in 'uuid'
+ColumnPresets::register( new My_Uuid_Preset() );   // overrides the built-in 'uuid'
+ColumnPresets::register( new Slug_Preset() );      // adds a brand-new 'slug' flag
 ```
 
 A registered preset overrides the built-in of the same key; `Registry::reset()` drops
-registrations (call it in a test teardown). New keys are inert until a column declares
-them and `Column::PRESET_PRECEDENCE` lists them, so adding a brand-new trigger is a
-core change, not a drop-in — overriding an existing built-in is the open extension
-point.
+registrations (call it in a test teardown). A brand-new flag is a **drop-in** — no
+core change: `Column` derives its config-arg recognition and apply-precedence from the
+Registry, and consumes any trigger flag that has no backing property, so a registered
+preset's flag is recognized, resolved, and shaped automatically. Register at bootstrap,
+before the schemas that use it are constructed.
 
 ## Query-var normalization (two points)
 

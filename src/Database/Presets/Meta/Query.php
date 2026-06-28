@@ -562,26 +562,15 @@ class Query extends KernQuery implements MetaStore {
 		return new Schema(
 			array(
 				'columns' => array(
+
+					// The auto-increment primary key + the key/value pair, via Column presets.
 					array(
-						'name'     => 'meta_id',
-						'type'     => 'bigint',
-						'length'   => '20',
-						'unsigned' => true,
-						'primary'  => true,
-						'extra'    => 'auto_increment',
-						'sortable' => true,
+						'name' => 'meta_id',
+						'id'   => true,
 					),
 					$foreign_key,
-					array(
-						'name'   => 'meta_key',
-						'type'   => 'varchar',
-						'length' => '191',
-					),
-					array(
-						'name'       => 'meta_value',
-						'type'       => 'longtext',
-						'allow_null' => true,
-					),
+					array( 'wp_meta_key' => true ),
+					array( 'wp_meta_value' => true ),
 				),
 				'indexes' => array(
 					array(

@@ -585,6 +585,32 @@ class ColumnTest extends TestCase {
 		$this->assertSame( array(), $column->get_active_presets() );
 	}
 
+	// wp_meta_key / wp_meta_value presets.
+
+	/**
+	 * Test that wp_meta_key => true shapes a varchar(191) named "meta_key".
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_wp_meta_key_true_shapes_varchar_191() {
+		$column = new Column( array( 'wp_meta_key' => true ) );
+		$this->assertSame( 'VARCHAR', $column->type );
+		$this->assertSame( 191, $column->length );
+		$this->assertSame( 'meta_key', $column->name );
+	}
+
+	/**
+	 * Test that wp_meta_value => true shapes a nullable longtext named "meta_value".
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_wp_meta_value_true_shapes_nullable_longtext() {
+		$column = new Column( array( 'wp_meta_value' => true ) );
+		$this->assertSame( 'LONGTEXT', $column->type );
+		$this->assertTrue( $column->allow_null );
+		$this->assertSame( 'meta_value', $column->name );
+	}
+
 	// get_create_string().
 
 	/**

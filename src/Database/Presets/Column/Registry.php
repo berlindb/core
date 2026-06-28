@@ -19,7 +19,8 @@ defined( 'ABSPATH' ) || exit;
 /**
  * Resolves column-preset keys to preset instances.
  *
- * The built-ins (id/primary/serial/uuid/created/modified/version) are memoized lazily;
+ * The built-ins (id/primary/serial/uuid/created/modified/version/wp_meta_key/
+ * wp_meta_value) are memoized lazily;
  * a registered preset of the same key overrides a built-in. Keys are the extensibility surface,
  * including namespaced keys like 'laravel.timestamps' for a future convention family
  * (no PHP-namespace grouping). Built-ins follow BerlinDB/WordPress conventions.
@@ -29,7 +30,7 @@ defined( 'ABSPATH' ) || exit;
 final class Registry {
 
 	/**
-	 * The built-in preset classes, in no significant order (keyed by key() below).
+	 * The built-in preset classes (keyed by key() below).
 	 *
 	 * A declarative list: adding a built-in is one line here. Column owns the order
 	 * presets actually apply in (Column::PRESET_PRECEDENCE); this is just the catalog.
@@ -45,6 +46,8 @@ final class Registry {
 		Created::class,
 		Modified::class,
 		Version::class,
+		WpMetaKey::class,
+		WpMetaValue::class,
 	);
 
 	/**
@@ -95,14 +98,25 @@ final class Registry {
 	}
 
 	/**
-	 * All presets, keyed by name (registered overriding built-ins).
+	 * All presets, keyed by name, in a stable order (this IS the apply precedence).
+	 *
+	 * Built-ins first, in BUILTINS order; a registered preset of the same key overrides
+	 * its built-in IN PLACE (keeping its precedence slot), and a registered new key is
+	 * appended last. Column iterates this to resolve and apply presets, so the order is
+	 * deterministic rather than registration-order-dependent.
 	 *
 	 * @since 3.1.0
 	 *
 	 * @return array<string,Base>
 	 */
 	public static function all(): array {
-		return self::$registered + self::builtins();
+		$all = self::builtins();
+
+		foreach ( self::$registered as $key => $preset ) {
+			$all[ $key ] = $preset;
+		}
+
+		return $all;
 	}
 
 	/**

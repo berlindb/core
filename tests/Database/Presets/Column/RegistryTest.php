@@ -14,6 +14,7 @@
 
 namespace BerlinDB\Tests;
 
+use BerlinDB\Database\Column;
 use BerlinDB\Database\Presets\Column\Base;
 use BerlinDB\Database\Presets\Column\Registry;
 use BerlinDB\Database\Presets\Column\Uuid;
@@ -91,6 +92,31 @@ class RegistryTest extends TestCase {
 		Registry::reset();
 
 		$this->assertInstanceOf( Uuid::class, Registry::get( 'uuid' ) );
+	}
+
+	/**
+	 * Test that a registered preset with a brand-new flag applies on a Column with no
+	 * core changes - the flag is auto-recognized and resolved from the Registry.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_registered_preset_with_new_flag_applies_to_column() {
+		Registry::register(
+			new class() extends Base {
+				protected const SHAPE = array(
+					'type'   => 'varchar',
+					'length' => '50',
+				);
+				public function key(): string {
+					return 'widget';
+				}
+			}
+		);
+
+		$column = new Column( array( 'widget' => true ) );
+
+		$this->assertSame( 'VARCHAR', $column->type );
+		$this->assertSame( 50, $column->length );
 	}
 
 	/**
