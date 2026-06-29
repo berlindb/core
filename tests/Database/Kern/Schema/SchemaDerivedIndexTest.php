@@ -656,6 +656,89 @@ class SchemaDerivedIndexTest extends TestCase {
 		$this->assertNotContains( 'note_ref', $this->index_names( $schema ) );
 	}
 
+	// cache_key -> lookup KEY.
+
+	/**
+	 * A secondary cache_key column derives a plain lookup KEY (not UNIQUE).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_secondary_cache_key_derives_lookup_key() {
+		$schema = $this->schema(
+			array(
+				array(
+					'name'    => 'id',
+					'type'    => 'bigint',
+					'primary' => true,
+				),
+				array(
+					'name'      => 'email',
+					'type'      => 'varchar',
+					'length'    => '100',
+					'cache_key' => true,
+				),
+			)
+		);
+
+		$create = $schema->get_create_table_string();
+		$this->assertContains( 'email', $this->index_names( $schema ) );
+		$this->assertStringContainsString( 'KEY `email`', $create );
+		$this->assertStringNotContainsString( 'UNIQUE KEY `email`', $create );
+	}
+
+	/**
+	 * The primary cache_key is satisfied by the primary index (no separate lookup key).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_primary_cache_key_is_satisfied_by_primary_index() {
+		$schema = $this->schema(
+			array(
+				array(
+					'name'    => 'id',
+					'type'    => 'bigint',
+					'primary' => true,
+				),
+			)
+		);
+
+		$create = $schema->get_create_table_string();
+		$this->assertStringContainsString( 'PRIMARY KEY', $create );
+		$this->assertStringNotContainsString( 'KEY `id`', $create );
+	}
+
+	/**
+	 * An existing index on the cache_key column satisfies the lookup (no duplicate).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_cache_key_satisfied_by_existing_index() {
+		$schema = $this->schema(
+			array(
+				array(
+					'name'    => 'id',
+					'type'    => 'bigint',
+					'primary' => true,
+				),
+				array(
+					'name'      => 'email',
+					'type'      => 'varchar',
+					'length'    => '100',
+					'cache_key' => true,
+				),
+			),
+			array(
+				array(
+					'name'    => 'email_idx',
+					'columns' => array( 'email' ),
+				),
+			)
+		);
+
+		$this->assertNotContains( 'email', $this->index_names( $schema ) );
+		$this->assertContains( 'email_idx', $this->index_names( $schema ) );
+	}
+
 	/**
 	 * A uuid column whose lookup is already covered by an index derives nothing.
 	 *

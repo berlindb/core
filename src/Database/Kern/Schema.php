@@ -236,12 +236,13 @@ class Schema {
 	}
 
 	/**
-	 * Add the indexes implied by columns: the primary key, then flag indexes, then
-	 * foreign-key indexes.
+	 * Add the indexes implied by columns: the primary key, then flag indexes, then the
+	 * foreign-key and cache_key lookup indexes.
 	 *
-	 * Primary runs first so its index is present when the flag pass checks
-	 * satisfaction (a single-column primary satisfies a unique/index flag on its
-	 * column; a composite primary does not).
+	 * Primary runs first so its index is present when later passes check satisfaction
+	 * (a single-column primary satisfies a flag or a cache_key lookup; a composite
+	 * primary does not). cache_key runs last, so it only adds an index for a lookup
+	 * column nothing earlier already covers.
 	 *
 	 * @since 3.1.0
 	 */
@@ -249,6 +250,7 @@ class Schema {
 		$this->init_primary_index();
 		$this->init_flag_indexes();
 		$this->init_relationship_indexes();
+		$this->init_cache_key_indexes();
 	}
 
 	/**
@@ -416,49 +418,83 @@ class Schema {
 	 *
 	 * An unindexed belongs_to foreign key is almost always a mistake (joins and
 	 * get_related() filter on it), so derive a plain KEY - independent of whether the
-	 * relationship enforces a real FOREIGN KEY (#205). Satisfaction is source-specific:
-	 * any index with the FK as its LEFTMOST, full-length column already supports the
-	 * lookup, so a leading composite column counts (a prefixed one does not).
-	 *
-	 * A foreign key too long to index in full (a long varchar/text) is skipped with a
-	 * logged warning rather than emitting uninstallable DDL - declare an explicit
-	 * prefixed Index for it (the safe length per engine/encoding awaits #222).
+	 * relationship enforces a real FOREIGN KEY (#205).
 	 *
 	 * @since 3.1.0
 	 */
 	private function init_relationship_indexes(): void {
 		foreach ( $this->get_columns() as $column ) {
 
-			// Only a column that holds a belongs_to (the foreign key) is indexed.
-			if ( ! $this->is_foreign_key_column( $column ) ) {
-				continue;
+			// A column holding a belongs_to is the foreign key - index its lookups.
+			if ( $this->is_foreign_key_column( $column ) ) {
+				$this->add_lookup_key( $column, 'belongs_to foreign key', 'fk_index_not_indexable' );
 			}
-
-			// Skip a foreign key a leftmost-column index already supports.
-			if ( $this->is_foreign_key_satisfied( $column->name ) ) {
-				continue;
-			}
-
-			// Skip (and log) a foreign key too long to index in full.
-			if ( ! $this->is_full_indexable_column( $column ) ) {
-				$this->log(
-					'warning',
-					'fk_index_not_indexable',
-					'A belongs_to foreign key is too long to index in full; declare an explicit prefixed Index.',
-					array( 'column' => $column->name )
-				);
-
-				continue;
-			}
-
-			$this->add_index(
-				array(
-					'name'    => $column->name,
-					'type'    => 'key',
-					'columns' => array( $column->name ),
-				)
-			);
 		}
+	}
+
+	/**
+	 * Add a lookup KEY for each cache_key column (a get_item_by lookup column).
+	 *
+	 * A cache_key column is one items are retrieved by (Query::get_item_by); on a cache
+	 * miss the query is an equality lookup, so a plain KEY serves it. The primary
+	 * cache_key needs no handling here - the primary index already satisfies it. Not
+	 * UNIQUE: a cache_key's identity is an application invariant, not a database
+	 * constraint (and enforcing it would reject direct inserts, as for uuid).
+	 *
+	 * @since 3.1.0
+	 */
+	private function init_cache_key_indexes(): void {
+		foreach ( $this->get_columns() as $column ) {
+
+			// A cache_key column is looked up by value - index it.
+			if ( ! empty( $column->cache_key ) ) {
+				$this->add_lookup_key( $column, 'cache_key column', 'cache_key_index_not_indexable' );
+			}
+		}
+	}
+
+	/**
+	 * Derive a plain lookup KEY for a column, unless an index already supports it.
+	 *
+	 * Shared by the foreign-key and cache_key sources: both want an equality-lookup KEY
+	 * on a single column. Skips a column a leftmost-full index already supports, and one
+	 * too long to index in full - logged (naming $source) rather than emitting a plain
+	 * key MySQL rejects or DDL that exceeds the index-size limit (the safe length per
+	 * engine/encoding awaits #222).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param Column $column   The column to index.
+	 * @param string $source   Human-readable source label, for the skip log message.
+	 * @param string $log_code Stable machine-readable code for the skip log (kept
+	 *                         distinct per source so consumers can filter by it).
+	 */
+	private function add_lookup_key( Column $column, string $source, string $log_code ): void {
+
+		// Skip a column a leftmost-column index already supports.
+		if ( $this->is_lookup_index_satisfied( $column->name ) ) {
+			return;
+		}
+
+		// Skip (and log) a column too long to index in full.
+		if ( ! $this->is_full_indexable_column( $column ) ) {
+			$this->log(
+				'warning',
+				$log_code,
+				"A {$source} is too long to index in full; declare an explicit prefixed Index.",
+				array( 'column' => $column->name )
+			);
+
+			return;
+		}
+
+		$this->add_index(
+			array(
+				'name'    => $column->name,
+				'type'    => 'key',
+				'columns' => array( $column->name ),
+			)
+		);
 	}
 
 	/**
@@ -484,23 +520,25 @@ class Schema {
 	}
 
 	/**
-	 * Whether an existing index already supports foreign-key lookups on a column.
+	 * Whether an existing index already supports equality lookups on a column.
 	 *
-	 * Unlike a flag index (exact single-column coverage), a foreign key is supported by
-	 * any index with the column as its LEFTMOST, full-length column - a leftmost
-	 * composite column counts, a prefixed one does not (a prefix can't back a lookup or
-	 * a real FOREIGN KEY).
+	 * A lookup (a foreign key, or a cache_key get_item_by) is supported by any index
+	 * with the column as its LEFTMOST, full-length column - a leftmost composite column
+	 * counts, a prefixed one does not, and a FULLTEXT or SPATIAL index never does (they
+	 * cannot back an equality lookup).
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param string $column The foreign-key column name.
+	 * @param string $column The column name.
 	 * @return bool
 	 */
-	private function is_foreign_key_satisfied( string $column ): bool {
+	private function is_lookup_index_satisfied( string $column ): bool {
 		foreach ( $this->get_indexes() as $index ) {
 
-			// A FULLTEXT index cannot back an equality/FK lookup.
-			if ( 'FULLTEXT' === strtoupper( (string) $index->type ) ) {
+			// FULLTEXT and SPATIAL indexes cannot back an equality lookup.
+			$type = strtoupper( (string) $index->type );
+
+			if ( ( 'FULLTEXT' === $type ) || ( 'SPATIAL' === $type ) ) {
 				continue;
 			}
 

@@ -291,6 +291,11 @@ Notable changes to BerlinDB are documented here.
   FK index is not duplicated). A foreign key too long to index in full (a long
   varchar/text/blob) is skipped with a logged warning rather than emitting
   uninstallable DDL - declare an explicit prefixed Index for it.
+- A `cache_key => true` column (a `get_item_by()` lookup column) now derives a plain
+  lookup `KEY` - the same single-column equality index a foreign key gets, deduped the
+  same way. The primary cache_key needs no extra index (the primary key already covers
+  it). It is a `KEY`, not `UNIQUE`: a cache_key's identity is an application invariant,
+  not a database constraint.
 
 ## 3.0.0 - 2026-06-01
 
