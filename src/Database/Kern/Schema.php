@@ -182,31 +182,50 @@ class Schema {
 
 	/**
 	 * The construction hook (Traits\Boot), called after class properties are
-	 * assigned. Builds the schema's items in two phases: first hydrate the
-	 * DECLARED $columns and $indexes arrays into objects (running after set_vars(),
-	 * so it sees both subclass-declared arrays and any passed as constructor args),
-	 * then derive the indexes IMPLIED by column flags.
-	 *
-	 * Supports the legacy pre-set $columns/$indexes arrays (the only way to
-	 * register columns before 3.0.0); that support will not be removed.
+	 * assigned. Initializes the schema's items in two passes: the DECLARED columns
+	 * and indexes, then the items DERIVED from them.
 	 *
 	 * @since 3.0.0
-	 * @since 3.1.0 Derives column-flag indexes after hydration.
+	 * @since 3.1.0 Split into declared vs derived item initialization.
 	 */
 	protected function init(): void {
+		$this->init_declared_items();
+		$this->init_derived_items();
+	}
 
-		// Phase 1: hydrate the declared $columns into Column objects.
+	/**
+	 * Hydrate the declared $columns and $indexes arrays into objects.
+	 *
+	 * Runs after set_vars(), so it sees both subclass-declared arrays and any passed
+	 * as constructor args - the single point that turns the legacy pre-set arrays
+	 * (the only way to register items before 3.0.0; that support will not be removed)
+	 * into Column / Index objects.
+	 *
+	 * @since 3.1.0
+	 */
+	private function init_declared_items(): void {
+
+		// Hydrate the declared $columns into Column objects.
 		if ( ! empty( $this->columns ) && is_array( $this->columns ) ) {
 			$this->setup_items( 'columns', $this->columns );
 		}
 
-		// Phase 1: hydrate the declared $indexes into Index objects.
+		// Hydrate the declared $indexes into Index objects.
 		if ( ! empty( $this->indexes ) && is_array( $this->indexes ) ) {
 			$this->setup_items( 'indexes', $this->indexes );
 		}
+	}
 
-		// Phase 2: derive the indexes implied by column flags (needs phase 1 done).
-		$this->add_derived_indexes();
+	/**
+	 * Initialize the items DERIVED from the declared ones, after they are hydrated.
+	 *
+	 * Currently just the indexes implied by column flags; the split leaves a clear
+	 * path for other derived items (e.g. derived columns) without re-shaping init().
+	 *
+	 * @since 3.1.0
+	 */
+	private function init_derived_items(): void {
+		$this->init_derived_indexes();
 	}
 
 	/**
@@ -228,7 +247,7 @@ class Schema {
 	 *
 	 * @since 3.1.0
 	 */
-	private function add_derived_indexes(): void {
+	private function init_derived_indexes(): void {
 		foreach ( $this->get_columns() as $column ) {
 
 			// Primary columns are already indexed by the primary key.
@@ -348,13 +367,13 @@ class Schema {
 	 * - add_item( $type, $data )
 	 * - add_item( $type, $class, $data )
 	 *
-	 * @param string                                   $type          Item collection type. Accepts
-	 *                                                                'columns' or 'indexes' (and
-	 *                                                                their singular aliases).
+	 * @param string                                  $type          Item collection type. Accepts
+	 *                                                               'columns' or 'indexes' (and
+	 *                                                               their singular aliases).
 	 * @param string|array<string,mixed>|Column|Index $class_or_data Class name (legacy signature)
-	 *                                                                or item data (current signature).
+	 *                                                               or item data (current signature).
 	 * @param array<string,mixed>|Column|Index        $data          Optional item data when using
-	 *                                                                the legacy signature.
+	 *                                                               the legacy signature.
 	 *
 	 * @return Column|Index|false The added item object, or false on failure.
 	 */
@@ -549,8 +568,8 @@ class Schema {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string                                      $type  Item collection type. Accepts 'columns'
-	 *                                                           or 'indexes' (and their singular aliases).
+	 * @param string                                     $type  Item collection type. Accepts 'columns'
+	 *                                                          or 'indexes' (and their singular aliases).
 	 * @param list<array<string,mixed>>|Column[]|Index[] $items Array of argument arrays or item objects.
 	 *
 	 * @return Column[]|Index[]
@@ -569,8 +588,8 @@ class Schema {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string                                      $type   Item collection type. Accepts 'columns'
-	 *                                                            or 'indexes' (and their singular aliases).
+	 * @param string                                     $type   Item collection type. Accepts 'columns'
+	 *                                                           or 'indexes' (and their singular aliases).
 	 * @param list<array<string,mixed>>|Column[]|Index[] $values Array of argument arrays or item objects.
 	 *
 	 * @return Column[]|Index[] The newly built collection.
