@@ -312,8 +312,12 @@ class Schema {
 	 * Add indexes implied by column flags that no existing index already satisfies.
 	 *
 	 * Derives a single-column index named after each `unique => true` (UNIQUE) or
-	 * `index => true` (plain KEY) column - the flag is the semantic marker, this
-	 * emits the DDL. `unique` wins over `index` (a UNIQUE index is also a plain one).
+	 * `index => true` / `uuid => true` (plain KEY) column - the flag is the semantic
+	 * marker, this emits the DDL. `unique` wins (a UNIQUE index is also a plain one).
+	 *
+	 * A uuid gets a plain lookup KEY, not UNIQUE: its value is generated only on the
+	 * Query insert path, so a UNIQUE constraint would reject any row inserted directly
+	 * (raw $wpdb, bulk loads) without one. Declare an explicit UNIQUE to enforce it.
 	 *
 	 * Primary columns are NOT skipped wholesale: satisfaction-dedupe handles them, so
 	 * a single-column PRIMARY satisfies a flag while a composite PRIMARY (which does
@@ -331,11 +335,14 @@ class Schema {
 	private function init_flag_indexes(): void {
 		foreach ( $this->get_columns() as $column ) {
 
-			// UNIQUE takes precedence over a plain KEY; a column with neither is skipped.
+			/*
+			 * `unique` -> UNIQUE; `index` or `uuid` -> a plain lookup KEY. UNIQUE wins
+			 * (it also serves as a plain index); a column with no flag is skipped.
+			 */
 			$type = '';
 			if ( ! empty( $column->unique ) ) {
 				$type = 'unique';
-			} elseif ( ! empty( $column->index ) ) {
+			} elseif ( ! empty( $column->index ) || ! empty( $column->uuid ) ) {
 				$type = 'key';
 			}
 

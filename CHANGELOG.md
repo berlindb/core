@@ -281,6 +281,10 @@ Notable changes to BerlinDB are documented here.
   order is semantic), and a primary index that does not cover the flag stays the
   specific validation conflict rather than being masked by a second primary key. A
   column inside a composite primary key still derives its own `unique`/`index`.
+- A `uuid => true` column now derives a plain lookup `KEY` (not `UNIQUE`): its value is
+  generated only on the Query insert path, so a UNIQUE constraint would reject any row
+  inserted directly (raw `$wpdb`, bulk loads) without one. Declare an explicit `UNIQUE`
+  index to enforce uniqueness at the database level.
 
 ## 3.0.0 - 2026-06-01
 

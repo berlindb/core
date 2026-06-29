@@ -390,4 +390,64 @@ class SchemaDerivedIndexTest extends TestCase {
 		$this->assertStringContainsString( 'UNIQUE KEY `term_id`', $schema->get_create_table_string() );
 		$this->assertSame( array(), $schema->get_validation_errors() );
 	}
+
+	// uuid -> plain lookup KEY.
+
+	/**
+	 * A uuid column derives a plain KEY (not UNIQUE - its value is generated only on
+	 * the Query insert path, so a UNIQUE constraint would reject direct inserts).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_uuid_flag_derives_plain_key() {
+		$schema = $this->schema(
+			array(
+				array(
+					'name'    => 'id',
+					'type'    => 'bigint',
+					'primary' => true,
+				),
+				array(
+					'name' => 'guid',
+					'uuid' => true,
+				),
+			)
+		);
+
+		$create = $schema->get_create_table_string();
+		$this->assertContains( 'guid', $this->index_names( $schema ) );
+		$this->assertStringContainsString( 'KEY `guid`', $create );
+		$this->assertStringNotContainsString( 'UNIQUE KEY `guid`', $create );
+		$this->assertSame( array(), $schema->get_validation_errors() );
+	}
+
+	/**
+	 * A uuid column whose lookup is already covered by an index derives nothing.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_uuid_satisfied_by_existing_index() {
+		$schema = $this->schema(
+			array(
+				array(
+					'name'    => 'id',
+					'type'    => 'bigint',
+					'primary' => true,
+				),
+				array(
+					'name' => 'guid',
+					'uuid' => true,
+				),
+			),
+			array(
+				array(
+					'name'    => 'guid',
+					'columns' => array( 'guid' ),
+				),
+			)
+		);
+
+		$this->assertContains( 'guid', $this->index_names( $schema ) );
+		$this->assertSame( array(), $schema->get_validation_errors() );
+	}
 }
