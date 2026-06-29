@@ -254,4 +254,140 @@ class SchemaDerivedIndexTest extends TestCase {
 		$this->assertSame( array( 'email' ), $this->index_names( $schema ) );
 		$this->assertStringContainsString( 'UNIQUE KEY `email`', $schema->get_create_table_string() );
 	}
+
+	// Primary-index derivation.
+
+	/**
+	 * A lone primary-flagged column with no primary index derives the PRIMARY KEY.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_lone_primary_flag_derives_primary_key() {
+		$schema = $this->schema(
+			array(
+				array(
+					'name'    => 'id',
+					'type'    => 'bigint',
+					'primary' => true,
+				),
+			)
+		);
+
+		$this->assertTrue( $schema->has_index( 'primary' ) );
+		$this->assertStringContainsString( 'PRIMARY KEY', $schema->get_create_table_string() );
+		$this->assertSame( array(), $schema->get_validation_errors() );
+	}
+
+	/**
+	 * A derived PRIMARY satisfies a unique flag on the same column (no extra UNIQUE).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_lone_primary_with_unique_flag_derives_only_primary() {
+		$schema = $this->schema(
+			array(
+				array(
+					'name'    => 'id',
+					'type'    => 'bigint',
+					'primary' => true,
+					'unique'  => true,
+				),
+			)
+		);
+
+		$create = $schema->get_create_table_string();
+		$this->assertStringContainsString( 'PRIMARY KEY', $create );
+		$this->assertStringNotContainsString( 'UNIQUE KEY', $create );
+	}
+
+	/**
+	 * A primary index that does not cover the flagged column stays a validation
+	 * conflict - no second primary key is derived to mask it.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_non_covering_primary_index_stays_a_conflict() {
+		$schema = $this->schema(
+			array(
+				array(
+					'name'    => 'id',
+					'type'    => 'bigint',
+					'primary' => true,
+				),
+				array(
+					'name'   => 'code',
+					'type'   => 'varchar',
+					'length' => '20',
+				),
+			),
+			array(
+				array(
+					'type'    => 'primary',
+					'columns' => array( 'code' ),
+				),
+			)
+		);
+
+		$this->assertNotSame( array(), $schema->get_validation_errors() );
+	}
+
+	/**
+	 * Two primary-flagged columns with no covering composite primary index derive
+	 * nothing and remain a validation conflict (column order is the caller's to give).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_multiple_primary_columns_without_index_is_a_conflict() {
+		$schema = $this->schema(
+			array(
+				array(
+					'name'    => 'a',
+					'type'    => 'bigint',
+					'primary' => true,
+				),
+				array(
+					'name'    => 'b',
+					'type'    => 'bigint',
+					'primary' => true,
+				),
+			)
+		);
+
+		$this->assertFalse( $schema->has_index( 'primary' ) );
+		$this->assertNotSame( array(), $schema->get_validation_errors() );
+	}
+
+	/**
+	 * A composite PRIMARY does not make one column unique, so a unique flag on a
+	 * column inside it still derives a UNIQUE index.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_composite_primary_does_not_satisfy_unique_flag() {
+		$schema = $this->schema(
+			array(
+				array(
+					'name'    => 'object_id',
+					'type'    => 'bigint',
+					'primary' => true,
+				),
+				array(
+					'name'    => 'term_id',
+					'type'    => 'bigint',
+					'primary' => true,
+					'unique'  => true,
+				),
+			),
+			array(
+				array(
+					'type'    => 'primary',
+					'columns' => array( 'object_id', 'term_id' ),
+				),
+			)
+		);
+
+		$this->assertContains( 'term_id', $this->index_names( $schema ) );
+		$this->assertStringContainsString( 'UNIQUE KEY `term_id`', $schema->get_create_table_string() );
+		$this->assertSame( array(), $schema->get_validation_errors() );
+	}
 }

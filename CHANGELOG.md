@@ -271,9 +271,16 @@ Notable changes to BerlinDB are documented here.
   change required.
 - Adds `unique => true` and `index => true` column flags: the `Schema` derives a
   single-column index named after the column - a UNIQUE index for `unique`, a plain
-  KEY for `index` (`unique` wins when both are set) - skipping a primary column
-  (already indexed) or a column an index of that name already covers. The flag is the
-  semantic marker; the derived index emits the DDL (the first slices of #221).
+  KEY for `index` (`unique` wins when both are set) - unless an existing index already
+  satisfies it (exact single-column coverage, UNIQUE for the unique flag). The flag is
+  the semantic marker; the derived index emits the DDL (#221).
+- A lone `primary => true` column now derives the `PRIMARY KEY` when the schema has no
+  primary index, so the explicit primary index becomes optional. Derivation is
+  conservative: it fires only for a single primary column with no primary index at all
+  - multiple primary columns still need an explicit composite primary index (column
+  order is semantic), and a primary index that does not cover the flag stays the
+  specific validation conflict rather than being masked by a second primary key. A
+  column inside a composite primary key still derives its own `unique`/`index`.
 
 ## 3.0.0 - 2026-06-01
 

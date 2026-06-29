@@ -27,6 +27,13 @@ defined( 'ABSPATH' ) || exit;
  * Column/Index argument arrays (legacy style), or call add_column() and
  * add_index() explicitly. Both approaches are fully supported.
  *
+ * Indexes implied by column flags (primary/unique/index) are DERIVED once at
+ * construction from the columns present then - the same derive-at-construction
+ * contract every Kern class follows (a Column parses its type once in init(), etc.).
+ * A column added later via add_column() is fully registered, but any index it implies
+ * must be added explicitly with add_index(); post-construction columns are not
+ * re-scanned for derivation.
+ *
  * Use get_create_table_string() to generate the SQL body for a CREATE TABLE
  * statement. Validation runs automatically before SQL is produced.
  *
@@ -229,17 +236,91 @@ class Schema {
 	}
 
 	/**
+	 * Add the indexes implied by columns: the primary key first, then flag indexes.
+	 *
+	 * Primary runs first so its index is present when the flag pass checks
+	 * satisfaction (a single-column primary satisfies a unique/index flag on its
+	 * column; a composite primary does not).
+	 *
+	 * @since 3.1.0
+	 */
+	private function init_derived_indexes(): void {
+		$this->init_primary_index();
+		$this->init_flag_indexes();
+	}
+
+	/**
+	 * Derive the PRIMARY KEY from a lone primary-flagged column.
+	 *
+	 * A `primary => true` column does not emit a PRIMARY KEY on its own (the flag is
+	 * the marker; an Index emits the DDL), so derive one - but ONLY when exactly one
+	 * column is primary AND the schema has no primary index at all. Multiple primary
+	 * columns need an explicit composite primary index (column order is semantic), and
+	 * a primary index that does not cover the flag is left as the specific validation
+	 * conflict rather than masked by a second primary key.
+	 *
+	 * @since 3.1.0
+	 */
+	private function init_primary_index(): void {
+
+		/*
+		 * Bail if a primary index already exists - covering it, or conflicting with a
+		 * flag, is validation's job, not ours to mask with a second primary key.
+		 */
+		if ( $this->has_primary_index() ) {
+			return;
+		}
+
+		// Gather the primary-flagged columns.
+		$primary = array();
+		foreach ( $this->get_columns() as $column ) {
+			if ( ! empty( $column->primary ) ) {
+				$primary[] = $column;
+			}
+		}
+
+		// Derive only for a single primary column; a composite PK must be explicit.
+		if ( 1 !== count( $primary ) ) {
+			return;
+		}
+
+		$this->add_index(
+			array(
+				'type'    => 'primary',
+				'columns' => array( $primary[0]->name ),
+			)
+		);
+	}
+
+	/**
+	 * Whether the schema already declares (or has derived) a primary index.
+	 *
+	 * @since 3.1.0
+	 * @return bool
+	 */
+	private function has_primary_index(): bool {
+		foreach ( $this->get_indexes() as $index ) {
+			if ( $this->is_primary_index( $index ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
 	 * Add indexes implied by column flags that no existing index already satisfies.
 	 *
 	 * Derives a single-column index named after each `unique => true` (UNIQUE) or
 	 * `index => true` (plain KEY) column - the flag is the semantic marker, this
 	 * emits the DDL. `unique` wins over `index` (a UNIQUE index is also a plain one).
 	 *
-	 * Skips a primary column (already indexed) and any column an existing index
-	 * SATISFIES - an exact single-column index, requiring UNIQUE for the unique flag.
-	 * A column an unrelated index merely shares a name with still derives, surfacing
-	 * the clash as a duplicate-index-name validation error rather than silently
-	 * dropping the constraint.
+	 * Primary columns are NOT skipped wholesale: satisfaction-dedupe handles them, so
+	 * a single-column PRIMARY satisfies a flag while a composite PRIMARY (which does
+	 * not make one column unique) does not - a column inside a composite primary key
+	 * still derives its own flagged index. A column an unrelated index merely shares a
+	 * name with still derives, surfacing the clash as a duplicate-index-name validation
+	 * error rather than silently dropping the constraint.
 	 *
 	 * Single-column only, indexed in full: a column too long to index whole (a long
 	 * varchar/text) needs an explicit Index with a prefix length - the shorthand does
@@ -247,13 +328,8 @@ class Schema {
 	 *
 	 * @since 3.1.0
 	 */
-	private function init_derived_indexes(): void {
+	private function init_flag_indexes(): void {
 		foreach ( $this->get_columns() as $column ) {
-
-			// Primary columns are already indexed by the primary key.
-			if ( ! empty( $column->primary ) ) {
-				continue;
-			}
 
 			// UNIQUE takes precedence over a plain KEY; a column with neither is skipped.
 			$type = '';
@@ -666,7 +742,7 @@ class Schema {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string                            $class_name Fully-qualified class name to instantiate.
+	 * @param string                           $class_name Fully-qualified class name to instantiate.
 	 * @param array<string,mixed>|Column|Index $data       Argument array or existing item object.
 	 *
 	 * @return Column|Index|false The item object, or false on failure.
