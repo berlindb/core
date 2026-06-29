@@ -421,6 +421,241 @@ class SchemaDerivedIndexTest extends TestCase {
 		$this->assertSame( array(), $schema->get_validation_errors() );
 	}
 
+	// Foreign-key (belongs_to) -> lookup KEY.
+
+	/**
+	 * A column definition holding a single belongs_to relationship.
+	 *
+	 * Uses an existing class as the remote query (schema validation only checks the
+	 * class exists; whether it is truly a Query is a Query-context concern).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $name   Column / foreign-key name.
+	 * @param string $type   Column type. Default bigint.
+	 * @param int    $length Optional length (for string FKs). Default 0 (none).
+	 * @return array<string,mixed>
+	 */
+	private function belongs_to( string $name, string $type = 'bigint', int $length = 0 ): array {
+		$column = array(
+			'name'          => $name,
+			'type'          => $type,
+			'relationships' => array(
+				array(
+					'type'   => 'belongs_to',
+					'query'  => Schema::class,
+					'column' => 'id',
+				),
+			),
+		);
+
+		if ( $length > 0 ) {
+			$column['length'] = (string) $length;
+		}
+
+		return $column;
+	}
+
+	/**
+	 * A belongs_to foreign-key column derives a plain lookup KEY.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_belongs_to_derives_foreign_key_index() {
+		$schema = $this->schema(
+			array(
+				array(
+					'name'    => 'id',
+					'type'    => 'bigint',
+					'primary' => true,
+				),
+				$this->belongs_to( 'customer_id' ),
+			)
+		);
+
+		$this->assertContains( 'customer_id', $this->index_names( $schema ) );
+		$this->assertStringContainsString( 'KEY `customer_id`', $schema->get_create_table_string() );
+	}
+
+	/**
+	 * An index with the FK as its LEFTMOST full-length column satisfies it (no derive).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_leading_composite_index_satisfies_foreign_key() {
+		$schema = $this->schema(
+			array(
+				array(
+					'name'   => 'status',
+					'type'   => 'varchar',
+					'length' => '20',
+				),
+				$this->belongs_to( 'customer_id' ),
+			),
+			array(
+				array(
+					'name'    => 'cust_status',
+					'columns' => array( 'customer_id', 'status' ),
+				),
+			)
+		);
+
+		$this->assertNotContains( 'customer_id', $this->index_names( $schema ) );
+	}
+
+	/**
+	 * A composite index that does NOT lead with the FK does not satisfy it (derive).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_non_leading_composite_does_not_satisfy_foreign_key() {
+		$schema = $this->schema(
+			array(
+				array(
+					'name'   => 'status',
+					'type'   => 'varchar',
+					'length' => '20',
+				),
+				$this->belongs_to( 'customer_id' ),
+			),
+			array(
+				array(
+					'name'    => 'status_cust',
+					'columns' => array( 'status', 'customer_id' ),
+				),
+			)
+		);
+
+		$this->assertContains( 'customer_id', $this->index_names( $schema ) );
+	}
+
+	/**
+	 * A prefixed leftmost column does not satisfy the FK (a prefix can't back it).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_prefixed_leftmost_does_not_satisfy_foreign_key() {
+		$schema = $this->schema(
+			array(
+				$this->belongs_to( 'ref_key', 'varchar', 100 ),
+			),
+			array(
+				array(
+					'name'    => 'ref_pfx',
+					'columns' => array( 'ref_key(10)' ),
+				),
+			)
+		);
+
+		$this->assertContains( 'ref_key', $this->index_names( $schema ) );
+	}
+
+	/**
+	 * Multiple belongs_to entries on one column derive a single index.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_multiple_belongs_to_on_one_column_derives_one_index() {
+		$schema = $this->schema(
+			array(
+				array(
+					'name'          => 'object_id',
+					'type'          => 'bigint',
+					'relationships' => array(
+						array(
+							'type'   => 'belongs_to',
+							'query'  => Schema::class,
+							'column' => 'id',
+						),
+						array(
+							'type'   => 'belongs_to',
+							'query'  => Schema::class,
+							'column' => 'id',
+						),
+					),
+				),
+			)
+		);
+
+		$count = count(
+			array_filter(
+				$this->index_names( $schema ),
+				static function ( $name ) {
+					return 'object_id' === $name;
+				}
+			)
+		);
+		$this->assertSame( 1, $count );
+	}
+
+	/**
+	 * A foreign key too long to index in full is skipped (an explicit Index is needed).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_too_long_foreign_key_is_skipped() {
+		$schema = $this->schema(
+			array(
+				$this->belongs_to( 'long_ref', 'varchar', 255 ),
+			)
+		);
+
+		$this->assertNotContains( 'long_ref', $this->index_names( $schema ) );
+	}
+
+	/**
+	 * A FULLTEXT index leading with the FK does not satisfy it (can't back a lookup).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_fulltext_index_does_not_satisfy_foreign_key() {
+		$schema = $this->schema(
+			array(
+				$this->belongs_to( 'ref_key', 'varchar', 100 ),
+			),
+			array(
+				array(
+					'name'    => 'ref_ft',
+					'type'    => 'fulltext',
+					'columns' => array( 'ref_key' ),
+				),
+			)
+		);
+
+		$this->assertContains( 'ref_key', $this->index_names( $schema ) );
+	}
+
+	/**
+	 * A bounded binary foreign key (e.g. VARBINARY(16)) is indexed in full.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_bounded_binary_foreign_key_is_indexed() {
+		$schema = $this->schema(
+			array(
+				$this->belongs_to( 'bin_ref', 'varbinary', 16 ),
+			)
+		);
+
+		$this->assertContains( 'bin_ref', $this->index_names( $schema ) );
+	}
+
+	/**
+	 * A TEXT foreign key with a declared length is skipped (a plain key on TEXT is
+	 * rejected by MySQL; only bounded char/varchar/binary/varbinary index in full).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_text_foreign_key_with_length_is_skipped() {
+		$schema = $this->schema(
+			array(
+				$this->belongs_to( 'note_ref', 'text', 100 ),
+			)
+		);
+
+		$this->assertNotContains( 'note_ref', $this->index_names( $schema ) );
+	}
+
 	/**
 	 * A uuid column whose lookup is already covered by an index derives nothing.
 	 *

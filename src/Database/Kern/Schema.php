@@ -236,7 +236,8 @@ class Schema {
 	}
 
 	/**
-	 * Add the indexes implied by columns: the primary key first, then flag indexes.
+	 * Add the indexes implied by columns: the primary key, then flag indexes, then
+	 * foreign-key indexes.
 	 *
 	 * Primary runs first so its index is present when the flag pass checks
 	 * satisfaction (a single-column primary satisfies a unique/index flag on its
@@ -247,6 +248,7 @@ class Schema {
 	private function init_derived_indexes(): void {
 		$this->init_primary_index();
 		$this->init_flag_indexes();
+		$this->init_relationship_indexes();
 	}
 
 	/**
@@ -407,6 +409,138 @@ class Schema {
 		$type = strtoupper( (string) $index->type );
 
 		return ! empty( $index->unique ) || ( 'UNIQUE' === $type ) || ( 'PRIMARY' === $type );
+	}
+
+	/**
+	 * Add a lookup KEY for each foreign-key column (a column holding a belongs_to).
+	 *
+	 * An unindexed belongs_to foreign key is almost always a mistake (joins and
+	 * get_related() filter on it), so derive a plain KEY - independent of whether the
+	 * relationship enforces a real FOREIGN KEY (#205). Satisfaction is source-specific:
+	 * any index with the FK as its LEFTMOST, full-length column already supports the
+	 * lookup, so a leading composite column counts (a prefixed one does not).
+	 *
+	 * A foreign key too long to index in full (a long varchar/text) is skipped with a
+	 * logged warning rather than emitting uninstallable DDL - declare an explicit
+	 * prefixed Index for it (the safe length per engine/encoding awaits #222).
+	 *
+	 * @since 3.1.0
+	 */
+	private function init_relationship_indexes(): void {
+		foreach ( $this->get_columns() as $column ) {
+
+			// Only a column that holds a belongs_to (the foreign key) is indexed.
+			if ( ! $this->is_foreign_key_column( $column ) ) {
+				continue;
+			}
+
+			// Skip a foreign key a leftmost-column index already supports.
+			if ( $this->is_foreign_key_satisfied( $column->name ) ) {
+				continue;
+			}
+
+			// Skip (and log) a foreign key too long to index in full.
+			if ( ! $this->is_full_indexable_column( $column ) ) {
+				$this->log(
+					'warning',
+					'fk_index_not_indexable',
+					'A belongs_to foreign key is too long to index in full; declare an explicit prefixed Index.',
+					array( 'column' => $column->name )
+				);
+
+				continue;
+			}
+
+			$this->add_index(
+				array(
+					'name'    => $column->name,
+					'type'    => 'key',
+					'columns' => array( $column->name ),
+				)
+			);
+		}
+	}
+
+	/**
+	 * Whether a column holds a belongs_to relationship (making it a foreign key).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param Column $column The column to test.
+	 * @return bool
+	 */
+	private function is_foreign_key_column( Column $column ): bool {
+		if ( empty( $column->relationships ) || ! is_array( $column->relationships ) ) {
+			return false;
+		}
+
+		foreach ( $column->relationships as $relationship ) {
+			if ( isset( $relationship['type'] ) && ( 'belongs_to' === $relationship['type'] ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Whether an existing index already supports foreign-key lookups on a column.
+	 *
+	 * Unlike a flag index (exact single-column coverage), a foreign key is supported by
+	 * any index with the column as its LEFTMOST, full-length column - a leftmost
+	 * composite column counts, a prefixed one does not (a prefix can't back a lookup or
+	 * a real FOREIGN KEY).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $column The foreign-key column name.
+	 * @return bool
+	 */
+	private function is_foreign_key_satisfied( string $column ): bool {
+		foreach ( $this->get_indexes() as $index ) {
+
+			// A FULLTEXT index cannot back an equality/FK lookup.
+			if ( 'FULLTEXT' === strtoupper( (string) $index->type ) ) {
+				continue;
+			}
+
+			// The column must be the index's leftmost, indexed in full (no prefix).
+			if ( empty( $index->columns ) || ( 0 !== strcasecmp( $column, (string) $index->columns[0] ) ) ) {
+				continue;
+			}
+
+			if ( ! isset( $index->lengths[ $index->columns[0] ] ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Whether a column can be indexed in full (not only via a prefix length).
+	 *
+	 * Numbers, dates, and booleans always can; a bounded string (char/varchar/binary/
+	 * varbinary) only within the conservative limit; unbounded text/blob cannot - they
+	 * need an explicit prefixed Index. The exact safe length per engine + encoding
+	 * awaits #222; 191 mirrors the conservative utf8mb4 value WordPress uses.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param Column $column The column to test.
+	 * @return bool
+	 */
+	private function is_full_indexable_column( Column $column ): bool {
+
+		// Numbers, dates, and booleans index in full.
+		if ( $column->is_numeric() || $column->is_date_time() || $column->is_bool() ) {
+			return true;
+		}
+
+		// A bounded string within the conservative limit; unbounded text/blob cannot.
+		$length = (int) $column->length;
+
+		return $column->is_bounded_string() && ( $length > 0 ) && ( $length <= 191 );
 	}
 
 	/** Public Item Core ******************************************************/

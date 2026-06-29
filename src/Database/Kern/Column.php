@@ -1100,6 +1100,29 @@ class Column {
 	}
 
 	/**
+	 * Return if a column type is a length-bounded string (char/varchar/binary/varbinary).
+	 *
+	 * The bounded subset of is_text() + is_binary(): these carry a maximum length and
+	 * can be indexed in full, unlike the unbounded TEXT/BLOB types, which MySQL rejects
+	 * in a plain key (a key prefix length is required) even when a length is declared.
+	 *
+	 * @since 3.1.0
+	 * @param string $type Optional type string to test. Defaults to $this->type.
+	 * @return bool True if a bounded char/varchar/binary/varbinary.
+	 */
+	public function is_bounded_string( $type = '' ) {
+		return $this->is_type(
+			array(
+				'char',
+				'varchar',
+				'binary',
+				'varbinary',
+			),
+			$type
+		);
+	}
+
+	/**
 	 * Whether this column auto-increments (the database assigns its value).
 	 *
 	 * @since 3.1.0

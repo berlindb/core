@@ -285,6 +285,12 @@ Notable changes to BerlinDB are documented here.
   generated only on the Query insert path, so a UNIQUE constraint would reject any row
   inserted directly (raw `$wpdb`, bulk loads) without one. Declare an explicit `UNIQUE`
   index to enforce uniqueness at the database level.
+- A `belongs_to` foreign-key column now derives a lookup `KEY`, independent of whether
+  the relationship enforces a real FOREIGN KEY (#205). An existing index with the FK as
+  its leftmost, full-length column already satisfies it (so the Meta recipe's explicit
+  FK index is not duplicated). A foreign key too long to index in full (a long
+  varchar/text/blob) is skipped with a logged warning rather than emitting
+  uninstallable DDL - declare an explicit prefixed Index for it.
 
 ## 3.0.0 - 2026-06-01
 

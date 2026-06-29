@@ -191,6 +191,52 @@ class ColumnTest extends TestCase {
 		$this->assertFalse( $column->is_date_time() );
 	}
 
+	/**
+	 * Test that is_bounded_string returns true for a varchar column.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_is_bounded_string_returns_true_for_varchar() {
+		$column = new Column(
+			array(
+				'name'   => 'title',
+				'type'   => 'varchar',
+				'length' => '255',
+			)
+		);
+		$this->assertTrue( $column->is_bounded_string() );
+	}
+
+	/**
+	 * Test that is_bounded_string returns false for an (unbounded) text column.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_is_bounded_string_returns_false_for_text() {
+		$column = new Column(
+			array(
+				'name' => 'body',
+				'type' => 'text',
+			)
+		);
+		$this->assertFalse( $column->is_bounded_string() );
+	}
+
+	/**
+	 * Test that is_bounded_string returns false for a bigint column.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_is_bounded_string_returns_false_for_bigint() {
+		$column = new Column(
+			array(
+				'name' => 'id',
+				'type' => 'bigint',
+			)
+		);
+		$this->assertFalse( $column->is_bounded_string() );
+	}
+
 	// special_args(): primary -> cache_key.
 
 	/**
