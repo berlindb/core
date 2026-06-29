@@ -488,6 +488,7 @@ class Schema {
 			return;
 		}
 
+		// Add the index.
 		$this->add_index(
 			array(
 				'name'    => $column->name,
@@ -506,16 +507,20 @@ class Schema {
 	 * @return bool
 	 */
 	private function is_foreign_key_column( Column $column ): bool {
+
+		// Bail if no relationships.
 		if ( empty( $column->relationships ) || ! is_array( $column->relationships ) ) {
 			return false;
 		}
 
+		// Loop through relationships and look for 'belongs_to'.
 		foreach ( $column->relationships as $relationship ) {
 			if ( isset( $relationship['type'] ) && ( 'belongs_to' === $relationship['type'] ) ) {
 				return true;
 			}
 		}
 
+		// Return false, because no FK was found.
 		return false;
 	}
 
@@ -538,7 +543,8 @@ class Schema {
 			// FULLTEXT and SPATIAL indexes cannot back an equality lookup.
 			$type = strtoupper( (string) $index->type );
 
-			if ( ( 'FULLTEXT' === $type ) || ( 'SPATIAL' === $type ) ) {
+			// Skip for FULLTEXT and SPATIAL types.
+			if ( in_array( $type, array( 'FULLTEXT', 'SPATIAL' ), true ) ) {
 				continue;
 			}
 
