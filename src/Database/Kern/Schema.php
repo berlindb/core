@@ -276,12 +276,7 @@ class Schema {
 		}
 
 		// Gather the primary-flagged columns.
-		$primary = array();
-		foreach ( $this->get_columns() as $column ) {
-			if ( ! empty( $column->primary ) ) {
-				$primary[] = $column;
-			}
-		}
+		$primary = $this->get_columns( array( 'primary' => true ) );
 
 		// Derive only for a single primary column; a composite PK must be explicit.
 		if ( 1 !== count( $primary ) ) {
@@ -303,13 +298,7 @@ class Schema {
 	 * @return bool
 	 */
 	private function has_primary_index(): bool {
-		foreach ( $this->get_indexes() as $index ) {
-			if ( $this->is_primary_index( $index ) ) {
-				return true;
-			}
-		}
-
-		return false;
+		return ! empty( $this->get_indexes( array( 'type' => 'primary' ) ) );
 	}
 
 	/**
@@ -337,21 +326,27 @@ class Schema {
 	 * @since 3.1.0
 	 */
 	private function init_flag_indexes(): void {
-		foreach ( $this->get_columns() as $column ) {
+		$flagged = $this->get_columns(
+			array(
+				'unique' => true,
+				'index'  => true,
+				'uuid'   => true,
+			),
+			'or'
+		);
+
+		foreach ( $flagged as $column ) {
 
 			/*
-			 * `unique` -> UNIQUE; `index` or `uuid` -> a plain lookup KEY. UNIQUE wins
-			 * (it also serves as a plain index); a column with no flag is skipped.
+			 * `unique` -> UNIQUE; `index` or `uuid` alone -> a plain lookup KEY. UNIQUE
+			 * wins, since a unique index also serves as a plain one.
 			 */
-			$type = '';
-			if ( ! empty( $column->unique ) ) {
-				$type = 'unique';
-			} elseif ( ! empty( $column->index ) || ! empty( $column->uuid ) ) {
-				$type = 'key';
-			}
+			$type = ! empty( $column->unique )
+				? 'unique'
+				: 'key';
 
-			// Skip an unflagged column, or one an existing index already satisfies.
-			if ( ( '' === $type ) || $this->is_column_index_satisfied( $column->name, 'unique' === $type ) ) {
+			// Skip a column an existing index already satisfies.
+			if ( $this->is_column_index_satisfied( $column->name, 'unique' === $type ) ) {
 				continue;
 			}
 
@@ -444,12 +439,10 @@ class Schema {
 	 * @since 3.1.0
 	 */
 	private function init_cache_key_indexes(): void {
-		foreach ( $this->get_columns() as $column ) {
 
-			// A cache_key column is looked up by value - index it.
-			if ( ! empty( $column->cache_key ) ) {
-				$this->add_lookup_key( $column, 'cache_key column', 'cache_key_index_not_indexable' );
-			}
+		// A cache_key column is looked up by value - index it.
+		foreach ( $this->get_columns( array( 'cache_key' => true ) ) as $column ) {
+			$this->add_lookup_key( $column, 'cache_key column', 'cache_key_index_not_indexable' );
 		}
 	}
 
@@ -684,27 +677,56 @@ class Schema {
 	}
 
 	/**
-	 * Get a schema item collection by type.
+	 * Get a schema item collection by type, optionally filtered.
+	 *
+	 * With no $args, returns the whole collection. With $args, returns the items whose
+	 * properties match (via WordPress's wp_filter_object_list()) - e.g.
+	 * get_items( 'columns', array( 'primary' => true ) ). Mirrors Query::get_columns().
 	 *
 	 * @since 3.0.0
+	 * @since 3.1.0 Added $args / $operator filtering.
 	 *
-	 * @param string $type Item collection type. Accepts 'columns' or 'indexes'
-	 *                     (and their singular aliases).
+	 * @param string              $type     Item collection type. Accepts 'columns' or
+	 *                                      'indexes' (and their singular aliases).
+	 * @param array<string,mixed> $args     Optional. Property => value match args.
+	 *                                      Default empty (the full collection).
+	 * @param string              $operator Optional. Match logic: 'and' (default), 'or',
+	 *                                      or 'not'.
 	 *
 	 * @return Column[]|Index[]
 	 */
-	public function get_items( $type = 'columns' ) {
+	public function get_items( $type = 'columns', $args = array(), $operator = 'and' ) {
 		$type = $this->validate_item_type( $type );
 
+		// Resolve the collection.
 		if ( 'columns' === $type ) {
-			return $this->columns;
+			$items = $this->columns;
+		} elseif ( 'indexes' === $type ) {
+			$items = $this->indexes;
+		} else {
+			return array();
 		}
 
-		if ( 'indexes' === $type ) {
-			return $this->indexes;
+		// The whole collection when there is nothing to filter.
+		if ( empty( $args ) ) {
+			return $items;
 		}
 
-		return array();
+		/*
+		 * Match each item type's stored case so a caller can pass either (Column
+		 * $type is uppercase, Index $type is lowercase).
+		 */
+		if ( isset( $args['type'] ) && is_string( $args['type'] ) ) {
+			$args['type'] = ( 'columns' === $type )
+				? strtoupper( $args['type'] )
+				: strtolower( $args['type'] );
+		}
+
+		// Filter to the matching item objects.
+		$filtered = wp_filter_object_list( $items, $args, $operator );
+
+		/** @var Column[]|Index[] $filtered */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
+		return array_values( $filtered );
 	}
 
 	/**
@@ -1034,14 +1056,20 @@ class Schema {
 	}
 
 	/**
-	 * Get all columns in this schema.
+	 * Get all columns in this schema, optionally filtered.
 	 *
 	 * @since 3.0.0
+	 * @since 3.1.0 Added $args / $operator filtering.
+	 *
+	 * @param array<string,mixed> $args     Optional. Property => value match args.
+	 *                                      Default empty (all columns).
+	 * @param string              $operator Optional. Match logic: 'and' (default), 'or',
+	 *                                      or 'not'.
 	 *
 	 * @return Column[]
 	 */
-	public function get_columns() {
-		$items = $this->get_items( 'columns' );
+	public function get_columns( $args = array(), $operator = 'and' ) {
+		$items = $this->get_items( 'columns', $args, $operator );
 
 		/** @var Column[] $items */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
 		return $items;
@@ -1179,14 +1207,20 @@ class Schema {
 	}
 
 	/**
-	 * Get all indexes in this schema.
+	 * Get all indexes in this schema, optionally filtered.
 	 *
 	 * @since 3.0.0
+	 * @since 3.1.0 Added $args / $operator filtering.
+	 *
+	 * @param array<string,mixed> $args     Optional. Property => value match args.
+	 *                                      Default empty (all indexes).
+	 * @param string              $operator Optional. Match logic: 'and' (default), 'or',
+	 *                                      or 'not'.
 	 *
 	 * @return Index[]
 	 */
-	public function get_indexes() {
-		$items = $this->get_items( 'indexes' );
+	public function get_indexes( $args = array(), $operator = 'and' ) {
+		$items = $this->get_items( 'indexes', $args, $operator );
 
 		/** @var Index[] $items */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
 		return $items;

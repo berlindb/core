@@ -296,6 +296,11 @@ Notable changes to BerlinDB are documented here.
   same way. The primary cache_key needs no extra index (the primary key already covers
   it). It is a `KEY`, not `UNIQUE`: a cache_key's identity is an application invariant,
   not a database constraint.
+- `Schema::get_items()`, `Schema::get_columns()`, and `Schema::get_indexes()` accept
+  optional `wp_filter_object_list()` match args plus an `'and'`/`'or'`/`'not'` operator,
+  e.g. `get_columns( array( 'primary' => true ) )`. The `type` arg is matched
+  case-insensitively (Column types are stored uppercase, Index types lowercase). With no
+  args the whole collection is returned as before; a filtered result is a reindexed list.
 
 ## 3.0.0 - 2026-06-01
 
