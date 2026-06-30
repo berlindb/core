@@ -400,7 +400,8 @@ class Query extends KernQuery implements MetaStore {
 		}
 
 		// All entries for the key - for this object, or every object.
-		$rows = $this->get_meta_rows( $delete_all ? null : $object_id, $meta_key );
+		$target = $delete_all ? null : $object_id;
+		$rows   = $this->get_meta_rows( $target, $meta_key );
 
 		/*
 		 * A present value only deletes matching entries. Core treats only '',

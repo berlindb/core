@@ -1160,7 +1160,8 @@ class Column {
 		$types = array_map( 'strtolower', $types );
 
 		// Use the provided type or fall back to this column's type.
-		$type = strtolower( ! empty( $type ) ? $type : $this->type );
+		$type = ! empty( $type ) ? $type : $this->type;
+		$type = strtolower( $type );
 
 		// Return if match.
 		return in_array( $type, $types, true );
@@ -1190,7 +1191,8 @@ class Column {
 		$extras = array_map( 'strtoupper', $extras );
 
 		// Use the provided extra or fall back to this column's extra.
-		$extra = strtoupper( ! empty( $extra ) ? $extra : $this->extra );
+		$extra = ! empty( $extra ) ? $extra : $this->extra;
+		$extra = strtoupper( $extra );
 
 		// Return if match.
 		return in_array( $extra, $extras, true );

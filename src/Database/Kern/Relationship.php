@@ -461,7 +461,10 @@ class Relationship {
 	private function derive_name( $column = '' ): string {
 		$base = preg_replace( '/_(id|uuid)$/', '', (string) $column );
 
-		return $this->sanitize_name( is_string( $base ) ? $base : $column );
+		// preg_replace() returns null on error; fall back to the original column.
+		$name = is_string( $base ) ? $base : $column;
+
+		return $this->sanitize_name( $name );
 	}
 
 	/**

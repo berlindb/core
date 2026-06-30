@@ -782,10 +782,12 @@ class Relationship extends Base {
 		 * invalid cast fails closed - consistent with the rest of the relationship
 		 * API - so a misspelled 'SIGNED' matches no rows, not a lexical compare.
 		 */
-		$cast = $this->resolve_clause_sql_cast(
-			$column_object,
-			( is_array( $cond ) && ! $this->is_operand_spec( $cond ) ) ? $cond : array()
-		);
+		// A nested-array condition (not an operand spec) may carry an opt-in cast.
+		$cast_source = ( is_array( $cond ) && ! $this->is_operand_spec( $cond ) )
+			? $cond
+			: array();
+
+		$cast = $this->resolve_clause_sql_cast( $column_object, $cast_source );
 
 		/*
 		 * Fail closed on an explicit but invalid cast (e.g. a misspelled 'SIGNED').

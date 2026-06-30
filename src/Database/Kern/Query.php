@@ -1462,9 +1462,14 @@ class Query {
 		if ( true === $this->get_current( 'query_filter_short_circuit', false ) ) {
 			$this->set_found_items( array() );
 
-			// Mirror get_items()'s count/non-count return shapes for empty.
-			$this->items = $this->get_query_var( 'count' )
-				? ( $this->get_query_var( 'groupby' ) ? array() : 0 )
+			/*
+			 * Mirror get_items()'s count/non-count return shapes for empty: a plain
+			 * count is 0; a grouped count or a non-count query is an empty array.
+			 */
+			$is_plain_count = $this->get_query_var( 'count' ) && ! $this->get_query_var( 'groupby' );
+
+			$this->items = $is_plain_count
+				? 0
 				: array();
 
 			return $this->items;
@@ -2405,7 +2410,8 @@ class Query {
 		if ( ! empty( $count ) ) {
 
 			// Use count instead.
-			$retval = $this->parse_count( (bool) $count, is_array( $groupby ) ? implode( ', ', $groupby ) : $groupby );
+			$groupby_sql = is_array( $groupby ) ? implode( ', ', $groupby ) : $groupby;
+			$retval      = $this->parse_count( (bool) $count, $groupby_sql );
 
 			// Not counting, so use primary column.
 		} else {
@@ -3268,7 +3274,8 @@ class Query {
 		}
 
 		// Force to stdClass if querying for fields.
-		$this->set_current( 'item_shape', ! empty( $fields ) ? 'stdClass' : $this->item_shape );
+		$item_shape = ! empty( $fields ) ? 'stdClass' : $this->item_shape;
+		$this->set_current( 'item_shape', $item_shape );
 
 		// Default return value.
 		$retval = array();
@@ -3330,9 +3337,21 @@ class Query {
 			$retval = $item[ $primary ];
 		}
 
-		// Return the validated item ID.
+		/*
+		 * Return the validated item ID: an int/string passes through, another scalar
+		 * is stringified, and anything else falls back to 0.
+		 */
 		$validated = $this->validate_item_field( $retval, $primary );
-		return ( is_int( $validated ) || is_string( $validated ) ) ? $validated : ( is_scalar( $validated ) ? (string) $validated : 0 );
+
+		if ( is_int( $validated ) || is_string( $validated ) ) {
+			return $validated;
+		}
+
+		if ( is_scalar( $validated ) ) {
+			return (string) $validated;
+		}
+
+		return 0;
 	}
 
 	/**

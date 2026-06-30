@@ -1660,9 +1660,13 @@ class Schema {
 
 			$is_primary = $this->is_primary_index( $index );
 
-			$index_name = $is_primary
-				? 'primary'
-				: ( ! empty( $index->name ) ? $this->sanitize_index_name( $index->name ) : false );
+			if ( $is_primary ) {
+				$index_name = 'primary';
+			} elseif ( ! empty( $index->name ) ) {
+				$index_name = $this->sanitize_index_name( $index->name );
+			} else {
+				$index_name = false;
+			}
 
 			if ( empty( $index_name ) ) {
 				$errors[] = 'Schema index is missing a valid name.';

@@ -1487,9 +1487,13 @@ class Meta extends Base {
 		$where       = array();
 
 		// The value comparison; defaults to IN for array values, otherwise '='.
-		$compare = isset( $meta_clause[ 'compare' ] )
-			? strtoupper( (string) $meta_clause[ 'compare' ] )
-			: ( ( isset( $meta_clause[ 'value' ] ) && is_array( $meta_clause[ 'value' ] ) ) ? 'IN' : '=' );
+		if ( isset( $meta_clause[ 'compare' ] ) ) {
+			$compare = strtoupper( (string) $meta_clause[ 'compare' ] );
+		} elseif ( isset( $meta_clause[ 'value' ] ) && is_array( $meta_clause[ 'value' ] ) ) {
+			$compare = 'IN';
+		} else {
+			$compare = '=';
+		}
 
 		/*
 		 * Unary predicates (IS NULL) aren't supported for meta values yet; fall
@@ -1579,9 +1583,13 @@ class Meta extends Base {
 		$key = $meta_clause[ 'key' ];
 
 		// The key comparison; defaults to IN for array keys, otherwise '='.
-		$compare_key = isset( $meta_clause[ 'compare_key' ] )
-			? strtoupper( (string) $meta_clause[ 'compare_key' ] )
-			: ( is_array( $key ) ? 'IN' : '=' );
+		if ( isset( $meta_clause[ 'compare_key' ] ) ) {
+			$compare_key = strtoupper( (string) $meta_clause[ 'compare_key' ] );
+		} elseif ( is_array( $key ) ) {
+			$compare_key = 'IN';
+		} else {
+			$compare_key = '=';
+		}
 
 		/*
 		 * Negative key operator -> flip to its positive opposite and negate the
