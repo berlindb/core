@@ -185,16 +185,19 @@ class Schema {
 			return new Snapshot( new self(), false, false );
 		}
 
-		// Map columns; build indexes and learn whether the index capture was whole.
+		// Map each column row to a Column object.
 		$columns = array_map( array( Column::class, 'from_mysql' ), $column_rows );
-		$built   = self::indexes_from_mysql_rows( is_array( $index_rows ) ? $index_rows : array() );
 
 		/*
-		 * Indexes are complete only if SHOW INDEX itself succeeded (a null result is
-		 * a failure, distinct from a table that genuinely has none) AND every index
-		 * row group was representable.
+		 * SHOW INDEX returns null on failure, distinct from a table that genuinely
+		 * has no indexes. Capture that before normalizing to a usable array: indexes
+		 * are complete only if the query succeeded AND every group was representable.
 		 */
-		$indexes_complete = is_array( $index_rows ) && $built['complete'];
+		$indexes_found = is_array( $index_rows );
+		$index_rows    = $index_rows ?? array();
+
+		$built            = self::indexes_from_mysql_rows( $index_rows );
+		$indexes_complete = $indexes_found && $built['complete'];
 
 		$schema = new self(
 			array(
