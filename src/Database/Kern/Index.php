@@ -43,6 +43,16 @@ class Index {
 	use \BerlinDB\Database\Traits\Base;
 	use \BerlinDB\Database\Traits\Boot;
 
+	/**
+	 * MySQL Index_type values this class can faithfully represent. A SHOW INDEX
+	 * group of any other type (e.g. SPATIAL / RTREE) cannot round-trip, so
+	 * from_mysql() rejects it rather than emitting wrong DDL.
+	 *
+	 * @since 3.1.0
+	 * @var list<string>
+	 */
+	private const SUPPORTED_MYSQL_INDEX_TYPES = array( 'BTREE', 'HASH', 'FULLTEXT' );
+
 	/** Attributes ************************************************************/
 
 	/**
@@ -166,14 +176,27 @@ class Index {
 		$index_type = strtoupper( (string) ( $first['Index_type'] ?? '' ) );
 		$comment    = (string) ( $first['Index_comment'] ?? '' );
 
+		/*
+		 * Reject index types this class cannot represent (e.g. SPATIAL / RTREE),
+		 * rather than mis-rendering them as a plain KEY.
+		 */
+		if ( ! in_array( $index_type, self::SUPPORTED_MYSQL_INDEX_TYPES, true ) ) {
+			return false;
+		}
+
 		// Build the canonical column entries: name, optional (length), optional DESC.
 		$columns = array();
 
 		foreach ( $rows as $row ) {
 			$column_name = (string) ( $row['Column_name'] ?? '' );
 
+			/*
+			 * A key part with no column name is a functional expression
+			 * (MySQL reports Column_name NULL + an Expression), which an Index
+			 * cannot represent - reject the whole group rather than drop the part.
+			 */
 			if ( '' === $column_name ) {
-				continue;
+				return false;
 			}
 
 			$entry = $column_name;
@@ -192,11 +215,6 @@ class Index {
 			$columns[] = $entry;
 		}
 
-		// Bail if the rows described no columns.
-		if ( empty( $columns ) ) {
-			return false;
-		}
-
 		// The primary key is identified by its reserved name; it carries no own name.
 		$is_primary = ( 'PRIMARY' === strtoupper( $key_name ) );
 
@@ -213,9 +231,16 @@ class Index {
 			'type'    => $type,
 			'columns' => $columns,
 			'unique'  => ( ! $is_primary ) && ( 0 === $non_unique ),
-			'using'   => ( 'HASH' === $index_type ) ? 'HASH' : '',
 			'comment' => $comment,
 		);
+
+		/*
+		 * USING is meaningless on a PRIMARY (get_create_string() ignores it there),
+		 * so only record a HASH method for a non-primary index.
+		 */
+		if ( ( ! $is_primary ) && ( 'HASH' === $index_type ) ) {
+			$args['using'] = 'HASH';
+		}
 
 		/*
 		 * The primary key carries no own name (it is identified by type); every

@@ -898,4 +898,103 @@ class IndexTest extends TestCase {
 		$this->assertInstanceOf( Index::class, $index );
 		$this->assertStringContainsString( "COMMENT 'lookup index'", $index->get_create_string() );
 	}
+
+	/**
+	 * Test that a functional key part (no column name) rejects the whole index.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_from_mysql_functional_key_part_returns_false() {
+		$result = Index::from_mysql(
+			array(
+				$this->show_index_row(
+					array(
+						'Key_name'     => 'idx',
+						'Seq_in_index' => 1,
+						'Column_name'  => 'name',
+					)
+				),
+				$this->show_index_row(
+					array(
+						'Key_name'     => 'idx',
+						'Seq_in_index' => 2,
+						'Column_name'  => null,
+						'Expression'   => 'lower(`name`)',
+					)
+				),
+			)
+		);
+
+		$this->assertFalse( $result );
+	}
+
+	/**
+	 * Test that an unrepresentable index type (SPATIAL) is rejected.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_from_mysql_spatial_index_returns_false() {
+		$result = Index::from_mysql(
+			array(
+				$this->show_index_row(
+					array(
+						'Key_name'    => 'geo',
+						'Column_name' => 'location',
+						'Index_type'  => 'SPATIAL',
+					)
+				),
+			)
+		);
+
+		$this->assertFalse( $result );
+	}
+
+	/**
+	 * Test that a HASH primary key records no USING (get_create_string ignores it).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_from_mysql_hash_primary_omits_using() {
+		$index = Index::from_mysql(
+			array(
+				$this->show_index_row(
+					array(
+						'Key_name'    => 'PRIMARY',
+						'Non_unique'  => 0,
+						'Column_name' => 'id',
+						'Index_type'  => 'HASH',
+					)
+				),
+			)
+		);
+
+		$this->assertInstanceOf( Index::class, $index );
+		$this->assertSame( 'primary', $index->type );
+
+		$sql = $index->get_create_string();
+		$this->assertStringContainsString( 'PRIMARY KEY (`id`)', $sql );
+		$this->assertStringNotContainsString( 'USING', $sql );
+	}
+
+	/**
+	 * Test that a HASH non-primary index records a USING HASH method.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_from_mysql_hash_non_primary_uses_hash() {
+		$index = Index::from_mysql(
+			array(
+				$this->show_index_row(
+					array(
+						'Key_name'    => 'lookup',
+						'Column_name' => 'token',
+						'Index_type'  => 'HASH',
+					)
+				),
+			)
+		);
+
+		$this->assertInstanceOf( Index::class, $index );
+		$this->assertStringContainsString( 'USING HASH', $index->get_create_string() );
+	}
 }

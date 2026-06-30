@@ -308,8 +308,10 @@ Notable changes to BerlinDB are documented here.
 - Adds `Index::from_mysql()` - builds an `Index` from the `SHOW INDEX` rows for one index
   (grouped by `Key_name`, ordered by `Seq_in_index`), mapping `Sub_part` to a prefix
   length, `Collation` `'D'` to a `DESC` direction, `Non_unique` to the unique flag, and
-  the `Index_type` (`FULLTEXT`/`HASH`). Mirrors `Column::from_mysql()` and is the
-  prerequisite for introspecting indexes into a `Schema` (toward #224).
+  the `Index_type` (`FULLTEXT`/`HASH`). Returns `false` for forms it cannot faithfully
+  represent (functional/expression key parts, `SPATIAL`/`RTREE` types) rather than
+  emitting wrong DDL. Mirrors `Column::from_mysql()` and is the prerequisite for
+  introspecting indexes into a `Schema` (toward #224).
 - Emits a column's `comment` in its `CREATE TABLE` definition (`COMMENT '...'`, quotes
   escaped) - previously a column comment was accepted and sanitized but silently dropped
   from the DDL, even though an index comment was already emitted.
