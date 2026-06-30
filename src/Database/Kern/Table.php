@@ -703,8 +703,17 @@ class Table {
 	 * Introspects the current table structure (Schema::from_table) and diffs it
 	 * against this table's declared schema. The returned Patch describes the
 	 * changes needed to bring the live table up to the declared schema - columns
-	 * and indexes to add or drop. Returns an empty Patch when there is no usable
-	 * declared schema to compare against.
+	 * and indexes to add, drop, or modify. Returns an empty Patch when there is no
+	 * usable declared schema to compare against.
+	 *
+	 * Caveats:
+	 *  - The introspected "actual" side may be INCOMPLETE (skipped unrepresentable
+	 *    indexes, or a transient SHOW INDEX failure - see Schema::from_table()), so
+	 *    a reported "added" index may already exist. Do NOT use this Patch to
+	 *    authorize destructive changes (drops) without separately confirming the
+	 *    introspection was complete - that completeness signal is future work.
+	 *  - Each call runs the introspection queries afresh; diverged() calls diff(),
+	 *    so checking both re-introspects. Cache the Patch if you need it twice.
 	 *
 	 * @since 3.1.0
 	 *

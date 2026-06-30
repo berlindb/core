@@ -39,11 +39,17 @@ use BerlinDB\Database\Kern\Column;
  *    inconsistently defaulted elsewhere)
  *
  * Deliberately EXCLUDED for now (each needs context or normalization this layer
- * does not yet have, and each is a classic phantom-diff source): the default
- * value, character set / collation (an omitted charset inherits the table
- * default), the `extra` clause (MySQL 8 prefixes ON UPDATE with DEFAULT_GENERATED
- * and varies AUTO_INCREMENT casing), and the comment. Changes confined to those
- * are not reported as modifications yet.
+ * does not yet have, and each is a classic phantom-diff source); a change confined
+ * to one of these is NOT yet reported as a modification:
+ *  - the default value
+ *  - character set / collation (an omitted charset inherits the table default)
+ *  - the `extra` clause (MySQL 8 prefixes ON UPDATE with DEFAULT_GENERATED and
+ *    varies AUTO_INCREMENT casing)
+ *  - the comment
+ *  - a DECIMAL/NUMERIC column's SCALE (Column::from_mysql captures only the
+ *    precision, so comparing scale would phantom-diff)
+ *  - an ENUM/SET value list (introspection does not preserve it as a length, so it
+ *    cannot be compared here)
  *
  * @since 3.1.0
  */
@@ -91,12 +97,21 @@ class ColumnNormalizer {
 	 * @return array<string,mixed>
 	 */
 	private function signature( Column $column ): array {
+		$type      = strtolower( trim( (string) $column->type ) );
+		$canonical = self::TYPE_SYNONYMS[ $type ] ?? $type;
+
+		/*
+		 * Integer display width (int(11)) is cosmetic, so length is dropped for
+		 * integer types - checked against the CANONICAL type so a synonym like
+		 * 'integer' gets the same suppression as 'int'. unsigned/zerofill, by
+		 * contrast, mirror get_create_string(), which decides emission from the
+		 * column's OWN type category - so the signature matches the actual table.
+		 */
 		$is_numeric = $column->is_numeric();
-		$type       = strtolower( trim( (string) $column->type ) );
 
 		return array(
-			'type'     => self::TYPE_SYNONYMS[ $type ] ?? $type,
-			'length'   => $column->is_int() ? 0 : (int) $column->length,
+			'type'     => $canonical,
+			'length'   => $column->is_int( $canonical ) ? 0 : (int) $column->length,
 			'nullable' => ! empty( $column->allow_null ),
 			'unsigned' => $is_numeric && ! empty( $column->unsigned ),
 			'zerofill' => $is_numeric && ! empty( $column->zerofill ),

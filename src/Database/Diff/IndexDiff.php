@@ -80,6 +80,9 @@ class IndexDiff {
 	/**
 	 * The index name (the shared identity of both sides).
 	 *
+	 * The primary key has no name of its own, so this returns '' for it - use
+	 * to()->get_index_name() to get the SQL name 'PRIMARY'.
+	 *
 	 * @since 3.1.0
 	 * @return string
 	 */

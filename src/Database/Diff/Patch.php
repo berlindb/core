@@ -27,9 +27,10 @@ use BerlinDB\Database\Kern\Index;
  * inverse). It carries the real Column / Index objects (not just names), so the
  * change set can be rendered and applied directly without re-resolving anything.
  *
- * v1 populates only added/dropped columns and indexes; "modified" detection
- * (the normalization-heavy part) lands in a later phase. The modified_*()
- * accessors exist now so the result shape is stable - see #224.
+ * Reports added and dropped columns/indexes, plus "modified" ones - a same-named
+ * column/index defined differently on the two sides, as a ColumnDiff/IndexDiff.
+ * Rendering/applying the patch as ALTER statements (to_sql()/apply()) is the next
+ * phase - see #224.
  *
  * @since 3.1.0
  */

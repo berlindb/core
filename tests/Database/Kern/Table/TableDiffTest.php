@@ -61,4 +61,37 @@ class TableDiffTest extends TestCase {
 		$this->assertTrue( self::$table->diff()->is_empty() );
 		$this->assertFalse( self::$table->diverged() );
 	}
+
+	/**
+	 * Real drift on the live table is detected: a dropped index reads as "added".
+	 *
+	 * Exercises the full live path - SHOW INDEX introspection, normalization, and
+	 * comparison against the declared schema - end to end, not just the pure
+	 * Comparator. The declared 'status' index is missing from the introspected
+	 * table, so the diff reports it as an addition (the change that reconciles the
+	 * live table back to its declared schema).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_diff_detects_a_dropped_live_index() {
+		// Introduce real drift: drop a derived lookup index from the live table.
+		self::$table->drop_index( 'status' );
+
+		$patch = self::$table->diff();
+		$names = array_map(
+			static function ( $index ) {
+				return $index->name;
+			},
+			$patch->added_indexes()
+		);
+
+		// Reconcile the live table back to its declared schema (the patch is the recipe).
+		foreach ( $patch->added_indexes() as $index ) {
+			self::$table->add_index( $index );
+		}
+
+		$this->assertFalse( $patch->is_empty() );
+		$this->assertContains( 'status', $names );
+		$this->assertFalse( self::$table->diverged() );
+	}
 }

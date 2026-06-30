@@ -70,14 +70,25 @@ class Schema {
 	/**
 	 * Build a Schema by introspecting an existing database table.
 	 *
-	 * Queries SHOW COLUMNS FROM the given table and maps each row to a Column
-	 * via Column::from_mysql(). Returns an empty Schema if the table does not
-	 * exist or has no columns.
+	 * Queries SHOW COLUMNS FROM and SHOW INDEX FROM the given table and maps the
+	 * rows to Column / Index objects (Column::from_mysql() / Index::from_mysql()).
+	 * Returns an empty Schema if the table does not exist or has no columns.
 	 *
 	 * The returned Schema can be passed directly to a Query or Table via their
 	 * constructor: new Query( array( 'table_schema' => $schema ) ).
 	 *
+	 * Caveats - the introspected Schema may be INCOMPLETE, and there is currently no
+	 * signal that distinguishes a complete result from a partial one. Consumers
+	 * (e.g. a schema diff/migration) must therefore treat a "missing" index as
+	 * "do not touch", never as "drop it":
+	 *  - Indexes that Index::from_mysql() cannot faithfully represent (SPATIAL,
+	 *    functional, invisible, FULLTEXT WITH PARSER) are silently skipped (#216).
+	 *  - A transient SHOW INDEX failure yields a columns-only Schema, indistinguishable
+	 *    from a table that genuinely has no indexes.
+	 * Introspection always uses the default ('wpdb') database connection.
+	 *
 	 * @since 3.0.0
+	 * @since 3.1.0 Also introspects indexes (SHOW INDEX FROM).
 	 *
 	 * @param string $table Fully-qualified table name (with prefix).
 	 * @return self
@@ -1518,9 +1529,15 @@ class Schema {
 	 *
 	 * A pure, database-free comparison: the returned Patch describes the changes
 	 * that turn THIS schema into $target (a column/index in $target but not here
-	 * is "added"; one here but not in $target is "dropped"). Delegates to the
-	 * Diff\Comparator. To diff a live table against its declared schema, use
-	 * Table::diff() instead.
+	 * is "added"; one here but not in $target is "dropped"; one in both but defined
+	 * differently is "modified"). Delegates to the Diff\Comparator. To diff a live
+	 * table against its declared schema, use Table::diff() instead.
+	 *
+	 * Caveats: assumes both schemas are reasonably valid - duplicate column/index
+	 * names collapse (last wins), they do not raise an error. Column ordering /
+	 * position (AFTER / FIRST) and FOREIGN KEY relationships are not compared, and
+	 * "modified" detection excludes several fields (see Diff\ColumnNormalizer /
+	 * Diff\IndexNormalizer).
 	 *
 	 * @since 3.1.0
 	 *

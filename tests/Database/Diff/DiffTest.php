@@ -582,4 +582,346 @@ class DiffTest extends TestCase {
 		$this->assertFalse( $patch->apply() );
 		$this->assertSame( array(), $patch->to_sql() );
 	}
+
+	/**
+	 * A synonym with an integer display width does not phantom-diff (INTEGER(11) vs INT).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_synonym_integer_width_is_not_a_modification() {
+		$from = $this->schema(
+			array(
+				array(
+					'name'     => 'n',
+					'type'     => 'integer',
+					'length'   => '11',
+					'unsigned' => false,
+				),
+			)
+		);
+		$to   = $this->schema(
+			array(
+				array(
+					'name'     => 'n',
+					'type'     => 'int',
+					'unsigned' => false,
+				),
+			)
+		);
+
+		$this->assertTrue( $from->diff( $to )->is_empty() );
+	}
+
+	/**
+	 * A signed/unsigned change on a numeric column is a modification.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_detects_modified_unsigned() {
+		$from = $this->schema(
+			array(
+				array(
+					'name'     => 'n',
+					'type'     => 'bigint',
+					'unsigned' => true,
+				),
+			)
+		);
+		$to   = $this->schema(
+			array(
+				array(
+					'name'     => 'n',
+					'type'     => 'bigint',
+					'unsigned' => false,
+				),
+			)
+		);
+
+		$this->assertCount( 1, $from->diff( $to )->modified_columns() );
+	}
+
+	/**
+	 * A complete type change (int -> varchar) is a modification.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_detects_modified_type() {
+		$from = $this->schema(
+			array(
+				array(
+					'name' => 'n',
+					'type' => 'int',
+				),
+			)
+		);
+		$to   = $this->schema(
+			array(
+				array(
+					'name'   => 'n',
+					'type'   => 'varchar',
+					'length' => '50',
+				),
+			)
+		);
+
+		$this->assertCount( 1, $from->diff( $to )->modified_columns() );
+	}
+
+	/**
+	 * A column whose only change is its default is NOT a modification (default excluded).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_excluded_default_change_is_not_a_modification() {
+		$from = $this->schema(
+			array(
+				array(
+					'name'    => 'n',
+					'type'    => 'varchar',
+					'length'  => '10',
+					'default' => 'a',
+				),
+			)
+		);
+		$to   = $this->schema(
+			array(
+				array(
+					'name'    => 'n',
+					'type'    => 'varchar',
+					'length'  => '10',
+					'default' => 'b',
+				),
+			)
+		);
+
+		$this->assertTrue( $from->diff( $to )->is_empty() );
+	}
+
+	/**
+	 * A reordered multi-column index is a modification.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_detects_modified_index_column_order() {
+		$columns = array(
+			array(
+				'name' => 'a',
+				'type' => 'bigint',
+			),
+			array(
+				'name' => 'b',
+				'type' => 'bigint',
+			),
+		);
+
+		$from = $this->schema(
+			$columns,
+			array(
+				array(
+					'name'    => 'ab',
+					'columns' => array( 'a', 'b' ),
+				),
+			)
+		);
+		$to   = $this->schema(
+			$columns,
+			array(
+				array(
+					'name'    => 'ab',
+					'columns' => array( 'b', 'a' ),
+				),
+			)
+		);
+
+		$this->assertCount( 1, $from->diff( $to )->modified_indexes() );
+	}
+
+	/**
+	 * An index prefix-length change is a modification.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_detects_modified_index_prefix_length() {
+		$columns = array(
+			array(
+				'name'   => 'title',
+				'type'   => 'varchar',
+				'length' => '255',
+			),
+		);
+
+		$from = $this->schema(
+			$columns,
+			array(
+				array(
+					'name'    => 'ti',
+					'columns' => array( 'title(100)' ),
+				),
+			)
+		);
+		$to   = $this->schema(
+			$columns,
+			array(
+				array(
+					'name'    => 'ti',
+					'columns' => array( 'title(191)' ),
+				),
+			)
+		);
+
+		$this->assertCount( 1, $from->diff( $to )->modified_indexes() );
+	}
+
+	/**
+	 * An index column direction (DESC) change is a modification.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_detects_modified_index_direction() {
+		$columns = array(
+			array(
+				'name' => 'priority',
+				'type' => 'int',
+			),
+		);
+
+		$from = $this->schema(
+			$columns,
+			array(
+				array(
+					'name'    => 'pr',
+					'columns' => array( 'priority' ),
+				),
+			)
+		);
+		$to   = $this->schema(
+			$columns,
+			array(
+				array(
+					'name'    => 'pr',
+					'columns' => array( 'priority DESC' ),
+				),
+			)
+		);
+
+		$this->assertCount( 1, $from->diff( $to )->modified_indexes() );
+	}
+
+	/**
+	 * revert() swaps the from/to sides of a modified index.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_revert_swaps_modified_index_sides() {
+		$columns = array(
+			array(
+				'name'   => 'slug',
+				'type'   => 'varchar',
+				'length' => '100',
+			),
+		);
+
+		$from = $this->schema(
+			$columns,
+			array(
+				array(
+					'name'    => 'sl',
+					'type'    => 'key',
+					'columns' => array( 'slug' ),
+				),
+			)
+		);
+		$to   = $this->schema(
+			$columns,
+			array(
+				array(
+					'name'    => 'sl',
+					'type'    => 'unique',
+					'columns' => array( 'slug' ),
+				),
+			)
+		);
+
+		$modified = $from->diff( $to )->revert()->modified_indexes()[0];
+
+		$this->assertSame( 'unique', $modified->from()->type );
+		$this->assertSame( 'key', $modified->to()->type );
+	}
+
+	/**
+	 * Index identity is case-insensitive (a name-case change is not a diff).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_index_identity_is_case_insensitive() {
+		$columns = array(
+			array(
+				'name'   => 'slug',
+				'type'   => 'varchar',
+				'length' => '100',
+			),
+		);
+
+		$from = $this->schema(
+			$columns,
+			array(
+				array(
+					'name'    => 'MyIdx',
+					'columns' => array( 'slug' ),
+				),
+			)
+		);
+		$to   = $this->schema(
+			$columns,
+			array(
+				array(
+					'name'    => 'myidx',
+					'columns' => array( 'slug' ),
+				),
+			)
+		);
+
+		$this->assertTrue( $from->diff( $to )->is_empty() );
+	}
+
+	/**
+	 * A single patch can carry additions, drops, and modifications together.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_combined_patch_has_adds_drops_and_modifications() {
+		$from = $this->schema(
+			array(
+				array(
+					'name'   => 'keep',
+					'type'   => 'varchar',
+					'length' => '50',
+				),
+				array(
+					'name' => 'gone',
+					'type' => 'bigint',
+				),
+			)
+		);
+		$to   = $this->schema(
+			array(
+				array(
+					'name'   => 'keep',
+					'type'   => 'varchar',
+					'length' => '100',
+				),
+				array(
+					'name' => 'fresh',
+					'type' => 'bigint',
+				),
+			)
+		);
+
+		$patch = $from->diff( $to );
+
+		$this->assertSame( array( 'fresh' ), $this->names( $patch->added_columns() ) );
+		$this->assertSame( array( 'gone' ), $this->names( $patch->dropped_columns() ) );
+		$this->assertCount( 1, $patch->modified_columns() );
+		$this->assertSame( 'keep', $patch->modified_columns()[0]->name() );
+	}
 }

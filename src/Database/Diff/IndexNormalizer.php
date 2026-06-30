@@ -29,8 +29,9 @@ use BerlinDB\Database\Kern\Index;
  *  - the ordered column list, each with its prefix length and DESC direction
  *    (column order and prefix lengths are semantic)
  *
- * The storage method (BTREE/HASH via USING) is intentionally not compared - it
- * rarely changes and is not always reported consistently.
+ * Deliberately NOT compared (a change confined to one of these is not yet a
+ * modification): the storage method (BTREE/HASH via USING - rarely changes, not
+ * always reported consistently), and the index comment.
  *
  * @since 3.1.0
  */
