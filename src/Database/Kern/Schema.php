@@ -18,6 +18,7 @@ defined( 'ABSPATH' ) || exit;
 
 use BerlinDB\Database\Diff\Comparator;
 use BerlinDB\Database\Diff\Patch;
+use BerlinDB\Database\Diff\Snapshot;
 
 /**
  * A base database table schema class, which houses the Column and Index
@@ -116,42 +117,56 @@ class Schema {
 	/**
 	 * Build a Schema by introspecting an existing database table.
 	 *
-	 * Queries SHOW COLUMNS FROM and SHOW INDEX FROM the given table and maps the
-	 * rows to Column / Index objects (Column::from_mysql() / Index::from_mysql()).
-	 * Returns an empty Schema if the table does not exist or has no columns.
+	 * Convenience wrapper over snapshot(): returns just the introspected Schema and
+	 * discards the completeness signal. Reach for snapshot() instead when you need to
+	 * know whether the introspection was trustworthy (e.g. before reconciling or
+	 * upgrading a table). Returns an empty Schema if the table was not found.
 	 *
 	 * The returned Schema can be passed directly to a Query or Table via their
 	 * constructor: new Query( array( 'table_schema' => $schema ) ).
 	 *
-	 * Caveats - the introspected Schema may be INCOMPLETE, and there is currently no
-	 * signal that distinguishes a complete result from a partial one. Consumers
-	 * (e.g. a schema diff/migration) must therefore treat a "missing" index as
-	 * "do not touch", never as "drop it":
-	 *  - Indexes that Index::from_mysql() cannot faithfully represent (SPATIAL,
-	 *    functional, invisible, FULLTEXT WITH PARSER) are silently skipped (#216).
-	 *  - A transient SHOW INDEX failure yields a columns-only Schema, indistinguishable
-	 *    from a table that genuinely has no indexes.
-	 * Introspection always uses the default ('wpdb') database connection.
-	 *
 	 * @since 3.0.0
-	 * @since 3.1.0 Also introspects indexes (SHOW INDEX FROM).
+	 * @since 3.1.0 Also introspects indexes; now delegates to snapshot().
 	 *
 	 * @param string $table Fully-qualified table name (with prefix).
 	 * @return self
 	 */
 	public static function from_table( string $table = '' ) {
+		return self::snapshot( $table )->schema();
+	}
 
-		// Bail if no table name.
+	/**
+	 * Capture a live table's structure together with how complete that capture is.
+	 *
+	 * Introspects SHOW COLUMNS FROM and SHOW INDEX FROM the table, maps the rows to
+	 * Column / Index objects (Column::from_mysql() / Index::from_mysql()), and wraps
+	 * the result in a Snapshot that records whether the table existed and whether
+	 * every index was introspected faithfully. See Snapshot for the decision rule and
+	 * why a Schema alone cannot carry this.
+	 *
+	 * A missing table or a failed SHOW COLUMNS yields a not-found snapshot
+	 * (exists() === false). A failed SHOW INDEX, or an index the engine could not
+	 * represent (SPATIAL, functional, invisible, FULLTEXT WITH PARSER - #216), yields
+	 * indexes_complete() === false. Always uses the default ('wpdb') connection.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $table Fully-qualified table name (with prefix).
+	 * @return Snapshot
+	 */
+	public static function snapshot( string $table = '' ): Snapshot {
+
+		// No table name: nothing to capture.
 		if ( empty( $table ) ) {
-			return new self();
+			return new Snapshot( new self(), false, false );
 		}
 
 		// Resolve the database interface through the static wrapper.
 		$db = self::get_db_global();
 
 		/*
-		 * Suppress wpdb errors so a nonexistent table silently returns an empty
-		 * Schema rather than printing an HTML error block into the page output.
+		 * Suppress wpdb errors so a nonexistent table is captured as a not-found
+		 * snapshot rather than printing an HTML error block into the page output.
 		 * One suppression window covers both introspection queries.
 		 */
 		$suppress = $db->suppress_errors( true );
@@ -162,25 +177,41 @@ class Schema {
 		// Restore the previous wpdb error-suppression state.
 		$db->suppress_errors( $suppress );
 
-		// Bail if the table does not exist or returned no columns.
+		/*
+		 * No columns means the table was not found or SHOW COLUMNS failed (a real
+		 * table always reports columns). Either way there is nothing to trust.
+		 */
 		if ( empty( $column_rows ) ) {
-			return new self();
+			return new Snapshot( new self(), false, false );
 		}
 
-		// Map each row to a Column object, and each index group to an Index object.
+		// Map columns; build indexes and learn whether the index capture was whole.
 		$columns = array_map( array( Column::class, 'from_mysql' ), $column_rows );
-		$indexes = self::indexes_from_mysql_rows( $index_rows );
+		$built   = self::indexes_from_mysql_rows( is_array( $index_rows ) ? $index_rows : array() );
 
-		return new self(
+		/*
+		 * Indexes are complete only if SHOW INDEX itself succeeded (a null result is
+		 * a failure, distinct from a table that genuinely has none) AND every index
+		 * row group was representable.
+		 */
+		$indexes_complete = is_array( $index_rows ) && $built['complete'];
+
+		$schema = new self(
 			array(
 				'columns' => $columns,
-				'indexes' => $indexes,
+				'indexes' => $built['indexes'],
 			)
 		);
+
+		return new Snapshot( $schema, true, $indexes_complete );
 	}
 
 	/**
-	 * Run a single SHOW introspection query and return its associative rows.
+	 * Run a single SHOW introspection query and return its rows, or null on failure.
+	 *
+	 * Distinguishes a failed query (null) from one that genuinely matched no rows
+	 * (empty array) - "we could not look" versus "there is none". snapshot() needs
+	 * that difference to score completeness.
 	 *
 	 * @since 3.1.0
 	 *
@@ -188,20 +219,22 @@ class Schema {
 	 * @param non-empty-string                         $query A `SHOW ... FROM %i` statement.
 	 * @param string                                   $table Table name for the %i placeholder.
 	 *
-	 * @return array<int,array<string,mixed>> The result rows, or empty on failure.
+	 * @return array<int,array<string,mixed>>|null The rows ([] if none), or null on failure.
 	 */
-	private static function introspect_rows( \BerlinDB\Database\Interfaces\Connection $db, string $query, string $table ): array {
+	private static function introspect_rows( \BerlinDB\Database\Interfaces\Connection $db, string $query, string $table ): ?array {
 
 		// Prepare the query; null means prepare() failed.
 		$prepared = $db->prepare( $query, $table );
 
-		$rows = ! is_null( $prepared )
-			? $db->get_results( $prepared, ARRAY_A )
-			: null;
+		if ( is_null( $prepared ) ) {
+			return null;
+		}
 
-		// Bail to an empty set if nothing usable came back.
-		if ( empty( $rows ) || ! is_array( $rows ) ) {
-			return array();
+		// get_results() returns null on a query error, an array (possibly empty) otherwise.
+		$rows = $db->get_results( $prepared, ARRAY_A );
+
+		if ( ! is_array( $rows ) ) {
+			return null;
 		}
 
 		/** @var array<int,array<string,mixed>> $rows */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
@@ -214,13 +247,14 @@ class Schema {
 	 * MySQL returns one row per column-in-index, so the rows are grouped by Key_name
 	 * (first-seen order preserved) and each group is handed to Index::from_mysql().
 	 * An index that factory cannot faithfully represent (it returns false - e.g. a
-	 * SPATIAL index or a functional key part) is skipped (#216).
+	 * SPATIAL index or a functional key part) is skipped (#216) and flips 'complete'
+	 * to false, so the caller can tell a whole capture from a partial one.
 	 *
 	 * @since 3.1.0
 	 *
 	 * @param array<int,array<string,mixed>> $rows SHOW INDEX rows for the whole table.
 	 *
-	 * @return Index[] The introspected indexes.
+	 * @return array{indexes: list<Index>, complete: bool}
 	 */
 	private static function indexes_from_mysql_rows( array $rows ): array {
 
@@ -235,18 +269,24 @@ class Schema {
 			}
 		}
 
-		// Build an Index per group; drop any the factory cannot represent.
-		$indexes = array();
+		// Build an Index per group; a group the factory cannot represent breaks completeness.
+		$indexes  = array();
+		$complete = true;
 
 		foreach ( $groups as $group ) {
 			$index = Index::from_mysql( $group );
 
 			if ( $index instanceof Index ) {
 				$indexes[] = $index;
+			} else {
+				$complete = false;
 			}
 		}
 
-		return $indexes;
+		return array(
+			'indexes'  => $indexes,
+			'complete' => $complete,
+		);
 	}
 
 	/** Configuration *********************************************************/
