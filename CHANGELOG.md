@@ -305,6 +305,11 @@ Notable changes to BerlinDB are documented here.
   result is a reindexed list.
 - `Query::get_columns()` now delegates to the schema object's `get_columns()` rather than
   resolving columns itself.
+- Fixes legacy class aliases (`BerlinDB\Database\Column`, `\Index`, `\Query`, `\Row`,
+  `\Schema`, `\Table`) not resolving under `instanceof`. PHP's `instanceof` does not
+  trigger autoloading, so a type check against a legacy name resolved to false until the
+  name was loaded some other way. The alias is now registered eagerly when its `Kern\*`
+  target class loads (#223).
 - **Breaking:** `Query::get_columns()` no longer reads a legacy `$columns` property
   declared directly on a `Query` (sub)class - the pre-3.0 inline-columns source. Columns
   now come solely from the schema object. A subclass that defined its columns via a

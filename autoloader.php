@@ -13,7 +13,6 @@
  * Register a closure to autoload BerlinDB classes.
  */
 spl_autoload_register(
-
 	/**
 	 * Closure for the autoloader.
 	 *
@@ -60,8 +59,8 @@ spl_autoload_register(
 		}
 
 		// Setup file parts.
-		$strip  = str_replace( $root_namespace, '', $class_name );
-		$name   = str_replace( '\\', DIRECTORY_SEPARATOR, $strip );
+		$strip = str_replace( $root_namespace, '', $class_name );
+		$name  = str_replace( '\\', DIRECTORY_SEPARATOR, $strip );
 
 		// Parse class and namespace to file.
 		$format = '%1$s/src/%2$s.php';
@@ -75,5 +74,20 @@ spl_autoload_register(
 
 		// Require the file.
 		require_once $file;
-	}
+
+		/*
+		 * Eagerly register this Kern class's legacy alias, if it has one. PHP's
+		 * instanceof operator does not trigger autoloading, so an `instanceof
+		 * \BerlinDB\Database\Index` check would resolve to false until the alias
+		 * name was loaded some other way. Creating the alias as soon as the Kern
+		 * class loads keeps legacy type checks (instanceof / is_a) correct.
+		 */
+		$legacy_alias = array_search( $class_name, $legacy_kern_classes, true );
+
+		if ( ( false !== $legacy_alias ) && ! class_exists( $legacy_alias, false ) ) {
+			class_alias( $class_name, $legacy_alias );
+		}
+	},
+	true,
+	true
 );
