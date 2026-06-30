@@ -305,6 +305,11 @@ Notable changes to BerlinDB are documented here.
   result is a reindexed list.
 - `Query::get_columns()` now delegates to the schema object's `get_columns()` rather than
   resolving columns itself.
+- Adds `Index::from_mysql()` - builds an `Index` from the `SHOW INDEX` rows for one index
+  (grouped by `Key_name`, ordered by `Seq_in_index`), mapping `Sub_part` to a prefix
+  length, `Collation` `'D'` to a `DESC` direction, `Non_unique` to the unique flag, and
+  the `Index_type` (`FULLTEXT`/`HASH`). Mirrors `Column::from_mysql()` and is the
+  prerequisite for introspecting indexes into a `Schema` (toward #224).
 - Emits a column's `comment` in its `CREATE TABLE` definition (`COMMENT '...'`, quotes
   escaped) - previously a column comment was accepted and sanitized but silently dropped
   from the DDL, even though an index comment was already emitted.

@@ -125,6 +125,109 @@ class Index {
 	 */
 	public $using = '';
 
+	/** Factories *************************************************************/
+
+	/**
+	 * Build an Index from the SHOW INDEX rows for a single index.
+	 *
+	 * MySQL returns one row per column-in-index, so all rows for one index share a
+	 * Key_name; this maps that group (ordered by Seq_in_index) into one Index, with
+	 * per-column prefix lengths (Sub_part) and DESC directions (Collation 'D'). Only
+	 * metadata MySQL reports is populated. The caller groups SHOW INDEX output by
+	 * Key_name and calls this once per group.
+	 *
+	 * Expected per-row keys: Key_name, Non_unique, Seq_in_index, Column_name,
+	 * Sub_part, Collation, Index_type, Index_comment.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<int,array<string,mixed>> $rows SHOW INDEX rows for one index (same Key_name).
+	 * @return self|false The Index, or false if the rows describe no usable index.
+	 */
+	public static function from_mysql( array $rows ) {
+
+		// Bail if there are no rows.
+		if ( empty( $rows ) ) {
+			return false;
+		}
+
+		// Order the rows by each column's position within the index.
+		usort(
+			$rows,
+			static function ( $a, $b ) {
+				return ( (int) ( $a['Seq_in_index'] ?? 0 ) ) <=> ( (int) ( $b['Seq_in_index'] ?? 0 ) );
+			}
+		);
+
+		// Index-wide metadata is identical on every row; read it from the first.
+		$first      = $rows[0];
+		$key_name   = (string) ( $first['Key_name'] ?? '' );
+		$non_unique = (int) ( $first['Non_unique'] ?? 1 );
+		$index_type = strtoupper( (string) ( $first['Index_type'] ?? '' ) );
+		$comment    = (string) ( $first['Index_comment'] ?? '' );
+
+		// Build the canonical column entries: name, optional (length), optional DESC.
+		$columns = array();
+
+		foreach ( $rows as $row ) {
+			$column_name = (string) ( $row['Column_name'] ?? '' );
+
+			if ( '' === $column_name ) {
+				continue;
+			}
+
+			$entry = $column_name;
+
+			// Sub_part is the prefix length (null when the column is indexed in full).
+			$sub_part = $row['Sub_part'] ?? null;
+			if ( ! is_null( $sub_part ) && ( (int) $sub_part > 0 ) ) {
+				$entry .= '(' . (int) $sub_part . ')';
+			}
+
+			// Collation 'D' is a descending column ('A' ascending, null for HASH/FULLTEXT).
+			if ( 'D' === strtoupper( (string) ( $row['Collation'] ?? '' ) ) ) {
+				$entry .= ' DESC';
+			}
+
+			$columns[] = $entry;
+		}
+
+		// Bail if the rows described no columns.
+		if ( empty( $columns ) ) {
+			return false;
+		}
+
+		// The primary key is identified by its reserved name; it carries no own name.
+		$is_primary = ( 'PRIMARY' === strtoupper( $key_name ) );
+
+		// Map the MySQL index type to a BerlinDB index type.
+		if ( $is_primary ) {
+			$type = 'primary';
+		} elseif ( 'FULLTEXT' === $index_type ) {
+			$type = 'fulltext';
+		} else {
+			$type = 'key';
+		}
+
+		$args = array(
+			'type'    => $type,
+			'columns' => $columns,
+			'unique'  => ( ! $is_primary ) && ( 0 === $non_unique ),
+			'using'   => ( 'HASH' === $index_type ) ? 'HASH' : '',
+			'comment' => $comment,
+		);
+
+		/*
+		 * The primary key carries no own name (it is identified by type); every
+		 * other index keeps its name. An empty name would sanitize to false.
+		 */
+		if ( ! $is_primary ) {
+			$args['name'] = $key_name;
+		}
+
+		return new self( $args );
+	}
+
 	/**
 	 * Split the canonical column entries into the column-name list, the per-column
 	 * prefix lengths, and the per-column sort directions.

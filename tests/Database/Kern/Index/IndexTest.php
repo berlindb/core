@@ -703,4 +703,199 @@ class IndexTest extends TestCase {
 		$this->assertSame( array( 'priority' => 'DESC' ), $index->directions );
 		$this->assertStringContainsString( '(`priority` DESC)', $index->get_create_string() );
 	}
+
+	/**
+	 * Build one SHOW INDEX row, overriding any fields.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string,mixed> $overrides Field overrides.
+	 * @return array<string,mixed>
+	 */
+	private function show_index_row( array $overrides = array() ): array {
+		return array_merge(
+			array(
+				'Table'         => 'wp_things',
+				'Non_unique'    => 1,
+				'Key_name'      => 'idx',
+				'Seq_in_index'  => 1,
+				'Column_name'   => 'col',
+				'Collation'     => 'A',
+				'Sub_part'      => null,
+				'Index_type'    => 'BTREE',
+				'Index_comment' => '',
+			),
+			$overrides
+		);
+	}
+
+	/**
+	 * Test that from_mysql() returns false for empty input.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_from_mysql_empty_rows_returns_false() {
+		$this->assertFalse( Index::from_mysql( array() ) );
+	}
+
+	/**
+	 * Test that a PRIMARY group becomes a primary index with no own name.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_from_mysql_builds_primary_key() {
+		$index = Index::from_mysql(
+			array(
+				$this->show_index_row(
+					array(
+						'Key_name'    => 'PRIMARY',
+						'Non_unique'  => 0,
+						'Column_name' => 'id',
+					)
+				),
+			)
+		);
+
+		$this->assertInstanceOf( Index::class, $index );
+		$this->assertSame( 'primary', $index->type );
+		$this->assertEmpty( $index->name );
+		$this->assertSame( 'PRIMARY', $index->get_index_name() );
+		$this->assertStringContainsString( 'PRIMARY KEY (`id`)', $index->get_create_string() );
+	}
+
+	/**
+	 * Test that Non_unique = 0 (non-primary) becomes a UNIQUE KEY.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_from_mysql_builds_unique_key() {
+		$index = Index::from_mysql(
+			array(
+				$this->show_index_row(
+					array(
+						'Key_name'    => 'email',
+						'Non_unique'  => 0,
+						'Column_name' => 'email',
+					)
+				),
+			)
+		);
+
+		$this->assertInstanceOf( Index::class, $index );
+		$this->assertTrue( $index->unique );
+		$this->assertStringContainsString( 'UNIQUE KEY `email` (`email`)', $index->get_create_string() );
+	}
+
+	/**
+	 * Test that Sub_part and a descending collation become a prefix length and DESC.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_from_mysql_prefix_length_and_desc() {
+		$index = Index::from_mysql(
+			array(
+				$this->show_index_row(
+					array(
+						'Key_name'     => 'idx',
+						'Seq_in_index' => 1,
+						'Column_name'  => 'title',
+						'Sub_part'     => 191,
+					)
+				),
+				$this->show_index_row(
+					array(
+						'Key_name'     => 'idx',
+						'Seq_in_index' => 2,
+						'Column_name'  => 'priority',
+						'Collation'    => 'D',
+					)
+				),
+			)
+		);
+
+		$this->assertInstanceOf( Index::class, $index );
+		$this->assertSame( array( 'title', 'priority' ), $index->columns );
+		$this->assertSame( array( 'title' => 191 ), $index->lengths );
+		$this->assertSame( array( 'priority' => 'DESC' ), $index->directions );
+
+		$sql = $index->get_create_string();
+		$this->assertStringContainsString( '`title`(191)', $sql );
+		$this->assertStringContainsString( '`priority` DESC', $sql );
+	}
+
+	/**
+	 * Test that columns are ordered by Seq_in_index regardless of input order.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_from_mysql_orders_columns_by_seq_in_index() {
+		$index = Index::from_mysql(
+			array(
+				$this->show_index_row(
+					array(
+						'Key_name'     => 'multi',
+						'Seq_in_index' => 2,
+						'Column_name'  => 'b',
+					)
+				),
+				$this->show_index_row(
+					array(
+						'Key_name'     => 'multi',
+						'Seq_in_index' => 1,
+						'Column_name'  => 'a',
+					)
+				),
+			)
+		);
+
+		$this->assertInstanceOf( Index::class, $index );
+		$this->assertSame( array( 'a', 'b' ), $index->columns );
+	}
+
+	/**
+	 * Test that a FULLTEXT index type becomes a FULLTEXT KEY.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_from_mysql_builds_fulltext_key() {
+		$index = Index::from_mysql(
+			array(
+				$this->show_index_row(
+					array(
+						'Key_name'    => 'ft',
+						'Column_name' => 'body',
+						'Index_type'  => 'FULLTEXT',
+						'Collation'   => null,
+					)
+				),
+			)
+		);
+
+		$this->assertInstanceOf( Index::class, $index );
+		$this->assertSame( 'fulltext', $index->type );
+		$this->assertStringContainsString( 'FULLTEXT KEY `ft` (`body`)', $index->get_create_string() );
+		$this->assertStringNotContainsString( 'USING', $index->get_create_string() );
+	}
+
+	/**
+	 * Test that an Index_comment is carried into the create string.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_from_mysql_carries_index_comment() {
+		$index = Index::from_mysql(
+			array(
+				$this->show_index_row(
+					array(
+						'Key_name'      => 'idx',
+						'Column_name'   => 'col',
+						'Index_comment' => 'lookup index',
+					)
+				),
+			)
+		);
+
+		$this->assertInstanceOf( Index::class, $index );
+		$this->assertStringContainsString( "COMMENT 'lookup index'", $index->get_create_string() );
+	}
 }
