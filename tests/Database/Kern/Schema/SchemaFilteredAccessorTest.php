@@ -234,4 +234,48 @@ class SchemaFilteredAccessorTest extends TestCase {
 
 		$this->assertSame( array(), $items );
 	}
+
+	/**
+	 * A $field with no filter plucks that property from every column.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_get_columns_field_plucks_property_from_all() {
+		$names = $this->schema()->get_columns( array(), 'and', 'name' );
+
+		$this->assertSame( array( 'id', 'email', 'slug', 'token' ), $names );
+	}
+
+	/**
+	 * A $field combines with filter args: pluck from the matches only.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_get_columns_field_plucks_from_filtered_matches() {
+		$names = $this->schema()->get_columns( array( 'type' => 'varchar' ), 'and', 'name' );
+
+		$this->assertSame( array( 'email', 'slug', 'token' ), $names );
+	}
+
+	/**
+	 * get_indexes() plucks a field the same way.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_get_indexes_field_plucks_property() {
+		$names = $this->schema()->get_indexes( array( 'type' => 'unique' ), 'and', 'name' );
+
+		$this->assertSame( array( 'email' ), $names );
+	}
+
+	/**
+	 * get_items() plucks a field for the resolved collection.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_get_items_field_plucks_property() {
+		$names = $this->schema()->get_items( 'columns', array( 'primary' => true ), 'and', 'name' );
+
+		$this->assertSame( array( 'id' ), $names );
+	}
 }

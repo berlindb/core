@@ -297,10 +297,12 @@ Notable changes to BerlinDB are documented here.
   it). It is a `KEY`, not `UNIQUE`: a cache_key's identity is an application invariant,
   not a database constraint.
 - `Schema::get_items()`, `Schema::get_columns()`, and `Schema::get_indexes()` accept
-  optional `wp_filter_object_list()` match args plus an `'and'`/`'or'`/`'not'` operator,
-  e.g. `get_columns( array( 'primary' => true ) )`. The `type` arg is matched
+  optional `wp_filter_object_list()` match args, an `'and'`/`'or'`/`'not'` operator, and
+  a `$field` to pluck from each match (mirroring `Query::get_columns()`), e.g.
+  `get_columns( array( 'primary' => true ), 'and', 'name' )`. The `type` arg is matched
   case-insensitively (Column types are stored uppercase, Index types lowercase). With no
-  args the whole collection is returned as before; a filtered result is a reindexed list.
+  args and no field the whole collection is returned as before; a filtered or plucked
+  result is a reindexed list.
 
 ## 3.0.0 - 2026-06-01
 

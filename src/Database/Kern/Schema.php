@@ -681,10 +681,11 @@ class Schema {
 	 *
 	 * With no $args, returns the whole collection. With $args, returns the items whose
 	 * properties match (via WordPress's wp_filter_object_list()) - e.g.
-	 * get_items( 'columns', array( 'primary' => true ) ). Mirrors Query::get_columns().
+	 * get_items( 'columns', array( 'primary' => true ) ). A $field plucks that property
+	 * from each match instead of returning the objects. Mirrors Query::get_columns().
 	 *
 	 * @since 3.0.0
-	 * @since 3.1.0 Added $args / $operator filtering.
+	 * @since 3.1.0 Added $args / $operator filtering and the $field pluck.
 	 *
 	 * @param string              $type     Item collection type. Accepts 'columns' or
 	 *                                      'indexes' (and their singular aliases).
@@ -692,10 +693,15 @@ class Schema {
 	 *                                      Default empty (the full collection).
 	 * @param string              $operator Optional. Match logic: 'and' (default), 'or',
 	 *                                      or 'not'.
+	 * @param bool|string         $field    Optional. A property to return from each
+	 *                                      matched item instead of the item object.
+	 *                                      Default false (return the objects).
 	 *
-	 * @return Column[]|Index[]
+	 * @return Column[]|Index[]|list<mixed>
+	 *
+	 * @phpstan-return ($field is false ? Column[]|Index[] : list<mixed>)
 	 */
-	public function get_items( $type = 'columns', $args = array(), $operator = 'and' ) {
+	public function get_items( $type = 'columns', $args = array(), $operator = 'and', $field = false ) {
 		$type = $this->validate_item_type( $type );
 
 		// Resolve the collection.
@@ -707,8 +713,8 @@ class Schema {
 			return array();
 		}
 
-		// The whole collection when there is nothing to filter.
-		if ( empty( $args ) ) {
+		// The whole collection when there is nothing to filter or pluck.
+		if ( empty( $args ) && ( false === $field ) ) {
 			return $items;
 		}
 
@@ -722,10 +728,9 @@ class Schema {
 				: strtolower( $args['type'] );
 		}
 
-		// Filter to the matching item objects.
-		$filtered = wp_filter_object_list( $items, $args, $operator );
+		// Filter to the matching items, plucking $field from each when set.
+		$filtered = wp_filter_object_list( $items, $args, $operator, $field );
 
-		/** @var Column[]|Index[] $filtered */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
 		return array_values( $filtered );
 	}
 
@@ -1059,19 +1064,24 @@ class Schema {
 	 * Get all columns in this schema, optionally filtered.
 	 *
 	 * @since 3.0.0
-	 * @since 3.1.0 Added $args / $operator filtering.
+	 * @since 3.1.0 Added $args / $operator filtering and the $field pluck.
 	 *
 	 * @param array<string,mixed> $args     Optional. Property => value match args.
 	 *                                      Default empty (all columns).
 	 * @param string              $operator Optional. Match logic: 'and' (default), 'or',
 	 *                                      or 'not'.
+	 * @param bool|string         $field    Optional. A property to return from each
+	 *                                      matched column instead of the Column object.
+	 *                                      Default false (return the objects).
 	 *
-	 * @return Column[]
+	 * @return Column[]|list<mixed>
+	 *
+	 * @phpstan-return ($field is false ? Column[] : list<mixed>)
 	 */
-	public function get_columns( $args = array(), $operator = 'and' ) {
-		$items = $this->get_items( 'columns', $args, $operator );
+	public function get_columns( $args = array(), $operator = 'and', $field = false ) {
+		/** @var Column[]|list<mixed> $items */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
+		$items = $this->get_items( 'columns', $args, $operator, $field );
 
-		/** @var Column[] $items */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
 		return $items;
 	}
 
@@ -1210,19 +1220,24 @@ class Schema {
 	 * Get all indexes in this schema, optionally filtered.
 	 *
 	 * @since 3.0.0
-	 * @since 3.1.0 Added $args / $operator filtering.
+	 * @since 3.1.0 Added $args / $operator filtering and the $field pluck.
 	 *
 	 * @param array<string,mixed> $args     Optional. Property => value match args.
 	 *                                      Default empty (all indexes).
 	 * @param string              $operator Optional. Match logic: 'and' (default), 'or',
 	 *                                      or 'not'.
+	 * @param bool|string         $field    Optional. A property to return from each
+	 *                                      matched index instead of the Index object.
+	 *                                      Default false (return the objects).
 	 *
-	 * @return Index[]
+	 * @return Index[]|list<mixed>
+	 *
+	 * @phpstan-return ($field is false ? Index[] : list<mixed>)
 	 */
-	public function get_indexes( $args = array(), $operator = 'and' ) {
-		$items = $this->get_items( 'indexes', $args, $operator );
+	public function get_indexes( $args = array(), $operator = 'and', $field = false ) {
+		/** @var Index[]|list<mixed> $items */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
+		$items = $this->get_items( 'indexes', $args, $operator, $field );
 
-		/** @var Index[] $items */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
 		return $items;
 	}
 
