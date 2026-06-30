@@ -305,6 +305,10 @@ Notable changes to BerlinDB are documented here.
   result is a reindexed list.
 - `Query::get_columns()` now delegates to the schema object's `get_columns()` rather than
   resolving columns itself.
+- Adds `Schema::get_primary_column_name()` (the `primary`-flagged column's name, or the
+  `id` fallback). `Query::get_primary_column_name()` delegates to it when the schema
+  exposes it - centralizing the primary-column concept on the schema that derives the
+  PRIMARY KEY - and falls back to the flagged column for a `get_columns()`-only schema.
 - Fixes legacy class aliases (`BerlinDB\Database\Column`, `\Index`, `\Query`, `\Row`,
   `\Schema`, `\Table`) not resolving under `instanceof`. PHP's `instanceof` does not
   trigger autoloading, so a type check against a legacy name resolved to false until the

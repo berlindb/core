@@ -692,7 +692,12 @@ class Query {
 			return false;
 		}
 
-		// Return if column exists.
+		/*
+		 * Exact match on purpose: this gates a column name that flows into SQL
+		 * downstream as given. Schema::has_column() normalizes its input (e.g.
+		 * "id-- " sanitizes to "id"), which would validate a string that is then
+		 * interpolated verbatim - so validation must match the raw name exactly.
+		 */
 		return ( $this->get_column_by( array( 'name' => $column_name ) ) instanceof Column );
 	}
 
@@ -719,6 +724,17 @@ class Query {
 	 * @return string Default "id", Primary column name if not empty
 	 */
 	public function get_primary_column_name() {
+
+		// Prefer the schema's own answer when it exposes one.
+		if ( is_callable( array( $this->schema_object, 'get_primary_column_name' ) ) ) {
+
+			/** @var string $name */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
+			$name = $this->schema_object->get_primary_column_name();
+
+			return $name;
+		}
+
+		// Fall back to the primary-flagged column for a get_columns()-only schema.
 		return $this->get_column_field( array( 'primary' => true ), 'name', 'id' );
 	}
 

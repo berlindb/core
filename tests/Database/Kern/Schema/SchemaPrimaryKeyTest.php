@@ -187,4 +187,75 @@ class SchemaPrimaryKeyTest extends TestCase {
 
 		$this->assertSame( array(), $schema->get_validation_errors() );
 	}
+
+	/**
+	 * get_primary_column_name() returns the flagged column's name.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_get_primary_column_name_returns_flagged_column() {
+		$schema = $this->schema(
+			array(
+				array(
+					'name'    => 'event_id',
+					'type'    => 'bigint',
+					'primary' => true,
+				),
+				array(
+					'name' => 'title',
+					'type' => 'varchar',
+				),
+			)
+		);
+
+		$this->assertSame( 'event_id', $schema->get_primary_column_name() );
+	}
+
+	/**
+	 * get_primary_column_name() falls back to 'id' when no column is flagged.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_get_primary_column_name_defaults_to_id() {
+		$schema = $this->schema(
+			array(
+				array(
+					'name' => 'title',
+					'type' => 'varchar',
+				),
+			)
+		);
+
+		$this->assertSame( 'id', $schema->get_primary_column_name() );
+	}
+
+	/**
+	 * get_primary_column_name() returns the first flagged column for a composite key.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_get_primary_column_name_returns_first_of_composite() {
+		$schema = $this->schema(
+			array(
+				array(
+					'name'    => 'a',
+					'type'    => 'bigint',
+					'primary' => true,
+				),
+				array(
+					'name'    => 'b',
+					'type'    => 'bigint',
+					'primary' => true,
+				),
+			),
+			array(
+				array(
+					'type'    => 'primary',
+					'columns' => array( 'a', 'b' ),
+				),
+			)
+		);
+
+		$this->assertSame( 'a', $schema->get_primary_column_name() );
+	}
 }

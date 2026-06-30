@@ -1116,6 +1116,25 @@ class Schema {
 	}
 
 	/**
+	 * Get the name of the primary column.
+	 *
+	 * The primary column is the one flagged `primary => true` (the same flag the
+	 * PRIMARY KEY is derived from). Returns the first such column's name, or the
+	 * conventional 'id' fallback when none is flagged.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return string The primary column name, or 'id' if none is flagged.
+	 */
+	public function get_primary_column_name(): string {
+		$primary = $this->get_columns( array( 'primary' => true ) );
+
+		return ! empty( $primary )
+			? (string) $primary[0]->name
+			: 'id';
+	}
+
+	/**
 	 * Replace all columns in this schema.
 	 *
 	 * @since 3.0.0
