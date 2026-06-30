@@ -184,6 +184,21 @@ class Index {
 			return false;
 		}
 
+		/*
+		 * Reject metadata this class cannot represent, since recreating the index
+		 * without it would silently change behavior:
+		 *  - an invisible index (MySQL Visible = NO / MariaDB Ignored = YES) would
+		 *    become optimizer-visible, changing query planning;
+		 *  - a FULLTEXT index with a custom WITH PARSER would fall back to the
+		 *    default parser, changing tokenization.
+		 */
+		$is_visible = ( 'NO' !== strtoupper( (string) ( $first['Visible'] ?? 'YES' ) ) )
+			&& ( 'YES' !== strtoupper( (string) ( $first['Ignored'] ?? 'NO' ) ) );
+
+		if ( ! $is_visible || ( '' !== (string) ( $first['Parser'] ?? '' ) ) ) {
+			return false;
+		}
+
 		// Build the canonical column entries: name, optional (length), optional DESC.
 		$columns = array();
 

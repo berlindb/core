@@ -11,6 +11,7 @@
 namespace BerlinDB\Tests;
 
 use BerlinDB\Database\Kern\Column;
+use BerlinDB\Database\Kern\Index;
 use BerlinDB\Database\Kern\Schema;
 use Yoast\WPTestUtils\WPIntegration\TestCase;
 
@@ -389,6 +390,105 @@ class SchemaFromTableTest extends TestCase {
 		$schema = Schema::from_table( $wpdb->users );
 
 		$this->assertSame( 'ID', $schema->columns[0]->name );
+	}
+
+	/*
+	 * Index introspection - wp_posts has a primary, single-column, composite, and
+	 * prefix-length index, all stable across WordPress versions.
+	 */
+
+	/**
+	 * wp_posts introspects to a non-empty set of indexes.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_wp_posts_introspects_indexes() {
+		global $wpdb;
+		$schema = Schema::from_table( $wpdb->posts );
+
+		$this->assertNotEmpty( $schema->get_indexes() );
+	}
+
+	/**
+	 * wp_posts introspects a primary key index addressable as 'primary'.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_wp_posts_introspects_primary_index() {
+		global $wpdb;
+		$schema  = Schema::from_table( $wpdb->posts );
+		$primary = $schema->get_index( 'primary' );
+
+		$this->assertInstanceOf( Index::class, $primary );
+		$this->assertSame( 'primary', $primary->type );
+	}
+
+	/**
+	 * wp_posts introspects its ordinary single-column key (post_parent).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_wp_posts_introspects_named_key() {
+		global $wpdb;
+		$schema = Schema::from_table( $wpdb->posts );
+
+		$this->assertTrue( $schema->has_index( 'post_parent' ) );
+	}
+
+	/**
+	 * wp_posts' type_status_date key introspects as a multi-column index, in order.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_wp_posts_composite_index_has_multiple_columns() {
+		global $wpdb;
+		$schema = Schema::from_table( $wpdb->posts );
+		$index  = $schema->get_index( 'type_status_date' );
+
+		$this->assertInstanceOf( Index::class, $index );
+		$this->assertGreaterThan( 1, count( $index->columns ) );
+		$this->assertSame( 'post_type', $index->columns[0] );
+	}
+
+	/**
+	 * wp_posts' post_name key captures its prefix length (Sub_part).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_wp_posts_prefix_length_key_captures_length() {
+		global $wpdb;
+		$schema = Schema::from_table( $wpdb->posts );
+		$index  = $schema->get_index( 'post_name' );
+
+		$this->assertInstanceOf( Index::class, $index );
+		$this->assertArrayHasKey( 'post_name', $index->lengths );
+		$this->assertGreaterThan( 0, $index->lengths['post_name'] );
+	}
+
+	/**
+	 * An introspected wp_posts schema round-trips to a CREATE TABLE body.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_wp_posts_roundtrips_to_create_table_string() {
+		global $wpdb;
+		$sql = Schema::from_table( $wpdb->posts )->get_create_table_string();
+
+		$this->assertNotEmpty( $sql );
+		$this->assertStringContainsString( 'PRIMARY KEY', $sql );
+		$this->assertStringContainsString( '`post_parent`', $sql );
+	}
+
+	/**
+	 * A nonexistent table yields zero indexes.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_nonexistent_table_yields_no_indexes() {
+		global $wpdb;
+		$schema = Schema::from_table( $wpdb->prefix . 'does_not_exist_berlin_test' );
+
+		$this->assertEmpty( $schema->get_indexes() );
 	}
 
 	/** Helpers ***************************************************************/

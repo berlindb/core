@@ -305,13 +305,20 @@ Notable changes to BerlinDB are documented here.
   result is a reindexed list.
 - `Query::get_columns()` now delegates to the schema object's `get_columns()` rather than
   resolving columns itself.
+- `Schema::from_table()` now introspects **indexes** as well as columns: it runs
+  `SHOW INDEX FROM`, groups the rows by `Key_name`, and builds an `Index` per group via
+  `Index::from_mysql()`, so a live table round-trips losslessly into a `Schema` (#224
+  phase 1). Indexes the factory cannot represent (SPATIAL, functional key parts) are
+  skipped (#216).
 - Adds `Index::from_mysql()` - builds an `Index` from the `SHOW INDEX` rows for one index
   (grouped by `Key_name`, ordered by `Seq_in_index`), mapping `Sub_part` to a prefix
   length, `Collation` `'D'` to a `DESC` direction, `Non_unique` to the unique flag, and
   the `Index_type` (`FULLTEXT`/`HASH`). Returns `false` for forms it cannot faithfully
-  represent (functional/expression key parts, `SPATIAL`/`RTREE` types) rather than
-  emitting wrong DDL. Mirrors `Column::from_mysql()` and is the prerequisite for
-  introspecting indexes into a `Schema` (toward #224).
+  represent - functional/expression key parts, `SPATIAL`/`RTREE` types, invisible indexes
+  (`Visible = NO` / MariaDB `Ignored = YES`), and FULLTEXT indexes with a custom
+  `WITH PARSER` - rather than emitting DDL with changed semantics. Mirrors
+  `Column::from_mysql()` and is the prerequisite for introspecting indexes into a
+  `Schema` (toward #224).
 - Emits a column's `comment` in its `CREATE TABLE` definition (`COMMENT '...'`, quotes
   escaped) - previously a column comment was accepted and sanitized but silently dropped
   from the DDL, even though an index comment was already emitted.

@@ -997,4 +997,68 @@ class IndexTest extends TestCase {
 		$this->assertInstanceOf( Index::class, $index );
 		$this->assertStringContainsString( 'USING HASH', $index->get_create_string() );
 	}
+
+	/**
+	 * Test that an invisible index (MySQL 8 Visible = NO) is rejected.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_from_mysql_invisible_index_returns_false() {
+		$result = Index::from_mysql(
+			array(
+				$this->show_index_row(
+					array(
+						'Key_name'    => 'idx',
+						'Column_name' => 'col',
+						'Visible'     => 'NO',
+					)
+				),
+			)
+		);
+
+		$this->assertFalse( $result );
+	}
+
+	/**
+	 * Test that a MariaDB ignored index (Ignored = YES) is rejected.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_from_mysql_mariadb_ignored_index_returns_false() {
+		$result = Index::from_mysql(
+			array(
+				$this->show_index_row(
+					array(
+						'Key_name'    => 'idx',
+						'Column_name' => 'col',
+						'Ignored'     => 'YES',
+					)
+				),
+			)
+		);
+
+		$this->assertFalse( $result );
+	}
+
+	/**
+	 * Test that a FULLTEXT index with a custom parser is rejected.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_from_mysql_fulltext_with_parser_returns_false() {
+		$result = Index::from_mysql(
+			array(
+				$this->show_index_row(
+					array(
+						'Key_name'    => 'ft',
+						'Column_name' => 'body',
+						'Index_type'  => 'FULLTEXT',
+						'Parser'      => 'ngram',
+					)
+				),
+			)
+		);
+
+		$this->assertFalse( $result );
+	}
 }

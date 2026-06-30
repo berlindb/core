@@ -92,29 +92,101 @@ class Schema {
 		/*
 		 * Suppress wpdb errors so a nonexistent table silently returns an empty
 		 * Schema rather than printing an HTML error block into the page output.
+		 * One suppression window covers both introspection queries.
 		 */
 		$suppress = $db->suppress_errors( true );
 
-		// Prepare the query.
-		$prepared = $db->prepare( 'SHOW COLUMNS FROM %i', $table );
-
-		// Fetch column metadata; null means prepare() failed.
-		$rows = ! is_null( $prepared )
-			? $db->get_results( $prepared, ARRAY_A )
-			: null;
+		$column_rows = self::introspect_rows( $db, 'SHOW COLUMNS FROM %i', $table );
+		$index_rows  = self::introspect_rows( $db, 'SHOW INDEX FROM %i', $table );
 
 		// Restore the previous wpdb error-suppression state.
 		$db->suppress_errors( $suppress );
 
 		// Bail if the table does not exist or returned no columns.
-		if ( empty( $rows ) || ! is_array( $rows ) ) {
+		if ( empty( $column_rows ) ) {
 			return new self();
 		}
 
-		// Map each row to a Column object.
-		$columns = array_map( array( Column::class, 'from_mysql' ), $rows );
+		// Map each row to a Column object, and each index group to an Index object.
+		$columns = array_map( array( Column::class, 'from_mysql' ), $column_rows );
+		$indexes = self::indexes_from_mysql_rows( $index_rows );
 
-		return new self( array( 'columns' => $columns ) );
+		return new self(
+			array(
+				'columns' => $columns,
+				'indexes' => $indexes,
+			)
+		);
+	}
+
+	/**
+	 * Run a single SHOW introspection query and return its associative rows.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param \BerlinDB\Database\Interfaces\Connection $db    The database connection.
+	 * @param non-empty-string                         $query A `SHOW ... FROM %i` statement.
+	 * @param string                                   $table Table name for the %i placeholder.
+	 *
+	 * @return array<int,array<string,mixed>> The result rows, or empty on failure.
+	 */
+	private static function introspect_rows( \BerlinDB\Database\Interfaces\Connection $db, string $query, string $table ): array {
+
+		// Prepare the query; null means prepare() failed.
+		$prepared = $db->prepare( $query, $table );
+
+		$rows = ! is_null( $prepared )
+			? $db->get_results( $prepared, ARRAY_A )
+			: null;
+
+		// Bail to an empty set if nothing usable came back.
+		if ( empty( $rows ) || ! is_array( $rows ) ) {
+			return array();
+		}
+
+		/** @var array<int,array<string,mixed>> $rows */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
+		return $rows;
+	}
+
+	/**
+	 * Group SHOW INDEX rows by index name and build an Index for each group.
+	 *
+	 * MySQL returns one row per column-in-index, so the rows are grouped by Key_name
+	 * (first-seen order preserved) and each group is handed to Index::from_mysql().
+	 * An index that factory cannot faithfully represent (it returns false - e.g. a
+	 * SPATIAL index or a functional key part) is skipped (#216).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<int,array<string,mixed>> $rows SHOW INDEX rows for the whole table.
+	 *
+	 * @return Index[] The introspected indexes.
+	 */
+	private static function indexes_from_mysql_rows( array $rows ): array {
+
+		// Group rows by index name, preserving first-seen order.
+		$groups = array();
+
+		foreach ( $rows as $row ) {
+			$key_name = (string) ( $row['Key_name'] ?? '' );
+
+			if ( '' !== $key_name ) {
+				$groups[ $key_name ][] = $row;
+			}
+		}
+
+		// Build an Index per group; drop any the factory cannot represent.
+		$indexes = array();
+
+		foreach ( $groups as $group ) {
+			$index = Index::from_mysql( $group );
+
+			if ( $index instanceof Index ) {
+				$indexes[] = $index;
+			}
+		}
+
+		return $indexes;
 	}
 
 	/** Types *****************************************************************/
