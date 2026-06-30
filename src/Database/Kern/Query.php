@@ -2142,7 +2142,7 @@ class Query {
 		 * closed). Reading it from $query_vars (rather than $this) keeps this method
 		 * pure on its input, so Operations can compile a WHERE from arbitrary vars.
 		 */
-		$criteria = in_array( 'criteria', $this->get_column_names(), true )
+		$criteria = $this->is_valid_column( 'criteria' )
 			? array()
 			: ( $query_vars[ 'criteria' ] ?? array() );
 
