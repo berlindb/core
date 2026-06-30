@@ -122,6 +122,26 @@ applies config through the shared pipeline (`validate_args()` sanitizes it), and
 runs query vars. Structural query vars (number/order/booleans) are canonicalized
 in `validate_query_vars()` before the cache key.
 
+## Class layout (loose)
+
+Order members by **section** (the `/** Name ****/` banners), not per-method: drop
+a new method under the right banner, don't interleave. Roughly:
+
+1. Constants, then properties/attributes.
+2. **Construction, near the top**: the Boot lifecycle hooks
+   (`sunrise`/`configure`/`init`/`consume_args`/`sunset`) and their `set_*` /
+   `init_*` helpers, kept together and loosely in execution order; static
+   factories (`from_*`) sit alongside.
+3. Public API / helpers.
+4. Private helpers, sanitizers, validators.
+5. Tail: table helpers, `to_string()`.
+
+A guide, not a gate — there's no machine check; member ordering is too subjective
+to red-test without false positives (unlike the stacked-`//` and test-count
+guards). When unsure, mirror the nearest sibling Kern class. The point:
+construction-time code clusters up top, private machinery sinks down. It steers
+*new* additions — don't reshuffle existing files just to match.
+
 ## Naming: sanitize vs validate
 
 The two prefixes split by **domain** (where they live), not strictly by
