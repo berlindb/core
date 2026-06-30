@@ -63,17 +63,17 @@ class TableDiffTest extends TestCase {
 	}
 
 	/**
-	 * Real drift on the live table is detected: a dropped index reads as "added".
+	 * Real drift is detected and apply() reconciles it: a dropped index is re-added.
 	 *
 	 * Exercises the full live path - SHOW INDEX introspection, normalization, and
-	 * comparison against the declared schema - end to end, not just the pure
-	 * Comparator. The declared 'status' index is missing from the introspected
-	 * table, so the diff reports it as an addition (the change that reconciles the
-	 * live table back to its declared schema).
+	 * comparison against the declared schema - then renders (to_sql) and runs
+	 * (apply) the reconciling ALTER end to end, not just the pure Comparator. The
+	 * declared 'status' index is missing from the introspected table, so the diff
+	 * reports it as an addition and apply() adds it back.
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_diff_detects_a_dropped_live_index() {
+	public function test_apply_reconciles_a_dropped_live_index() {
 		// Introduce real drift: drop a derived lookup index from the live table.
 		self::$table->drop_index( 'status' );
 
@@ -85,13 +85,57 @@ class TableDiffTest extends TestCase {
 			$patch->added_indexes()
 		);
 
-		// Reconcile the live table back to its declared schema (the patch is the recipe).
-		foreach ( $patch->added_indexes() as $index ) {
-			self::$table->add_index( $index );
-		}
+		// The default operations preview the re-add as an ADD statement.
+		$sql = $patch->to_sql();
 
 		$this->assertFalse( $patch->is_empty() );
 		$this->assertContains( 'status', $names );
+		$this->assertNotEmpty( $sql );
+		$this->assertStringContainsString( 'ADD', $sql[0] );
+		$this->assertStringContainsString( 'status', $sql[0] );
+
+		// Apply reconciles the live table back to its declared schema.
+		$this->assertTrue( $patch->apply() );
 		$this->assertFalse( self::$table->diverged() );
+	}
+
+	/**
+	 * apply() defaults to 'add'+'modify' and leaves drops alone; opting in performs them.
+	 *
+	 * An extra index that the declared schema does not have reads as a "drop". The
+	 * default apply must not remove it (a possibly-incomplete introspection must not
+	 * authorize a destructive change); apply(['add','modify','drop']) does.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_apply_gates_drops_behind_the_drop_operation() {
+		// Introduce drift the diff will classify as a drop: an undeclared index.
+		self::$table->add_index(
+			array(
+				'name'    => 'diff_extra_idx',
+				'columns' => array( 'status' ),
+			)
+		);
+
+		// The default apply (add + modify) must not touch the extra index.
+		self::$table->diff()->apply();
+
+		$this->assertTrue( self::$table->index_exists( 'diff_extra_idx' ) );
+		$this->assertTrue( self::$table->diverged() );
+
+		// Opting into drops removes it and reconciles the table.
+		$this->assertTrue( self::$table->diff()->apply( array( 'add', 'modify', 'drop' ) ) );
+		$this->assertFalse( self::$table->index_exists( 'diff_extra_idx' ) );
+		$this->assertFalse( self::$table->diverged() );
+	}
+
+	/**
+	 * A clean table renders no statements (nothing to reconcile).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_to_sql_is_empty_for_a_clean_table() {
+		$this->assertSame( array(), self::$table->diff()->to_sql() );
+		$this->assertSame( array(), self::$table->diff()->to_sql( array( 'add', 'modify', 'drop' ) ) );
 	}
 }

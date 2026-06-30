@@ -698,6 +698,21 @@ class Table {
 	}
 
 	/**
+	 * Return this table's full, prefixed SQL name.
+	 *
+	 * The name is already built with both the WordPress table prefix and the
+	 * BerlinDB plugin prefix during construction, so it is ready to drop straight
+	 * into a statement (as add_index() and friends already do internally).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return string
+	 */
+	public function get_table_name(): string {
+		return $this->table_name;
+	}
+
+	/**
 	 * Compare the live table to its declared schema, returning the Patch.
 	 *
 	 * Introspects the current table structure (Schema::from_table) and diffs it
@@ -715,6 +730,11 @@ class Table {
 	 *  - Each call runs the introspection queries afresh; diverged() calls diff(),
 	 *    so checking both re-introspects. Cache the Patch if you need it twice.
 	 *
+	 * The returned Patch is bound to this table, so its apply() / to_sql() can run
+	 * (or render) the reconciling ALTERs. Apply is additive-and-modify by default;
+	 * drops are opt-in (see Patch::apply()), which keeps an incomplete introspection
+	 * from authorizing a destructive change.
+	 *
 	 * @since 3.1.0
 	 *
 	 * @return Patch
@@ -723,13 +743,13 @@ class Table {
 
 		// Nothing to compare against without a real declared schema.
 		if ( ! ( $this->schema_object instanceof Schema ) ) {
-			return new Patch();
+			return ( new Patch() )->bind_table( $this );
 		}
 
 		// Actual (live) -> desired (declared): the migration direction.
 		$actual = Schema::from_table( $this->table_name );
 
-		return $actual->diff( $this->schema_object );
+		return $actual->diff( $this->schema_object )->bind_table( $this );
 	}
 
 	/**
@@ -804,6 +824,105 @@ class Table {
 		$result = $this->db()->query( $sql );
 
 		// Was the index dropped?
+		return $this->is_success( $result );
+	}
+
+	/**
+	 * Add a column to this database table.
+	 *
+	 * Mirrors add_index(). The create string carries the column name, type, and
+	 * all of its attributes, so it slots straight into ADD COLUMN.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string,mixed>|Column $args Column arguments or a Column object.
+	 *
+	 * @return bool
+	 */
+	public function add_column( $args = array() ) {
+
+		// Create column object from arguments.
+		$column = ( $args instanceof Column )
+			? $args
+			: new Column( $args );
+
+		// Get the column SQL create string.
+		$column_sql = $column->get_create_string();
+
+		// Bail if no valid SQL was generated.
+		if ( empty( $column_sql ) ) {
+			return false;
+		}
+
+		// Query statement.
+		$sql    = "ALTER TABLE {$this->table_name} ADD COLUMN {$column_sql}";
+		$result = $this->db()->query( $sql );
+
+		// Was the column added?
+		return $this->is_success( $result );
+	}
+
+	/**
+	 * Modify an existing column on this database table in place.
+	 *
+	 * Runs ALTER TABLE ... MODIFY COLUMN, which keeps the column name (unlike
+	 * CHANGE COLUMN) and redefines its type and attributes from the create string.
+	 * Narrowing a type can truncate stored data - the caller decides when that is
+	 * acceptable (e.g. the 'modify' operation of a Patch).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string,mixed>|Column $args Column arguments or a Column object.
+	 *
+	 * @return bool
+	 */
+	public function modify_column( $args = array() ) {
+
+		// Create column object from arguments.
+		$column = ( $args instanceof Column )
+			? $args
+			: new Column( $args );
+
+		// Get the column SQL create string.
+		$column_sql = $column->get_create_string();
+
+		// Bail if no valid SQL was generated.
+		if ( empty( $column_sql ) ) {
+			return false;
+		}
+
+		// Query statement.
+		$sql    = "ALTER TABLE {$this->table_name} MODIFY COLUMN {$column_sql}";
+		$result = $this->db()->query( $sql );
+
+		// Was the column modified?
+		return $this->is_success( $result );
+	}
+
+	/**
+	 * Drop a column from this database table.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $name Column name.
+	 *
+	 * @return bool
+	 */
+	public function drop_column( $name = '' ) {
+
+		// Sanitize the column name.
+		$name = $this->sanitize_column_name( $name );
+
+		// Bail if column name is invalid.
+		if ( empty( $name ) ) {
+			return false;
+		}
+
+		// Query statement.
+		$sql    = "ALTER TABLE {$this->table_name} DROP COLUMN `{$name}`";
+		$result = $this->db()->query( $sql );
+
+		// Was the column dropped?
 		return $this->is_success( $result );
 	}
 

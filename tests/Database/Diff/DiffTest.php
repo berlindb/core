@@ -562,11 +562,11 @@ class DiffTest extends TestCase {
 	}
 
 	/**
-	 * apply() and to_sql() are Phase 3 stubs for now.
+	 * An unbound patch (pure Schema::diff) has no table, so it cannot run or render.
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_apply_and_to_sql_are_stubs() {
+	public function test_unbound_patch_does_not_apply_or_render() {
 		$patch = $this->schema( array() )->diff(
 			$this->schema(
 				array(
@@ -578,9 +578,14 @@ class DiffTest extends TestCase {
 			)
 		);
 
+		// The change set is real...
 		$this->assertFalse( $patch->is_empty() );
+		$this->assertNotEmpty( $patch->added_columns() );
+
+		// ...but with no bound table there is nothing to alter.
 		$this->assertFalse( $patch->apply() );
 		$this->assertSame( array(), $patch->to_sql() );
+		$this->assertSame( array(), $patch->to_sql( array( 'add', 'modify', 'drop' ) ) );
 	}
 
 	/**
