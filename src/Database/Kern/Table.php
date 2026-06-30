@@ -743,13 +743,13 @@ class Table {
 
 		// Nothing to compare against without a real declared schema.
 		if ( ! ( $this->schema_object instanceof Schema ) ) {
-			return ( new Patch() )->bind_table( $this );
+			return ( new Patch() )->set_table( $this );
 		}
 
 		// Actual (live) -> desired (declared): the migration direction.
 		$actual = Schema::from_table( $this->table_name );
 
-		return $actual->diff( $this->schema_object )->bind_table( $this );
+		return $actual->diff( $this->schema_object )->set_table( $this );
 	}
 
 	/**

@@ -134,10 +134,10 @@ class Patch {
 	}
 
 	/**
-	 * Bind this patch to the table it reconciles, so apply() / to_sql() can run.
+	 * Set the table this patch reconciles, so apply() / to_sql() can run.
 	 *
-	 * Called by Table::diff(). The change set itself is unchanged - binding only
-	 * gives the patch a target to emit ALTERs against.
+	 * Called by Table::diff(). The change set itself is unchanged - this only gives
+	 * the patch a target to emit ALTERs against.
 	 *
 	 * @since 3.1.0
 	 *
@@ -145,7 +145,7 @@ class Patch {
 	 *
 	 * @return self
 	 */
-	public function bind_table( Table $table ): self {
+	public function set_table( Table $table ): self {
 		$this->table = $table;
 
 		return $this;
