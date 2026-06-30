@@ -303,6 +303,14 @@ Notable changes to BerlinDB are documented here.
   case-insensitively (Column types are stored uppercase, Index types lowercase). With no
   args and no field the whole collection is returned as before; a filtered or plucked
   result is a reindexed list.
+- `Query::get_columns()` now delegates to the schema object's `get_columns()` rather than
+  resolving columns itself.
+- **Breaking:** `Query::get_columns()` no longer reads a legacy `$columns` property
+  declared directly on a `Query` (sub)class - the pre-3.0 inline-columns source. Columns
+  now come solely from the schema object. A subclass that defined its columns via a
+  `$columns` array instead of a `Schema` must move them into its schema. (The property
+  was undeclared on `Query` in 3.0 - already a deprecated dynamic property under PHP 8.2+
+  - and unused throughout the library, so most consumers are unaffected.)
 
 ## 3.0.0 - 2026-06-01
 

@@ -769,16 +769,16 @@ class Query {
 	}
 
 	/**
-	 * Get columns from an array of arguments.
+	 * Get columns from the schema, optionally filtered.
 	 *
-	 * Function arguments are passed into wp_filter_object_list() to filter the
-	 * array of columns as needed.
+	 * Delegates to the schema object's get_columns(): $args and $operator filter the
+	 * columns via wp_filter_object_list() (the schema normalizes a `type` arg to the
+	 * stored uppercase), and $field plucks a property from each match.
 	 *
 	 * @since 1.0.0
 	 * @since 3.0.0
+	 * @since 3.1.0 Delegates to Schema::get_columns(); dropped the legacy inline-$columns source.
 	 *
-	 * @static array              $columns  Local static copy of columns, abstracted to
-	 *                                      support different storage locations.
 	 * @param array<string,mixed> $args     Arguments to filter columns by.
 	 * @param string              $operator Optional. The logical operation to perform.
 	 * @param bool|string         $field    Optional. A field from the object to place
@@ -787,41 +787,15 @@ class Query {
 	 */
 	public function get_columns( $args = array(), $operator = 'and', $field = false ): array {
 
-		// Default columns.
-		$columns = array();
-
-		// Legacy columns.
-		if ( ! empty( $this->columns ) ) {
-			$columns = $this->columns;
+		// Without a schema there are no columns to return.
+		if ( ! is_callable( array( $this->schema_object, 'get_columns' ) ) ) {
+			return array();
 		}
 
-		// Columns from Schema.
-		if ( is_callable( array( $this->schema_object, 'get_columns' ) ) ) {
+		/** @var Column[]|list<mixed> $columns */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
+		$columns = $this->schema_object->get_columns( $args, $operator, $field );
 
-			// Get the columns from the schema object method.
-			$schema_columns = $this->schema_object->get_columns();
-
-			// Use column objects from the schema if not empty.
-			if ( ! empty( $schema_columns ) ) {
-				$columns = $schema_columns;
-			}
-		}
-
-		/*
-		 * Column::$type is stored uppercase; match that convention so callers can
-		 * pass either case (e.g. 'json' or 'JSON') and get consistent results.
-		 */
-		if ( isset( $args[ 'type' ] ) && is_string( $args[ 'type' ] ) ) {
-			$args[ 'type' ] = strtoupper( $args[ 'type' ] );
-		}
-
-		// Filter columns.
-		$filter = wp_filter_object_list( $columns, $args, $operator, $field );
-
-		// Return columns or empty array.
-		return ! empty( $filter )
-			? array_values( $filter )
-			: array();
+		return $columns;
 	}
 
 	/**
