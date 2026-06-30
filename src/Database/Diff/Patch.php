@@ -231,14 +231,15 @@ class Patch {
 	 * Return the inverse patch - the changes that undo this one.
 	 *
 	 * An added column/index becomes dropped (and vice versa), and each modification
-	 * has its from/to sides swapped.
+	 * has its from/to sides swapped. The table binding carries over, so a bound
+	 * patch's inverse is still runnable (Table::diff()->revert()->apply()).
 	 *
 	 * @since 3.1.0
 	 *
 	 * @return self
 	 */
 	public function revert(): self {
-		return new self(
+		$inverse = new self(
 			array(
 				'added_columns'    => $this->dropped_columns,
 				'dropped_columns'  => $this->added_columns,
@@ -258,6 +259,13 @@ class Patch {
 				),
 			)
 		);
+
+		// Carry the table binding so the inverse can still apply() / to_sql().
+		if ( $this->table instanceof Table ) {
+			$inverse->set_table( $this->table );
+		}
+
+		return $inverse;
 	}
 
 	/**

@@ -138,4 +138,32 @@ class TableDiffTest extends TestCase {
 		$this->assertSame( array(), self::$table->diff()->to_sql() );
 		$this->assertSame( array(), self::$table->diff()->to_sql( array( 'add', 'modify', 'drop' ) ) );
 	}
+
+	/**
+	 * revert() carries the table binding, so the inverse patch is still runnable.
+	 *
+	 * The diff of a dropped index reports it as an addition; the inverse reports it
+	 * as a drop. An unbound patch renders nothing, so non-empty SQL from the reverted
+	 * patch proves the binding survived revert().
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_revert_carries_the_table_binding() {
+		// Introduce real drift: drop a derived lookup index from the live table.
+		self::$table->drop_index( 'status' );
+
+		$patch    = self::$table->diff();
+		$reverted = $patch->revert();
+
+		// The inverse of "add status" is "drop status" - and it still has a table.
+		$sql = $reverted->to_sql( array( 'add', 'modify', 'drop' ) );
+
+		// Restore the table by applying the original (re-adds status).
+		$patch->apply();
+
+		$this->assertNotEmpty( $sql );
+		$this->assertStringContainsString( 'DROP INDEX', $sql[0] );
+		$this->assertStringContainsString( 'status', $sql[0] );
+		$this->assertFalse( self::$table->diverged() );
+	}
 }
