@@ -65,6 +65,52 @@ class Schema {
 	 */
 	private const RESERVED_INDEX_NAMES = array( 'primary' );
 
+	/** Types *****************************************************************/
+
+	/**
+	 * Schema Column class.
+	 *
+	 * Override in a subclass to use a custom Column implementation.
+	 *
+	 * @since 3.0.0
+	 * @var   string
+	 */
+	protected $column = __NAMESPACE__ . '\\Column';
+
+	/**
+	 * Schema Index class.
+	 *
+	 * Override in a subclass to use a custom Index implementation.
+	 *
+	 * @since 3.0.0
+	 * @var   string
+	 */
+	protected $index = __NAMESPACE__ . '\\Index';
+
+	/** Item Objects **********************************************************/
+
+	/**
+	 * Array of database Column objects.
+	 *
+	 * May be pre-populated in a subclass as an array of Column argument arrays
+	 * for legacy compatibility. init() will hydrate them into Column objects.
+	 *
+	 * @since 1.0.0
+	 * @var   Column[]
+	 */
+	protected $columns = array();
+
+	/**
+	 * Array of database Index objects.
+	 *
+	 * May be pre-populated in a subclass as an array of Index argument arrays
+	 * for legacy compatibility. init() will hydrate them into Index objects.
+	 *
+	 * @since 3.0.0
+	 * @var   Index[]
+	 */
+	protected $indexes = array();
+
 	/** Factories *************************************************************/
 
 	/**
@@ -202,52 +248,6 @@ class Schema {
 
 		return $indexes;
 	}
-
-	/** Types *****************************************************************/
-
-	/**
-	 * Schema Column class.
-	 *
-	 * Override in a subclass to use a custom Column implementation.
-	 *
-	 * @since 3.0.0
-	 * @var   string
-	 */
-	protected $column = __NAMESPACE__ . '\\Column';
-
-	/**
-	 * Schema Index class.
-	 *
-	 * Override in a subclass to use a custom Index implementation.
-	 *
-	 * @since 3.0.0
-	 * @var   string
-	 */
-	protected $index = __NAMESPACE__ . '\\Index';
-
-	/** Item Objects **********************************************************/
-
-	/**
-	 * Array of database Column objects.
-	 *
-	 * May be pre-populated in a subclass as an array of Column argument arrays
-	 * for legacy compatibility. init() will hydrate them into Column objects.
-	 *
-	 * @since 1.0.0
-	 * @var   Column[]
-	 */
-	protected $columns = array();
-
-	/**
-	 * Array of database Index objects.
-	 *
-	 * May be pre-populated in a subclass as an array of Index argument arrays
-	 * for legacy compatibility. init() will hydrate them into Index objects.
-	 *
-	 * @since 3.0.0
-	 * @var   Index[]
-	 */
-	protected $indexes = array();
 
 	/** Configuration *********************************************************/
 
