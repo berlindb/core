@@ -15,8 +15,8 @@
 
 namespace BerlinDB\Tests;
 
-use BerlinDB\Database\Column;
-use BerlinDB\Database\Index;
+use BerlinDB\Database\Kern\Column;
+use BerlinDB\Database\Kern\Index;
 use BerlinDB\Database\Kern\Schema;
 use PHPUnit\Framework\TestCase;
 
