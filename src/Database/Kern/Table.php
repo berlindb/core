@@ -16,6 +16,8 @@ namespace BerlinDB\Database\Kern;
 // Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
 
+use BerlinDB\Database\Diff\Patch;
+
 /**
  * A base database table class, which facilitates the creation of (and schema
  * changes to) individual database tables.
@@ -693,6 +695,45 @@ class Table {
 		return ( $this->is_success( $result ) && is_array( $result ) )
 			? array_values( $result )
 			: false;
+	}
+
+	/**
+	 * Compare the live table to its declared schema, returning the Patch.
+	 *
+	 * Introspects the current table structure (Schema::from_table) and diffs it
+	 * against this table's declared schema. The returned Patch describes the
+	 * changes needed to bring the live table up to the declared schema - columns
+	 * and indexes to add or drop. Returns an empty Patch when there is no usable
+	 * declared schema to compare against.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return Patch
+	 */
+	public function diff(): Patch {
+
+		// Nothing to compare against without a real declared schema.
+		if ( ! ( $this->schema_object instanceof Schema ) ) {
+			return new Patch();
+		}
+
+		// Actual (live) -> desired (declared): the migration direction.
+		$actual = Schema::from_table( $this->table_name );
+
+		return $actual->diff( $this->schema_object );
+	}
+
+	/**
+	 * Whether the live table differs from its declared schema.
+	 *
+	 * Sugar over diff(): true when the table needs changes to match the schema.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return bool
+	 */
+	public function diverged(): bool {
+		return ! $this->diff()->is_empty();
 	}
 
 	/**

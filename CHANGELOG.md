@@ -305,6 +305,15 @@ Notable changes to BerlinDB are documented here.
   result is a reindexed list.
 - `Query::get_columns()` now delegates to the schema object's `get_columns()` rather than
   resolving columns itself.
+- Adds a schema **diff subsystem** (`BerlinDB\Database\Diff\`, decoupled from `Kern`):
+  a pure, stateless `Comparator` compares two schemas and returns a `Patch` describing
+  the changes that transform one into the other - added/dropped columns and indexes
+  (matched by identity; the primary key by type). `Schema::diff( Schema $other )` is the
+  pure entry point; `Table::diff()` introspects the live table and compares it to the
+  declared schema, and `Table::diverged()` is the boolean drift check. The `Patch` carries
+  the real `Column`/`Index` objects and exposes `is_empty()`, `revert()` (the inverse
+  patch), and stubbed `apply()`/`to_sql()` (phase 3). v1 detects adds/drops only; modified
+  detection lands next (#224 phase 2).
 - `Schema::from_table()` now introspects **indexes** as well as columns: it runs
   `SHOW INDEX FROM`, groups the rows by `Key_name`, and builds an `Index` per group via
   `Index::from_mysql()`, so a live table round-trips losslessly into a `Schema` (#224

@@ -16,6 +16,9 @@ namespace BerlinDB\Database\Kern;
 // Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
 
+use BerlinDB\Database\Diff\Comparator;
+use BerlinDB\Database\Diff\Patch;
+
 /**
  * A base database table schema class, which houses the Column and Index
  * collections that define a database table's structure.
@@ -1508,6 +1511,25 @@ class Schema {
 		$retval = implode( ",\n", array_filter( $strings ) );
 
 		return $retval;
+	}
+
+	/**
+	 * Compare this schema to another, returning the transforming Patch.
+	 *
+	 * A pure, database-free comparison: the returned Patch describes the changes
+	 * that turn THIS schema into $target (a column/index in $target but not here
+	 * is "added"; one here but not in $target is "dropped"). Delegates to the
+	 * Diff\Comparator. To diff a live table against its declared schema, use
+	 * Table::diff() instead.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param Schema $target The schema to compare against.
+	 *
+	 * @return Patch
+	 */
+	public function diff( Schema $target ): Patch {
+		return ( new Comparator() )->compare( $this, $target );
 	}
 
 	/** Validators ************************************************************/
