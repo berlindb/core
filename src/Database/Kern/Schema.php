@@ -735,40 +735,35 @@ class Schema {
 	}
 
 	/**
-	 * Get a schema item by name.
+	 * Get a schema item by its (already-normalized) name.
 	 *
-	 * For the 'indexes' type, the reserved name 'primary' matches the first
-	 * index whose type is 'primary', regardless of its $name property.
+	 * Generic and type-agnostic: it matches $name against each item's stored name
+	 * case-insensitively (the schema treats item identity case-insensitively). Name
+	 * normalization (and any type-specific aliases such as the index 'primary' key)
+	 * belong to the typed accessors - get_column() and get_index() - which
+	 * canonicalize a raw name before calling this.
 	 *
 	 * @since 3.0.0
 	 *
 	 * @param string $type Item collection type. Accepts 'columns' or 'indexes'
 	 *                     (and their singular aliases).
-	 * @param string $name Normalized item name to find. For indexes, also
-	 *                     accepts 'primary' to match the primary key.
+	 * @param string $name Already-normalized item name to find.
 	 *
 	 * @return Column|Index|false The matching item object, or false if not found.
 	 */
 	public function get_item( $type = 'columns', $name = '' ) {
-		$type = $this->validate_item_type( $type );
-		$name = $this->sanitize_index_name( $name );
 
-		if ( empty( $type ) || empty( $name ) ) {
+		// A non-string or empty name matches nothing.
+		if ( ! is_string( $name ) || ( '' === $name ) ) {
 			return false;
 		}
 
+		/*
+		 * Return the first item whose stored name matches, case-insensitively -
+		 * the schema treats item identity case-insensitively (see validation).
+		 */
 		foreach ( $this->get_items( $type ) as $item ) {
-
-			// PRIMARY indexes are addressable by the "primary" name.
-			if ( 'indexes' === $type && 'primary' === $name && $this->is_primary_index( $item ) ) {
-				return $item;
-			}
-
-			$item_name = isset( $item->name )
-				? $this->sanitize_index_name( $item->name )
-				: false;
-
-			if ( ! empty( $item_name ) && $name === $item_name ) {
+			if ( isset( $item->name ) && ( 0 === strcasecmp( $name, (string) $item->name ) ) ) {
 				return $item;
 			}
 		}
@@ -777,13 +772,16 @@ class Schema {
 	}
 
 	/**
-	 * Check whether this schema has a specific item.
+	 * Check whether this schema has an item by its exact (already-normalized) name.
+	 *
+	 * Generic, like get_item(): name normalization and type-specific aliases live in
+	 * the typed accessors (has_column() / has_index()).
 	 *
 	 * @since 3.0.0
 	 *
 	 * @param string $type Item collection type. Accepts 'columns' or 'indexes'
 	 *                     (and their singular aliases).
-	 * @param string $name Item name to check. Accepts 'primary' for indexes.
+	 * @param string $name Already-normalized item name to check.
 	 *
 	 * @return bool True if the item exists, false if not.
 	 */
@@ -808,33 +806,17 @@ class Schema {
 	 */
 	public function remove_item( $type = 'columns', $name = '' ) {
 		$type = $this->validate_item_type( $type );
-		$name = $this->sanitize_index_name( $name );
 
 		// Bail if type or name is not valid.
-		if ( empty( $type ) || empty( $name ) || ! is_array( $this->{$type} ) ) {
+		if ( empty( $type ) || ! is_string( $name ) || ( '' === $name ) || ! is_array( $this->{$type} ) ) {
 			return false;
 		}
 
 		$removed = false;
 
-		// Loop through items and remove any matching the target name.
+		// Remove every item whose stored name matches the target (case-insensitive).
 		foreach ( $this->{$type} as $key => $item ) {
-
-			// Only objects of the correct type can be removed.
-			if ( ! ( $item instanceof Column ) && ! ( $item instanceof Index ) ) {
-				continue;
-			}
-
-			// PRIMARY indexes are removable by the "primary" name.
-			$is_primary = ( 'indexes' === $type ) && $this->is_primary_index( $item );
-
-			// Match by name, or by primary type for indexes.
-			$item_name = isset( $item->name )
-				? $this->sanitize_index_name( $item->name )
-				: false;
-
-			// Remove the item if it's a primary index targeted by the "primary" name, or if its name matches the target name.
-			if ( ( $is_primary && 'primary' === $name ) || ( ! empty( $item_name ) && ( $name === $item_name ) ) ) {
+			if ( isset( $item->name ) && ( 0 === strcasecmp( $name, (string) $item->name ) ) ) {
 				unset( $this->{$type}[ $key ] );
 				$removed = true;
 			}
@@ -846,6 +828,34 @@ class Schema {
 		}
 
 		// Return whether we removed anything.
+		return $removed;
+	}
+
+	/**
+	 * Remove the primary key index, whatever its own name.
+	 *
+	 * The index 'primary' alias is not a stored name, so it cannot go through
+	 * remove_item(); the primary key is identified by type. Removes every
+	 * primary-type index (a valid schema has at most one).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return bool True if a primary index was removed, false if none existed.
+	 */
+	private function remove_primary_index(): bool {
+		$removed = false;
+
+		foreach ( $this->indexes as $key => $index ) {
+			if ( $this->is_primary_index( $index ) ) {
+				unset( $this->indexes[ $key ] );
+				$removed = true;
+			}
+		}
+
+		if ( true === $removed ) {
+			$this->indexes = array_values( $this->indexes );
+		}
+
 		return $removed;
 	}
 
@@ -1090,11 +1100,17 @@ class Schema {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string $name Column name (case-insensitive).
+	 * @param string $name Column name (sanitized, then matched case-insensitively).
 	 *
 	 * @return Column|false The matching Column object, or false if not found.
 	 */
 	public function get_column( $name = '' ) {
+		$name = $this->sanitize_column_name( $name );
+
+		if ( false === $name ) {
+			return false;
+		}
+
 		$retval = $this->get_item( 'columns', $name );
 
 		return ( $retval instanceof Column )
@@ -1107,12 +1123,12 @@ class Schema {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string $name Column name (case-insensitive).
+	 * @param string $name Column name (sanitized to the stored form before lookup).
 	 *
 	 * @return bool True if the column exists, false if not.
 	 */
 	public function has_column( $name = '' ) {
-		return $this->has_item( 'columns', $name );
+		return ( false !== $this->get_column( $name ) );
 	}
 
 	/**
@@ -1155,12 +1171,16 @@ class Schema {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string $name Column name (case-insensitive).
+	 * @param string $name Column name (sanitized to the stored form before removal).
 	 *
 	 * @return bool True if the column was removed, false if not found.
 	 */
 	public function remove_column( $name = '' ) {
-		return $this->remove_item( 'columns', $name );
+		$name = $this->sanitize_column_name( $name );
+
+		return ( false === $name )
+			? false
+			: $this->remove_item( 'columns', $name );
 	}
 
 	/**
@@ -1267,11 +1287,27 @@ class Schema {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string $name Index name (case-insensitive), or 'primary'.
+	 * @param string $name Index name (sanitized to the stored form before lookup),
+	 *                     or 'primary' for the primary key.
 	 *
 	 * @return Index|false The matching Index object, or false if not found.
 	 */
 	public function get_index( $name = '' ) {
+		$name = $this->sanitize_index_name( $name );
+
+		if ( false === $name ) {
+			return false;
+		}
+
+		// The primary key is addressable as 'primary', whatever its own name.
+		if ( 'primary' === $name ) {
+			$primary = $this->get_indexes( array( 'type' => 'primary' ) );
+
+			if ( ! empty( $primary ) ) {
+				return $primary[0];
+			}
+		}
+
 		$retval = $this->get_item( 'indexes', $name );
 
 		return ( $retval instanceof Index )
@@ -1306,12 +1342,12 @@ class Schema {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string $name Index name (case-insensitive), or 'primary'.
+	 * @param string $name Index name (sanitized to the stored form), or 'primary'.
 	 *
 	 * @return bool True if the index exists, false if not.
 	 */
 	public function has_index( $name = '' ) {
-		return $this->has_item( 'indexes', $name );
+		return ( false !== $this->get_index( $name ) );
 	}
 
 	/**
@@ -1337,11 +1373,28 @@ class Schema {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string $name Index name (case-insensitive), or 'primary'.
+	 * @param string $name Index name (sanitized to the stored form), or 'primary'.
 	 *
 	 * @return bool True if the index was removed, false if not found.
 	 */
 	public function remove_index( $name = '' ) {
+		$name = $this->sanitize_index_name( $name );
+
+		if ( false === $name ) {
+			return false;
+		}
+
+		/*
+		 * The primary key is addressable as 'primary', whatever its own name; an
+		 * ordinary index literally named 'primary' is removed too (mirroring how
+		 * get_index() resolves the alias, then falls back to the literal name).
+		 */
+		if ( 'primary' === $name ) {
+			$removed = $this->remove_primary_index();
+
+			return $this->remove_item( 'indexes', $name ) || $removed;
+		}
+
 		return $this->remove_item( 'indexes', $name );
 	}
 
