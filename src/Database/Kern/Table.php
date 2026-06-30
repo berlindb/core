@@ -16,6 +16,7 @@ namespace BerlinDB\Database\Kern;
 // Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
 
+use BerlinDB\Database\Diff\Grammar;
 use BerlinDB\Database\Diff\Patch;
 
 /**
@@ -258,6 +259,14 @@ class Table {
 	 * @var   Schema|null|object
 	 */
 	private $schema_object = null;
+
+	/**
+	 * SQL grammar for schema-change statements, created lazily by grammar().
+	 *
+	 * @since 3.1.0
+	 * @var   Grammar|null
+	 */
+	private $grammar = null;
 
 	/**
 	 * Called after initialization.
@@ -781,20 +790,16 @@ class Table {
 			? $args
 			: new Index( $args );
 
-		// Get index SQL create string.
-		$index_sql = $index->get_create_string();
+		// Build the SQL through the grammar (the single ALTER renderer).
+		$sql = $this->grammar()->add_index( $this->table_name, $index );
 
 		// Bail if no valid SQL was generated.
-		if ( empty( $index_sql ) ) {
+		if ( empty( $sql ) ) {
 			return false;
 		}
 
-		// Query statement.
-		$sql    = "ALTER TABLE {$this->table_name} ADD {$index_sql}";
-		$result = $this->db()->query( $sql );
-
 		// Was the index added?
-		return $this->is_success( $result );
+		return $this->is_success( $this->db()->query( $sql ) );
 	}
 
 	/**
@@ -816,15 +821,11 @@ class Table {
 			return false;
 		}
 
-		// Query statement.
-		$sql = ( 'primary' === strtolower( $name ) )
-			? "ALTER TABLE {$this->table_name} DROP PRIMARY KEY"
-			: "ALTER TABLE {$this->table_name} DROP INDEX `{$name}`";
-
-		$result = $this->db()->query( $sql );
+		// Build the SQL through the grammar (handles DROP PRIMARY KEY).
+		$sql = $this->grammar()->drop_index( $this->table_name, $name );
 
 		// Was the index dropped?
-		return $this->is_success( $result );
+		return $this->is_success( $this->db()->query( $sql ) );
 	}
 
 	/**
@@ -846,20 +847,16 @@ class Table {
 			? $args
 			: new Column( $args );
 
-		// Get the column SQL create string.
-		$column_sql = $column->get_create_string();
+		// Build the SQL through the grammar (the single ALTER renderer).
+		$sql = $this->grammar()->add_column( $this->table_name, $column );
 
 		// Bail if no valid SQL was generated.
-		if ( empty( $column_sql ) ) {
+		if ( empty( $sql ) ) {
 			return false;
 		}
 
-		// Query statement.
-		$sql    = "ALTER TABLE {$this->table_name} ADD COLUMN {$column_sql}";
-		$result = $this->db()->query( $sql );
-
 		// Was the column added?
-		return $this->is_success( $result );
+		return $this->is_success( $this->db()->query( $sql ) );
 	}
 
 	/**
@@ -883,20 +880,16 @@ class Table {
 			? $args
 			: new Column( $args );
 
-		// Get the column SQL create string.
-		$column_sql = $column->get_create_string();
+		// Build the SQL through the grammar (the single ALTER renderer).
+		$sql = $this->grammar()->modify_column( $this->table_name, $column );
 
 		// Bail if no valid SQL was generated.
-		if ( empty( $column_sql ) ) {
+		if ( empty( $sql ) ) {
 			return false;
 		}
 
-		// Query statement.
-		$sql    = "ALTER TABLE {$this->table_name} MODIFY COLUMN {$column_sql}";
-		$result = $this->db()->query( $sql );
-
 		// Was the column modified?
-		return $this->is_success( $result );
+		return $this->is_success( $this->db()->query( $sql ) );
 	}
 
 	/**
@@ -918,12 +911,32 @@ class Table {
 			return false;
 		}
 
-		// Query statement.
-		$sql    = "ALTER TABLE {$this->table_name} DROP COLUMN `{$name}`";
-		$result = $this->db()->query( $sql );
+		// Build the SQL through the grammar (the single ALTER renderer).
+		$sql = $this->grammar()->drop_column( $this->table_name, $name );
 
 		// Was the column dropped?
-		return $this->is_success( $result );
+		return $this->is_success( $this->db()->query( $sql ) );
+	}
+
+	/**
+	 * Return the SQL grammar used to render this table's schema-change statements.
+	 *
+	 * The single place ALTER syntax is built; the DDL verbs above and any Patch
+	 * from diff() render through it, so preview and execution never drift. Speaks
+	 * MySQL / MariaDB today - the seam where a future engine would swap in.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return Grammar
+	 */
+	public function grammar(): Grammar {
+
+		// Lazily create the grammar once.
+		if ( ! ( $this->grammar instanceof Grammar ) ) {
+			$this->grammar = new Grammar();
+		}
+
+		return $this->grammar;
 	}
 
 	/**

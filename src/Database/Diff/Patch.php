@@ -16,6 +16,12 @@ namespace BerlinDB\Database\Diff;
 // Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
 
+use BerlinDB\Database\Diff\Operations\AddColumn;
+use BerlinDB\Database\Diff\Operations\AddIndex;
+use BerlinDB\Database\Diff\Operations\DropColumn;
+use BerlinDB\Database\Diff\Operations\DropIndex;
+use BerlinDB\Database\Diff\Operations\ModifyColumn;
+use BerlinDB\Database\Diff\Operations\Operation;
 use BerlinDB\Database\Kern\Column;
 use BerlinDB\Database\Kern\Index;
 use BerlinDB\Database\Kern\Table;
@@ -271,9 +277,10 @@ class Patch {
 	/**
 	 * Render this patch as the list of ALTER TABLE statements that apply() would run.
 	 *
-	 * A dry-run preview: same ordered plan apply() executes, rendered to SQL instead
-	 * of run. Returns no statements for an unbound patch (no table to target) or one
-	 * whose enabled operations produce no changes.
+	 * A dry-run preview: the same ordered operations apply() executes, rendered to
+	 * SQL (via the table's grammar) instead of run. Returns no statements for an
+	 * unbound patch (no table to target) or one whose enabled operations produce no
+	 * changes.
 	 *
 	 * @since 3.1.0
 	 *
@@ -296,10 +303,11 @@ class Patch {
 			return array();
 		}
 
-		$out = array();
+		$grammar = $this->table->grammar();
+		$out     = array();
 
-		foreach ( $this->plan( $operations ) as $step ) {
-			$sql = $this->render( $name, $step );
+		foreach ( $this->plan( $operations ) as $operation ) {
+			$sql = $operation->to_sql( $grammar, $name );
 
 			if ( '' !== $sql ) {
 				$out[] = $sql;
@@ -349,9 +357,9 @@ class Patch {
 			return false;
 		}
 
-		// Run each planned step in order, bailing on the first failure.
-		foreach ( $this->plan( $operations ) as $step ) {
-			if ( ! $this->execute( $this->table, $step ) ) {
+		// Run each planned operation in order, bailing on the first failure.
+		foreach ( $this->plan( $operations ) as $operation ) {
+			if ( ! $operation->run( $this->table ) ) {
 				return false;
 			}
 		}
@@ -364,14 +372,14 @@ class Patch {
 	 *
 	 * Order matters for correctness: indexes are dropped before the columns they
 	 * cover, columns are added before the indexes that reference them, and a
-	 * modified index is dropped (old) then re-added (new). Each step always carries
-	 * both a column and an index slot (one is null) so the shape is predictable.
+	 * modified index is dropped (old) then re-added (new). Each entry is a typed
+	 * Operation that knows how to render and run itself.
 	 *
 	 * @since 3.1.0
 	 *
 	 * @param string[] $operations The requested operations.
 	 *
-	 * @return array<int,array{kind:string,column:Column|null,index:Index|null}>
+	 * @return list<Operation>
 	 */
 	private function plan( array $operations ): array {
 		$enabled = $this->filter_operations( $operations );
@@ -383,158 +391,49 @@ class Patch {
 		// 1. Drop the old side of every modified index, before touching columns.
 		if ( true === $modify ) {
 			foreach ( $this->modified_indexes as $diff ) {
-				$plan[] = $this->step( 'drop_index', null, $diff->from() );
+				$plan[] = new DropIndex( $diff->from() );
 			}
 		}
 
 		// 2. Drop removed indexes, then removed columns.
 		if ( true === $drop ) {
 			foreach ( $this->dropped_indexes as $index ) {
-				$plan[] = $this->step( 'drop_index', null, $index );
+				$plan[] = new DropIndex( $index );
 			}
 
 			foreach ( $this->dropped_columns as $column ) {
-				$plan[] = $this->step( 'drop_column', $column, null );
+				$plan[] = new DropColumn( $column );
 			}
 		}
 
 		// 3. Add new columns.
 		if ( true === $add ) {
 			foreach ( $this->added_columns as $column ) {
-				$plan[] = $this->step( 'add_column', $column, null );
+				$plan[] = new AddColumn( $column );
 			}
 		}
 
 		// 4. Modify changed columns in place (using the target-side definition).
 		if ( true === $modify ) {
 			foreach ( $this->modified_columns as $diff ) {
-				$plan[] = $this->step( 'modify_column', $diff->to(), null );
+				$plan[] = new ModifyColumn( $diff->to() );
 			}
 		}
 
 		// 5. Add new indexes, then the new side of every modified index.
 		if ( true === $add ) {
 			foreach ( $this->added_indexes as $index ) {
-				$plan[] = $this->step( 'add_index', null, $index );
+				$plan[] = new AddIndex( $index );
 			}
 		}
 
 		if ( true === $modify ) {
 			foreach ( $this->modified_indexes as $diff ) {
-				$plan[] = $this->step( 'add_index', null, $diff->to() );
+				$plan[] = new AddIndex( $diff->to() );
 			}
 		}
 
 		return $plan;
-	}
-
-	/**
-	 * Build a single plan step with both subject slots always present.
-	 *
-	 * @since 3.1.0
-	 *
-	 * @param string      $kind   The step kind.
-	 * @param Column|null $column The column subject, or null.
-	 * @param Index|null  $index  The index subject, or null.
-	 *
-	 * @return array{kind:string,column:Column|null,index:Index|null}
-	 */
-	private function step( string $kind, ?Column $column, ?Index $index ): array {
-		return array(
-			'kind'   => $kind,
-			'column' => $column,
-			'index'  => $index,
-		);
-	}
-
-	/**
-	 * Render a single plan step as an ALTER TABLE statement.
-	 *
-	 * @since 3.1.0
-	 *
-	 * @param string                                                  $name The target table name.
-	 * @param array{kind:string,column:Column|null,index:Index|null} $step The plan step.
-	 *
-	 * @return string The statement, or '' when the step has no usable subject.
-	 */
-	private function render( string $name, array $step ): string {
-		$column = $step['column'];
-		$index  = $step['index'];
-
-		// Column operations.
-		if ( $column instanceof Column ) {
-			if ( 'add_column' === $step['kind'] ) {
-				return "ALTER TABLE {$name} ADD COLUMN " . $column->get_create_string();
-			}
-
-			if ( 'modify_column' === $step['kind'] ) {
-				return "ALTER TABLE {$name} MODIFY COLUMN " . $column->get_create_string();
-			}
-
-			if ( 'drop_column' === $step['kind'] ) {
-				return "ALTER TABLE {$name} DROP COLUMN `" . $column->name . '`';
-			}
-		}
-
-		// Index operations.
-		if ( $index instanceof Index ) {
-			if ( 'add_index' === $step['kind'] ) {
-				return "ALTER TABLE {$name} ADD " . $index->get_create_string();
-			}
-
-			if ( 'drop_index' === $step['kind'] ) {
-				$index_name = $index->get_index_name();
-
-				return ( 'PRIMARY' === strtoupper( $index_name ) )
-					? "ALTER TABLE {$name} DROP PRIMARY KEY"
-					: "ALTER TABLE {$name} DROP INDEX `{$index_name}`";
-			}
-		}
-
-		return '';
-	}
-
-	/**
-	 * Execute a single plan step through the table's own DDL verbs.
-	 *
-	 * @since 3.1.0
-	 *
-	 * @param Table                                                   $table The bound table.
-	 * @param array{kind:string,column:Column|null,index:Index|null} $step  The plan step.
-	 *
-	 * @return bool
-	 */
-	private function execute( Table $table, array $step ): bool {
-		$column = $step['column'];
-		$index  = $step['index'];
-
-		// Column operations.
-		if ( $column instanceof Column ) {
-			if ( 'add_column' === $step['kind'] ) {
-				return $table->add_column( $column );
-			}
-
-			if ( 'modify_column' === $step['kind'] ) {
-				return $table->modify_column( $column );
-			}
-
-			if ( 'drop_column' === $step['kind'] ) {
-				return $table->drop_column( $column->name );
-			}
-		}
-
-		// Index operations.
-		if ( $index instanceof Index ) {
-			if ( 'add_index' === $step['kind'] ) {
-				return $table->add_index( $index );
-			}
-
-			if ( 'drop_index' === $step['kind'] ) {
-				return $table->drop_index( $index->get_index_name() );
-			}
-		}
-
-		return false;
 	}
 
 	/**
