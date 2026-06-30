@@ -1089,6 +1089,24 @@ class ColumnTest extends TestCase {
 	}
 
 	/**
+	 * Test that a column comment is emitted as a COMMENT clause, with quotes escaped.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_get_create_string_includes_comment() {
+		$column = new Column(
+			array(
+				'name'    => 'status',
+				'type'    => 'varchar',
+				'length'  => '20',
+				'comment' => "owner's note",
+			)
+		);
+		$sql    = $column->get_create_string();
+		$this->assertStringContainsString( "COMMENT 'owner\\'s note'", $sql );
+	}
+
+	/**
 	 * Test that a text column without an explicit default outputs an empty string default.
 	 *
 	 * @since 3.0.0

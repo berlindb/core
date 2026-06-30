@@ -2319,6 +2319,11 @@ class Column {
 			$create[] = strtoupper( $this->extra );
 		}
 
+		// Comment (already sanitized; escape quotes for SQL, as Index does).
+		if ( '' !== $this->comment ) {
+			$create[] = "COMMENT '" . addslashes( $this->comment ) . "'";
+		}
+
 		// Format return value from create array.
 		$retval = implode( ' ', $create );
 

@@ -305,6 +305,9 @@ Notable changes to BerlinDB are documented here.
   result is a reindexed list.
 - `Query::get_columns()` now delegates to the schema object's `get_columns()` rather than
   resolving columns itself.
+- Emits a column's `comment` in its `CREATE TABLE` definition (`COMMENT '...'`, quotes
+  escaped) - previously a column comment was accepted and sanitized but silently dropped
+  from the DDL, even though an index comment was already emitted.
 - Reserves the index name `primary` (via `Schema::RESERVED_INDEX_NAMES`): an ordinary
   index may not be named `primary`, since that name is the alias for the primary key
   (addressed by index type). `get_validation_errors()` reports a non-primary index that
