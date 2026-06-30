@@ -52,10 +52,10 @@ class Patch {
 	private $dropped_columns;
 
 	/**
-	 * Columns present in both but defined differently. Reserved for a later phase.
+	 * Columns present in both but defined differently.
 	 *
 	 * @since 3.1.0
-	 * @var array<int,mixed>
+	 * @var ColumnDiff[]
 	 */
 	private $modified_columns;
 
@@ -76,10 +76,10 @@ class Patch {
 	private $dropped_indexes;
 
 	/**
-	 * Indexes present in both but defined differently. Reserved for a later phase.
+	 * Indexes present in both but defined differently.
 	 *
 	 * @since 3.1.0
-	 * @var array<int,mixed>
+	 * @var IndexDiff[]
 	 */
 	private $modified_indexes;
 
@@ -91,12 +91,12 @@ class Patch {
 	 * @param array<string,mixed> $changes {
 	 *     Optional. Change collections, each defaulting to empty.
 	 *
-	 *     @type Column[]        $added_columns    Columns to add.
-	 *     @type Column[]        $dropped_columns  Columns to drop.
-	 *     @type array<int,mixed> $modified_columns Reserved.
-	 *     @type Index[]         $added_indexes    Indexes to add.
-	 *     @type Index[]         $dropped_indexes  Indexes to drop.
-	 *     @type array<int,mixed> $modified_indexes Reserved.
+	 *     @type Column[]     $added_columns    Columns to add.
+	 *     @type Column[]     $dropped_columns  Columns to drop.
+	 *     @type ColumnDiff[] $modified_columns Columns changed in place.
+	 *     @type Index[]      $added_indexes    Indexes to add.
+	 *     @type Index[]      $dropped_indexes  Indexes to drop.
+	 *     @type IndexDiff[]  $modified_indexes Indexes changed in place.
 	 * }
 	 */
 	public function __construct( array $changes = array() ) {
@@ -104,8 +104,8 @@ class Patch {
 		$this->dropped_columns  = self::objects( $changes, 'dropped_columns', Column::class );
 		$this->added_indexes    = self::objects( $changes, 'added_indexes', Index::class );
 		$this->dropped_indexes  = self::objects( $changes, 'dropped_indexes', Index::class );
-		$this->modified_columns = self::values( $changes, 'modified_columns' );
-		$this->modified_indexes = self::values( $changes, 'modified_indexes' );
+		$this->modified_columns = self::objects( $changes, 'modified_columns', ColumnDiff::class );
+		$this->modified_indexes = self::objects( $changes, 'modified_indexes', IndexDiff::class );
 	}
 
 	/**
@@ -145,10 +145,10 @@ class Patch {
 	}
 
 	/**
-	 * Columns defined differently in both schemas. Reserved for a later phase.
+	 * Columns defined differently in both schemas.
 	 *
 	 * @since 3.1.0
-	 * @return array<int,mixed>
+	 * @return ColumnDiff[]
 	 */
 	public function modified_columns(): array {
 		return $this->modified_columns;
@@ -175,10 +175,10 @@ class Patch {
 	}
 
 	/**
-	 * Indexes defined differently in both schemas. Reserved for a later phase.
+	 * Indexes defined differently in both schemas.
 	 *
 	 * @since 3.1.0
-	 * @return array<int,mixed>
+	 * @return IndexDiff[]
 	 */
 	public function modified_indexes(): array {
 		return $this->modified_indexes;
@@ -187,8 +187,8 @@ class Patch {
 	/**
 	 * Return the inverse patch - the changes that undo this one.
 	 *
-	 * An added column/index is dropped, and vice versa. (Modified entries gain a
-	 * proper from/to inverse once modification detection lands.)
+	 * An added column/index becomes dropped (and vice versa), and each modification
+	 * has its from/to sides swapped.
 	 *
 	 * @since 3.1.0
 	 *
@@ -201,8 +201,18 @@ class Patch {
 				'dropped_columns'  => $this->added_columns,
 				'added_indexes'    => $this->dropped_indexes,
 				'dropped_indexes'  => $this->added_indexes,
-				'modified_columns' => $this->modified_columns,
-				'modified_indexes' => $this->modified_indexes,
+				'modified_columns' => array_map(
+					static function ( ColumnDiff $diff ) {
+						return new ColumnDiff( $diff->to(), $diff->from() );
+					},
+					$this->modified_columns
+				),
+				'modified_indexes' => array_map(
+					static function ( IndexDiff $diff ) {
+						return new IndexDiff( $diff->to(), $diff->from() );
+					},
+					$this->modified_indexes
+				),
 			)
 		);
 	}
@@ -262,23 +272,5 @@ class Patch {
 				}
 			)
 		);
-	}
-
-	/**
-	 * Extract a plain list from a changes array.
-	 *
-	 * @since 3.1.0
-	 *
-	 * @param array<string,mixed> $changes The changes array.
-	 * @param string              $key     The collection key.
-	 *
-	 * @return array<int,mixed>
-	 */
-	private static function values( array $changes, string $key ): array {
-		$items = $changes[ $key ] ?? array();
-
-		return is_array( $items )
-			? array_values( $items )
-			: array();
 	}
 }

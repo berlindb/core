@@ -27,21 +27,47 @@ use BerlinDB\Database\Kern\Schema;
  * Pure and stateless: it depends only on the schema objects it is given - never
  * on a database connection, a Table, or WordPress - so the whole Diff subsystem
  * stays portable. Items are matched by identity (column name; index name, with
- * the primary key matched by type). v1 detects added and dropped items only;
- * "modified" detection (comparing two items present on both sides without the
- * dbDelta-style phantom diffs) lands in a later phase. See #224.
+ * the primary key matched by type); an item present on only one side is added or
+ * dropped, and one present on both but defined differently (per the equivalence
+ * normalizers, which avoid phantom diffs) is a modification. See #224.
  *
  * @since 3.1.0
  */
 class Comparator {
 
 	/**
+	 * Column equivalence normalizer.
+	 *
+	 * @since 3.1.0
+	 * @var ColumnNormalizer
+	 */
+	private $columns;
+
+	/**
+	 * Index equivalence normalizer.
+	 *
+	 * @since 3.1.0
+	 * @var IndexNormalizer
+	 */
+	private $indexes;
+
+	/**
+	 * Wire up the equivalence normalizers.
+	 *
+	 * @since 3.1.0
+	 */
+	public function __construct() {
+		$this->columns = new ColumnNormalizer();
+		$this->indexes = new IndexNormalizer();
+	}
+
+	/**
 	 * Compare a source schema to a target, returning the transforming Patch.
 	 *
-	 * The Patch describes the changes that turn $from into $to: a column or index
-	 * present in $to but not $from is "added"; one present in $from but not $to is
-	 * "dropped". (So Table::diff() compares the live table to the declared schema:
-	 * $from = actual, $to = desired.)
+	 * The Patch describes the changes that turn $from into $to: an item present in
+	 * $to but not $from is "added"; one present in $from but not $to is "dropped";
+	 * one present in both but not equivalent is "modified". (So Table::diff()
+	 * compares the live table to the declared schema: $from = actual, $to = desired.)
 	 *
 	 * @since 3.1.0
 	 *
@@ -52,44 +78,125 @@ class Comparator {
 	 */
 	public function compare( Schema $from, Schema $to ): Patch {
 		return new Patch(
-			array(
-				'added_columns'   => $this->only_in( $to->get_columns(), $from->get_columns(), array( $this, 'column_key' ) ),
-				'dropped_columns' => $this->only_in( $from->get_columns(), $to->get_columns(), array( $this, 'column_key' ) ),
-				'added_indexes'   => $this->only_in( $to->get_indexes(), $from->get_indexes(), array( $this, 'index_key' ) ),
-				'dropped_indexes' => $this->only_in( $from->get_indexes(), $to->get_indexes(), array( $this, 'index_key' ) ),
+			array_merge(
+				$this->diff_columns( $from->get_columns(), $to->get_columns() ),
+				$this->diff_indexes( $from->get_indexes(), $to->get_indexes() )
 			)
 		);
 	}
 
 	/**
-	 * Return the items whose identity key is not present in the other collection.
+	 * Three-way diff of two column collections.
 	 *
 	 * @since 3.1.0
 	 *
-	 * @template T of Column|Index
+	 * @param Column[] $from Source columns.
+	 * @param Column[] $to   Target columns.
 	 *
-	 * @param T[]      $items  Items to filter.
-	 * @param T[]      $others Items to match against.
-	 * @param callable $key    Maps an item to its identity key.
-	 *
-	 * @return T[]
+	 * @return array<string,mixed> The added/dropped/modified column collections.
 	 */
-	private function only_in( array $items, array $others, callable $key ): array {
-		$other_keys = array();
+	private function diff_columns( array $from, array $to ): array {
+		$from_by = $this->by_column_key( $from );
+		$to_by   = $this->by_column_key( $to );
 
-		foreach ( $others as $other ) {
-			$other_keys[ $key( $other ) ] = true;
-		}
+		$added    = array();
+		$dropped  = array();
+		$modified = array();
 
-		$result = array();
-
-		foreach ( $items as $item ) {
-			if ( ! isset( $other_keys[ $key( $item ) ] ) ) {
-				$result[] = $item;
+		foreach ( $to_by as $key => $column ) {
+			if ( ! isset( $from_by[ $key ] ) ) {
+				$added[] = $column;
+			} elseif ( ! $this->columns->matches( $from_by[ $key ], $column ) ) {
+				$modified[] = new ColumnDiff( $from_by[ $key ], $column );
 			}
 		}
 
-		return $result;
+		foreach ( $from_by as $key => $column ) {
+			if ( ! isset( $to_by[ $key ] ) ) {
+				$dropped[] = $column;
+			}
+		}
+
+		return array(
+			'added_columns'    => $added,
+			'dropped_columns'  => $dropped,
+			'modified_columns' => $modified,
+		);
+	}
+
+	/**
+	 * Three-way diff of two index collections.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param Index[] $from Source indexes.
+	 * @param Index[] $to   Target indexes.
+	 *
+	 * @return array<string,mixed> The added/dropped/modified index collections.
+	 */
+	private function diff_indexes( array $from, array $to ): array {
+		$from_by = $this->by_index_key( $from );
+		$to_by   = $this->by_index_key( $to );
+
+		$added    = array();
+		$dropped  = array();
+		$modified = array();
+
+		foreach ( $to_by as $key => $index ) {
+			if ( ! isset( $from_by[ $key ] ) ) {
+				$added[] = $index;
+			} elseif ( ! $this->indexes->matches( $from_by[ $key ], $index ) ) {
+				$modified[] = new IndexDiff( $from_by[ $key ], $index );
+			}
+		}
+
+		foreach ( $from_by as $key => $index ) {
+			if ( ! isset( $to_by[ $key ] ) ) {
+				$dropped[] = $index;
+			}
+		}
+
+		return array(
+			'added_indexes'    => $added,
+			'dropped_indexes'  => $dropped,
+			'modified_indexes' => $modified,
+		);
+	}
+
+	/**
+	 * Index columns by their identity key (last wins on a duplicate).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param Column[] $columns The columns.
+	 * @return array<string,Column>
+	 */
+	private function by_column_key( array $columns ): array {
+		$out = array();
+
+		foreach ( $columns as $column ) {
+			$out[ $this->column_key( $column ) ] = $column;
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Index indexes by their identity key (last wins on a duplicate).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param Index[] $indexes The indexes.
+	 * @return array<string,Index>
+	 */
+	private function by_index_key( array $indexes ): array {
+		$out = array();
+
+		foreach ( $indexes as $index ) {
+			$out[ $this->index_key( $index ) ] = $index;
+		}
+
+		return $out;
 	}
 
 	/**

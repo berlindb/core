@@ -265,15 +265,11 @@ class DiffTest extends TestCase {
 	}
 
 	/**
-	 * v1 does not yet detect a same-named column whose definition changed.
-	 *
-	 * Documents the boundary: a column present on both sides (matched by name) is
-	 * neither added nor dropped, and modification detection is deferred, so the
-	 * patch is currently empty. This expectation flips when "modified" lands.
+	 * A same-named column with a changed length is reported as modified.
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_v1_does_not_detect_modified_column() {
+	public function test_detects_modified_column_length() {
 		$from = $this->schema(
 			array(
 				array(
@@ -297,8 +293,210 @@ class DiffTest extends TestCase {
 
 		$this->assertSame( array(), $patch->added_columns() );
 		$this->assertSame( array(), $patch->dropped_columns() );
-		$this->assertSame( array(), $patch->modified_columns() );
-		$this->assertTrue( $patch->is_empty() );
+		$this->assertCount( 1, $patch->modified_columns() );
+		$this->assertFalse( $patch->is_empty() );
+
+		$modified = $patch->modified_columns()[0];
+		$this->assertSame( 'email', $modified->name() );
+		$this->assertSame( '100', (string) $modified->from()->length );
+		$this->assertSame( '255', (string) $modified->to()->length );
+	}
+
+	/**
+	 * An integer's display width (int(11) vs int) does NOT phantom-diff.
+	 *
+	 * MySQL 8 drops the display width, so an introspected column may report a
+	 * different width (or none) than the declaration - that must not read as a
+	 * modification.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_integer_display_width_is_not_a_modification() {
+		$from = $this->schema(
+			array(
+				array(
+					'name'   => 'views',
+					'type'   => 'int',
+					'length' => '11',
+				),
+			)
+		);
+		$to   = $this->schema(
+			array(
+				array(
+					'name' => 'views',
+					'type' => 'int',
+				),
+			)
+		);
+
+		$this->assertTrue( $from->diff( $to )->is_empty() );
+	}
+
+	/**
+	 * A DECIMAL precision change IS a modification (unlike integer display width).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_detects_modified_decimal_precision() {
+		$from = $this->schema(
+			array(
+				array(
+					'name'   => 'amount',
+					'type'   => 'decimal',
+					'length' => '10',
+				),
+			)
+		);
+		$to   = $this->schema(
+			array(
+				array(
+					'name'   => 'amount',
+					'type'   => 'decimal',
+					'length' => '12',
+				),
+			)
+		);
+
+		$this->assertCount( 1, $from->diff( $to )->modified_columns() );
+	}
+
+	/**
+	 * Type synonyms fold to their canonical name, so they do not phantom-diff.
+	 *
+	 * MySQL stores 'integer' as 'int' etc., so a declared synonym must compare
+	 * equal to the introspected canonical type. (Explicit unsigned isolates the
+	 * type-name fold from the unsigned default.)
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_type_synonyms_fold_to_canonical() {
+		$synonyms  = $this->schema(
+			array(
+				array(
+					'name'     => 'a',
+					'type'     => 'integer',
+					'unsigned' => false,
+				),
+				array(
+					'name'     => 'b',
+					'type'     => 'numeric',
+					'length'   => '10',
+					'unsigned' => false,
+				),
+			)
+		);
+		$canonical = $this->schema(
+			array(
+				array(
+					'name'     => 'a',
+					'type'     => 'int',
+					'unsigned' => false,
+				),
+				array(
+					'name'     => 'b',
+					'type'     => 'decimal',
+					'length'   => '10',
+					'unsigned' => false,
+				),
+			)
+		);
+
+		$this->assertTrue( $synonyms->diff( $canonical )->is_empty() );
+	}
+
+	/**
+	 * A changed nullability is reported as modified.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_detects_modified_column_nullability() {
+		$from = $this->schema(
+			array(
+				array(
+					'name'       => 'note',
+					'type'       => 'text',
+					'allow_null' => true,
+				),
+			)
+		);
+		$to   = $this->schema(
+			array(
+				array(
+					'name'       => 'note',
+					'type'       => 'text',
+					'allow_null' => false,
+				),
+			)
+		);
+
+		$this->assertCount( 1, $from->diff( $to )->modified_columns() );
+	}
+
+	/**
+	 * A changed index kind (KEY -> UNIQUE) on the same name is reported as modified.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_detects_modified_index_kind() {
+		$from = $this->schema(
+			array(
+				array(
+					'name'   => 'slug',
+					'type'   => 'varchar',
+					'length' => '100',
+					'index'  => true,
+				),
+			)
+		);
+		$to   = $this->schema(
+			array(
+				array(
+					'name'   => 'slug',
+					'type'   => 'varchar',
+					'length' => '100',
+					'unique' => true,
+				),
+			)
+		);
+
+		$patch = $from->diff( $to );
+
+		$this->assertSame( array(), $patch->added_indexes() );
+		$this->assertSame( array(), $patch->dropped_indexes() );
+		$this->assertCount( 1, $patch->modified_indexes() );
+		$this->assertSame( 'slug', $patch->modified_indexes()[0]->name() );
+	}
+
+	/**
+	 * revert() swaps the from/to sides of a modification.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_revert_swaps_modified_sides() {
+		$from = $this->schema(
+			array(
+				array(
+					'name'   => 'email',
+					'type'   => 'varchar',
+					'length' => '100',
+				),
+			)
+		);
+		$to   = $this->schema(
+			array(
+				array(
+					'name'   => 'email',
+					'type'   => 'varchar',
+					'length' => '255',
+				),
+			)
+		);
+
+		$reverted = $from->diff( $to )->revert()->modified_columns()[0];
+
+		$this->assertSame( '255', (string) $reverted->from()->length );
+		$this->assertSame( '100', (string) $reverted->to()->length );
 	}
 
 	/**

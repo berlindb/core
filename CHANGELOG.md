@@ -305,6 +305,17 @@ Notable changes to BerlinDB are documented here.
   result is a reindexed list.
 - `Query::get_columns()` now delegates to the schema object's `get_columns()` rather than
   resolving columns itself.
+- The schema diff engine now detects **modified** columns and indexes (#224 phase 2b),
+  not just added/dropped ones. A same-named column or index defined differently on the two
+  sides becomes a `Diff\ColumnDiff` / `Diff\IndexDiff` (a from/to pair) in the Patch.
+  Equivalence is decided by `Diff\ColumnNormalizer` / `Diff\IndexNormalizer`, which compare
+  canonical signatures to avoid dbDelta-style phantom diffs: the column normalizer compares
+  type, length (non-numeric only - an integer's `int(11)` display width is ignored),
+  nullability, and unsigned/zerofill (numeric only), and deliberately excludes the
+  default value, charset/collation, `extra`, and comment for now (each a phantom-diff
+  source needing more context); the index normalizer compares kind plus the ordered column
+  list with prefix lengths and directions. The bias is conservative - a missed change is
+  safer than a false modification that churns.
 - Adds a schema **diff subsystem** (`BerlinDB\Database\Diff\`, decoupled from `Kern`):
   a pure, stateless `Comparator` compares two schemas and returns a `Patch` describing
   the changes that transform one into the other - added/dropped columns and indexes
