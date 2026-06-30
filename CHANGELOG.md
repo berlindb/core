@@ -305,6 +305,10 @@ Notable changes to BerlinDB are documented here.
   result is a reindexed list.
 - `Query::get_columns()` now delegates to the schema object's `get_columns()` rather than
   resolving columns itself.
+- Reserves the index name `primary` (via `Schema::RESERVED_INDEX_NAMES`): an ordinary
+  index may not be named `primary`, since that name is the alias for the primary key
+  (addressed by index type). `get_validation_errors()` reports a non-primary index that
+  claims it. Keeps the `'primary'` alias unambiguous by construction.
 - Refactors `Schema`'s item accessors so the generic primitives (`get_item`, `has_item`,
   `remove_item`) are type-agnostic - they match an already-normalized name
   case-insensitively - while the typed wrappers (`get_column`/`get_index` and friends) own

@@ -50,6 +50,18 @@ class Schema {
 	use \BerlinDB\Database\Traits\Base;
 	use \BerlinDB\Database\Traits\Boot;
 
+	/**
+	 * Index names reserved for internal meaning, disallowed as ordinary index names.
+	 *
+	 * 'primary' is the alias for the primary key (addressed by index type, not by its
+	 * own name), so an ordinary index may not claim it. Compared case-insensitively
+	 * against the sanitized index name.
+	 *
+	 * @since 3.1.0
+	 * @var list<string>
+	 */
+	private const RESERVED_INDEX_NAMES = array( 'primary' );
+
 	/** Factories *************************************************************/
 
 	/**
@@ -747,7 +759,8 @@ class Schema {
 	 *
 	 * @param string $type Item collection type. Accepts 'columns' or 'indexes'
 	 *                     (and their singular aliases).
-	 * @param string $name Already-normalized item name to find.
+	 * @param string|false $name Already-normalized item name to find. A non-string
+	 *                          (e.g. a failed sanitizer result) matches nothing.
 	 *
 	 * @return Column|Index|false The matching item object, or false if not found.
 	 */
@@ -790,17 +803,18 @@ class Schema {
 	}
 
 	/**
-	 * Remove an item from a collection by name.
+	 * Remove items from a collection by their (already-normalized) name.
 	 *
-	 * For the 'indexes' type, passing 'primary' removes the first index whose
-	 * type is 'primary', regardless of its $name property.
+	 * Generic, like get_item(): removes every item whose stored name matches
+	 * case-insensitively. Name normalization and type-specific aliases (the index
+	 * 'primary' key) live in the typed accessors - remove_column() / remove_index().
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param string $type Item collection type. Accepts 'columns' or 'indexes'
-	 *                     (and their singular aliases).
-	 * @param string $name Normalized item name to remove. For indexes, also
-	 *                     accepts 'primary' to target the primary key.
+	 * @param string       $type Item collection type. Accepts 'columns' or 'indexes'
+	 *                           (and their singular aliases).
+	 * @param string|false $name Already-normalized item name to remove. A non-string
+	 *                           (e.g. a failed sanitizer result) removes nothing.
 	 *
 	 * @return bool True if one or more items were removed, false if not.
 	 */
@@ -1105,13 +1119,7 @@ class Schema {
 	 * @return Column|false The matching Column object, or false if not found.
 	 */
 	public function get_column( $name = '' ) {
-		$name = $this->sanitize_column_name( $name );
-
-		if ( false === $name ) {
-			return false;
-		}
-
-		$retval = $this->get_item( 'columns', $name );
+		$retval = $this->get_item( 'columns', $this->sanitize_column_name( $name ) );
 
 		return ( $retval instanceof Column )
 			? $retval
@@ -1176,11 +1184,7 @@ class Schema {
 	 * @return bool True if the column was removed, false if not found.
 	 */
 	public function remove_column( $name = '' ) {
-		$name = $this->sanitize_column_name( $name );
-
-		return ( false === $name )
-			? false
-			: $this->remove_item( 'columns', $name );
+		return $this->remove_item( 'columns', $this->sanitize_column_name( $name ) );
 	}
 
 	/**
@@ -1295,10 +1299,6 @@ class Schema {
 	public function get_index( $name = '' ) {
 		$name = $this->sanitize_index_name( $name );
 
-		if ( false === $name ) {
-			return false;
-		}
-
 		// The primary key is addressable as 'primary', whatever its own name.
 		if ( 'primary' === $name ) {
 			$primary = $this->get_indexes( array( 'type' => 'primary' ) );
@@ -1379,10 +1379,6 @@ class Schema {
 	 */
 	public function remove_index( $name = '' ) {
 		$name = $this->sanitize_index_name( $name );
-
-		if ( false === $name ) {
-			return false;
-		}
 
 		/*
 		 * The primary key is addressable as 'primary', whatever its own name; an
@@ -1521,6 +1517,14 @@ class Schema {
 
 			if ( isset( $index_names[ $index_name ] ) ) {
 				$errors[] = "Duplicate index name found: {$index_name}.";
+			}
+
+			/*
+			 * A reserved name (e.g. 'primary') may not be an ordinary index's name;
+			 * a primary-key index carries that meaning through its type instead.
+			 */
+			if ( ( false === $is_primary ) && in_array( $index_name, self::RESERVED_INDEX_NAMES, true ) ) {
+				$errors[] = "Reserved index name: {$index_name}.";
 			}
 
 			$index_names[ $index_name ] = true;

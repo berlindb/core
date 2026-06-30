@@ -258,4 +258,56 @@ class SchemaPrimaryKeyTest extends TestCase {
 
 		$this->assertSame( 'a', $schema->get_primary_column_name() );
 	}
+
+	/**
+	 * An ordinary index named 'primary' is a reserved-name validation error.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_ordinary_index_named_primary_is_reserved() {
+		$schema = $this->schema(
+			array(
+				array(
+					'name'   => 'slug',
+					'type'   => 'varchar',
+					'length' => '100',
+				),
+			),
+			array(
+				array(
+					'name'    => 'primary',
+					'type'    => 'key',
+					'columns' => array( 'slug' ),
+				),
+			)
+		);
+
+		$this->assertContains( 'Reserved index name: primary.', $schema->get_validation_errors() );
+	}
+
+	/**
+	 * A primary-key index is identified by type, so it is NOT a reserved-name error.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_primary_key_index_is_not_a_reserved_name_error() {
+		$schema = $this->schema(
+			array(
+				array(
+					'name'    => 'id',
+					'type'    => 'bigint',
+					'primary' => true,
+				),
+			),
+			array(
+				array(
+					'type'    => 'primary',
+					'columns' => array( 'id' ),
+				),
+			)
+		);
+
+		$this->assertNotContains( 'Reserved index name: primary.', $schema->get_validation_errors() );
+		$this->assertSame( array(), $schema->get_validation_errors() );
+	}
 }
