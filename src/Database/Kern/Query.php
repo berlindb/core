@@ -894,11 +894,17 @@ class Query {
 	 * Get the backtick-quoted alias.column_name string.
 	 *
 	 * @since 3.0.0
-	 * @param string $column_name Column name.
+	 * @since 3.1.0 An empty $column_name defaults to the primary column.
+	 * @param string $column_name Column name. Defaults to the primary column.
 	 * @param bool   $alias Whether to include the table alias prefix.
 	 * @return string
 	 */
 	public function get_quoted_column_name_aliased( $column_name = '', $alias = true ): string {
+
+		// Default to the primary column when no name is given.
+		if ( '' === $column_name ) {
+			$column_name = $this->get_primary_column_name();
+		}
 
 		// Delegate to the Column object when one exists in the schema.
 		$column_object = $this->get_column_by( array( 'name' => $column_name ) );
@@ -1700,7 +1706,7 @@ class Query {
 			 * Assemble a narrow "SELECT DISTINCT primary" clause set, in the same shape
 			 * the SELECT path produces (so the query-clauses filter sees every key).
 			 */
-			$clauses = $this->as_distinct_primary_clauses(
+			$clauses = $this->distinct_id_clauses(
 				array(
 					'join'  => $join,
 					'where' => $where,
@@ -1717,7 +1723,7 @@ class Query {
 			$clauses = $this->filter_query_clauses( $clauses );
 
 			// Join the non-empty fragments into a single statement.
-			$request = implode( ' ', array_map( 'trim', array_filter( $clauses ) ) );
+			$request = $this->parse_request_clauses( $clauses );
 
 			// Execute, then shape each raw ID to the primary column type.
 			$item_ids = $this->db()->get_col( $request );
@@ -1748,7 +1754,7 @@ class Query {
 	 * different source (the field/alias references are the base table's throughout, as
 	 * everywhere else in Query). select_ids() passes just its compiled JOIN/WHERE; an
 	 * aggregate over a fan-out JOIN passes its whole filtered clause set (see
-	 * aggregate_over_distinct_primary()). The canonical clause order is fixed here, so
+	 * aggregate_via_subquery()). The canonical clause order is fixed here, so
 	 * the imploded SQL is well-formed no matter the caller's key order.
 	 *
 	 * @since 3.1.0
@@ -1757,12 +1763,12 @@ class Query {
 	 *
 	 * @return array<string,string> The clause set selecting DISTINCT the primary key.
 	 */
-	private function as_distinct_primary_clauses( array $clauses ): array {
+	private function distinct_id_clauses( array $clauses ): array {
 		return array(
 			'explain'     => '',
 			'select'      => $this->parse_select(),
 			'distinct'    => $this->parse_distinct( true ),
-			'fields'      => $this->get_quoted_column_name_aliased( $this->get_primary_column_name() ),
+			'fields'      => $this->get_quoted_column_name_aliased(),
 			'from'        => $this->parse_from(),
 			'index_hints' => '', // ID resolution is deliberately un-hinted.
 			'join'        => $clauses[ 'join' ] ?? '',
@@ -1787,7 +1793,7 @@ class Query {
 	 *                    rows matched.
 	 */
 	public function get_sum( string $column, array $query_vars = array() ): ?float {
-		$value = $this->aggregate( 'SUM', $column, true, $query_vars );
+		$value = $this->aggregate( 'SUM', $column, $query_vars );
 
 		return ( null === $value )
 			? null
@@ -1806,7 +1812,7 @@ class Query {
 	 *                    no rows matched.
 	 */
 	public function get_avg( string $column, array $query_vars = array() ): ?float {
-		$value = $this->aggregate( 'AVG', $column, true, $query_vars );
+		$value = $this->aggregate( 'AVG', $column, $query_vars );
 
 		return ( null === $value )
 			? null
@@ -1828,7 +1834,7 @@ class Query {
 	 *                     rows matched.
 	 */
 	public function get_max( string $column, array $query_vars = array() ): ?string {
-		return $this->aggregate( 'MAX', $column, false, $query_vars );
+		return $this->aggregate( 'MAX', $column, $query_vars );
 	}
 
 	/**
@@ -1846,7 +1852,7 @@ class Query {
 	 *                     rows matched.
 	 */
 	public function get_min( string $column, array $query_vars = array() ): ?string {
-		return $this->aggregate( 'MIN', $column, false, $query_vars );
+		return $this->aggregate( 'MIN', $column, $query_vars );
 	}
 
 	/**
@@ -1861,7 +1867,7 @@ class Query {
 	 * A filter that produces a JOIN (a meta / relationship filter, or a scoping hook)
 	 * can fan out base rows one-to-many, so aggregating over the joined rows directly
 	 * would double-count SUM/AVG. When a JOIN is present the aggregate is wrapped
-	 * around a distinct-primary subquery (see aggregate_over_distinct_primary()),
+	 * around a distinct-primary subquery (see aggregate_via_subquery()),
 	 * so each base row is counted once; a plain or column-filtered aggregate has no
 	 * JOIN and runs in place.
 	 *
@@ -1870,14 +1876,14 @@ class Query {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param string               $function   The SQL aggregate (SUM/AVG/MAX/MIN).
+	 * @param string               $function   The SQL aggregate (SUM/AVG/MAX/MIN);
+	 *                                         SUM/AVG require a numeric column.
 	 * @param string               $column     Column name to aggregate.
-	 * @param bool                 $numeric    Require a numeric column (SUM/AVG).
 	 * @param array<string,mixed>  $query_vars Query vars to filter the rows.
 	 *
 	 * @return string|null The raw scalar result, or null.
 	 */
-	private function aggregate( string $function, string $column, bool $numeric, array $query_vars ): ?string {
+	private function aggregate( string $function, string $column, array $query_vars ): ?string {
 
 		// Resolve and validate the column; fail closed on an unknown or wrong type.
 		$column_object = $this->get_column_by( array( 'name' => $column ) );
@@ -1886,7 +1892,10 @@ class Query {
 			return null;
 		}
 
-		if ( ( true === $numeric ) && ! $column_object->is_numeric() ) {
+		// SUM and AVG need a numeric column; MAX and MIN work on any comparable one.
+		$requires_numeric = in_array( $function, array( 'SUM', 'AVG' ), true );
+
+		if ( ( true === $requires_numeric ) && ! $column_object->is_numeric() ) {
 			return null;
 		}
 
@@ -1952,11 +1961,11 @@ class Query {
 			 * row is counted once; with no JOIN there is nothing to fan out.
 			 */
 			if ( '' !== trim( (string) ( $clauses[ 'join' ] ?? '' ) ) ) {
-				$clauses = $this->aggregate_over_distinct_primary( $fields, $clauses );
+				$clauses = $this->aggregate_via_subquery( $fields, $clauses );
 			}
 
 			// Join the non-empty fragments and read the single scalar.
-			$request = implode( ' ', array_map( 'trim', array_filter( $clauses ) ) );
+			$request = $this->parse_request_clauses( $clauses );
 
 			return $this->db()->get_var( $request );
 
@@ -1975,7 +1984,7 @@ class Query {
 	 * or a scoping hook) fans out its rows, so aggregating over the joined result
 	 * double-counts. Given the compiled, already site-scoped clause set, this returns
 	 * a new clause set whose inner subquery resolves each matching primary key once
-	 * (via as_distinct_primary_clauses(), which keeps the filter's JOIN/WHERE scoping),
+	 * (via distinct_id_clauses(), which keeps the filter's JOIN/WHERE scoping),
 	 * and whose outer FUNC( column ) runs over just the base rows in that set - each
 	 * counted once, with no JOIN to fan out.
 	 *
@@ -1992,17 +2001,17 @@ class Query {
 	 * @return array<string,string> A clause set that aggregates over base rows bounded
 	 *                              by a distinct-primary IN subquery, with no JOIN.
 	 */
-	private function aggregate_over_distinct_primary( string $fields, array $clauses ): array {
+	private function aggregate_via_subquery( string $fields, array $clauses ): array {
 
-		$primary_ref = $this->get_quoted_column_name_aliased( $this->get_primary_column_name() );
+		$primary_ref = $this->get_quoted_column_name_aliased();
 
 		/*
 		 * The inner subquery reshapes the already-filtered clause set to select each
 		 * matching primary key once, keeping the JOIN/WHERE scoping but dropping the
 		 * result-shaping clauses (the shared shape select_ids() also uses).
 		 */
-		$inner         = $this->as_distinct_primary_clauses( $clauses );
-		$inner_request = implode( ' ', array_map( 'trim', array_filter( $inner ) ) );
+		$inner         = $this->distinct_id_clauses( $clauses );
+		$inner_request = $this->parse_request_clauses( $inner );
 
 		/*
 		 * The outer aggregate runs over the base table with no JOIN, bounded to the
