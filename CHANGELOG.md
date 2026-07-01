@@ -95,6 +95,18 @@ Notable changes to BerlinDB are documented here.
   filter that produces a `JOIN` (a meta / relationship filter, or a scoping hook)
   is aggregated over a distinct-primary subquery, so a one-to-many join does not
   fan out and double-count.
+- Adds an `aggregate` query-var container (#225): compute one or more aggregates in a
+  single query, returned keyed by alias -
+  `array( 'aggregate' => array( 'revenue' => array( 'sum', 'amount' ), 'peak' => array( 'max', 'created' ) ) )`
+  yields `array( 'revenue' => '1234.50', 'peak' => '...' )`. Accepts the shorthand
+  `array( 'sum' => 'amount' )` (the key is the function, the alias defaults to it), the
+  positional `array( 'revenue' => array( 'sum', 'amount' ) )`, and the named
+  `array( 'revenue' => array( 'function' => 'sum', 'column' => 'amount' ) )`. Supports
+  `SUM`/`AVG`/`MAX`/`MIN`; honors the query's filters; a fan-out `JOIN` is aggregated
+  over a distinct-primary subquery (no double-count); results are cached like any query.
+  It always returns an associative array (the `get_sum()`/etc. scalar methods remain the
+  friendly scalar path); an empty set is `null` per alias, not `0`. An unknown or
+  non-numeric column, an unsupported function, or a duplicate alias is logged and dropped.
 - Adds a `by` column-filter container:
   `array( 'by' => array( 'status' => 'active', 'type' => array( 1, 2 ) ) )` folds each
   entry to the canonical `{column}__in` var during normalization (rendering `= value`
