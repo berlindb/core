@@ -647,6 +647,9 @@ class Query {
 
 			// Cross-parser criteria tree (empty = implicit AND across parsers, the default).
 			'criteria'          => array(),
+
+			// Friendlier column-filter container; folds to {column}__in in normalize.
+			'by'                => array(),
 		);
 
 		/*
@@ -2336,6 +2339,9 @@ class Query {
 			$query_vars[ 'update_meta_cache' ] = false;
 		}
 
+		// Fold the 'by' column-filter container into canonical {column}__in vars.
+		$query_vars = $this->normalize_by_container( $query_vars );
+
 		// Each registered parser descriptor may rewrite the full query vars.
 		foreach ( $this->parsers as $descriptor ) {
 			$query_vars = $descriptor->normalize_query_vars( $query_vars, $this );
@@ -2343,6 +2349,93 @@ class Query {
 
 		// Apply any fail-closed sentinel a descriptor returned.
 		return $this->consume_query_filter_sentinel( $query_vars );
+	}
+
+	/**
+	 * Fold the 'by' column-filter container into canonical {column}__in vars.
+	 *
+	 * The 'by' container is a friendlier, collision-proof column-filter shorthand -
+	 * array( 'by' => array( 'status' => 3, 'type' => array( 1, 2 ) ) ). Each entry is
+	 * rewritten to the In parser's canonical '{column}__in' var (which renders
+	 * '= value' for a single value and 'IN (...)' for a list), so a column whose bare
+	 * name collides with a reserved control var (e.g. a 'count' or 'order' column)
+	 * stays filterable. It lives here, not in a parser, because a parser has no logging
+	 * channel of its own; a By parser could not surface these diagnostics on the Query.
+	 *
+	 * Rules: only In-supported columns (in => true) are translated; an explicit
+	 * top-level '{column}__in' wins over the container entry; an empty value, unknown
+	 * column, or malformed container is logged and ignored. The container is consumed.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string,mixed> $query_vars The query vars, mid-normalize.
+	 * @return array<string,mixed> The query vars with 'by' folded away.
+	 */
+	private function normalize_by_container( array $query_vars = array() ): array {
+
+		// Consume the container up front, whatever its shape.
+		$by = $query_vars[ 'by' ] ?? array();
+		unset( $query_vars[ 'by' ] );
+
+		/*
+		 * A non-array 'by' is malformed (the default and an explicit list are both
+		 * arrays). Check the type BEFORE emptiness, so a falsy scalar - 0, false, ''
+		 * - is reported rather than silently dropped as "empty".
+		 */
+		if ( ! is_array( $by ) ) {
+			$this->log( 'warning', 'by', 'The "by" query var must be an array of column => value(s); ignoring it.' );
+			return $query_vars;
+		}
+
+		// An empty container (the default, or an explicit empty array) is a no-op.
+		if ( array() === $by ) {
+			return $query_vars;
+		}
+
+		// The unset-var sentinel, to tell an explicit {column}__in from a default one.
+		$sentinel = $this->get_query_var_default_value();
+
+		// Fold each column entry into its canonical {column}__in var.
+		foreach ( $by as $column => $value ) {
+
+			// Skip an empty value (no filter), matching the engine's empty-filter behavior.
+			if ( ( '' === $value ) || ( array() === $value ) || ( null === $value ) ) {
+				continue;
+			}
+
+			// Only translate an In-supported column; log and ignore anything else.
+			if ( empty(
+				$this->get_columns(
+					array(
+						'name' => (string) $column,
+						'in'   => true,
+					)
+				)
+			) ) {
+				$this->log( 'warning', 'by', "The 'by' entry '{$column}' is not an in-filterable column; ignoring it." );
+				continue;
+			}
+
+			/*
+			 * An explicit top-level {column}__in wins over the container entry. The
+			 * key is always present (In registers its default), so an explicit value
+			 * is any that is not the unset sentinel - read it directly rather than
+			 * with ??, so an explicit null is honored, not treated as absent.
+			 */
+			$key      = "{$column}__in";
+			$existing = array_key_exists( $key, $query_vars )
+				? $query_vars[ $key ]
+				: $sentinel;
+
+			if ( $existing !== $sentinel ) {
+				continue;
+			}
+
+			// Rewrite to the canonical In var.
+			$query_vars[ $key ] = (array) $value;
+		}
+
+		return $query_vars;
 	}
 
 	/**

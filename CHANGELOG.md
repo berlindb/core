@@ -95,6 +95,19 @@ Notable changes to BerlinDB are documented here.
   filter that produces a `JOIN` (a meta / relationship filter, or a scoping hook)
   is aggregated over a distinct-primary subquery, so a one-to-many join does not
   fan out and double-count.
+- Adds a `by` column-filter container:
+  `array( 'by' => array( 'status' => 'active', 'type' => array( 1, 2 ) ) )` folds each
+  entry to the canonical `{column}__in` var during normalization (rendering `= value`
+  for a single value, `IN (...)` for a list). It is a friendlier, collision-proof way
+  to filter a column whose bare name would shadow a reserved control var (a `count`,
+  `order`, or `number` column). Only in-filterable columns are translated; an explicit
+  top-level `{column}__in` wins over the container entry; an unknown column or a
+  malformed container is logged and ignored.
+- Reserved control vars now keep precedence over a same-named column. The per-column
+  shorthand a column registers (e.g. a `count` or `order` column) can no longer clobber
+  a reserved query var's default during parser registration; the control var wins and
+  the collision is recorded in the in-memory log, pointing at the `{column}__in`
+  shorthand that still filters the column.
 - Adds per-column `NULLS FIRST` / `NULLS LAST` ordering (#211): a per-column orderby
   direction may carry the suffix, e.g.
   `'orderby' => array( 'priority' => 'ASC NULLS LAST' )`. MySQL has no native
