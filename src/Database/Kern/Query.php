@@ -649,6 +649,14 @@ class Query {
 			'criteria'          => array(),
 		);
 
+		/*
+		 * The keys above are reserved control vars. Capture them before the parsers
+		 * register their per-column shorthands, so a column named like one of them
+		 * (e.g. a 'count', 'order', or 'number' column) cannot clobber its default in
+		 * the loop below - the control var keeps precedence.
+		 */
+		$protected = array_keys( $this->query_var_defaults );
+
 		/* Query Parsers ******************************************************/
 
 		// Setup parsers array.
@@ -674,6 +682,19 @@ class Query {
 			$default = $parser->get_query_var_default();
 
 			foreach ( $parser->get_query_var_keys() as $key ) {
+
+				/*
+				 * A per-column shorthand must not overwrite a reserved control var's
+				 * default. A column named like one (e.g. a 'count', 'order', or
+				 * 'number' column) keeps the control meaning; the column is still
+				 * filterable via its '{column}__in' shorthand. Log the collision so a
+				 * schema author can see why the bare-name filter is unavailable.
+				 */
+				if ( in_array( $key, $protected, true ) ) {
+					$this->log( 'warning', 'query_var', "Column '{$key}' collides with the reserved '{$key}' query var; the control var keeps precedence. Filter this column via '{$key}__in'." );
+					continue;
+				}
+
 				$this->query_var_defaults[ $key ] = $default;
 			}
 		}
