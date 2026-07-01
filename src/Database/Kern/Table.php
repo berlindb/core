@@ -18,6 +18,7 @@ defined( 'ABSPATH' ) || exit;
 
 use BerlinDB\Database\Diff\Grammar;
 use BerlinDB\Database\Diff\Patch;
+use BerlinDB\Database\Diff\Snapshot;
 
 /**
  * A base database table class, which facilitates the creation of (and schema
@@ -242,6 +243,35 @@ class Table {
 	protected $upgrades = array();
 
 	/**
+	 * Whether upgrade() should reconcile structural drift to the declared schema.
+	 *
+	 * Opt-in, off by default. When a version bump runs upgrade() and there is no
+	 * bespoke $upgrades callback for the pending version, this diffs the live table
+	 * against the declared schema and applies the difference (see reconcile()), so a
+	 * developer can evolve the schema by editing it rather than hand-writing ALTERs.
+	 * The two compose across upgrade cycles: any bespoke callbacks run first (data
+	 * migrations), then a later cycle reconciles the remaining structural drift.
+	 *
+	 * Accepts:
+	 *  - false        - off (default).
+	 *  - true         - reconcile with the safe default operations ('add', 'modify').
+	 *  - string[]     - reconcile with an explicit operations list, e.g.
+	 *                   array( 'add', 'modify', 'drop' ) to also drop what the schema
+	 *                   removed. Drops are never included unless named here.
+	 *
+	 * A reconcile only runs against a COMPLETE introspection (see Snapshot) and only
+	 * advances the stored version when it fully succeeds; an incomplete capture
+	 * defers to the next maybe_upgrade(). A clean reconcile means every SUPPORTED
+	 * change applied, not that the table is byte-identical to the declaration (the
+	 * diff intentionally ignores defaults, charset/collation, comments, and the
+	 * like).
+	 *
+	 * @since 3.1.0
+	 * @var   bool|string[]
+	 */
+	protected $reconcile = false;
+
+	/**
 	 * Whether to hook maybe_upgrade() to admin_init for automatic installation.
 	 *
 	 * Set to false in a subclass to disable auto-install and require explicit
@@ -347,6 +377,7 @@ class Table {
 
 			// Upgrades.
 			'upgrades'          => '',
+			'reconcile'         => '',
 			'auto_install'      => array( $this, 'sanitize_boolean' ),
 		);
 	}
@@ -733,9 +764,9 @@ class Table {
 	 * Caveats:
 	 *  - The introspected "actual" side may be INCOMPLETE (skipped unrepresentable
 	 *    indexes, or a transient SHOW INDEX failure - see Schema::from_table()), so
-	 *    a reported "added" index may already exist. Do NOT use this Patch to
-	 *    authorize destructive changes (drops) without separately confirming the
-	 *    introspection was complete - that completeness signal is future work.
+	 *    a reported "added" index may already exist. diff() does not surface that;
+	 *    snapshot() does (is_complete()), and reconcile() gates on it. Do not use a
+	 *    bare diff() to authorize drops without confirming the capture was complete.
 	 *  - Each call runs the introspection queries afresh; diverged() calls diff(),
 	 *    so checking both re-introspects. Cache the Patch if you need it twice.
 	 *
@@ -772,6 +803,105 @@ class Table {
 	 */
 	public function diverged(): bool {
 		return ! $this->diff()->is_empty();
+	}
+
+	/**
+	 * Capture this live table's structure with its introspection-completeness signal.
+	 *
+	 * Sugar over Schema::snapshot() for this table. Unlike diff(), the Snapshot says
+	 * whether the introspection was trustworthy (exists(), indexes_complete(),
+	 * is_complete()) - which is what reconcile() gates on before acting.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return Snapshot
+	 */
+	public function snapshot(): Snapshot {
+		return Schema::snapshot( $this->table_name );
+	}
+
+	/**
+	 * Reconcile this live table to its declared schema by applying the difference.
+	 *
+	 * The declarative counterpart to a hand-written upgrade callback: it diffs the
+	 * live table against the declared schema and runs the resulting ALTERs. Completes
+	 * the diff() -> diverged() -> reconcile() lexicon.
+	 *
+	 * Safety:
+	 *  - Captures a Snapshot first and DEFERS (returns false, changes nothing) if the
+	 *    introspection is not complete - acting on a partial picture produces failed
+	 *    ALTERs that never converge. Retry later against a complete capture.
+	 *  - Additive by default ('add', 'modify'); drops only happen if named in
+	 *    $operations. A no-op (already in sync) is a success.
+	 *
+	 * This applies only the changes the diff engine SUPPORTS - it does not reconcile
+	 * column defaults, charset/collation, comments, scale, or ENUM/SET value lists
+	 * (those are intentionally outside the diff), so a true return means "every
+	 * supported change applied", not "table is byte-identical to the declaration".
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string[] $operations Operations to apply: 'add', 'modify', 'drop'.
+	 *                             Defaults to the safe 'add' + 'modify'.
+	 *
+	 * @return bool True if the table is in sync afterward (applied or already
+	 *              matching); false if there is no declared schema, no operations
+	 *              were requested, the capture was incomplete (deferred), or an
+	 *              ALTER failed.
+	 */
+	public function reconcile( array $operations = array( 'add', 'modify' ) ): bool {
+
+		// Nothing to reconcile against without a real declared schema.
+		if ( ! ( $this->schema_object instanceof Schema ) ) {
+			return false;
+		}
+
+		// No operations means no reconcile - skip the introspection entirely.
+		if ( empty( $operations ) ) {
+			return false;
+		}
+
+		// Capture the live table once, with its completeness signal.
+		$snapshot = $this->snapshot();
+
+		// Defer on an untrustworthy capture - never reconcile against a partial picture.
+		if ( ! $snapshot->is_complete() ) {
+			$this->log( 'warning', 'reconcile', "Reconcile deferred for {$this->table_name}: introspection incomplete." );
+
+			return false;
+		}
+
+		// Diff the (complete) actual against the declared schema, then apply.
+		$patch = $snapshot->schema()->diff( $this->schema_object )->set_table( $this );
+
+		return $patch->apply( $operations );
+	}
+
+	/**
+	 * Whether upgrade() should reconcile structural drift (the $reconcile opt-in).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return bool
+	 */
+	private function wants_reconcile(): bool {
+		return ( true === $this->reconcile )
+			|| ( is_array( $this->reconcile ) && ! empty( $this->reconcile ) );
+	}
+
+	/**
+	 * Resolve the $reconcile opt-in to a concrete operations list.
+	 *
+	 * An explicit array is used as-is; the bare `true` opt-in uses the safe default.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return string[]
+	 */
+	private function get_reconcile_operations(): array {
+		return is_array( $this->reconcile )
+			? $this->reconcile
+			: array( 'add', 'modify' );
 	}
 
 	/**
@@ -1404,8 +1534,20 @@ class Table {
 		// Get pending upgrades.
 		$upgrades = $this->get_pending_upgrades();
 
-		// Bail if no upgrades.
+		// No bespoke callback for the pending version(s).
 		if ( empty( $upgrades ) ) {
+
+			/*
+			 * Opt-in: reconcile structural drift to the declared schema before
+			 * recording the version. This fills the "bumped the version with no
+			 * upgrade callback" gap declaratively. A deferred (incomplete capture)
+			 * or failed reconcile does NOT advance the version - the next
+			 * maybe_upgrade() retries against a fresh capture.
+			 */
+			if ( $this->wants_reconcile() && ! $this->reconcile( $this->get_reconcile_operations() ) ) {
+				return false;
+			}
+
 			$this->set_db_version();
 
 			// Return, without failure.
