@@ -650,6 +650,9 @@ class Query {
 
 			// Friendlier column-filter container; folds to {column}__in in normalize.
 			'by'                => array(),
+
+			// Aggregate container ( alias => { function, column } ); see #225.
+			'aggregate'         => array(),
 		);
 
 		/*
@@ -1495,6 +1498,14 @@ class Query {
 		if ( true === $this->get_current( 'query_filter_short_circuit', false ) ) {
 			$this->set_found_items( array() );
 
+			// An aggregate over no matching rows is null per alias (not zero).
+			$aggregate = $this->get_query_var( 'aggregate' );
+
+			if ( ! empty( $aggregate ) && is_array( $aggregate ) ) {
+				$this->items = array_fill_keys( array_map( 'strval', array_keys( $aggregate ) ), null );
+				return $this->items;
+			}
+
 			/*
 			 * Mirror get_items()'s count/non-count return shapes for empty: a plain
 			 * count is 0; a grouped count or a non-count query is an empty array.
@@ -1562,6 +1573,16 @@ class Query {
 			}
 		}
 
+		// Return aggregate results directly - the assoc keyed by alias.
+		$aggregate = $this->get_query_var( 'aggregate' );
+
+		if ( ! empty( $aggregate ) && is_array( $aggregate ) ) {
+			$this->items = is_array( $result )
+				? $result
+				: array();
+			return $this->items;
+		}
+
 		// Return count results directly - already int (get_var) or array (groupby).
 		if ( $this->get_query_var( 'count' ) ) {
 			$this->items = $result;
@@ -1615,9 +1636,19 @@ class Query {
 	 * @since 1.0.0
 	 * @since 3.0.0 Uses wp_parse_list() instead of wp_parse_id_list()
 	 *
-	 * @return array<bool|float|int|string>|array<string,mixed>[]|int Array of item IDs for a full query, or int/rows for a count query.
+	 * @return array<bool|float|int|string>|array<string,mixed>[]|array<string,string|null>|int Item IDs for a full query, int/rows for a count query, or aggregate results keyed by alias.
 	 */
 	private function get_item_ids(): array|int {
+
+		/*
+		 * Aggregate query: compute the aggregates in one row and return them keyed by
+		 * alias, before the normal ID-selection request is built (which it does not use).
+		 */
+		$aggregate = $this->get_query_var( 'aggregate' );
+
+		if ( ! empty( $aggregate ) && is_array( $aggregate ) ) {
+			return $this->run_aggregate( $aggregate );
+		}
 
 		// Setup the query clauses.
 		$this->set_query_clauses();
@@ -1924,18 +1955,7 @@ class Query {
 		}
 
 		// Render FUNC( column ) through the operand value objects (one render path).
-		$operand = new ColumnOperand(
-			array(
-				'column' => $column_object,
-				'alias'  => $this->get_table_alias(),
-			)
-		);
-		$fields  = ( new FuncOperand(
-			array(
-				'sql'  => $function,
-				'args' => array( $operand ),
-			)
-		) )->get_sql();
+		$fields = $this->render_aggregate_expression( $function, $column_object );
 
 		/*
 		 * Build the row set the way select_ids() does: run the full SELECT-path
@@ -1987,6 +2007,107 @@ class Query {
 			$this->query_vars         = $saved_query_vars;
 			$this->query_var_defaults = $saved_query_defaults;
 		}
+	}
+
+	/**
+	 * Render a FUNC( column ) aggregate expression through the operand value objects.
+	 *
+	 * The one render path shared by the scalar aggregate methods and the 'aggregate'
+	 * query-var container, so the column is resolved and quoted exactly as elsewhere.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $function The SQL aggregate (SUM/AVG/MAX/MIN).
+	 * @param Column $column   The column to aggregate.
+	 *
+	 * @return string The rendered expression, e.g. SUM( `t`.`amount` ).
+	 */
+	private function render_aggregate_expression( string $function, Column $column ): string {
+		$operand = new ColumnOperand(
+			array(
+				'column' => $column,
+				'alias'  => $this->get_table_alias(),
+			)
+		);
+
+		return ( new FuncOperand(
+			array(
+				'sql'  => $function,
+				'args' => array( $operand ),
+			)
+		) )->get_sql();
+	}
+
+	/**
+	 * Run the 'aggregate' container and return its results keyed by alias.
+	 *
+	 * Called from the query path (get_item_ids()) once the query vars are parsed, so
+	 * it reads the compiled WHERE/JOIN directly. Each canonical entry renders
+	 * "FUNC( column ) AS alias"; the set runs as ONE row via get_row(), so a caller
+	 * gets every aggregate in a single query. A JOIN-producing filter is wrapped in a
+	 * distinct-primary subquery (the same dedup the scalar methods use), so a
+	 * one-to-many join does not fan out and double-count. Always returns an array keyed
+	 * by every requested alias; an alias whose aggregate is NULL (e.g. an empty set)
+	 * is null - unlike COUNT, an empty SUM/MAX is null, not zero.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string,array{function: string, column: string}> $aggregate The
+	 *        canonical aggregate container (from normalize_aggregate_container()).
+	 *
+	 * @return array<string,string|null> Results keyed by alias.
+	 */
+	private function run_aggregate( array $aggregate ): array {
+
+		// Render "FUNC( column ) AS `alias`" for every entry.
+		$fields = array();
+
+		foreach ( $aggregate as $alias => $spec ) {
+			$column = $this->get_column_by( array( 'name' => $spec[ 'column' ] ) );
+
+			// The column was validated in normalize; skip defensively if it vanished.
+			if ( ! ( $column instanceof Column ) ) {
+				continue;
+			}
+
+			$expression                = $this->render_aggregate_expression( $spec[ 'function' ], $column );
+			$fields[ (string) $alias ] = "{$expression} AS " . $this->quote_identifier( (string) $alias );
+		}
+
+		// Nothing renderable resolves to an empty result set.
+		if ( empty( $fields ) ) {
+			return array();
+		}
+
+		// Compile the JOIN/WHERE from the already-parsed query vars.
+		$join_where = $this->parse_join_where( $this->query_vars );
+		$where      = $this->parse_where_clause( $join_where[ 'where' ] );
+		$join       = $this->parse_join_clause( $join_where[ 'join' ] );
+
+		// Assemble the aggregate clause set and apply the query-clauses filter.
+		$fields_sql = implode( ', ', $fields );
+		$clauses    = $this->aggregate_clauses( $fields_sql, $join, $where );
+		$clauses    = $this->filter_query_clauses( $clauses );
+
+		// Dedup a fan-out JOIN via a distinct-primary subquery (see the scalar methods).
+		if ( '' !== trim( (string) ( $clauses[ 'join' ] ?? '' ) ) ) {
+			$clauses = $this->aggregate_via_subquery( $fields_sql, $clauses );
+		}
+
+		// Read the single row and key each requested alias, defaulting a miss to null.
+		$request = $this->parse_request_clauses( $clauses );
+		$row     = (array) $this->db()->get_row( $request, ARRAY_A );
+
+		$retval = array();
+
+		foreach ( array_keys( $aggregate ) as $alias ) {
+			$value                     = $row[ (string) $alias ] ?? null;
+			$retval[ (string) $alias ] = ( null === $value )
+				? null
+				: (string) $value;
+		}
+
+		return $retval;
 	}
 
 	/**
@@ -2342,6 +2463,9 @@ class Query {
 		// Fold the 'by' column-filter container into canonical {column}__in vars.
 		$query_vars = $this->normalize_by_container( $query_vars );
 
+		// Canonicalize the 'aggregate' container to alias => { function, column }.
+		$query_vars = $this->normalize_aggregate_container( $query_vars );
+
 		// Each registered parser descriptor may rewrite the full query vars.
 		foreach ( $this->parsers as $descriptor ) {
 			$query_vars = $descriptor->normalize_query_vars( $query_vars, $this );
@@ -2436,6 +2560,141 @@ class Query {
 		}
 
 		return $query_vars;
+	}
+
+	/**
+	 * The SQL aggregate functions the 'aggregate' container supports.
+	 *
+	 * @since 3.1.0
+	 * @var string[]
+	 */
+	private const AGGREGATE_FUNCTIONS = array( 'SUM', 'AVG', 'MAX', 'MIN' );
+
+	/**
+	 * Canonicalize the 'aggregate' container to alias => array( function, column ).
+	 *
+	 * Accepts the shorthand array( 'sum' => 'amount' ) (the key is the function, the
+	 * value the column, the alias defaults to the function) and the aliased forms
+	 * array( 'revenue' => array( 'sum', 'amount' ) ) or array( 'revenue' => array(
+	 * 'function' => 'sum', 'column' => 'amount' ) ). Each entry is validated against the
+	 * aggregate function allow-list and the schema columns; an invalid entry or a
+	 * duplicate alias is logged and dropped. The result replaces the container so the
+	 * execution path (see #225) reads one canonical shape.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string,mixed> $query_vars The query vars, mid-normalize.
+	 * @return array<string,mixed> The query vars with a canonical 'aggregate' container.
+	 */
+	private function normalize_aggregate_container( array $query_vars = array() ): array {
+
+		// Consume the container up front, whatever its shape.
+		$aggregate = $query_vars[ 'aggregate' ] ?? array();
+		unset( $query_vars[ 'aggregate' ] );
+
+		// A non-array 'aggregate' is malformed.
+		if ( ! is_array( $aggregate ) ) {
+			$this->log( 'warning', 'aggregate', 'The "aggregate" query var must be an array of aggregates; ignoring it.' );
+			return $query_vars;
+		}
+
+		// An empty container (the default, or an explicit empty array) is a no-op.
+		if ( array() === $aggregate ) {
+			return $query_vars;
+		}
+
+		// Canonicalize each entry to alias => array( function, column ).
+		$canonical = array();
+
+		foreach ( $aggregate as $key => $spec ) {
+			$entry = $this->canonicalize_aggregate_entry( (string) $key, $spec );
+
+			// Skip an invalid entry (already logged).
+			if ( null === $entry ) {
+				continue;
+			}
+
+			// Reject a duplicate alias rather than silently overwriting it.
+			if ( array_key_exists( $entry[ 'alias' ], $canonical ) ) {
+				$this->log( 'warning', 'aggregate', "Duplicate aggregate alias '{$entry[ 'alias' ]}'; keeping the first." );
+				continue;
+			}
+
+			$canonical[ $entry[ 'alias' ] ] = array(
+				'function' => $entry[ 'function' ],
+				'column'   => $entry[ 'column' ],
+			);
+		}
+
+		/*
+		 * Set the container only when something survived, so an all-invalid container
+		 * behaves like an absent one (a normal query, not an empty aggregate) and does
+		 * not leak an empty 'aggregate' into the cache key.
+		 */
+		if ( array() !== $canonical ) {
+			$query_vars[ 'aggregate' ] = $canonical;
+		}
+
+		return $query_vars;
+	}
+
+	/**
+	 * Resolve one 'aggregate' entry into an { alias, function, column } triple.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $key  The container key (the function for shorthand, else the alias).
+	 * @param mixed  $spec The column name (shorthand) or a { function, column } spec.
+	 * @return array{alias: string, function: string, column: string}|null The resolved
+	 *                                                                      triple, or null when invalid.
+	 */
+	private function canonicalize_aggregate_entry( string $key, $spec ): ?array {
+
+		// Shorthand: array( 'sum' => 'amount' ) - key is the function, value the column.
+		if ( is_string( $spec ) ) {
+			$alias    = $key;
+			$function = $key;
+			$column   = $spec;
+
+			// Aliased: array( 'revenue' => array( 'sum', 'amount' ) ) or a named spec.
+		} elseif ( is_array( $spec ) ) {
+			$alias    = $key;
+			$function = (string) ( $spec[ 'function' ] ?? ( $spec[ 0 ] ?? '' ) );
+			$column   = (string) ( $spec[ 'column' ] ?? ( $spec[ 1 ] ?? '' ) );
+
+			// Anything else is malformed.
+		} else {
+			$this->log( 'warning', 'aggregate', "Aggregate entry '{$key}' must be a column name or a { function, column } spec; ignoring it." );
+			return null;
+		}
+
+		// Validate the function against the aggregate allow-list (case-insensitive).
+		$function = strtoupper( $function );
+
+		if ( ! in_array( $function, self::AGGREGATE_FUNCTIONS, true ) ) {
+			$this->log( 'warning', 'aggregate', "Unsupported aggregate function for '{$alias}'; ignoring it." );
+			return null;
+		}
+
+		// Validate the column exists in the schema.
+		$column_object = $this->get_column_by( array( 'name' => $column ) );
+
+		if ( ! ( $column_object instanceof Column ) ) {
+			$this->log( 'warning', 'aggregate', "Aggregate '{$alias}' references unknown column '{$column}'; ignoring it." );
+			return null;
+		}
+
+		// SUM and AVG need a numeric column; MAX and MIN work on any comparable one.
+		if ( in_array( $function, array( 'SUM', 'AVG' ), true ) && ! $column_object->is_numeric() ) {
+			$this->log( 'warning', 'aggregate', "Aggregate '{$alias}' ({$function}) needs a numeric column; '{$column}' is not. Ignoring it." );
+			return null;
+		}
+
+		return array(
+			'alias'    => $alias,
+			'function' => $function,
+			'column'   => $column,
+		);
 	}
 
 	/**
@@ -3529,6 +3788,12 @@ class Query {
 	 * @param mixed $item_ids Optional array of item IDs, or count from a COUNT query.
 	 */
 	private function set_found_items( $item_ids = array() ): void {
+
+		// An aggregate query has no row count and builds no request_clauses to reuse.
+		if ( ! empty( $this->get_query_var( 'aggregate' ) ) ) {
+			$this->set_current( 'found_items', 0 );
+			return;
+		}
 
 		/*
 		 * Default to count of item IDs.
