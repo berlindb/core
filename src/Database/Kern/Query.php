@@ -1700,19 +1700,11 @@ class Query {
 			 * Assemble a narrow "SELECT DISTINCT primary" clause set, in the same shape
 			 * the SELECT path produces (so the query-clauses filter sees every key).
 			 */
-			$primary = $this->get_primary_column_name();
-			$clauses = array(
-				'explain'     => '',
-				'select'      => $this->parse_select(),
-				'distinct'    => $this->parse_distinct( true ),
-				'fields'      => $this->get_quoted_column_name_aliased( $primary ),
-				'from'        => $this->parse_from(),
-				'index_hints' => '', // ID resolution is deliberately un-hinted.
-				'join'        => $join,
-				'where'       => $where,
-				'groupby'     => '',
-				'orderby'     => '',
-				'limits'      => '',
+			$clauses = $this->as_distinct_primary_clauses(
+				array(
+					'join'  => $join,
+					'where' => $where,
+				)
 			);
 
 			/*
@@ -1738,6 +1730,47 @@ class Query {
 			$this->query_vars         = $saved_query_vars;
 			$this->query_var_defaults = $saved_query_defaults;
 		}
+	}
+
+	/**
+	 * Reshape a clause set to select the DISTINCT primary key.
+	 *
+	 * Forces the id-selection shape: DISTINCT on, fields set to the aliased primary key,
+	 * a plain SELECT over the base table, no hints. It keeps the clauses that decide
+	 * WHICH rows match - JOIN and WHERE - so a query-clauses filter's scoping still
+	 * applies, but drops the clauses that reshape the RESULT - GROUP BY, ORDER BY, LIMIT
+	 * - because those would narrow the id set (one key per group, or a truncated page)
+	 * and undercount an aggregate.
+	 *
+	 * Like the SELECT path, this assumes a query-clauses filter SCOPES the base query -
+	 * adding JOIN/WHERE predicates against the base table's alias - and reads FROM the
+	 * base table; it deliberately does not honor a filter that rewrites FROM to a
+	 * different source (the field/alias references are the base table's throughout, as
+	 * everywhere else in Query). select_ids() passes just its compiled JOIN/WHERE; an
+	 * aggregate over a fan-out JOIN passes its whole filtered clause set (see
+	 * aggregate_over_distinct_primary()). The canonical clause order is fixed here, so
+	 * the imploded SQL is well-formed no matter the caller's key order.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string,string> $clauses A (possibly partial) clause set to reshape.
+	 *
+	 * @return array<string,string> The clause set selecting DISTINCT the primary key.
+	 */
+	private function as_distinct_primary_clauses( array $clauses ): array {
+		return array(
+			'explain'     => '',
+			'select'      => $this->parse_select(),
+			'distinct'    => $this->parse_distinct( true ),
+			'fields'      => $this->get_quoted_column_name_aliased( $this->get_primary_column_name() ),
+			'from'        => $this->parse_from(),
+			'index_hints' => '', // ID resolution is deliberately un-hinted.
+			'join'        => $clauses[ 'join' ] ?? '',
+			'where'       => $clauses[ 'where' ] ?? '',
+			'groupby'     => '',
+			'orderby'     => '',
+			'limits'      => '',
+		);
 	}
 
 	/** Aggregates ************************************************************/
@@ -1825,11 +1858,15 @@ class Query {
 	 * same way select_ids() does - full parse_query preparation, scoping action, and
 	 * JOIN/WHERE compilation - on a snapshot of the Query's vars, restored afterward.
 	 *
+	 * A filter that produces a JOIN (a meta / relationship filter, or a scoping hook)
+	 * can fan out base rows one-to-many, so aggregating over the joined rows directly
+	 * would double-count SUM/AVG. When a JOIN is present the aggregate is wrapped
+	 * around a distinct-primary subquery (see aggregate_over_distinct_primary()),
+	 * so each base row is counted once; a plain or column-filtered aggregate has no
+	 * JOIN and runs in place.
+	 *
 	 * Fails closed (returns null) on an unknown column, a non-numeric column when the
-	 * aggregate requires one, a filter that short-circuits to no rows, or a filter
-	 * that produces a JOIN (a one-to-many join would fan out and double-count
-	 * SUM/AVG; supporting it correctly needs a distinct-primary subquery - a
-	 * follow-up). Plain and column-filtered aggregates have no JOIN and run directly.
+	 * aggregate requires one, or a filter that short-circuits to no rows.
 	 *
 	 * @since 3.1.0
 	 *
@@ -1908,15 +1945,14 @@ class Query {
 			$clauses = $this->filter_query_clauses( $clauses );
 
 			/*
-			 * Fail closed on a JOIN: a one-to-many join (a meta / relationship filter,
-			 * or a scoping hook) fans out base rows, so each row with multiple matches
-			 * would be counted repeatedly in SUM/AVG. Rather than return a wrong total,
-			 * refuse - correct JOIN aggregation (a distinct-primary subquery) is a
-			 * follow-up. A plain or column-filtered aggregate has no JOIN and proceeds.
+			 * A JOIN-producing filter (a meta / relationship filter, or a scoping hook)
+			 * can fan out base rows one-to-many, so aggregating over the joined rows
+			 * would count a row once per match and inflate SUM/AVG. When a JOIN is
+			 * present, wrap the aggregate around a distinct-primary subquery so each base
+			 * row is counted once; with no JOIN there is nothing to fan out.
 			 */
 			if ( '' !== trim( (string) ( $clauses[ 'join' ] ?? '' ) ) ) {
-				$this->log( 'warning', 'aggregate', "Aggregate on {$this->table_name} skipped: a JOIN-producing filter is not supported yet." );
-				return null;
+				$clauses = $this->aggregate_over_distinct_primary( $fields, $clauses );
 			}
 
 			// Join the non-empty fragments and read the single scalar.
@@ -1930,6 +1966,61 @@ class Query {
 			$this->query_vars         = $saved_query_vars;
 			$this->query_var_defaults = $saved_query_defaults;
 		}
+	}
+
+	/**
+	 * Wrap a scalar aggregate around a distinct-primary subquery.
+	 *
+	 * A filter that joins the base table one-to-many (a meta / relationship filter,
+	 * or a scoping hook) fans out its rows, so aggregating over the joined result
+	 * double-counts. Given the compiled, already site-scoped clause set, this returns
+	 * a new clause set whose inner subquery resolves each matching primary key once
+	 * (via as_distinct_primary_clauses(), which keeps the filter's JOIN/WHERE scoping),
+	 * and whose outer FUNC( column ) runs over just the base rows in that set - each
+	 * counted once, with no JOIN to fan out.
+	 *
+	 * The base table keeps its alias inside the subquery: the compiled JOIN/WHERE
+	 * already reference it, and the subquery's own FROM re-scopes it, so the outer
+	 * "primary IN ( ... )" stays uncorrelated.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string                $fields  The rendered FUNC( column ) expression.
+	 * @param array<string,string>  $clauses The compiled aggregate clause set; its
+	 *                                       JOIN and WHERE carry the filter + scoping.
+	 *
+	 * @return array<string,string> A clause set that aggregates over base rows bounded
+	 *                              by a distinct-primary IN subquery, with no JOIN.
+	 */
+	private function aggregate_over_distinct_primary( string $fields, array $clauses ): array {
+
+		$primary_ref = $this->get_quoted_column_name_aliased( $this->get_primary_column_name() );
+
+		/*
+		 * The inner subquery reshapes the already-filtered clause set to select each
+		 * matching primary key once, keeping the JOIN/WHERE scoping but dropping the
+		 * result-shaping clauses (the shared shape select_ids() also uses).
+		 */
+		$inner         = $this->as_distinct_primary_clauses( $clauses );
+		$inner_request = implode( ' ', array_map( 'trim', array_filter( $inner ) ) );
+
+		/*
+		 * The outer aggregate runs over the base table with no JOIN, bounded to the
+		 * distinct primary keys the subquery resolved - one row each, no fan-out.
+		 */
+		return array(
+			'explain'     => '',
+			'select'      => $this->parse_select(),
+			'distinct'    => '',
+			'fields'      => $fields,
+			'from'        => $this->parse_from(),
+			'index_hints' => '',
+			'join'        => '',
+			'where'       => "WHERE {$primary_ref} IN ( {$inner_request} )",
+			'groupby'     => '',
+			'orderby'     => '',
+			'limits'      => '',
+		);
 	}
 
 	/**

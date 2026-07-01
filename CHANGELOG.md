@@ -86,6 +86,15 @@ Notable changes to BerlinDB are documented here.
 - Adds a `distinct` query var: `'distinct' => true` renders `SELECT DISTINCT` (and
   `COUNT(DISTINCT id)` when counting or computing found rows), so a relationship or
   meta `JOIN` that multiplies rows does not duplicate results or inflate counts.
+- Adds scalar aggregate methods (#50, #211): `Query::get_sum()`, `get_avg()`,
+  `get_max()`, and `get_min()`, each taking a column and optional query vars to
+  filter the rows. `get_sum`/`get_avg` return `float|null`; `get_max`/`get_min`
+  return the raw scalar. The `FUNC( column )` expression renders through the same
+  operand value objects the clause builder uses, so it fails closed on an unknown
+  column (and, for `SUM`/`AVG`, a non-numeric one) and on an empty result set. A
+  filter that produces a `JOIN` (a meta / relationship filter, or a scoping hook)
+  is aggregated over a distinct-primary subquery, so a one-to-many join does not
+  fan out and double-count.
 - Adds per-column `NULLS FIRST` / `NULLS LAST` ordering (#211): a per-column orderby
   direction may carry the suffix, e.g.
   `'orderby' => array( 'priority' => 'ASC NULLS LAST' )`. MySQL has no native

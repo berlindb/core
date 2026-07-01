@@ -156,4 +156,99 @@ class AggregateTest extends TestCase {
 
 		$this->assertNull( self::$query->get_sum( 'priority' ) );
 	}
+
+	/**
+	 * A JOIN-producing filter fans out base rows one-to-many; the aggregate must not
+	 * double-count. A clauses filter CROSS JOINs a two-row derived table (doubling
+	 * every base row), so a naive SUM over the joined result would be 120 - the
+	 * distinct-primary subquery must still return 60.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_sum_with_join_filter_is_not_double_counted() {
+		$filter   = 'berlindb_database_widgets_query_clauses';
+		$callback = static function ( $clauses ) {
+			$clauses[ 'join' ] = trim( ( $clauses[ 'join' ] ?? '' ) . ' JOIN ( SELECT 1 UNION ALL SELECT 2 ) AS berlin_fan ON ( 1 = 1 )' );
+			return $clauses;
+		};
+
+		add_filter( $filter, $callback );
+
+		try {
+			$this->assertSame( 60.0, self::$query->get_sum( 'priority' ) );
+		} finally {
+			remove_filter( $filter, $callback );
+		}
+	}
+
+	/**
+	 * MAX is idempotent under fan-out, but it still routes through the subquery when a
+	 * JOIN is present and must return the correct extreme (not null, not skipped).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_max_with_join_filter_is_correct() {
+		$filter   = 'berlindb_database_widgets_query_clauses';
+		$callback = static function ( $clauses ) {
+			$clauses[ 'join' ] = trim( ( $clauses[ 'join' ] ?? '' ) . ' JOIN ( SELECT 1 UNION ALL SELECT 2 ) AS berlin_fan ON ( 1 = 1 )' );
+			return $clauses;
+		};
+
+		add_filter( $filter, $callback );
+
+		try {
+			$this->assertSame( '30', self::$query->get_max( 'priority' ) );
+		} finally {
+			remove_filter( $filter, $callback );
+		}
+	}
+
+	/**
+	 * A query-var filter (WHERE) and a JOIN-producing filter must both constrain the
+	 * inner distinct-primary subquery: the active rows (priority 10 + 20) sum to 30,
+	 * doubled by the fan-out only if the WHERE or the dedup were lost.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_join_filter_combines_with_where() {
+		$filter   = 'berlindb_database_widgets_query_clauses';
+		$callback = static function ( $clauses ) {
+			$clauses[ 'join' ] = trim( ( $clauses[ 'join' ] ?? '' ) . ' JOIN ( SELECT 1 UNION ALL SELECT 2 ) AS berlin_fan ON ( 1 = 1 )' );
+			return $clauses;
+		};
+
+		add_filter( $filter, $callback );
+
+		try {
+			$this->assertSame( 30.0, self::$query->get_sum( 'priority', array( 'status' => 'active' ) ) );
+		} finally {
+			remove_filter( $filter, $callback );
+		}
+	}
+
+	/**
+	 * A query-clauses filter that also adds GROUP BY (or ORDER BY / LIMIT) must not
+	 * narrow the distinct-primary id set: grouping the fanned rows would collapse to
+	 * one arbitrary key per group and undercount. The dedup subquery drops those
+	 * result-shaping clauses, so the sum stays 60 (all three rows), not a grouped
+	 * subset.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_join_filter_with_groupby_does_not_undercount() {
+		$filter   = 'berlindb_database_widgets_query_clauses';
+		$callback = static function ( $clauses ) {
+			$clauses[ 'join' ]    = trim( ( $clauses[ 'join' ] ?? '' ) . ' JOIN ( SELECT 1 AS n UNION ALL SELECT 2 AS n ) AS berlin_fan ON ( 1 = 1 )' );
+			$clauses[ 'groupby' ] = 'GROUP BY berlin_fan.n';
+			return $clauses;
+		};
+
+		add_filter( $filter, $callback );
+
+		try {
+			$this->assertSame( 60.0, self::$query->get_sum( 'priority' ) );
+		} finally {
+			remove_filter( $filter, $callback );
+		}
+	}
 }
