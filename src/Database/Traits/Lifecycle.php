@@ -180,6 +180,20 @@ trait Lifecycle {
 	}
 
 	/**
+	 * Get the whole current run's ephemeral state.
+	 *
+	 * The read companion to init_current(): snapshot the state before an isolated
+	 * side run, then init_current( $snapshot ) to restore it.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return array<string,mixed> The current ephemeral state.
+	 */
+	protected function get_current_state(): array {
+		return $this->current;
+	}
+
+	/**
 	 * Reserved property names owned by the Lifecycle trait.
 	 *
 	 * Per-run ephemeral state that configuration must never set or have clobbered.

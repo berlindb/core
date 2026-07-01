@@ -1848,7 +1848,7 @@ class Query {
 	 *                    rows matched.
 	 */
 	public function get_sum( string $column, array $query_vars = array() ): ?float {
-		$value = $this->aggregate( 'SUM', $column, $query_vars );
+		$value = $this->aggregate_scalar( 'SUM', $column, $query_vars );
 
 		return ( null === $value )
 			? null
@@ -1867,7 +1867,7 @@ class Query {
 	 *                    no rows matched.
 	 */
 	public function get_avg( string $column, array $query_vars = array() ): ?float {
-		$value = $this->aggregate( 'AVG', $column, $query_vars );
+		$value = $this->aggregate_scalar( 'AVG', $column, $query_vars );
 
 		return ( null === $value )
 			? null
@@ -1889,7 +1889,7 @@ class Query {
 	 *                     rows matched.
 	 */
 	public function get_max( string $column, array $query_vars = array() ): ?string {
-		return $this->aggregate( 'MAX', $column, $query_vars );
+		return $this->aggregate_scalar( 'MAX', $column, $query_vars );
 	}
 
 	/**
@@ -1907,27 +1907,18 @@ class Query {
 	 *                     rows matched.
 	 */
 	public function get_min( string $column, array $query_vars = array() ): ?string {
-		return $this->aggregate( 'MIN', $column, $query_vars );
+		return $this->aggregate_scalar( 'MIN', $column, $query_vars );
 	}
 
 	/**
-	 * Run a scalar aggregate ( FUNC( column ) ) over the matching rows.
+	 * Run one scalar aggregate over the matching rows via the 'aggregate' container.
 	 *
-	 * The aggregate expression is rendered through the same operand value objects the
-	 * clause builder uses (Operands\Func over Operands\Column), so the column is
-	 * resolved and quoted exactly as it is everywhere else. The row set is built the
-	 * same way select_ids() does - full parse_query preparation, scoping action, and
-	 * JOIN/WHERE compilation - on a snapshot of the Query's vars, restored afterward.
-	 *
-	 * A filter that produces a JOIN (a meta / relationship filter, or a scoping hook)
-	 * can fan out base rows one-to-many, so aggregating over the joined rows directly
-	 * would double-count SUM/AVG. When a JOIN is present the aggregate is wrapped
-	 * around a distinct-primary subquery (see aggregate_via_subquery()),
-	 * so each base row is counted once; a plain or column-filtered aggregate has no
-	 * JOIN and runs in place.
-	 *
-	 * Fails closed (returns null) on an unknown column, a non-numeric column when the
-	 * aggregate requires one, or a filter that short-circuits to no rows.
+	 * The scalar methods (get_sum/get_avg/get_max/get_min) are thin wrappers over this:
+	 * it fails closed on an unknown column (and, for SUM/AVG, a non-numeric one) BEFORE
+	 * querying, then runs a single-entry 'aggregate' container query in isolation (so
+	 * the caller's own query and results are untouched) and pulls the value out by
+	 * alias. The container handles the FUNC render, filtering, JOIN fan-out dedup, and
+	 * caching (see run_aggregate()); an empty set is null.
 	 *
 	 * @since 3.1.0
 	 *
@@ -1938,9 +1929,9 @@ class Query {
 	 *
 	 * @return string|null The raw scalar result, or null.
 	 */
-	private function aggregate( string $function, string $column, array $query_vars ): ?string {
+	private function aggregate_scalar( string $function, string $column, array $query_vars ): ?string {
 
-		// Resolve and validate the column; fail closed on an unknown or wrong type.
+		// Fail closed on an unknown or wrong-typed column before running a query.
 		$column_object = $this->get_column_by( array( 'name' => $column ) );
 
 		if ( ! ( $column_object instanceof Column ) ) {
@@ -1948,64 +1939,58 @@ class Query {
 		}
 
 		// SUM and AVG need a numeric column; MAX and MIN work on any comparable one.
-		$requires_numeric = in_array( $function, array( 'SUM', 'AVG' ), true );
-
-		if ( ( true === $requires_numeric ) && ! $column_object->is_numeric() ) {
+		if ( in_array( $function, array( 'SUM', 'AVG' ), true ) && ! $column_object->is_numeric() ) {
 			return null;
 		}
 
-		// Render FUNC( column ) through the operand value objects (one render path).
-		$fields = $this->render_aggregate_expression( $function, $column_object );
+		// Run the single aggregate in isolation and pull its value out by alias.
+		$alias  = strtolower( $function );
+		$result = $this->run_isolated_query(
+			array_merge(
+				$query_vars,
+				array( 'aggregate' => array( $alias => $column ) )
+			)
+		);
 
-		/*
-		 * Build the row set the way select_ids() does: run the full SELECT-path
-		 * preparation on a snapshot of the Query's own vars (so parser callbacks read
-		 * consistent state), then restore. Unlike select_ids(), an empty WHERE is
-		 * allowed - an aggregate over the whole table is legitimate.
-		 */
-		$saved_query_vars     = $this->query_vars;
-		$saved_query_defaults = $this->query_var_defaults;
+		$value = is_array( $result )
+			? ( $result[ $alias ] ?? null )
+			: null;
+
+		return ( null === $value )
+			? null
+			: (string) $value;
+	}
+
+	/**
+	 * Run a query in isolation, leaving this instance's state untouched.
+	 *
+	 * query() rebuilds the ephemeral run state (init_current()) and overwrites
+	 * query_vars, query_var_defaults, and items. When a method needs a side query on
+	 * the SAME instance - e.g. a scalar aggregate method running an 'aggregate'
+	 * container - this snapshots that state, runs the query, and restores it in a
+	 * finally, so the caller's own query and results survive. get_current_state() /
+	 * init_current() snapshot and restore the ephemeral bag; the three properties round
+	 * it out.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string,mixed> $query_vars The side query's vars.
+	 * @return array<int|string,mixed>|int The side query's result.
+	 */
+	private function run_isolated_query( array $query_vars = array() ) {
+		$saved_current  = $this->get_current_state();
+		$saved_vars     = $this->query_vars;
+		$saved_defaults = $this->query_var_defaults;
+		$saved_items    = $this->items;
 
 		try {
-			$this->parse_query( $query_vars );
-			$this->pre_get_items();
-
-			// A filter normalized to "no possible matches" resolves to nothing.
-			if ( true === $this->get_current( 'query_filter_short_circuit', false ) ) {
-				return null;
-			}
-
-			$join_where = $this->parse_join_where( $this->query_vars );
-			$where      = $this->parse_where_clause( $join_where[ 'where' ] );
-			$join       = $this->parse_join_clause( $join_where[ 'join' ] );
-
-			// Assemble a scalar-aggregate clause set, in the SELECT path's shape.
-			$clauses = $this->aggregate_clauses( $fields, $join, $where );
-
-			// Apply the same query-clauses filter the SELECT path runs (site scoping).
-			$clauses = $this->filter_query_clauses( $clauses );
-
-			/*
-			 * A JOIN-producing filter (a meta / relationship filter, or a scoping hook)
-			 * can fan out base rows one-to-many, so aggregating over the joined rows
-			 * would count a row once per match and inflate SUM/AVG. When a JOIN is
-			 * present, wrap the aggregate around a distinct-primary subquery so each base
-			 * row is counted once; with no JOIN there is nothing to fan out.
-			 */
-			if ( '' !== trim( (string) ( $clauses[ 'join' ] ?? '' ) ) ) {
-				$clauses = $this->aggregate_via_subquery( $fields, $clauses );
-			}
-
-			// Join the non-empty fragments and read the single scalar.
-			$request = $this->parse_request_clauses( $clauses );
-
-			return $this->db()->get_var( $request );
+			return $this->query( $query_vars );
 
 		} finally {
-
-			// Always restore the Query's own vars and defaults.
-			$this->query_vars         = $saved_query_vars;
-			$this->query_var_defaults = $saved_query_defaults;
+			$this->init_current( $saved_current );
+			$this->query_vars         = $saved_vars;
+			$this->query_var_defaults = $saved_defaults;
+			$this->items              = $saved_items;
 		}
 	}
 

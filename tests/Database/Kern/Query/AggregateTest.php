@@ -251,4 +251,31 @@ class AggregateTest extends TestCase {
 			remove_filter( $filter, $callback );
 		}
 	}
+
+	/**
+	 * A scalar aggregate method runs a side query in isolation: it must not disturb the
+	 * instance's own prior query or its items (the scalar methods now route through the
+	 * cached 'aggregate' container via run_isolated_query()).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_scalar_method_does_not_disturb_the_instance() {
+		$query = new TestQuery(
+			array(
+				'orderby' => 'priority',
+				'order'   => 'ASC',
+			)
+		);
+
+		$before_items = $query->items;
+		$before_vars  = $query->query_vars;
+
+		$this->assertCount( 3, $before_items );
+
+		$sum = $query->get_sum( 'priority' );
+
+		$this->assertSame( 60.0, $sum );
+		$this->assertSame( $before_items, $query->items );
+		$this->assertSame( $before_vars, $query->query_vars );
+	}
 }
