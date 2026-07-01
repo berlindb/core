@@ -89,4 +89,14 @@ class IndexDiff {
 	public function name(): string {
 		return (string) $this->to->name;
 	}
+
+	/**
+	 * The inverse difference: the from and to sides swapped.
+	 *
+	 * @since 3.1.0
+	 * @return self
+	 */
+	public function reverse(): self {
+		return new self( $this->to, $this->from );
+	}
 }

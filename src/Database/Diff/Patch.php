@@ -253,13 +253,13 @@ class Patch {
 				'dropped_indexes'  => $this->added_indexes,
 				'modified_columns' => array_map(
 					static function ( ColumnDiff $diff ) {
-						return new ColumnDiff( $diff->to(), $diff->from() );
+						return $diff->reverse();
 					},
 					$this->modified_columns
 				),
 				'modified_indexes' => array_map(
 					static function ( IndexDiff $diff ) {
-						return new IndexDiff( $diff->to(), $diff->from() );
+						return $diff->reverse();
 					},
 					$this->modified_indexes
 				),

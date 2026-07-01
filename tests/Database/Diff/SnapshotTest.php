@@ -51,6 +51,19 @@ class SnapshotTest extends TestCase {
 	}
 
 	/**
+	 * missing() is a not-found snapshot: no schema, not existing, not complete.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_missing_factory_is_not_found() {
+		$snapshot = Snapshot::missing();
+
+		$this->assertFalse( $snapshot->exists() );
+		$this->assertFalse( $snapshot->is_complete() );
+		$this->assertEmpty( $snapshot->schema()->columns );
+	}
+
+	/**
 	 * A missing table is not complete (and never could be acted on).
 	 *
 	 * @since 3.1.0

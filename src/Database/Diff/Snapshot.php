@@ -85,6 +85,19 @@ class Snapshot {
 	}
 
 	/**
+	 * A not-found snapshot: the table was not found (or could not be introspected).
+	 *
+	 * An empty schema, exists() and is_complete() both false.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return self
+	 */
+	public static function missing(): self {
+		return new self( new Schema(), false, false );
+	}
+
+	/**
 	 * The introspected schema.
 	 *
 	 * @since 3.1.0

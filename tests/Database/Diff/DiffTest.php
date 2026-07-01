@@ -929,4 +929,37 @@ class DiffTest extends TestCase {
 		$this->assertCount( 1, $patch->modified_columns() );
 		$this->assertSame( 'keep', $patch->modified_columns()[0]->name() );
 	}
+
+	/**
+	 * A ColumnDiff's reverse() swaps its from and to sides.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_column_diff_reverse_swaps_sides() {
+		$from = $this->schema(
+			array(
+				array(
+					'name' => 'n',
+					'type' => 'int',
+				),
+			)
+		);
+		$to   = $this->schema(
+			array(
+				array(
+					'name'   => 'n',
+					'type'   => 'varchar',
+					'length' => '50',
+				),
+			)
+		);
+
+		$diff     = $from->diff( $to )->modified_columns()[0];
+		$reversed = $diff->reverse();
+
+		// Original: int -> varchar. Reversed: varchar -> int. (Types stored uppercase.)
+		$this->assertSame( 'VARCHAR', $diff->to()->type );
+		$this->assertSame( 'VARCHAR', $reversed->from()->type );
+		$this->assertSame( 'INT', $reversed->to()->type );
+	}
 }

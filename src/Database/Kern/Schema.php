@@ -158,7 +158,7 @@ class Schema {
 
 		// No table name: nothing to capture.
 		if ( empty( $table ) ) {
-			return new Snapshot( new self(), false, false );
+			return Snapshot::missing();
 		}
 
 		// Resolve the database interface through the static wrapper.
@@ -182,7 +182,7 @@ class Schema {
 		 * table always reports columns). Either way there is nothing to trust.
 		 */
 		if ( empty( $column_rows ) ) {
-			return new Snapshot( new self(), false, false );
+			return Snapshot::missing();
 		}
 
 		// Map each column row to a Column object.

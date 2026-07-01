@@ -791,15 +791,8 @@ class Table {
 	 */
 	public function diff(): Patch {
 
-		// Nothing to compare against without a real declared schema.
-		if ( ! ( $this->schema_object instanceof Schema ) ) {
-			return ( new Patch() )->set_table( $this );
-		}
-
 		// Actual (live) -> desired (declared): the migration direction.
-		$actual = Schema::from_table( $this->table_name );
-
-		return $actual->diff( $this->schema_object )->set_table( $this );
+		return $this->patch_against( Schema::from_table( $this->table_name ) );
 	}
 
 	/**
@@ -879,9 +872,30 @@ class Table {
 		}
 
 		// Diff the (complete) actual against the declared schema, then apply.
-		$patch = $snapshot->schema()->diff( $this->schema_object )->set_table( $this );
+		return $this->patch_against( $snapshot->schema() )->apply( $operations );
+	}
 
-		return $patch->apply( $operations );
+	/**
+	 * Build a table-bound Patch diffing a captured "actual" schema against declared.
+	 *
+	 * Shared by diff() (actual from from_table()) and reconcile() (actual from a
+	 * complete snapshot). Returns an empty bound Patch when there is no declared
+	 * schema to compare against.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param Schema $actual The introspected (live) schema.
+	 *
+	 * @return Patch
+	 */
+	private function patch_against( Schema $actual ): Patch {
+
+		// Nothing to compare against without a real declared schema.
+		if ( ! ( $this->schema_object instanceof Schema ) ) {
+			return ( new Patch() )->set_table( $this );
+		}
+
+		return $actual->diff( $this->schema_object )->set_table( $this );
 	}
 
 	/**
