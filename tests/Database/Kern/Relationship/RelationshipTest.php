@@ -422,4 +422,37 @@ class RelationshipTest extends TestCase {
 			$relationship->get_create_string( 'wp_acme_customers' )
 		);
 	}
+
+	/**
+	 * Test that is_foreign_key() is true only for an enforced belongs_to.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_is_foreign_key() {
+		$enforced_belongs_to = new Relationship(
+			array(
+				'type'    => 'belongs_to',
+				'enforce' => true,
+				'columns' => array( 'customer_id' ),
+			)
+		);
+		$this->assertTrue( $enforced_belongs_to->is_foreign_key() );
+
+		$unenforced = new Relationship(
+			array(
+				'type'    => 'belongs_to',
+				'columns' => array( 'customer_id' ),
+			)
+		);
+		$this->assertFalse( $unenforced->is_foreign_key() );
+
+		$enforced_has_many = new Relationship(
+			array(
+				'type'    => 'has_many',
+				'enforce' => true,
+				'columns' => array( 'id' ),
+			)
+		);
+		$this->assertFalse( $enforced_has_many->is_foreign_key() );
+	}
 }

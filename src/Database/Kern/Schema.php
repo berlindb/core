@@ -1526,45 +1526,152 @@ class Schema {
 	/**
 	 * Return the SQL body for a "CREATE TABLE" statement.
 	 *
-	 * Combines the column and index SQL fragments into a single string ready
-	 * to be placed inside the parentheses of a CREATE TABLE query. Validation
-	 * runs first; returns an empty string if the schema is not valid.
+	 * Combines the column and index SQL fragments into a single string ready to be
+	 * placed inside the parentheses of a CREATE TABLE query. Validation runs first;
+	 * returns an empty string if the schema is not valid.
 	 *
-	 * NOTE: foreign-key DDL is intentionally NOT emitted here. Relationship
-	 * metadata (type, columns, references, and the enforce / on_delete /
-	 * on_update / constraint attributes) is declarable, and
-	 * Relationship::get_create_string() can render a FOREIGN KEY fragment - but
-	 * it is future-ready metadata, not wired into table creation. WordPress
-	 * deliberately avoids real foreign keys (dbDelta doesn't support them, and
-	 * enforced keys would require resolving and install-ordering the remote
-	 * table), so relationships are enforced at the application layer for now.
-	 * Only columns and indexes are emitted.
+	 * Foreign keys are NOT included by default: BerlinDB installs each table
+	 * independently and in no guaranteed order, so a FK inside CREATE TABLE would
+	 * reference a table that may not exist yet (and MySQL would reject the whole
+	 * create), and two tables could never reference each other. Enforced keys are
+	 * therefore added AFTER the tables exist, via Table::add_foreign_keys(). Pass
+	 * $with_foreign_keys = true only when you control install order (referenced
+	 * tables created first, no cycles) and want the constraint inline.
 	 *
 	 * @since 3.0.0
+	 * @since 3.1.0 Optionally emits FOREIGN KEY fragments for enforced relationships.
+	 *
+	 * @param bool $with_foreign_keys Include enforced FK fragments inline. Default
+	 *                                false (deferred); requires controlled install
+	 *                                order when true.
 	 *
 	 * @return string SQL body string, or empty string if invalid or empty.
 	 */
-	public function get_create_table_string() {
+	public function get_create_table_string( bool $with_foreign_keys = false ) {
 
 		// Bail if schema has validation errors.
 		if ( ! $this->is_valid() ) {
 			return '';
 		}
 
-		/*
-		 * Columns and indexes only. Relationship/foreign-key DDL is declarable
-		 * (see Relationship::get_create_string()) but intentionally not emitted -
-		 * see this method's docblock.
-		 */
+		// Columns and indexes always.
 		$strings = array(
 			$this->get_items_create_string( 'columns' ),
 			$this->get_items_create_string( 'indexes' ),
 		);
 
+		// Enforced foreign keys only when opted in (deferred by default).
+		if ( true === $with_foreign_keys ) {
+			$strings = array_merge( $strings, $this->get_foreign_key_strings() );
+		}
+
 		// Join non-empty fragments.
 		$retval = implode( ",\n", array_filter( $strings ) );
 
 		return $retval;
+	}
+
+	/**
+	 * Return the FOREIGN KEY fragments for this schema's enforced relationships.
+	 *
+	 * One fragment per enforced, owning-side (belongs_to) relationship, each with
+	 * its remote table resolved from the relationship's remote Query class. Shared
+	 * by get_create_table_string() (emitted inside CREATE TABLE) and
+	 * Table::add_foreign_keys() (emitted as ALTER TABLE ADD). Empty when nothing is
+	 * enforced. Non-enforced relationships stay application-level and emit nothing.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return string[] The FOREIGN KEY fragments (never null; each already rendered).
+	 */
+	public function get_foreign_key_strings(): array {
+		$fragments = array();
+
+		foreach ( $this->get_relationships() as $relationship ) {
+
+			// Only enforced, owning-side relationships emit a FOREIGN KEY.
+			if ( ! $relationship->is_foreign_key() ) {
+				continue;
+			}
+
+			/*
+			 * Skip (do not emit) an unresolved remote - get_unresolved_foreign_keys()
+			 * reports these so a caller can warn rather than lose the key silently.
+			 */
+			$remote_table = $this->resolve_remote_table( $relationship );
+
+			if ( '' === $remote_table ) {
+				continue;
+			}
+
+			// Render the fragment against the resolved remote table name.
+			$fragment = $relationship->get_create_string( $remote_table );
+
+			if ( '' !== $fragment ) {
+				$fragments[] = $fragment;
+			}
+		}
+
+		return $fragments;
+	}
+
+	/**
+	 * Return the remote Query classes of enforced foreign keys that cannot resolve.
+	 *
+	 * An enforced foreign key is silently skipped by get_foreign_key_strings() when
+	 * its remote table cannot be resolved (the remote Table is not registered on the
+	 * connection yet - see resolve_remote_table()). This reports those so a caller
+	 * that can log (Table::create()) can warn rather than drop the key silently.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return string[] Remote Query class names, one per unresolvable enforced key.
+	 */
+	public function get_unresolved_foreign_keys(): array {
+		$unresolved = array();
+
+		foreach ( $this->get_relationships() as $relationship ) {
+
+			// Only enforced, owning-side relationships would emit a key.
+			if ( ! $relationship->is_foreign_key() ) {
+				continue;
+			}
+
+			// An empty remote table name is the skip reason worth reporting.
+			if ( '' === $this->resolve_remote_table( $relationship ) ) {
+				$unresolved[] = (string) $relationship->get_query_class();
+			}
+		}
+
+		return $unresolved;
+	}
+
+	/**
+	 * Resolve a relationship's remote Query class to its physical table name.
+	 *
+	 * The Relationship stores only the remote Query FQCN, not the table name (which
+	 * depends on runtime prefixes). A configured-only construction of that Query
+	 * (no args, so no query runs - see Query::consume_args()) yields its
+	 * get_table_name() cheaply.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param Relationship $relationship The relationship whose remote to resolve.
+	 *
+	 * @return string The prefixed remote table name, or '' if it cannot be resolved.
+	 */
+	private function resolve_remote_table( Relationship $relationship ): string {
+		$query_class = $relationship->get_query_class();
+
+		// Bail unless the remote is a resolvable Query class.
+		if ( ! is_string( $query_class ) || ! is_subclass_of( $query_class, Query::class ) ) {
+			return '';
+		}
+
+		// Configured-only construction (empty args run no query), then read the name.
+		$remote = new $query_class();
+
+		return (string) $remote->get_table_name();
 	}
 
 	/**

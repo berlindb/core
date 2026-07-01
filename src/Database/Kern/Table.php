@@ -282,6 +282,25 @@ class Table {
 	protected $reconcile = array( 'add' );
 
 	/**
+	 * When enforced foreign keys are emitted.
+	 *
+	 * BerlinDB installs tables independently and in no guaranteed order, so a real
+	 * FOREIGN KEY inside CREATE TABLE would reference a table that may not exist yet.
+	 * Enforced keys (relationship enforce => true) are therefore DEFERRED by default:
+	 * create() builds a bare table, and the keys are added afterward - once every
+	 * referenced table exists - with add_foreign_keys().
+	 *
+	 * Set to 'inline' only when you control install order (referenced tables created
+	 * first, no cycles) and want the constraint emitted inside CREATE TABLE.
+	 *
+	 * Accepts 'deferred' (default) or 'inline'.
+	 *
+	 * @since 3.1.0
+	 * @var   string
+	 */
+	protected $foreign_keys = 'deferred';
+
+	/**
 	 * Whether to hook maybe_upgrade() to admin_init for automatic installation.
 	 *
 	 * Set to false in a subclass to disable auto-install and require explicit
@@ -388,6 +407,7 @@ class Table {
 			// Upgrades.
 			'upgrades'          => '',
 			'reconcile'         => '',
+			'foreign_keys'      => '',
 			'auto_install'      => array( $this, 'sanitize_boolean' ),
 		);
 	}
@@ -1010,6 +1030,52 @@ class Table {
 	}
 
 	/**
+	 * Add this schema's enforced foreign keys to the table, via ALTER TABLE.
+	 *
+	 * The deferred counterpart to emitting foreign keys inside CREATE TABLE (see
+	 * Schema::get_create_table_string()): use this when the referenced tables were
+	 * not guaranteed to exist at create time, or for two tables that reference each
+	 * other - create both first, then add the keys. Only enforced (enforce => true)
+	 * relationships emit anything; a schema with none is a no-op success. Each key
+	 * is added independently; a referenced table that still does not exist fails
+	 * that one key (MySQL rejects it) without affecting the others.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return bool True if every enforced key was added (or there were none), false
+	 *              if any ADD failed or any enforced key could not be resolved.
+	 */
+	public function add_foreign_keys(): bool {
+
+		// Nothing to add without a real declared schema.
+		if ( ! ( $this->schema_object instanceof Schema ) ) {
+			return false;
+		}
+
+		$success = true;
+
+		/*
+		 * An enforced key whose remote table cannot be resolved (its Table is not
+		 * registered) is a failure, not a silent skip - report it and mark unsuccess.
+		 */
+		foreach ( $this->schema_object->get_unresolved_foreign_keys() as $remote_class ) {
+			$this->log( 'warning', 'foreign_key', "Enforced foreign key to {$remote_class} not added to {$this->table_name}: remote table not registered." );
+			$success = false;
+		}
+
+		// Add each resolved foreign key independently.
+		foreach ( $this->schema_object->get_foreign_key_strings() as $fragment ) {
+			$sql = $this->grammar()->add_foreign_key( $this->table_name, $fragment );
+
+			if ( ( '' !== $sql ) && ! $this->is_success( $this->db()->query( $sql ) ) ) {
+				$success = false;
+			}
+		}
+
+		return $success;
+	}
+
+	/**
 	 * Add a column to this database table.
 	 *
 	 * Mirrors add_index(). The create string carries the column name, type, and
@@ -1190,8 +1256,12 @@ class Table {
 			return false;
 		}
 
-		// Get the "CREATE TABLE" string.
-		$create_table_string = $this->schema_object->get_create_table_string();
+		/*
+		 * Get the "CREATE TABLE" string. Foreign keys are deferred to
+		 * add_foreign_keys() by default; emit them inline only when opted in.
+		 */
+		$inline_foreign_keys = ( 'inline' === $this->foreign_keys );
+		$create_table_string = $this->schema_object->get_create_table_string( $inline_foreign_keys );
 
 		// Bail if no create string.
 		if ( empty( $create_table_string ) ) {

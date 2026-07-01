@@ -112,6 +112,26 @@ class Grammar {
 	}
 
 	/**
+	 * Render an ADD statement for an already-rendered foreign-key fragment.
+	 *
+	 * The FOREIGN KEY body itself is built by Relationship::get_create_string()
+	 * (which owns that syntax); this only wraps it in the ALTER TABLE ADD clause,
+	 * for adding an enforced key after the tables exist (Table::add_foreign_keys()).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $table    The full, prefixed table name.
+	 * @param string $fragment The rendered FOREIGN KEY fragment.
+	 *
+	 * @return string The statement, or '' for an empty fragment.
+	 */
+	public function add_foreign_key( string $table, string $fragment ): string {
+		return ( '' === $fragment )
+			? ''
+			: "ALTER TABLE {$table} ADD {$fragment}";
+	}
+
+	/**
 	 * Render a DROP index statement (DROP PRIMARY KEY for the primary key).
 	 *
 	 * @since 3.1.0

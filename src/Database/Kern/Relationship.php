@@ -187,8 +187,15 @@ class Relationship {
 	/**
 	 * Emit a real FOREIGN KEY constraint in table DDL?
 	 *
-	 * Off by default, matching WordPress convention. Opt in only when you
-	 * control the storage engine.
+	 * Off by default, matching WordPress convention. Opt in only when you control the
+	 * storage engine.
+	 *
+	 * Enforcing declares intent; it does NOT create the constraint automatically.
+	 * BerlinDB installs tables independently and in no set order, so the key is not
+	 * put in CREATE TABLE by default (the referenced table may not exist yet). Create
+	 * the constraint by calling Table::add_foreign_keys() once every referenced table
+	 * is installed - or set the referencing table's $foreign_keys to 'inline' if you
+	 * control install order and want it in CREATE TABLE.
 	 *
 	 * @since 3.1.0
 	 * @var   bool Default false.
@@ -259,6 +266,21 @@ class Relationship {
 	 */
 	public function is_enforced() {
 		return ( true === $this->enforce );
+	}
+
+	/**
+	 * Return whether this relationship emits a real FOREIGN KEY constraint.
+	 *
+	 * True only for an enforced, owning-side (belongs_to) relationship - the same
+	 * conditions under which get_create_string() renders a fragment. A has_many or
+	 * an application-level (non-enforced) relationship emits none.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return bool
+	 */
+	public function is_foreign_key(): bool {
+		return $this->is_enforced() && ( 'belongs_to' === $this->type );
 	}
 
 	/**

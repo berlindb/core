@@ -193,12 +193,27 @@ class GrammarTest extends TestCase {
 	}
 
 	/**
-	 * Empty names render nothing (no malformed statement).
+	 * add_foreign_key() wraps an already-rendered FK fragment in ALTER TABLE ADD.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_add_foreign_key() {
+		$fragment = 'FOREIGN KEY (`widget_id`) REFERENCES `wp_widgets` (`id`)';
+
+		$this->assertSame(
+			"ALTER TABLE wp_things ADD {$fragment}",
+			$this->grammar->add_foreign_key( 'wp_things', $fragment )
+		);
+	}
+
+	/**
+	 * Empty names / fragments render nothing (no malformed statement).
 	 *
 	 * @since 3.1.0
 	 */
 	public function test_empty_names_render_nothing() {
 		$this->assertSame( '', $this->grammar->drop_column( 'wp_things', '' ) );
 		$this->assertSame( '', $this->grammar->drop_index( 'wp_things', '' ) );
+		$this->assertSame( '', $this->grammar->add_foreign_key( 'wp_things', '' ) );
 	}
 }
