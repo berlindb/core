@@ -119,21 +119,21 @@ class TableReconcileTest extends TestCase {
 	}
 
 	/**
-	 * With $reconcile opted in, upgrade() reconciles drift and advances the version.
+	 * By default, upgrade() reconciles additive drift and advances the version.
 	 *
 	 * The headline Phase-4 path: bump the version with no bespoke callback, and the
-	 * structural drift is applied automatically.
+	 * added columns/indexes are applied automatically - no reconcile opt-in needed,
+	 * because additive reconcile is on by default.
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_upgrade_auto_reconciles_when_opted_in() {
+	public function test_upgrade_reconciles_additively_by_default() {
 		$key   = 'berlindb_reconcile_up_version';
 		$table = new TestTable(
 			array(
 				'name'           => 'berlindb_reconcile_up',
 				'db_version_key' => $key,
 				'upgrades'       => array(), // no bespoke callbacks - take the reconcile path.
-				'reconcile'      => true,
 			)
 		);
 
@@ -161,17 +161,18 @@ class TableReconcileTest extends TestCase {
 	}
 
 	/**
-	 * Without the opt-in, upgrade() leaves structural drift alone (just bumps version).
+	 * With reconcile disabled (false), upgrade() leaves drift alone (just bumps version).
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_upgrade_does_not_reconcile_when_not_opted_in() {
+	public function test_upgrade_does_not_reconcile_when_disabled() {
 		$key   = 'berlindb_reconcile_off_version';
 		$table = new TestTable(
 			array(
 				'name'           => 'berlindb_reconcile_off',
 				'db_version_key' => $key,
-				'upgrades'       => array(), // no callbacks, and no reconcile opt-in.
+				'upgrades'       => array(), // no callbacks...
+				'reconcile'      => false,   // ...and reconcile explicitly off.
 			)
 		);
 

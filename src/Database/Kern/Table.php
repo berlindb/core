@@ -244,33 +244,42 @@ class Table {
 	protected $upgrades = array();
 
 	/**
-	 * Whether upgrade() should reconcile structural drift to the declared schema.
+	 * Which operations upgrade() may reconcile against the declared schema.
 	 *
-	 * Opt-in, off by default. When a version bump runs upgrade() and there is no
-	 * bespoke $upgrades callback for the pending version, this diffs the live table
-	 * against the declared schema and applies the difference (see reconcile()), so a
-	 * developer can evolve the schema by editing it rather than hand-writing ALTERs.
-	 * The two compose across upgrade cycles: any bespoke callbacks run first (data
-	 * migrations), then a later cycle reconciles the remaining structural drift.
+	 * When a version bump runs upgrade() and there is no bespoke $upgrades callback
+	 * for the pending version, this diffs the live table against the declared schema
+	 * and applies the difference (see reconcile()), so a developer can evolve the
+	 * schema by editing it rather than hand-writing ALTERs. The two compose across
+	 * upgrade cycles: any bespoke callbacks run first (data migrations), then a later
+	 * cycle reconciles the remaining structural drift.
+	 *
+	 * Defaults to ADDITIVE-ONLY, ON: a bumped version with no callback adds the
+	 * columns/indexes the schema gained, which is non-destructive and is what a
+	 * developer editing the schema almost always intends. The changes that can lose
+	 * data are strictly opt-in.
 	 *
 	 * Accepts:
-	 *  - false        - off (default).
-	 *  - true         - reconcile with the safe default operations ('add', 'modify').
-	 *  - string[]     - reconcile with an explicit operations list, e.g.
-	 *                   array( 'add', 'modify', 'drop' ) to also drop what the schema
-	 *                   removed. Drops are never included unless named here.
+	 *  - array( 'add' ) - additive only, on (the default). Adds; never modifies or
+	 *                     drops.
+	 *  - true           - the moderate policy ('add', 'modify'). MODIFY COLUMN can
+	 *                     truncate data on a type-narrowing, so it is opt-in.
+	 *  - string[]       - an explicit operations list, e.g. array( 'add', 'modify',
+	 *                     'drop' ) to also drop what the schema removed. Drops are
+	 *                     never included unless named here.
+	 *  - false / array() - off; reconcile does not run (bespoke $upgrades callbacks
+	 *                     and the plain version bump still work as before).
 	 *
-	 * A reconcile only runs against a COMPLETE introspection (see Snapshot) and only
-	 * advances the stored version when it fully succeeds; an incomplete capture
-	 * defers to the next maybe_upgrade(). A clean reconcile means every SUPPORTED
-	 * change applied, not that the table is byte-identical to the declaration (the
-	 * diff intentionally ignores defaults, charset/collation, comments, and the
-	 * like).
+	 * A reconcile only runs against a COMPLETE introspection (see Snapshot); an
+	 * incomplete capture defers to the next maybe_upgrade(), and a failed ALTER is
+	 * logged and the version advanced past (never re-run every request). A clean
+	 * reconcile means every SUPPORTED change applied, not that the table is
+	 * byte-identical to the declaration (the diff intentionally ignores defaults,
+	 * charset/collation, comments, and the like).
 	 *
 	 * @since 3.1.0
 	 * @var   bool|string[]
 	 */
-	protected $reconcile = false;
+	protected $reconcile = array( 'add' );
 
 	/**
 	 * Whether to hook maybe_upgrade() to admin_init for automatic installation.
