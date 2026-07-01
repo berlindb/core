@@ -62,7 +62,7 @@ class TableReconcileTest extends TestCase {
 	 * @since 3.1.0
 	 */
 	public function test_reconcile_is_a_noop_on_a_clean_table() {
-		$this->assertTrue( self::$table->reconcile() );
+		$this->assertTrue( self::$table->reconcile()->is_successful() );
 		$this->assertFalse( self::$table->diverged() );
 	}
 
@@ -77,17 +77,20 @@ class TableReconcileTest extends TestCase {
 		$this->assertTrue( self::$table->diverged() );
 
 		// Reconcile re-adds it.
-		$this->assertTrue( self::$table->reconcile() );
+		$this->assertTrue( self::$table->reconcile()->is_successful() );
 		$this->assertFalse( self::$table->diverged() );
 	}
 
 	/**
-	 * reconcile() with no operations is a no-op false (and skips introspection).
+	 * reconcile() with no operations is a zero-change no-op (and skips introspection).
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_reconcile_with_no_operations_returns_false() {
-		$this->assertFalse( self::$table->reconcile( array() ) );
+	public function test_reconcile_with_no_operations_is_a_noop() {
+		$result = self::$table->reconcile( array() );
+
+		$this->assertTrue( $result->is_successful() );
+		$this->assertSame( 0, $result->changes() );
 	}
 
 	/**
@@ -110,7 +113,7 @@ class TableReconcileTest extends TestCase {
 		$this->assertTrue( self::$table->diverged() );
 
 		// Opting into drops removes it and reconciles the table.
-		$this->assertTrue( self::$table->reconcile( array( 'add', 'modify', 'drop' ) ) );
+		$this->assertTrue( self::$table->reconcile( array( 'add', 'modify', 'drop' ) )->is_successful() );
 		$this->assertFalse( self::$table->index_exists( 'reconcile_extra_idx' ) );
 		$this->assertFalse( self::$table->diverged() );
 	}

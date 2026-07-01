@@ -18,6 +18,7 @@ defined( 'ABSPATH' ) || exit;
 
 use BerlinDB\Database\Diff\Grammar;
 use BerlinDB\Database\Diff\Patch;
+use BerlinDB\Database\Diff\Result;
 use BerlinDB\Database\Diff\Snapshot;
 
 /**
@@ -844,21 +845,20 @@ class Table {
 	 * @param string[] $operations Operations to apply: 'add', 'modify', 'drop'.
 	 *                             Defaults to the safe 'add' + 'modify'.
 	 *
-	 * @return bool True if the table is in sync afterward (applied or already
-	 *              matching); false if there is no declared schema, no operations
-	 *              were requested, the capture was incomplete (deferred), or an
-	 *              ALTER failed.
+	 * @return Result Applied if the table is in sync afterward (or nothing to do);
+	 *               deferred if the capture was incomplete (retry later); failed if
+	 *               there is no declared schema or an ALTER failed.
 	 */
-	public function reconcile( array $operations = array( 'add', 'modify' ) ): bool {
+	public function reconcile( array $operations = array( 'add', 'modify' ) ): Result {
 
 		// Nothing to reconcile against without a real declared schema.
 		if ( ! ( $this->schema_object instanceof Schema ) ) {
-			return false;
+			return Result::failed( 'No declared schema to reconcile against.' );
 		}
 
-		// No operations means no reconcile - skip the introspection entirely.
+		// No operations means nothing to do - a no-op, and skip the introspection.
 		if ( empty( $operations ) ) {
-			return false;
+			return Result::applied( 0 );
 		}
 
 		// Capture the live table once, with its completeness signal.
@@ -866,9 +866,7 @@ class Table {
 
 		// Defer on an untrustworthy capture - never reconcile against a partial picture.
 		if ( ! $snapshot->is_complete() ) {
-			$this->log( 'warning', 'reconcile', "Reconcile deferred for {$this->table_name}: introspection incomplete." );
-
-			return false;
+			return Result::deferred();
 		}
 
 		// Diff the (complete) actual against the declared schema, then apply.
@@ -1540,12 +1538,24 @@ class Table {
 			/*
 			 * Opt-in: reconcile structural drift to the declared schema before
 			 * recording the version. This fills the "bumped the version with no
-			 * upgrade callback" gap declaratively. A deferred (incomplete capture)
-			 * or failed reconcile does NOT advance the version - the next
-			 * maybe_upgrade() retries against a fresh capture.
+			 * upgrade callback" gap declaratively.
+			 *
+			 * A DEFERRED result (incomplete capture) does not advance the version -
+			 * the next maybe_upgrade() retries against a fresh capture. A FAILED
+			 * result (an ALTER errored) is logged and the version advances anyway:
+			 * re-running a persistently failing ALTER on every request would be a
+			 * worse outcome than recording the failure and moving on.
 			 */
-			if ( $this->wants_reconcile() && ! $this->reconcile( $this->get_reconcile_operations() ) ) {
-				return false;
+			if ( $this->wants_reconcile() ) {
+				$reconcile = $this->reconcile( $this->get_reconcile_operations() );
+
+				if ( $reconcile->is_deferred() ) {
+					return false;
+				}
+
+				if ( $reconcile->is_failed() ) {
+					$this->log( 'error', 'reconcile', "Reconcile failed for {$this->table_name}: {$reconcile->error()}" );
+				}
 			}
 
 			$this->set_db_version();

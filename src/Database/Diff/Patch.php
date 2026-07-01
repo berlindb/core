@@ -322,7 +322,8 @@ class Patch {
 	 *
 	 * Executes the ordered plan through the table's own DDL verbs (add_column,
 	 * modify_column, drop_column, add_index, drop_index). Stops at the first failed
-	 * step and returns false; an unbound patch is a no-op false.
+	 * step and returns a failed Result carrying the offending SQL; an unbound patch
+	 * is a failed Result. On success returns an applied Result with the change count.
 	 *
 	 * Defaults to 'add' + 'modify' only - drops are opt-in. That mirrors dbDelta
 	 * (never drops) and keeps a possibly-incomplete introspection (see
@@ -331,40 +332,46 @@ class Patch {
 	 * Known limitation: a MODIFIED primary key is reconciled as a separate DROP then
 	 * ADD, which MySQL rejects when the key covers an AUTO_INCREMENT column (that
 	 * column must stay indexed). The standalone DROP PRIMARY KEY fails atomically, so
-	 * apply() stops and returns false with the table unchanged (fail-safe, no partial
-	 * write) - it does not silently corrupt. Reconciling that case needs a single
-	 * combined ALTER (DROP + ADD in one statement); that is future work.
+	 * apply() stops and returns a failed Result with the table unchanged (fail-safe,
+	 * no partial write) - it does not silently corrupt. Reconciling that case needs a
+	 * single combined ALTER (DROP + ADD in one statement); that is future work.
 	 *
 	 * The operations list is a coarse safety control, not a dependency solver: the
 	 * default ('add','modify') and the full set ('add','modify','drop') order their
 	 * steps to satisfy column/index dependencies, but a hand-picked partial set (e.g.
 	 * 'drop' alone, dropping a column an as-yet-untouched index still references) can
-	 * leave a dependency unmet. MySQL rejects that step atomically, so apply() again
-	 * returns false with no partial write. Prefer the default or the full set.
+	 * leave a dependency unmet. MySQL rejects that step atomically, so apply() returns
+	 * a failed Result with no partial write. Prefer the default or the full set.
 	 *
 	 * @since 3.1.0
 	 *
 	 * @param string[] $operations Operations to run: 'add', 'modify', 'drop'.
 	 *                             Defaults to the safe 'add' + 'modify' (no drops).
 	 *
-	 * @return bool True if every step succeeded, false on the first failure or when
-	 *              the patch is unbound.
+	 * @return Result Applied (with the change count) if every step succeeded; failed
+	 *               (with the offending SQL) on the first failure or when unbound.
 	 */
-	public function apply( array $operations = array( 'add', 'modify' ) ): bool {
+	public function apply( array $operations = array( 'add', 'modify' ) ): Result {
 
 		// An unbound patch has no table to alter.
 		if ( ! ( $this->table instanceof Table ) ) {
-			return false;
+			return Result::failed( 'Patch is not bound to a table.' );
 		}
 
-		// Run each planned operation in order, bailing on the first failure.
+		$applied = 0;
+
+		// Run each planned operation in order, reporting the first failure.
 		foreach ( $this->plan( $operations ) as $operation ) {
 			if ( ! $operation->run( $this->table ) ) {
-				return false;
+				$sql = $operation->to_sql( $this->table->grammar(), $this->table->get_table_name() );
+
+				return Result::failed( "ALTER failed: {$sql}", $applied );
 			}
+
+			++$applied;
 		}
 
-		return true;
+		return Result::applied( $applied );
 	}
 
 	/**

@@ -95,7 +95,7 @@ class TableDiffTest extends TestCase {
 		$this->assertStringContainsString( 'status', $sql[0] );
 
 		// Apply reconciles the live table back to its declared schema.
-		$this->assertTrue( $patch->apply() );
+		$this->assertTrue( $patch->apply()->is_successful() );
 		$this->assertFalse( self::$table->diverged() );
 	}
 
@@ -124,7 +124,7 @@ class TableDiffTest extends TestCase {
 		$this->assertTrue( self::$table->diverged() );
 
 		// Opting into drops removes it and reconciles the table.
-		$this->assertTrue( self::$table->diff()->apply( array( 'add', 'modify', 'drop' ) ) );
+		$this->assertTrue( self::$table->diff()->apply( array( 'add', 'modify', 'drop' ) )->is_successful() );
 		$this->assertFalse( self::$table->index_exists( 'diff_extra_idx' ) );
 		$this->assertFalse( self::$table->diverged() );
 	}

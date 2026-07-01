@@ -583,7 +583,7 @@ class DiffTest extends TestCase {
 		$this->assertNotEmpty( $patch->added_columns() );
 
 		// ...but with no bound table there is nothing to alter.
-		$this->assertFalse( $patch->apply() );
+		$this->assertTrue( $patch->apply()->is_failed() );
 		$this->assertSame( array(), $patch->to_sql() );
 		$this->assertSame( array(), $patch->to_sql( array( 'add', 'modify', 'drop' ) ) );
 	}
