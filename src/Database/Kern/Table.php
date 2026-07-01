@@ -980,6 +980,36 @@ class Table {
 	}
 
 	/**
+	 * Replace an index in place: drop $from and add $to in one atomic ALTER.
+	 *
+	 * A modified index (same identity, different definition) cannot be reconciled as
+	 * a separate drop then add when it is the PRIMARY KEY over an AUTO_INCREMENT
+	 * column - MySQL rejects the standalone DROP PRIMARY KEY. Combining both into one
+	 * statement never leaves the column unindexed, so it works for the primary key
+	 * and any other index.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param Index $from The index to drop.
+	 * @param Index $to   The index to add in its place.
+	 *
+	 * @return bool
+	 */
+	public function replace_index( Index $from, Index $to ) {
+
+		// Build the combined SQL through the grammar (the single ALTER renderer).
+		$sql = $this->grammar()->replace_index( $this->table_name, $from, $to );
+
+		// Bail if no valid SQL was generated.
+		if ( empty( $sql ) ) {
+			return false;
+		}
+
+		// Was the index replaced?
+		return $this->is_success( $this->db()->query( $sql ) );
+	}
+
+	/**
 	 * Add a column to this database table.
 	 *
 	 * Mirrors add_index(). The create string carries the column name, type, and

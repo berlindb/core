@@ -143,6 +143,56 @@ class GrammarTest extends TestCase {
 	}
 
 	/**
+	 * replace_index() renders one combined DROP-then-ADD for the primary key.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_replace_index_primary() {
+		$from = new Index(
+			array(
+				'type'    => 'primary',
+				'columns' => array( 'id' ),
+			)
+		);
+		$to   = new Index(
+			array(
+				'type'    => 'primary',
+				'columns' => array( 'id', 'status' ),
+			)
+		);
+
+		$sql = $this->grammar->replace_index( 'wp_things', $from, $to );
+
+		$this->assertStringStartsWith( 'ALTER TABLE wp_things DROP PRIMARY KEY, ADD PRIMARY KEY', $sql );
+		$this->assertStringContainsString( '`status`', $sql );
+	}
+
+	/**
+	 * replace_index() renders DROP INDEX then ADD for a non-primary index.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_replace_index_secondary() {
+		$from = new Index(
+			array(
+				'name'    => 'sl',
+				'columns' => array( 'slug' ),
+			)
+		);
+		$to   = new Index(
+			array(
+				'name'    => 'sl',
+				'columns' => array( 'slug', 'status' ),
+			)
+		);
+
+		$sql = $this->grammar->replace_index( 'wp_things', $from, $to );
+
+		$this->assertStringStartsWith( 'ALTER TABLE wp_things DROP INDEX `sl`, ADD ', $sql );
+		$this->assertStringContainsString( '`status`', $sql );
+	}
+
+	/**
 	 * Empty names render nothing (no malformed statement).
 	 *
 	 * @since 3.1.0

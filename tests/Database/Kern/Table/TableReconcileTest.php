@@ -15,6 +15,7 @@
 namespace BerlinDB\Tests;
 
 use BerlinDB\Database\Diff\Snapshot;
+use BerlinDB\Database\Kern\Index;
 use BerlinDB\Tests\Fixtures\TestTable;
 use Yoast\WPTestUtils\WPIntegration\TestCase;
 
@@ -54,6 +55,37 @@ class TableReconcileTest extends TestCase {
 		$this->assertInstanceOf( Snapshot::class, $snapshot );
 		$this->assertTrue( $snapshot->exists() );
 		$this->assertTrue( $snapshot->is_complete() );
+	}
+
+	/**
+	 * replace_index() reconciles an AUTO_INCREMENT primary key in one atomic ALTER.
+	 *
+	 * A separate DROP PRIMARY KEY would fail (the auto-increment column must stay
+	 * indexed); the combined DROP-then-ADD changes the primary key cleanly. Proven
+	 * both ways: id -> (id, status) and back.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_replace_index_reconciles_an_autoincrement_primary_key() {
+		$single    = new Index(
+			array(
+				'type'    => 'primary',
+				'columns' => array( 'id' ),
+			)
+		);
+		$composite = new Index(
+			array(
+				'type'    => 'primary',
+				'columns' => array( 'id', 'status' ),
+			)
+		);
+
+		// Change the primary key off a single auto-increment column, atomically.
+		$this->assertTrue( self::$table->replace_index( $single, $composite ) );
+
+		// Restore the declared single-column primary key (also combined).
+		$this->assertTrue( self::$table->replace_index( $composite, $single ) );
+		$this->assertFalse( self::$table->diverged() );
 	}
 
 	/**

@@ -21,6 +21,7 @@ use BerlinDB\Database\Diff\Operations\AddIndex;
 use BerlinDB\Database\Diff\Operations\DropColumn;
 use BerlinDB\Database\Diff\Operations\DropIndex;
 use BerlinDB\Database\Diff\Operations\ModifyColumn;
+use BerlinDB\Database\Diff\Operations\ModifyIndex;
 use BerlinDB\Database\Diff\Operations\Operation;
 use BerlinDB\Database\Kern\Column;
 use BerlinDB\Database\Kern\Index;
@@ -329,12 +330,9 @@ class Patch {
 	 * (never drops) and keeps a possibly-incomplete introspection (see
 	 * Schema::from_table()) from authorizing a destructive change by default.
 	 *
-	 * Known limitation: a MODIFIED primary key is reconciled as a separate DROP then
-	 * ADD, which MySQL rejects when the key covers an AUTO_INCREMENT column (that
-	 * column must stay indexed). The standalone DROP PRIMARY KEY fails atomically, so
-	 * apply() stops and returns a failed Result with the table unchanged (fail-safe,
-	 * no partial write) - it does not silently corrupt. Reconciling that case needs a
-	 * single combined ALTER (DROP + ADD in one statement); that is future work.
+	 * A MODIFIED index is reconciled as one atomic DROP-then-ADD (see ModifyIndex /
+	 * Grammar::replace_index()), so even a primary key over an AUTO_INCREMENT column
+	 * reconciles cleanly - that column is never transiently unindexed.
 	 *
 	 * The operations list is a coarse safety control, not a dependency solver: the
 	 * default ('add','modify') and the full set ('add','modify','drop') order their
@@ -377,10 +375,10 @@ class Patch {
 	/**
 	 * Build the ordered list of operations for the given operation filter.
 	 *
-	 * Order matters for correctness: indexes are dropped before the columns they
-	 * cover, columns are added before the indexes that reference them, and a
-	 * modified index is dropped (old) then re-added (new). Each entry is a typed
-	 * Operation that knows how to render and run itself.
+	 * Order matters for correctness: columns are added before the indexes that
+	 * reference them; a modified index is replaced in one atomic step; and every
+	 * drop happens last, after any operation that might still reference the dropped
+	 * column or index. Each entry is a typed Operation that renders and runs itself.
 	 *
 	 * @since 3.1.0
 	 *
@@ -395,14 +393,44 @@ class Patch {
 		$drop    = in_array( 'drop', $enabled, true );
 		$plan    = array();
 
-		// 1. Drop the old side of every modified index, before touching columns.
-		if ( true === $modify ) {
-			foreach ( $this->modified_indexes as $diff ) {
-				$plan[] = new DropIndex( $diff->from() );
+		// 1. Add new columns first (before the indexes that may reference them).
+		if ( true === $add ) {
+			foreach ( $this->added_columns as $column ) {
+				$plan[] = new AddColumn( $column );
 			}
 		}
 
-		// 2. Drop removed indexes, then removed columns.
+		// 2. Modify changed columns in place (using the target-side definition).
+		if ( true === $modify ) {
+			foreach ( $this->modified_columns as $diff ) {
+				$plan[] = new ModifyColumn( $diff->to() );
+			}
+		}
+
+		// 3. Add new indexes (the columns they may reference now exist).
+		if ( true === $add ) {
+			foreach ( $this->added_indexes as $index ) {
+				$plan[] = new AddIndex( $index );
+			}
+		}
+
+		/*
+		 * 4. Replace every modified index as one atomic DROP-then-ADD - before any
+		 * column is dropped, so the old index still exists to be dropped. Combining
+		 * both sides also lets a PRIMARY KEY over an AUTO_INCREMENT column change
+		 * without ever leaving that column unindexed.
+		 */
+		if ( true === $modify ) {
+			foreach ( $this->modified_indexes as $diff ) {
+				$plan[] = new ModifyIndex( $diff->from(), $diff->to() );
+			}
+		}
+
+		/*
+		 * 5. Drop removed indexes, then removed columns - last, after every earlier
+		 * operation that might still reference them (a modified index whose old
+		 * column is being dropped is replaced in step 4 before the drop here).
+		 */
 		if ( true === $drop ) {
 			foreach ( $this->dropped_indexes as $index ) {
 				$plan[] = new DropIndex( $index );
@@ -410,33 +438,6 @@ class Patch {
 
 			foreach ( $this->dropped_columns as $column ) {
 				$plan[] = new DropColumn( $column );
-			}
-		}
-
-		// 3. Add new columns.
-		if ( true === $add ) {
-			foreach ( $this->added_columns as $column ) {
-				$plan[] = new AddColumn( $column );
-			}
-		}
-
-		// 4. Modify changed columns in place (using the target-side definition).
-		if ( true === $modify ) {
-			foreach ( $this->modified_columns as $diff ) {
-				$plan[] = new ModifyColumn( $diff->to() );
-			}
-		}
-
-		// 5. Add new indexes, then the new side of every modified index.
-		if ( true === $add ) {
-			foreach ( $this->added_indexes as $index ) {
-				$plan[] = new AddIndex( $index );
-			}
-		}
-
-		if ( true === $modify ) {
-			foreach ( $this->modified_indexes as $diff ) {
-				$plan[] = new AddIndex( $diff->to() );
 			}
 		}
 

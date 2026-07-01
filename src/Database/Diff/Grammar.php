@@ -123,12 +123,55 @@ class Grammar {
 	 * @return string The statement, or '' for an empty name.
 	 */
 	public function drop_index( string $table, string $name ): string {
+		$clause = $this->drop_index_clause( $name );
+
+		return ( '' === $clause )
+			? ''
+			: "ALTER TABLE {$table} {$clause}";
+	}
+
+	/**
+	 * Render a combined DROP-then-ADD to replace a modified index in one statement.
+	 *
+	 * A modified index cannot be reconciled as a separate DROP then ADD when it is
+	 * the PRIMARY KEY over an AUTO_INCREMENT column - MySQL rejects the standalone
+	 * DROP PRIMARY KEY because that column must stay indexed. A single ALTER that
+	 * drops and re-adds atomically never leaves the column unindexed, so it works
+	 * for the primary key and every other index alike.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $table The full, prefixed table name.
+	 * @param Index  $from  The index to drop (the live/source side).
+	 * @param Index  $to    The index to add in its place (the declared/target side).
+	 *
+	 * @return string The statement, or '' when either side renders nothing.
+	 */
+	public function replace_index( string $table, Index $from, Index $to ): string {
+		$drop = $this->drop_index_clause( $from->get_index_name() );
+		$add  = (string) $to->get_create_string();
+
+		return ( ( '' === $drop ) || ( '' === $add ) )
+			? ''
+			: "ALTER TABLE {$table} {$drop}, ADD {$add}";
+	}
+
+	/**
+	 * Render the DROP clause for an index (DROP PRIMARY KEY, or DROP INDEX `name`).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $name The index name; the primary key is named 'PRIMARY'.
+	 *
+	 * @return string The clause, or '' for an empty name.
+	 */
+	private function drop_index_clause( string $name ): string {
 		if ( '' === $name ) {
 			return '';
 		}
 
 		return ( 'primary' === strtolower( $name ) )
-			? "ALTER TABLE {$table} DROP PRIMARY KEY"
-			: "ALTER TABLE {$table} DROP INDEX `{$name}`";
+			? 'DROP PRIMARY KEY'
+			: "DROP INDEX `{$name}`";
 	}
 }
