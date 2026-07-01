@@ -107,6 +107,11 @@ Notable changes to BerlinDB are documented here.
   It always returns an associative array (the `get_sum()`/etc. scalar methods remain the
   friendly scalar path); an empty set is `null` per alias, not `0`. An unknown or
   non-numeric column, an unsupported function, or a duplicate alias is logged and dropped.
+  With a `groupby` var it becomes a grouped query, returning a list of rows (the group
+  column(s) plus each alias) - `array( 'aggregate' => array( 'revenue' => array( 'sum', 'amount' ) ), 'groupby' => 'status' )`
+  yields one row per status. Grouping happens after the fan-out dedup (no double-count);
+  an unknown group column is treated as ungrouped, and an alias colliding with a group
+  column is dropped. The scalar methods are always ungrouped.
 - Adds a `by` column-filter container:
   `array( 'by' => array( 'status' => 'active', 'type' => array( 1, 2 ) ) )` folds each
   entry to the canonical `{column}__in` var during normalization (rendering `= value`
