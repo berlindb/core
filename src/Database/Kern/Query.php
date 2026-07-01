@@ -1936,19 +1936,7 @@ class Query {
 			$join       = $this->parse_join_clause( $join_where[ 'join' ] );
 
 			// Assemble a scalar-aggregate clause set, in the SELECT path's shape.
-			$clauses = array(
-				'explain'     => '',
-				'select'      => $this->parse_select(),
-				'distinct'    => '',
-				'fields'      => $fields,
-				'from'        => $this->parse_from(),
-				'index_hints' => '',
-				'join'        => $join,
-				'where'       => $where,
-				'groupby'     => '',
-				'orderby'     => '',
-				'limits'      => '',
-			);
+			$clauses = $this->aggregate_clauses( $fields, $join, $where );
 
 			// Apply the same query-clauses filter the SELECT path runs (site scoping).
 			$clauses = $this->filter_query_clauses( $clauses );
@@ -2017,6 +2005,26 @@ class Query {
 		 * The outer aggregate runs over the base table with no JOIN, bounded to the
 		 * distinct primary keys the subquery resolved - one row each, no fan-out.
 		 */
+		return $this->aggregate_clauses( $fields, '', "WHERE {$primary_ref} IN ( {$inner_request} )" );
+	}
+
+	/**
+	 * Build the clause set for a scalar aggregate over the base table.
+	 *
+	 * The SELECT-path clause shape (so the query-clauses filter sees every key) with
+	 * the aggregate expression as its fields and no DISTINCT / GROUP BY / ORDER BY /
+	 * LIMIT. aggregate() passes the compiled JOIN/WHERE; aggregate_via_subquery()
+	 * passes no JOIN and a "primary IN ( ... )" WHERE.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $fields The rendered aggregate expression, e.g. SUM( `t`.`col` ).
+	 * @param string $join   The JOIN fragment (empty for the subquery-bounded outer).
+	 * @param string $where  The WHERE fragment.
+	 *
+	 * @return array<string,string> The aggregate clause set.
+	 */
+	private function aggregate_clauses( string $fields, string $join, string $where ): array {
 		return array(
 			'explain'     => '',
 			'select'      => $this->parse_select(),
@@ -2024,8 +2032,8 @@ class Query {
 			'fields'      => $fields,
 			'from'        => $this->parse_from(),
 			'index_hints' => '',
-			'join'        => '',
-			'where'       => "WHERE {$primary_ref} IN ( {$inner_request} )",
+			'join'        => $join,
+			'where'       => $where,
 			'groupby'     => '',
 			'orderby'     => '',
 			'limits'      => '',
