@@ -278,4 +278,14 @@ class AggregateTest extends TestCase {
 		$this->assertSame( $before_items, $query->items );
 		$this->assertSame( $before_vars, $query->query_vars );
 	}
+
+	/**
+	 * The scalar methods are inherently ungrouped: a 'groupby' in the passed vars is
+	 * stripped, so they return a single scalar, not a grouped list.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_scalar_method_ignores_groupby() {
+		$this->assertSame( 60.0, self::$query->get_sum( 'priority', array( 'groupby' => 'status' ) ) );
+	}
 }

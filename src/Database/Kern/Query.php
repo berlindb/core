@@ -1498,11 +1498,13 @@ class Query {
 		if ( true === $this->get_current( 'query_filter_short_circuit', false ) ) {
 			$this->set_found_items( array() );
 
-			// An aggregate over no matching rows is null per alias (not zero).
+			// An aggregate over no matching rows is null per alias (grouped: no groups).
 			$aggregate = $this->get_query_var( 'aggregate' );
 
 			if ( ! empty( $aggregate ) && is_array( $aggregate ) ) {
-				$this->items = array_fill_keys( array_map( 'strval', array_keys( $aggregate ) ), null );
+				$this->items = ! empty( $this->get_valid_groupby_columns() )
+					? array()
+					: array_fill_keys( array_map( 'strval', array_keys( $aggregate ) ), null );
 				return $this->items;
 			}
 
@@ -1943,6 +1945,12 @@ class Query {
 			return null;
 		}
 
+		/*
+		 * A scalar method returns one value, so it is inherently ungrouped: strip any
+		 * 'groupby' the caller passed, so the container returns a flat row, not a list.
+		 */
+		unset( $query_vars[ 'groupby' ] );
+
 		// Run the single aggregate in isolation and pull its value out by alias.
 		$alias  = strtolower( $function );
 		$result = $this->run_isolated_query(
@@ -2024,30 +2032,84 @@ class Query {
 	}
 
 	/**
-	 * Run the 'aggregate' container and return its results keyed by alias.
+	 * Resolve the 'groupby' var to its valid column names.
+	 *
+	 * get_columns_field_by() yields a false for a name that is not a column; drop those,
+	 * so an unknown groupby column is treated as ungrouped rather than quoted into a
+	 * malformed identifier (as parse_groupby() would).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return list<string> The valid group column names, in order.
+	 */
+	private function get_valid_groupby_columns(): array {
+		$names = (array) $this->get_columns_field_by( 'name', (array) $this->get_query_var( 'groupby' ) );
+
+		return array_values(
+			array_filter(
+				$names,
+				static function ( $name ): bool {
+					return is_string( $name ) && ( '' !== $name );
+				}
+			)
+		);
+	}
+
+	/**
+	 * Run the 'aggregate' container and return its results.
 	 *
 	 * Called from the query path (get_item_ids()) once the query vars are parsed, so
 	 * it reads the compiled WHERE/JOIN directly. Each canonical entry renders
-	 * "FUNC( column ) AS alias"; the set runs as ONE row via get_row(), so a caller
-	 * gets every aggregate in a single query. A JOIN-producing filter is wrapped in a
+	 * "FUNC( column ) AS alias". A JOIN-producing filter is wrapped in a
 	 * distinct-primary subquery (the same dedup the scalar methods use), so a
-	 * one-to-many join does not fan out and double-count. Always returns an array keyed
-	 * by every requested alias; an alias whose aggregate is NULL (e.g. an empty set)
-	 * is null - unlike COUNT, an empty SUM/MAX is null, not zero.
+	 * one-to-many join does not fan out and double-count.
+	 *
+	 * Without a 'groupby' var the whole set is ONE row: an assoc keyed by every
+	 * requested alias, each value null when its aggregate is NULL (an empty set) -
+	 * unlike COUNT, an empty SUM/MAX is null, not zero. With 'groupby' the group
+	 * column(s) join the SELECT and drive a GROUP BY (grouped AFTER the fan-out dedup),
+	 * so it returns a LIST of rows, each carrying the group column(s) plus each alias;
+	 * an empty set is an empty list (no groups).
 	 *
 	 * @since 3.1.0
 	 *
 	 * @param array<string,array{function: string, column: string}> $aggregate The
 	 *        canonical aggregate container (from normalize_aggregate_container()).
 	 *
-	 * @return array<string,string|null> Results keyed by alias.
+	 * @return array<string,string|null>|array<int,array<string,mixed>> One row keyed by
+	 *         alias, or a list of grouped rows.
 	 */
 	private function run_aggregate( array $aggregate ): array {
 
-		// Render "FUNC( column ) AS `alias`" for every entry.
+		/*
+		 * A 'groupby' var puts the group column(s) into the SELECT and drives a GROUP BY,
+		 * so the query returns one row per group. Resolve it to VALID columns only - an
+		 * unknown column is treated as ungrouped, never emitted as malformed SQL. GROUP
+		 * BY goes on the outer aggregate, after any fan-out dedup below.
+		 */
+		$group_names = $this->get_valid_groupby_columns();
+		$grouped     = ! empty( $group_names );
+
+		$group_columns = array();
+		foreach ( $group_names as $name ) {
+			$group_columns[] = $this->get_quoted_column_name_aliased( $name, true );
+		}
+		$group_select = implode( ', ', $group_columns );
+
+		/*
+		 * Render "FUNC( column ) AS `alias`" for every entry, skipping an alias that
+		 * collides with a group column - both would land under the same result key.
+		 */
 		$fields = array();
 
 		foreach ( $aggregate as $alias => $spec ) {
+			$alias = (string) $alias;
+
+			if ( in_array( $alias, $group_names, true ) ) {
+				$this->log( 'warning', 'aggregate', "Aggregate alias '{$alias}' collides with a groupby column; ignoring it." );
+				continue;
+			}
+
 			$column = $this->get_column_by( array( 'name' => $spec[ 'column' ] ) );
 
 			// The column was validated in normalize; skip defensively if it vanished.
@@ -2055,13 +2117,23 @@ class Query {
 				continue;
 			}
 
-			$expression                = $this->render_aggregate_expression( $spec[ 'function' ], $column );
-			$fields[ (string) $alias ] = "{$expression} AS " . $this->quote_identifier( (string) $alias );
+			$expression       = $this->render_aggregate_expression( $spec[ 'function' ], $column );
+			$fields[ $alias ] = "{$expression} AS " . $this->quote_identifier( $alias );
 		}
 
 		// Nothing renderable resolves to an empty result set.
 		if ( empty( $fields ) ) {
 			return array();
+		}
+
+		$group_clause = ( true === $grouped )
+			? "GROUP BY {$group_select}"
+			: '';
+
+		$fields_sql = implode( ', ', $fields );
+
+		if ( true === $grouped ) {
+			$fields_sql = "{$group_select}, {$fields_sql}";
 		}
 
 		// Compile the JOIN/WHERE from the already-parsed query vars.
@@ -2070,19 +2142,31 @@ class Query {
 		$join       = $this->parse_join_clause( $join_where[ 'join' ] );
 
 		// Assemble the aggregate clause set and apply the query-clauses filter.
-		$fields_sql = implode( ', ', $fields );
-		$clauses    = $this->aggregate_clauses( $fields_sql, $join, $where );
-		$clauses    = $this->filter_query_clauses( $clauses );
+		$clauses = $this->aggregate_clauses( $fields_sql, $join, $where, $group_clause );
+		$clauses = $this->filter_query_clauses( $clauses );
 
-		// Dedup a fan-out JOIN via a distinct-primary subquery (see the scalar methods).
+		/*
+		 * The aggregate owns its grouping through the 'groupby' var, which also shaped
+		 * the SELECT's group columns; re-assert it after the filter so a query-clauses
+		 * filter cannot desync the two, or inject a GROUP BY over a JOIN-only alias that
+		 * exists in the inner subquery but not the outer aggregate.
+		 */
+		$clauses[ 'groupby' ] = $group_clause;
+
+		// Dedup a fan-out JOIN via a distinct-primary subquery, then group the survivors.
 		if ( '' !== trim( (string) ( $clauses[ 'join' ] ?? '' ) ) ) {
-			$clauses = $this->aggregate_via_subquery( $fields_sql, $clauses );
+			$clauses = $this->aggregate_via_subquery( $fields_sql, $clauses, $group_clause );
 		}
 
-		// Read the single row and key each requested alias, defaulting a miss to null.
 		$request = $this->parse_request_clauses( $clauses );
-		$row     = (array) $this->db()->get_row( $request, ARRAY_A );
 
+		// Grouped: a list of rows (group column(s) + aliases), as the database returns them.
+		if ( true === $grouped ) {
+			return array_values( (array) $this->db()->get_results( $request, ARRAY_A ) );
+		}
+
+		// Ungrouped: one row, keyed by each requested alias, a miss defaulting to null.
+		$row    = (array) $this->db()->get_row( $request, ARRAY_A );
 		$retval = array();
 
 		foreach ( array_keys( $aggregate ) as $alias ) {
@@ -2112,14 +2196,16 @@ class Query {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param string                $fields  The rendered FUNC( column ) expression.
+	 * @param string                $fields  The rendered FUNC( column ) field list.
 	 * @param array<string,string>  $clauses The compiled aggregate clause set; its
 	 *                                       JOIN and WHERE carry the filter + scoping.
+	 * @param string                $groupby The GROUP BY fragment, applied to the outer
+	 *                                       aggregate over the deduped rows. Default ''.
 	 *
 	 * @return array<string,string> A clause set that aggregates over base rows bounded
 	 *                              by a distinct-primary IN subquery, with no JOIN.
 	 */
-	private function aggregate_via_subquery( string $fields, array $clauses ): array {
+	private function aggregate_via_subquery( string $fields, array $clauses, string $groupby = '' ): array {
 
 		$primary_ref = $this->get_quoted_column_name_aliased();
 
@@ -2133,28 +2219,30 @@ class Query {
 
 		/*
 		 * The outer aggregate runs over the base table with no JOIN, bounded to the
-		 * distinct primary keys the subquery resolved - one row each, no fan-out.
+		 * distinct primary keys the subquery resolved - one row each, no fan-out - and
+		 * groups those deduped rows (GROUP BY belongs on the outer, not the inner).
 		 */
-		return $this->aggregate_clauses( $fields, '', "WHERE {$primary_ref} IN ( {$inner_request} )" );
+		return $this->aggregate_clauses( $fields, '', "WHERE {$primary_ref} IN ( {$inner_request} )", $groupby );
 	}
 
 	/**
 	 * Build the clause set for a scalar aggregate over the base table.
 	 *
-	 * The SELECT-path clause shape (so the query-clauses filter sees every key) with
-	 * the aggregate expression as its fields and no DISTINCT / GROUP BY / ORDER BY /
-	 * LIMIT. aggregate() passes the compiled JOIN/WHERE; aggregate_via_subquery()
-	 * passes no JOIN and a "primary IN ( ... )" WHERE.
+	 * The SELECT-path clause shape (so the query-clauses filter sees every key) with the
+	 * aggregate expression(s) as its fields and no DISTINCT / ORDER BY / LIMIT.
+	 * run_aggregate() passes the compiled JOIN/WHERE (and a GROUP BY when grouping);
+	 * aggregate_via_subquery() passes no JOIN and a "primary IN ( ... )" WHERE.
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param string $fields The rendered aggregate expression, e.g. SUM( `t`.`col` ).
-	 * @param string $join   The JOIN fragment (empty for the subquery-bounded outer).
-	 * @param string $where  The WHERE fragment.
+	 * @param string $fields  The rendered aggregate field list, e.g. SUM( `t`.`col` ).
+	 * @param string $join    The JOIN fragment (empty for the subquery-bounded outer).
+	 * @param string $where   The WHERE fragment.
+	 * @param string $groupby The GROUP BY fragment for a grouped aggregate. Default ''.
 	 *
 	 * @return array<string,string> The aggregate clause set.
 	 */
-	private function aggregate_clauses( string $fields, string $join, string $where ): array {
+	private function aggregate_clauses( string $fields, string $join, string $where, string $groupby = '' ): array {
 		return array(
 			'explain'     => '',
 			'select'      => $this->parse_select(),
@@ -2164,7 +2252,7 @@ class Query {
 			'index_hints' => '',
 			'join'        => $join,
 			'where'       => $where,
-			'groupby'     => '',
+			'groupby'     => $groupby,
 			'orderby'     => '',
 			'limits'      => '',
 		);

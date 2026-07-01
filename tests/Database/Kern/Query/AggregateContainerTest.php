@@ -200,4 +200,156 @@ class AggregateContainerTest extends TestCase {
 		$this->assertEquals( 60, $sum[ 'x' ] );
 		$this->assertEquals( 30, $max[ 'x' ] );
 	}
+
+	/**
+	 * With 'groupby' the container returns one row per group (group column + aliases).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_grouped_aggregate_returns_a_row_per_group() {
+		$rows = self::$query->query(
+			array(
+				'aggregate' => array( 'revenue' => array( 'sum', 'priority' ) ),
+				'groupby'   => 'status',
+			)
+		);
+
+		$this->assertCount( 2, $rows );
+
+		$by_status = array();
+		foreach ( $rows as $row ) {
+			$by_status[ $row[ 'status' ] ] = $row[ 'revenue' ];
+		}
+
+		$this->assertEquals( 30, $by_status[ 'active' ] );   // 10 + 20
+		$this->assertEquals( 30, $by_status[ 'inactive' ] ); // 30
+	}
+
+	/**
+	 * Multiple grouped aggregates come back together per group.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_grouped_multiple_aggregates() {
+		$rows = self::$query->query(
+			array(
+				'aggregate' => array(
+					'total' => array( 'sum', 'priority' ),
+					'peak'  => array( 'max', 'priority' ),
+				),
+				'groupby'   => 'status',
+			)
+		);
+
+		$by_status = array();
+		foreach ( $rows as $row ) {
+			$by_status[ $row[ 'status' ] ] = $row;
+		}
+
+		$this->assertEquals( 30, $by_status[ 'active' ][ 'total' ] );
+		$this->assertEquals( 20, $by_status[ 'active' ][ 'peak' ] );
+		$this->assertEquals( 30, $by_status[ 'inactive' ][ 'total' ] );
+		$this->assertEquals( 30, $by_status[ 'inactive' ][ 'peak' ] );
+	}
+
+	/**
+	 * A grouped aggregate over no rows is an empty list (no groups), not a null row.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_grouped_empty_set_is_empty_list() {
+		self::$table->delete_all();
+		wp_cache_flush();
+
+		$rows = self::$query->query(
+			array(
+				'aggregate' => array( 'revenue' => array( 'sum', 'priority' ) ),
+				'groupby'   => 'status',
+			)
+		);
+
+		$this->assertSame( array(), $rows );
+	}
+
+	/**
+	 * A grouped aggregate over a fan-out JOIN filter groups AFTER the distinct-primary
+	 * dedup, so each base row is counted once per group (30/30), not doubled (60/60).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_grouped_aggregate_with_join_filter_is_not_double_counted() {
+		$filter   = 'berlindb_database_widgets_query_clauses';
+		$callback = static function ( $clauses ) {
+			$clauses[ 'join' ] = trim( ( $clauses[ 'join' ] ?? '' ) . ' JOIN ( SELECT 1 UNION ALL SELECT 2 ) AS berlin_fan ON ( 1 = 1 )' );
+			return $clauses;
+		};
+
+		add_filter( $filter, $callback );
+
+		try {
+			$rows = self::$query->query(
+				array(
+					'aggregate' => array( 'revenue' => array( 'sum', 'priority' ) ),
+					'groupby'   => 'status',
+				)
+			);
+
+			$by_status = array();
+			foreach ( $rows as $row ) {
+				$by_status[ $row[ 'status' ] ] = $row[ 'revenue' ];
+			}
+
+			$this->assertEquals( 30, $by_status[ 'active' ] );
+			$this->assertEquals( 30, $by_status[ 'inactive' ] );
+		} finally {
+			remove_filter( $filter, $callback );
+		}
+	}
+
+	/**
+	 * An aggregate alias that collides with a group column is dropped and logged (both
+	 * would land under the same result key); other aggregates still compute.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_grouped_alias_colliding_with_group_column_is_dropped() {
+		$query = new TestQuery(
+			array(
+				'aggregate' => array(
+					'status'  => array( 'max', 'priority' ), // Collides with the group column.
+					'revenue' => array( 'sum', 'priority' ),
+				),
+				'groupby'   => 'status',
+			)
+		);
+
+		$this->assertNotEmpty( $query->get_logs( array( 'code' => 'aggregate' ) ) );
+
+		$by_status = array();
+		foreach ( $query->items as $row ) {
+			$by_status[ $row[ 'status' ] ] = $row;
+		}
+
+		// The colliding alias was dropped: the row's 'status' is the group value, not MAX.
+		$this->assertSame( 'active', $by_status[ 'active' ][ 'status' ] );
+		$this->assertEquals( 30, $by_status[ 'active' ][ 'revenue' ] );
+	}
+
+	/**
+	 * An unknown 'groupby' column is treated as ungrouped (a flat assoc), never emitted
+	 * as malformed grouped SQL.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_invalid_groupby_is_treated_as_ungrouped() {
+		$result = self::$query->query(
+			array(
+				'aggregate' => array( 'sum' => 'priority' ),
+				'groupby'   => 'nonexistent',
+			)
+		);
+
+		$this->assertArrayHasKey( 'sum', $result );
+		$this->assertEquals( 60, $result[ 'sum' ] );
+	}
 }
