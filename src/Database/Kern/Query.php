@@ -3981,80 +3981,73 @@ class Query {
 	 */
 	private function set_found_items( $item_ids = array() ): void {
 
-		// An aggregate query has no row count and builds no request_clauses to reuse.
-		if ( ! empty( $this->get_query_var( 'aggregate' ) ) ) {
+		// Aggregate mode has no row count (and builds no request_clauses to reuse).
+		if ( 'aggregate' === $this->get_query_mode() ) {
 			$this->set_current( 'found_items', 0 );
 			return;
 		}
 
 		/*
-		 * Default to count of item IDs.
-		 *
-		 * This is relevant for any kind of query. Either it is literal item IDs
-		 * or it is the number of results returned by a 'count' and 'groupby'
-		 * query.
+		 * Count mode: a plain count IS the found-items total; a grouped count reports
+		 * the number of group rows it returned.
 		 */
-		$retval = count( (array) $item_ids );
+		if ( 'count' === $this->get_query_mode() ) {
+			$retval = ( is_numeric( $item_ids ) && ! $this->get_query_var( 'groupby' ) )
+				? $item_ids
+				: count( (array) $item_ids );
 
-		/*
-		 * Count query.
-		 *
-		 * Possibly grouping results by some other columns.
-		 */
-		if ( $this->get_query_var( 'count' ) ) {
-
-			// Not grouped.
-			if ( is_numeric( $item_ids ) && ! $this->get_query_var( 'groupby' ) ) {
-				$retval = $item_ids;
-			}
-
-			/**
-			 * Maybe perform a second COUNT(*) query immediately if:
-			 *
-			 * - 'count' query var is not truthy
-			 * - 'no_found_row' query var is not truthy
-			 * - 'number' query var is not falsy
-			 *
-			 * This second query uses most of the previously parsed $request_clauses
-			 * and overrides a few to correct the SQL syntax.
-			 *
-			 * @since 3.0.0 Performs a COUNT(*) query using $request_clauses.
-			 */
-		} elseif ( ! $this->get_query_var( 'no_found_rows' ) && $this->get_query_var( 'number' ) ) {
-
-			/*
-			 * The found-items count reuses the request clauses with a few overrides.
-			 * parse_count() renders COUNT(DISTINCT primary) when DISTINCT is active, so
-			 * a row-multiplying JOIN does not inflate the total; the standalone DISTINCT
-			 * keyword is dropped (it belongs inside the COUNT, not before it).
-			 */
-			$r = $this->parse_args(
-				array(
-					'fields'   => $this->parse_count( true ),
-					'limits'   => '',
-					'orderby'  => '',
-					'distinct' => '',
-				),
-				$this->get_current_array( 'request_clauses' )
-			);
-
-			// Parse the new clauses.
-			$query = $this->parse_request_clauses( $r );
-
-			// Filter the found items query.
-			$query = $this->filter_found_items_query( $query );
-
-			// Get the database interface.
-			$db = $this->db();
-
-			// Maybe query for found items.
-			if ( ! empty( $query ) ) {
-				$retval = $this->db()->get_var( $query );
-			}
+			$this->set_current( 'found_items', (int) $retval );
+			return;
 		}
 
-		// Set found items.
-		$this->set_current( 'found_items', (int) $retval );
+		// Rows mode: this page's rows, or the supplementary total when paginating.
+		$this->set_current( 'found_items', $this->count_found_items( $item_ids ) );
+	}
+
+	/**
+	 * Count the total matching rows for a rows-mode query.
+	 *
+	 * Defaults to the number of primary IDs this page returned. When the query is
+	 * paginated - a 'number' limit with found-rows enabled - it instead runs the
+	 * supplementary count that reuses the request clauses: parse_count() renders
+	 * COUNT(DISTINCT primary) under DISTINCT so a row-multiplying JOIN does not inflate
+	 * the total, and LIMIT / ORDER BY / the standalone DISTINCT keyword are dropped.
+	 * get_items() turns the result into max_num_pages. A rows-mode concern only - count
+	 * and aggregate never reach it.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param mixed $item_ids The primary IDs this page returned.
+	 * @return int The total matching rows.
+	 */
+	private function count_found_items( $item_ids ): int {
+
+		// This page's rows - the total unless a paginated query needs the full count.
+		$retval = count( (array) $item_ids );
+
+		// No pagination requested: the page count is the total.
+		if ( ! empty( $this->get_query_var( 'no_found_rows' ) ) || empty( $this->get_query_var( 'number' ) ) ) {
+			return $retval;
+		}
+
+		// Reuse the request clauses, overriding a few to make it a clean COUNT.
+		$r = $this->parse_args(
+			array(
+				'fields'   => $this->parse_count( true ),
+				'limits'   => '',
+				'orderby'  => '',
+				'distinct' => '',
+			),
+			$this->get_current_array( 'request_clauses' )
+		);
+
+		// Build and filter the found-items query.
+		$query = $this->filter_found_items_query( $this->parse_request_clauses( $r ) );
+
+		// Run it when there is one; otherwise keep this page's count.
+		return ! empty( $query )
+			? (int) $this->db()->get_var( $query )
+			: $retval;
 	}
 
 	/**
