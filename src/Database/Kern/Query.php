@@ -1480,6 +1480,45 @@ class Query {
 	}
 
 	/**
+	 * Resolve which mode this query run is in, from its (parsed, normalized) vars.
+	 *
+	 * A query is in exactly one mode: 'aggregate' (the aggregate container), 'count'
+	 * (a COUNT request), or 'rows' (the default - select and shape matching items).
+	 * 'aggregate' outranks 'count' (an aggregate container wins if both are set), the
+	 * same precedence get_item_ids() dispatches in. Resolved ONCE per run and stored in
+	 * the ephemeral state (get_query_mode() reads it); groupby/explain are modifiers on
+	 * a mode, not modes of their own.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return string 'aggregate', 'count', or 'rows'.
+	 */
+	private function resolve_query_mode(): string {
+		$aggregate = $this->get_query_var( 'aggregate' );
+
+		if ( ! empty( $aggregate ) && is_array( $aggregate ) ) {
+			return 'aggregate';
+		}
+
+		if ( $this->get_query_var( 'count' ) ) {
+			return 'count';
+		}
+
+		return 'rows';
+	}
+
+	/**
+	 * Get the resolved mode for the current run.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return string 'aggregate', 'count', or 'rows' (the default before resolution).
+	 */
+	private function get_query_mode(): string {
+		return (string) $this->get_current( 'query_mode', 'rows' );
+	}
+
+	/**
 	 * Get the items, populate them, and return them.
 	 *
 	 * @since 1.0.0
@@ -1491,6 +1530,9 @@ class Query {
 		// Fire the pre-get action, where installs scope the query just in time.
 		$this->pre_get_items();
 
+		// Resolve the query mode once, after the last mode-affecting hook; immutable hereafter.
+		$this->set_current( 'query_mode', $this->resolve_query_mode() );
+
 		/*
 		 * A normalized query directive resolved to no possible matches: return
 		 * nothing without caching (an empty resolved set must never widen to all rows).
@@ -1499,12 +1541,10 @@ class Query {
 			$this->set_found_items( array() );
 
 			// An aggregate over no matching rows is null per alias (grouped: no groups).
-			$aggregate = $this->get_query_var( 'aggregate' );
-
-			if ( ! empty( $aggregate ) && is_array( $aggregate ) ) {
+			if ( 'aggregate' === $this->get_query_mode() ) {
 				$this->items = ! empty( $this->get_valid_groupby_columns() )
 					? array()
-					: $this->empty_aggregate_result( $aggregate );
+					: $this->empty_aggregate_result( (array) $this->get_query_var( 'aggregate' ) );
 				return $this->items;
 			}
 
@@ -1512,7 +1552,7 @@ class Query {
 			 * Mirror get_items()'s count/non-count return shapes for empty: a plain
 			 * count is 0; a grouped count or a non-count query is an empty array.
 			 */
-			$is_plain_count = $this->get_query_var( 'count' ) && ! $this->get_query_var( 'groupby' );
+			$is_plain_count = ( 'count' === $this->get_query_mode() ) && ! $this->get_query_var( 'groupby' );
 
 			$this->items = $is_plain_count
 				? 0
@@ -1576,9 +1616,7 @@ class Query {
 		}
 
 		// Return aggregate results directly - the assoc keyed by alias.
-		$aggregate = $this->get_query_var( 'aggregate' );
-
-		if ( ! empty( $aggregate ) && is_array( $aggregate ) ) {
+		if ( 'aggregate' === $this->get_query_mode() ) {
 			$this->items = is_array( $result )
 				? $result
 				: array();
@@ -1586,7 +1624,7 @@ class Query {
 		}
 
 		// Return count results directly - already int (get_var) or array (groupby).
-		if ( $this->get_query_var( 'count' ) ) {
+		if ( 'count' === $this->get_query_mode() ) {
 			$this->items = $result;
 			return $this->items;
 		}
@@ -1646,10 +1684,8 @@ class Query {
 		 * Aggregate query: compute the aggregates in one row and return them keyed by
 		 * alias, before the normal ID-selection request is built (which it does not use).
 		 */
-		$aggregate = $this->get_query_var( 'aggregate' );
-
-		if ( ! empty( $aggregate ) && is_array( $aggregate ) ) {
-			return $this->run_aggregate( $aggregate );
+		if ( 'aggregate' === $this->get_query_mode() ) {
+			return $this->run_aggregate( (array) $this->get_query_var( 'aggregate' ) );
 		}
 
 		// Setup the query clauses.
@@ -1663,7 +1699,7 @@ class Query {
 		$request = $this->get_current_string( 'request' );
 
 		// Return count.
-		if ( $this->get_query_var( 'count' ) ) {
+		if ( 'count' === $this->get_query_mode() ) {
 
 			// Get vars or results.
 			$retval = ! $this->get_query_var( 'groupby' )
