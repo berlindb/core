@@ -111,7 +111,12 @@ Notable changes to BerlinDB are documented here.
   column(s) plus each alias) - `array( 'aggregate' => array( 'revenue' => array( 'sum', 'amount' ) ), 'groupby' => 'status' )`
   yields one row per status. Grouping happens after the fan-out dedup (no double-count);
   an unknown group column is treated as ungrouped, and an alias colliding with a group
-  column is dropped. The scalar methods are always ungrouped.
+  column is dropped. The scalar methods are always ungrouped. `COUNT` is a container
+  aggregate too, so counts and column aggregates come back in one query -
+  `array( 'orders' => array( 'count', '*' ), 'revenue' => array( 'sum', 'amount' ) )`;
+  `'*'` is the row count (`COUNT(*)`), a real column is `COUNT(col)` (non-null), and an
+  empty set counts 0 (not null). The top-level `count => true` pagination var is
+  unchanged - this is the value count, a peer of the other aggregates.
 - Adds a `by` column-filter container:
   `array( 'by' => array( 'status' => 'active', 'type' => array( 1, 2 ) ) )` folds each
   entry to the canonical `{column}__in` var during normalization (rendering `= value`
