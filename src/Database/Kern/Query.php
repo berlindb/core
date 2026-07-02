@@ -621,6 +621,9 @@ class Query {
 			'select'            => '',
 			'index_hints'       => array(),
 
+			// COUNT(*).
+			'count'             => false,
+
 			// Fields.
 			'fields'            => '',
 			'groupby'           => '',
@@ -630,9 +633,6 @@ class Query {
 			'offset'            => '',
 			'orderby'           => $primary,
 			'order'             => 'DESC',
-
-			// COUNT(*).
-			'count'             => false,
 
 			// Disable row count.
 			'no_found_rows'     => true,
