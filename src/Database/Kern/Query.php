@@ -1504,7 +1504,7 @@ class Query {
 			if ( ! empty( $aggregate ) && is_array( $aggregate ) ) {
 				$this->items = ! empty( $this->get_valid_groupby_columns() )
 					? array()
-					: array_fill_keys( array_map( 'strval', array_keys( $aggregate ) ), null );
+					: $this->empty_aggregate_result( $aggregate );
 				return $this->items;
 			}
 
@@ -2007,18 +2007,33 @@ class Query {
 	 *
 	 * The one render path shared by the scalar aggregate methods and the 'aggregate'
 	 * query-var container, so the column is resolved and quoted exactly as elsewhere.
+	 * COUNT with a '*' column is the row count, rendered as COUNT(*) with no operand.
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param string $function The SQL aggregate (SUM/AVG/MAX/MIN).
-	 * @param Column $column   The column to aggregate.
+	 * @param string $function The SQL aggregate (SUM/AVG/MAX/MIN/COUNT).
+	 * @param string $column   The column to aggregate, or '*' for a COUNT row count.
 	 *
-	 * @return string The rendered expression, e.g. SUM( `t`.`amount` ).
+	 * @return string The rendered expression, e.g. SUM( `t`.`amount` ); '' if the
+	 *                column could not be resolved.
 	 */
-	private function render_aggregate_expression( string $function, Column $column ): string {
+	private function render_aggregate_expression( string $function, string $column ): string {
+
+		// COUNT( * ) is a row count - no column operand.
+		if ( ( 'COUNT' === $function ) && ( '*' === $column ) ) {
+			return 'COUNT(*)';
+		}
+
+		$column_object = $this->get_column_by( array( 'name' => $column ) );
+
+		// The column was validated in normalize; bail defensively if it vanished.
+		if ( ! ( $column_object instanceof Column ) ) {
+			return '';
+		}
+
 		$operand = new ColumnOperand(
 			array(
-				'column' => $column,
+				'column' => $column_object,
 				'alias'  => $this->get_table_alias(),
 			)
 		);
@@ -2029,6 +2044,31 @@ class Query {
 				'args' => array( $operand ),
 			)
 		) )->get_sql();
+	}
+
+	/**
+	 * Synthesize the empty-set result for an ungrouped aggregate container.
+	 *
+	 * Used when a filter short-circuits to no rows WITHOUT running the query (the
+	 * fail-closed flag, not a 1 = 0 WHERE, so running it would match all rows). COUNT
+	 * over an empty set is 0; every other aggregate is null.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string,array{function: string, column: string}> $aggregate The
+	 *        canonical aggregate container.
+	 * @return array<string,string|null> The empty-set result, keyed by alias.
+	 */
+	private function empty_aggregate_result( array $aggregate ): array {
+		$result = array();
+
+		foreach ( $aggregate as $alias => $spec ) {
+			$result[ (string) $alias ] = ( 'COUNT' === ( $spec[ 'function' ] ?? '' ) )
+				? '0'
+				: null;
+		}
+
+		return $result;
 	}
 
 	/**
@@ -2110,14 +2150,13 @@ class Query {
 				continue;
 			}
 
-			$column = $this->get_column_by( array( 'name' => $spec[ 'column' ] ) );
+			$expression = $this->render_aggregate_expression( $spec[ 'function' ], $spec[ 'column' ] );
 
-			// The column was validated in normalize; skip defensively if it vanished.
-			if ( ! ( $column instanceof Column ) ) {
+			// The column was validated in normalize; skip defensively if it could not render.
+			if ( '' === $expression ) {
 				continue;
 			}
 
-			$expression       = $this->render_aggregate_expression( $spec[ 'function' ], $column );
 			$fields[ $alias ] = "{$expression} AS " . $this->quote_identifier( $alias );
 		}
 
@@ -2641,7 +2680,7 @@ class Query {
 	 * @since 3.1.0
 	 * @var string[]
 	 */
-	private const AGGREGATE_FUNCTIONS = array( 'SUM', 'AVG', 'MAX', 'MIN' );
+	private const AGGREGATE_FUNCTIONS = array( 'SUM', 'AVG', 'MAX', 'MIN', 'COUNT' );
 
 	/**
 	 * Canonicalize the 'aggregate' container to alias => array( function, column ).
@@ -2749,18 +2788,31 @@ class Query {
 			return null;
 		}
 
-		// Validate the column exists in the schema.
-		$column_object = $this->get_column_by( array( 'name' => $column ) );
+		/*
+		 * COUNT( * ) is the one aggregate with no column - a row count. Every other
+		 * form needs a real column (a bare '*' is only valid for COUNT); SUM and AVG
+		 * additionally need a numeric one. MAX/MIN/COUNT work on any column.
+		 */
+		$counts_rows = ( 'COUNT' === $function ) && ( '*' === $column );
 
-		if ( ! ( $column_object instanceof Column ) ) {
-			$this->log( 'warning', 'aggregate', "Aggregate '{$alias}' references unknown column '{$column}'; ignoring it." );
-			return null;
-		}
+		if ( false === $counts_rows ) {
 
-		// SUM and AVG need a numeric column; MAX and MIN work on any comparable one.
-		if ( in_array( $function, array( 'SUM', 'AVG' ), true ) && ! $column_object->is_numeric() ) {
-			$this->log( 'warning', 'aggregate', "Aggregate '{$alias}' ({$function}) needs a numeric column; '{$column}' is not. Ignoring it." );
-			return null;
+			if ( '*' === $column ) {
+				$this->log( 'warning', 'aggregate', "Aggregate '{$alias}' ({$function}) needs a column, not '*'; ignoring it." );
+				return null;
+			}
+
+			$column_object = $this->get_column_by( array( 'name' => $column ) );
+
+			if ( ! ( $column_object instanceof Column ) ) {
+				$this->log( 'warning', 'aggregate', "Aggregate '{$alias}' references unknown column '{$column}'; ignoring it." );
+				return null;
+			}
+
+			if ( in_array( $function, array( 'SUM', 'AVG' ), true ) && ! $column_object->is_numeric() ) {
+				$this->log( 'warning', 'aggregate', "Aggregate '{$alias}' ({$function}) needs a numeric column; '{$column}' is not. Ignoring it." );
+				return null;
+			}
 		}
 
 		return array(

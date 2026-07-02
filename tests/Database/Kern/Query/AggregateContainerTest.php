@@ -352,4 +352,81 @@ class AggregateContainerTest extends TestCase {
 		$this->assertArrayHasKey( 'sum', $result );
 		$this->assertEquals( 60, $result[ 'sum' ] );
 	}
+
+	/**
+	 * COUNT( * ) and a column aggregate come back together in one query - the payoff of
+	 * folding count into the container.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_count_star_and_column_aggregate_together() {
+		$result = self::$query->query(
+			array(
+				'aggregate' => array(
+					'orders'  => array( 'count', '*' ),
+					'revenue' => array( 'sum', 'priority' ),
+				),
+			)
+		);
+
+		$this->assertEquals( 3, $result[ 'orders' ] );
+		$this->assertEquals( 60, $result[ 'revenue' ] );
+	}
+
+	/**
+	 * The shorthand and COUNT of a column both work.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_count_shorthand_and_of_column() {
+		$star = self::$query->query( array( 'aggregate' => array( 'count' => '*' ) ) );
+		$this->assertEquals( 3, $star[ 'count' ] );
+
+		$col = self::$query->query( array( 'aggregate' => array( 'n' => array( 'count', 'priority' ) ) ) );
+		$this->assertEquals( 3, $col[ 'n' ] );
+	}
+
+	/**
+	 * COUNT groups like any other aggregate.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_grouped_count() {
+		$rows = self::$query->query(
+			array(
+				'aggregate' => array( 'orders' => array( 'count', '*' ) ),
+				'groupby'   => 'status',
+			)
+		);
+
+		$by_status = array();
+		foreach ( $rows as $row ) {
+			$by_status[ $row[ 'status' ] ] = $row[ 'orders' ];
+		}
+
+		$this->assertEquals( 2, $by_status[ 'active' ] );
+		$this->assertEquals( 1, $by_status[ 'inactive' ] );
+	}
+
+	/**
+	 * Over an empty set, COUNT is 0 while other aggregates are null.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_count_empty_set_is_zero() {
+		self::$table->delete_all();
+		wp_cache_flush();
+
+		$result = self::$query->query(
+			array(
+				'aggregate' => array(
+					'orders'  => array( 'count', '*' ),
+					'revenue' => array( 'sum', 'priority' ),
+				),
+			)
+		);
+
+		$this->assertEquals( 0, $result[ 'orders' ] );
+		$this->assertNull( $result[ 'revenue' ] );
+	}
 }
