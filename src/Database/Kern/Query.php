@@ -1681,40 +1681,53 @@ class Query {
 	private function get_item_ids(): array|int {
 
 		/*
-		 * Aggregate query: compute the aggregates in one row and return them keyed by
-		 * alias, before the normal ID-selection request is built (which it does not use).
+		 * Aggregate mode computes its result from its own request (run_aggregate()),
+		 * with no primary-ID selection, so it returns before the shared request below.
 		 */
 		if ( 'aggregate' === $this->get_query_mode() ) {
 			return $this->run_aggregate( (array) $this->get_query_var( 'aggregate' ) );
 		}
 
-		// Setup the query clauses.
+		// Count and rows both run the assembled request; build it once.
 		$this->set_query_clauses();
-
-		// Setup request.
 		$this->set_request_clauses();
 		$this->set_request();
 
-		// Get the request SQL string.
-		$request = $this->get_current_string( 'request' );
+		$request = $this->get_current_string( 'request' ) ?? '';
 
-		// Return count.
-		if ( 'count' === $this->get_query_mode() ) {
+		// Dispatch to the mode's execution.
+		return ( 'count' === $this->get_query_mode() )
+			? $this->execute_count( $request )
+			: $this->execute_row_ids( $request );
+	}
 
-			// Get vars or results.
-			$retval = ! $this->get_query_var( 'groupby' )
-				? (int) $this->db()->get_var( $request )
-				: (array) $this->db()->get_results( $request, ARRAY_A );
+	/**
+	 * Execute a count query: the total as an int, or per-group rows when grouping.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $request The assembled COUNT request.
+	 * @return array<int,array<string,mixed>>|int The count, or grouped count rows.
+	 */
+	private function execute_count( string $request ) {
+		return ! $this->get_query_var( 'groupby' )
+			? (int) $this->db()->get_var( $request )
+			: (array) $this->db()->get_results( $request, ARRAY_A );
+	}
 
-			// Return vars or results.
-			return $retval;
-		}
-
-		// Get IDs.
-		$item_ids = $this->db()->get_col( $request );
-
-		// Return parsed IDs.
-		return wp_parse_list( $item_ids );
+	/**
+	 * Execute a rows query's ID selection: the matching primary IDs.
+	 *
+	 * The default mode selects primary IDs here; get_items() hydrates them into shaped
+	 * item objects after the cache, so a cache hit skips straight to hydration.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $request The assembled SELECT request.
+	 * @return array<bool|float|int|string> The matching primary IDs.
+	 */
+	private function execute_row_ids( string $request ): array {
+		return wp_parse_list( $this->db()->get_col( $request ) );
 	}
 
 	/**
