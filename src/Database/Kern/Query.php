@@ -1615,7 +1615,26 @@ class Query {
 			}
 		}
 
-		// Return aggregate results directly - the assoc keyed by alias.
+		// Shape the raw result into this run's return value, by mode.
+		return $this->shape_result( $result );
+	}
+
+	/**
+	 * Shape the raw execution result into this run's return value, by mode.
+	 *
+	 * The final stage of get_items(): aggregate returns its alias-keyed assoc (or
+	 * grouped rows) and count its int (or grouped rows) as-is; the default rows mode
+	 * hydrates the selected primary IDs into shaped item objects. Runs identically on a
+	 * cache hit and a cache miss - it shapes whatever get_item_ids() or the cache gave.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<int|string,mixed>|int $result The raw result: IDs, a count, or aggregates.
+	 * @return array<int|string,mixed>|int The shaped return value.
+	 */
+	private function shape_result( $result ): array|int {
+
+		// Aggregate: the alias-keyed assoc, or grouped rows.
 		if ( 'aggregate' === $this->get_query_mode() ) {
 			$this->items = is_array( $result )
 				? $result
@@ -1623,13 +1642,13 @@ class Query {
 			return $this->items;
 		}
 
-		// Return count results directly - already int (get_var) or array (groupby).
+		// Count: the int total, or grouped count rows.
 		if ( 'count' === $this->get_query_mode() ) {
 			$this->items = $result;
 			return $this->items;
 		}
 
-		// Set items from result.
+		// Rows: hydrate the selected primary IDs into shaped item objects.
 		if ( is_array( $result ) ) {
 			/** @var list<int|string> $result */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
 			$this->set_items( $result );
@@ -1637,7 +1656,6 @@ class Query {
 			$this->set_items( array() );
 		}
 
-		// Return array of items.
 		return is_array( $this->items ) ? $this->items : array();
 	}
 
