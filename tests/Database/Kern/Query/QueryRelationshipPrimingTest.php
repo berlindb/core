@@ -932,7 +932,7 @@ class QueryRelationshipPrimingTest extends TestCase {
 	/**
 	 * Test the reverse of the above: a result cached WITHOUT 'with' is reused by
 	 * a later query WITH 'with', and priming still runs on that cached result -
-	 * set_items() primes relationships even when the item IDs came from cache.
+	 * hydrate_items() primes relationships even when the item IDs came from cache.
 	 *
 	 * @since 3.1.0
 	 */
