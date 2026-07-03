@@ -208,11 +208,13 @@ trait Aggregates {
 	 *
 	 * @param string $function The SQL aggregate (SUM/AVG/MAX/MIN/COUNT).
 	 * @param string $column   The column to aggregate, or '*' for a COUNT row count.
+	 * @param bool   $distinct Apply the DISTINCT quantifier, e.g. COUNT( DISTINCT col ).
+	 *                         Default false. Never set for a COUNT(*) (rejected in normalize).
 	 *
 	 * @return string The rendered expression, e.g. SUM( `t`.`amount` ); '' if the
 	 *                column could not be resolved.
 	 */
-	private function render_aggregate_expression( string $function, string $column ): string {
+	private function render_aggregate_expression( string $function, string $column, bool $distinct = false ): string {
 
 		// COUNT( * ) is a row count - no column operand.
 		if ( ( 'COUNT' === $function ) && ( '*' === $column ) ) {
@@ -235,8 +237,9 @@ trait Aggregates {
 
 		return ( new FuncOperand(
 			array(
-				'sql'  => $function,
-				'args' => array( $operand ),
+				'sql'      => $function,
+				'args'     => array( $operand ),
+				'distinct' => $distinct,
 			)
 		) )->get_sql();
 	}
@@ -321,7 +324,7 @@ trait Aggregates {
 				continue;
 			}
 
-			$expression = $this->render_aggregate_expression( $spec[ 'function' ], $spec[ 'column' ] );
+			$expression = $this->render_aggregate_expression( $spec[ 'function' ], $spec[ 'column' ], ! empty( $spec[ 'distinct' ] ) );
 
 			// The column was validated in normalize; skip defensively if it could not render.
 			if ( '' === $expression ) {

@@ -424,6 +424,7 @@ trait Variables {
 			$canonical[ $entry[ 'alias' ] ] = array(
 				'function' => $entry[ 'function' ],
 				'column'   => $entry[ 'column' ],
+				'distinct' => $entry[ 'distinct' ],
 			);
 		}
 
@@ -445,9 +446,10 @@ trait Variables {
 	 * @since 3.1.0
 	 *
 	 * @param string $key  The container key (the function for shorthand, else the alias).
-	 * @param mixed  $spec The column name (shorthand) or a { function, column } spec.
-	 * @return array{alias: string, function: string, column: string}|null The resolved
-	 *                                                                      triple, or null when invalid.
+	 * @param mixed  $spec The column name (shorthand) or a { function, column, distinct? }
+	 *                     spec. `distinct` (named form only) renders COUNT(DISTINCT col).
+	 * @return array{alias: string, function: string, column: string, distinct: bool}|null
+	 *                     The resolved entry, or null when invalid.
 	 */
 	private function canonicalize_aggregate_entry( string $key, $spec ): ?array {
 
@@ -469,12 +471,33 @@ trait Variables {
 			return null;
 		}
 
+		// DISTINCT is a named-form modifier only; shorthand/positional entries are never distinct.
+		$distinct = is_array( $spec ) && ! empty( $spec[ 'distinct' ] );
+
 		// Validate the function against the aggregate allow-list (case-insensitive).
 		$function = strtoupper( $function );
 
 		if ( ! in_array( $function, $this->get_aggregate_functions(), true ) ) {
 			$this->log( 'warning', 'aggregate', "Unsupported aggregate function for '{$alias}'; ignoring it." );
 			return null;
+		}
+
+		/*
+		 * DISTINCT is currently supported only on COUNT, and never on a row count
+		 * (COUNT(DISTINCT *) is not meaningful). The canonical form carries it for any
+		 * function, so support can widen later with no syntax change.
+		 */
+		if ( true === $distinct ) {
+
+			if ( 'COUNT' !== $function ) {
+				$this->log( 'warning', 'aggregate', "Aggregate '{$alias}' ({$function}): DISTINCT is only supported on COUNT; ignoring it." );
+				return null;
+			}
+
+			if ( '*' === $column ) {
+				$this->log( 'warning', 'aggregate', "Aggregate '{$alias}': COUNT(DISTINCT *) is not supported; DISTINCT needs a column." );
+				return null;
+			}
 		}
 
 		/*
@@ -508,6 +531,7 @@ trait Variables {
 			'alias'    => $alias,
 			'function' => $function,
 			'column'   => $column,
+			'distinct' => $distinct,
 		);
 	}
 

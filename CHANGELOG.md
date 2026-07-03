@@ -414,6 +414,11 @@ Notable changes to BerlinDB are documented here.
   characters) from a named storage-engine profile and a column charset,
   replacing the hardcoded `191`. Conservative by default (legacy InnoDB +
   utf8mb4 = 191); the engine/charset-aware path lands with #220/#221 (#222).
+- Adds `COUNT(DISTINCT col)` to the `aggregate` container via a `distinct`
+  modifier — `array( 'buyers' => array( 'function' => 'count', 'column' =>
+  'user_id', 'distinct' => true ) )` renders `COUNT(DISTINCT user_id)`. Named
+  form only; currently `COUNT`-only, with the canonical model open to other
+  aggregates. `Operands\Func` gained a `distinct` option (#225).
 - **Breaking:** `Query::get_columns()` no longer reads a legacy `$columns` property
   declared directly on a `Query` (sub)class - the pre-3.0 inline-columns source. Columns
   now come solely from the schema object. A subclass that defined its columns via a

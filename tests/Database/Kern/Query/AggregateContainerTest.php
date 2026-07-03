@@ -429,4 +429,149 @@ class AggregateContainerTest extends TestCase {
 		$this->assertEquals( 0, $result[ 'orders' ] );
 		$this->assertNull( $result[ 'revenue' ] );
 	}
+
+	/**
+	 * COUNT(DISTINCT col) counts unique values, unlike a plain COUNT(col).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_count_distinct_counts_unique_values() {
+		$result = self::$query->query(
+			array(
+				'aggregate' => array(
+					'statuses'     => array(
+						'function' => 'count',
+						'column'   => 'status',
+						'distinct' => true,
+					),
+					'all_statuses' => array( 'count', 'status' ),
+				),
+			)
+		);
+
+		// Fixture: active, active, inactive - 2 distinct, 3 total.
+		$this->assertEquals( 2, $result[ 'statuses' ] );
+		$this->assertEquals( 3, $result[ 'all_statuses' ] );
+	}
+
+	/**
+	 * DISTINCT on a non-COUNT function is rejected: the entry is dropped.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_distinct_on_non_count_is_dropped() {
+		$result = self::$query->query(
+			array(
+				'aggregate' => array(
+					'orders' => array( 'count', '*' ),
+					'bad'    => array(
+						'function' => 'sum',
+						'column'   => 'priority',
+						'distinct' => true,
+					),
+				),
+			)
+		);
+
+		$this->assertEquals( 3, $result[ 'orders' ] );
+		$this->assertArrayNotHasKey( 'bad', $result );
+	}
+
+	/**
+	 * COUNT(DISTINCT *) is rejected: the entry is dropped.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_count_distinct_star_is_dropped() {
+		$result = self::$query->query(
+			array(
+				'aggregate' => array(
+					'orders' => array( 'count', '*' ),
+					'bad'    => array(
+						'function' => 'count',
+						'column'   => '*',
+						'distinct' => true,
+					),
+				),
+			)
+		);
+
+		$this->assertEquals( 3, $result[ 'orders' ] );
+		$this->assertArrayNotHasKey( 'bad', $result );
+	}
+
+	/**
+	 * Grouped COUNT(DISTINCT col): a distinct count per group.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_grouped_count_distinct() {
+
+		// Add a within-group duplicate: active now holds priorities 10, 20, 10.
+		self::$query->add_item(
+			array(
+				'name'     => 'Delta',
+				'status'   => 'active',
+				'priority' => 10,
+			)
+		);
+		wp_cache_flush();
+
+		$rows = self::$query->query(
+			array(
+				'aggregate' => array(
+					'uniq' => array(
+						'function' => 'count',
+						'column'   => 'priority',
+						'distinct' => true,
+					),
+				),
+				'groupby'   => 'status',
+			)
+		);
+
+		// Map status => distinct-priority count for order-independent assertions.
+		$by_status = array();
+		foreach ( $rows as $row ) {
+			$by_status[ $row[ 'status' ] ] = $row[ 'uniq' ];
+		}
+
+		// active: {10, 20, 10} -> 2 distinct; inactive: {30} -> 1.
+		$this->assertEquals( 2, $by_status[ 'active' ] );
+		$this->assertEquals( 1, $by_status[ 'inactive' ] );
+	}
+
+	/**
+	 * DISTINCT is part of the cache key: a distinct count and a plain count with
+	 * the SAME alias and column do not collide in the cache.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_distinct_does_not_collide_in_cache() {
+
+		// Runs first, warming the cache under the distinct container's key.
+		$distinct = self::$query->query(
+			array(
+				'aggregate' => array(
+					'c' => array(
+						'function' => 'count',
+						'column'   => 'status',
+						'distinct' => true,
+					),
+				),
+			)
+		);
+
+		// Same alias + column, but not distinct: must NOT reuse the distinct result.
+		$plain = self::$query->query(
+			array(
+				'aggregate' => array(
+					'c' => array( 'count', 'status' ),
+				),
+			)
+		);
+
+		$this->assertEquals( 2, $distinct[ 'c' ] );  // active, inactive
+		$this->assertEquals( 3, $plain[ 'c' ] );      // all three rows
+	}
 }

@@ -199,6 +199,17 @@ class Func extends Base {
 	private $return_pattern = '%s';
 
 	/**
+	 * Whether to prefix the arguments with the DISTINCT quantifier.
+	 *
+	 * Mainly for aggregate functions - COUNT( DISTINCT col ), SUM( DISTINCT col ) -
+	 * where DISTINCT is an argument modifier, not a separate function.
+	 *
+	 * @since 3.1.0
+	 * @var bool
+	 */
+	private $distinct = false;
+
+	/**
 	 * Assign constructor arguments to properties.
 	 *
 	 * @since 3.1.0
@@ -207,6 +218,7 @@ class Func extends Base {
 	 *     @type string     $sql            The validated SQL function name, from a descriptor (required).
 	 *     @type list<Base> $args           The resolved argument operands. Default empty.
 	 *     @type string     $return_pattern The placeholder for the function's result. Default '%s'.
+	 *     @type bool       $distinct       Prefix the arguments with DISTINCT. Default false.
 	 * }
 	 * @return void
 	 */
@@ -226,6 +238,7 @@ class Func extends Base {
 
 		$this->args           = $operands;
 		$this->return_pattern = isset( $args[ 'return_pattern' ] ) ? (string) $args[ 'return_pattern' ] : '%s';
+		$this->distinct       = ! empty( $args[ 'distinct' ] );
 	}
 
 	/**
@@ -255,7 +268,7 @@ class Func extends Base {
 	}
 
 	/**
-	 * Render the function call: `NAME( arg1, arg2, ... )`.
+	 * Render the function call: `NAME( arg1, arg2, ... )`, optionally DISTINCT.
 	 *
 	 * @since 3.1.0
 	 *
@@ -270,6 +283,11 @@ class Func extends Base {
 			$rendered[] = $arg->get_sql();
 		}
 
-		return $this->sql . '(' . implode( ', ', $rendered ) . ')';
+		// Aggregate quantifier: COUNT( DISTINCT col ) etc.
+		$prefix = ( true === $this->distinct )
+			? 'DISTINCT '
+			: '';
+
+		return $this->sql . '(' . $prefix . implode( ', ', $rendered ) . ')';
 	}
 }
