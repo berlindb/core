@@ -201,23 +201,6 @@ class Query {
 	 */
 	private $schema_object = null;
 
-	/** Meta ******************************************************************/
-
-	/**
-	 * Memoized 'meta' relationship store, resolved lazily by get_meta_store().
-	 *
-	 * Reused across this instance's *_item_meta() calls because building the store
-	 * instantiates the remote meta Query (and its primary) - wasteful to repeat.
-	 *
-	 * Three states in one property: the sentinel `false` means "not resolved yet";
-	 * `null` is a valid resolution (this object has no meta store); a MetaStore is
-	 * the resolved store.
-	 *
-	 * @since 3.1.0
-	 * @var   \BerlinDB\Database\Interfaces\MetaStore|null|false
-	 */
-	private $meta_store = false;
-
 	/** Query Variables *******************************************************/
 
 	/**
