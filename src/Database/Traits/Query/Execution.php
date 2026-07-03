@@ -128,7 +128,7 @@ trait Execution {
 
 			// An aggregate over no matching rows is null per alias (grouped: no groups).
 			if ( 'aggregate' === $this->get_query_mode() ) {
-				$this->items = ! empty( $this->get_valid_groupby_columns() )
+				$this->items = ! empty( $this->get_valid_groupby_columns( (array) $this->get_query_var( 'groupby' ) ) )
 					? array()
 					: $this->empty_aggregate_result( (array) $this->get_query_var( 'aggregate' ) );
 				return $this->items;

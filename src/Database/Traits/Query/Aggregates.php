@@ -267,30 +267,6 @@ trait Aggregates {
 	}
 
 	/**
-	 * Resolve the 'groupby' var to its valid column names.
-	 *
-	 * get_columns_field_by() yields a false for a name that is not a column; drop those,
-	 * so an unknown groupby column is treated as ungrouped rather than quoted into a
-	 * malformed identifier (as parse_groupby() would).
-	 *
-	 * @since 3.1.0
-	 *
-	 * @return list<string> The valid group column names, in order.
-	 */
-	private function get_valid_groupby_columns(): array {
-		$names = (array) $this->get_columns_field_by( 'name', (array) $this->get_query_var( 'groupby' ) );
-
-		return array_values(
-			array_filter(
-				$names,
-				static function ( $name ): bool {
-					return is_string( $name ) && ( '' !== $name );
-				}
-			)
-		);
-	}
-
-	/**
 	 * Run the 'aggregate' container and return its results.
 	 *
 	 * Called from the query path (get_item_ids()) once the query vars are parsed, so
@@ -322,7 +298,7 @@ trait Aggregates {
 		 * unknown column is treated as ungrouped, never emitted as malformed SQL. GROUP
 		 * BY goes on the outer aggregate, after any fan-out dedup below.
 		 */
-		$group_names = $this->get_valid_groupby_columns();
+		$group_names = $this->get_valid_groupby_columns( (array) $this->get_query_var( 'groupby' ) );
 		$grouped     = ! empty( $group_names );
 
 		$group_columns = array();

@@ -492,10 +492,13 @@ trait Clauses {
 
 		$groupby = array_values( $groupby );
 
-		// Get the intersection of allowed column names to groupby columns.
-		$intersect = $this->get_columns_field_by( 'name', $groupby );
+		/*
+		 * Resolve to VALID column names only. An unknown column is dropped, never
+		 * quoted into malformed SQL; all-unknown yields no GROUP BY (ungrouped).
+		 */
+		$intersect = $this->get_valid_groupby_columns( $groupby );
 
-		// Bail if invalid columns.
+		// Bail if no valid columns.
 		if ( empty( $intersect ) ) {
 			return '';
 		}
@@ -513,6 +516,35 @@ trait Clauses {
 
 		// Return columns.
 		return implode( ' ', array( $before, $retval ) );
+	}
+
+	/**
+	 * Resolve a groupby input to the names of the columns that actually exist.
+	 *
+	 * The single source of truth for "which requested groupby columns are real",
+	 * shared by parse_groupby() (which quotes the survivors into a GROUP BY) and the
+	 * aggregate path (which selects the group columns and decides grouped vs
+	 * ungrouped). get_columns_field_by() yields a `false` fallback for each unknown
+	 * column; dropping those is what keeps an unknown groupby column from becoming
+	 * malformed SQL - it is treated as ungrouped instead.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<int|string,mixed> $groupby The requested groupby values.
+	 * @return list<string> The names of the valid columns, in request order.
+	 */
+	private function get_valid_groupby_columns( array $groupby ): array {
+		$names  = (array) $this->get_columns_field_by( 'name', $groupby );
+		$retval = array();
+
+		// Keep only real columns: get_columns_field_by() yields a false for each unknown.
+		foreach ( $names as $name ) {
+			if ( is_string( $name ) && ( '' !== $name ) ) {
+				$retval[] = $name;
+			}
+		}
+
+		return $retval;
 	}
 
 	/**
