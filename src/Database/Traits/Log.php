@@ -111,14 +111,15 @@ trait Log {
 		}
 
 		// Keep entries that do not match the requested filters.
-		$this->logs = array_values(
-			array_filter(
-				$this->logs,
-				function ( $entry ) use ( $args, $operator ) {
-					return ! $this->log_matches( $entry, $args, $operator );
-				}
-			)
-		);
+		$retval = array();
+
+		foreach ( $this->logs as $entry ) {
+			if ( ! $this->log_matches( $entry, $args, $operator ) ) {
+				$retval[] = $entry;
+			}
+		}
+
+		$this->logs = $retval;
 	}
 
 	/**
@@ -132,14 +133,16 @@ trait Log {
 	 * @return array<int,array{level: string, code: string, message: string, context: array<string,mixed>, time: float, source: string}>
 	 */
 	protected function filter_logs( array $logs = array(), array $args = array(), string $operator = 'and' ): array {
-		return array_values(
-			array_filter(
-				$logs,
-				function ( $entry ) use ( $args, $operator ) {
-					return $this->log_matches( $entry, $args, $operator );
-				}
-			)
-		);
+		$retval = array();
+
+		// Keep only the entries that match the requested filters.
+		foreach ( $logs as $entry ) {
+			if ( $this->log_matches( $entry, $args, $operator ) ) {
+				$retval[] = $entry;
+			}
+		}
+
+		return $retval;
 	}
 
 	/**

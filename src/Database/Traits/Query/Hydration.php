@@ -287,14 +287,14 @@ trait Hydration {
 			// Get fields from items.
 		} else {
 			$retval         = array();
-			$fields_to_flip = array_values(
-				array_filter(
-					$fields,
-					function ( $v ) {
-						return is_int( $v ) || is_string( $v );
-					}
-				)
-			);
+			$fields_to_flip = array();
+
+			// Flip only the scalar keys (int or string) into the lookup.
+			foreach ( $fields as $v ) {
+				if ( is_int( $v ) || is_string( $v ) ) {
+					$fields_to_flip[] = $v;
+				}
+			}
 			/** @var array<int|string> $fields_to_flip */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
 			$fields = array_flip( $fields_to_flip );
 

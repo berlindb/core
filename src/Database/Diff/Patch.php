@@ -487,13 +487,15 @@ class Patch {
 			return array();
 		}
 
-		return array_values(
-			array_filter(
-				$items,
-				static function ( $item ) use ( $class ) {
-					return $item instanceof $class;
-				}
-			)
-		);
+		$retval = array();
+
+		// Keep only the items that are instances of the requested class.
+		foreach ( $items as $item ) {
+			if ( $item instanceof $class ) {
+				$retval[] = $item;
+			}
+		}
+
+		return $retval;
 	}
 }

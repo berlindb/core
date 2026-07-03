@@ -344,14 +344,16 @@ class Query extends KernQuery implements MetaStore {
 		 */
 		if ( ! empty( $prev_value ) ) {
 			$previous = maybe_serialize( $prev_value );
-			$rows     = array_values(
-				array_filter(
-					$rows,
-					static function ( $row ) use ( $previous ) {
-						return (string) $row->meta_value === $previous;
-					}
-				)
-			);
+			$matching = array();
+
+			// Keep only the rows whose current value equals the previous-value filter.
+			foreach ( $rows as $row ) {
+				if ( (string) $row->meta_value === $previous ) {
+					$matching[] = $row;
+				}
+			}
+
+			$rows = $matching;
 
 			// An identical single value is a no-op (update_metadata() parity).
 		} elseif ( ( 1 === count( $rows ) ) && ( (string) $rows[0]->meta_value === $serialized ) ) {
@@ -410,14 +412,16 @@ class Query extends KernQuery implements MetaStore {
 		 */
 		$serialized = maybe_serialize( $meta_value );
 		if ( ( '' !== $serialized ) && ( null !== $serialized ) && ( false !== $serialized ) ) {
-			$rows = array_values(
-				array_filter(
-					$rows,
-					static function ( $row ) use ( $serialized ) {
-						return (string) $row->meta_value === $serialized;
-					}
-				)
-			);
+			$matching = array();
+
+			// Keep only the rows whose value equals the delete filter.
+			foreach ( $rows as $row ) {
+				if ( (string) $row->meta_value === $serialized ) {
+					$matching[] = $row;
+				}
+			}
+
+			$rows = $matching;
 		}
 
 		// Bail if nothing matches.
