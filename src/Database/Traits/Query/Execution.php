@@ -488,4 +488,85 @@ trait Execution {
 			'limits'      => '',
 		);
 	}
+
+	/**
+	 * Populates found_items for the current query.
+	 *
+	 * If the limit clause was used.
+	 *
+	 * @since 1.0.0
+	 * @since 3.0.0 Uses filter_found_items_query().
+	 *
+	 * @param mixed $item_ids Optional array of item IDs, or count from a COUNT query.
+	 */
+	private function set_found_items( $item_ids = array() ): void {
+
+		// Aggregate mode has no row count (and builds no request_clauses to reuse).
+		if ( 'aggregate' === $this->get_query_mode() ) {
+			$this->set_current( 'found_items', 0 );
+			return;
+		}
+
+		/*
+		 * Count mode: a plain count IS the found-items total; a grouped count reports
+		 * the number of group rows it returned.
+		 */
+		if ( 'count' === $this->get_query_mode() ) {
+			$retval = ( is_numeric( $item_ids ) && ! $this->get_query_var( 'groupby' ) )
+				? $item_ids
+				: count( (array) $item_ids );
+
+			$this->set_current( 'found_items', (int) $retval );
+			return;
+		}
+
+		// Rows mode: this page's rows, or the supplementary total when paginating.
+		$this->set_current( 'found_items', $this->count_found_items( $item_ids ) );
+	}
+
+	/**
+	 * Count the total matching rows for a rows-mode query.
+	 *
+	 * Defaults to the number of primary IDs this page returned. When the query is
+	 * paginated - a 'number' limit with found-rows enabled - it instead runs the
+	 * supplementary count that reuses the request clauses: parse_count() renders
+	 * COUNT(DISTINCT primary) under DISTINCT so a row-multiplying JOIN does not inflate
+	 * the total, and LIMIT / ORDER BY / the standalone DISTINCT keyword are dropped.
+	 * get_items() turns the result into max_num_pages. A rows-mode concern only - count
+	 * and aggregate never reach it.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param mixed $item_ids The primary IDs this page returned.
+	 * @return int The total matching rows.
+	 */
+	private function count_found_items( $item_ids ): int {
+
+		// This page's rows - the total unless a paginated query needs the full count.
+		$retval = count( (array) $item_ids );
+
+		// No pagination requested: the page count is the total.
+		if ( ! empty( $this->get_query_var( 'no_found_rows' ) ) || empty( $this->get_query_var( 'number' ) ) ) {
+			return $retval;
+		}
+
+		// Reuse the request clauses, overriding a few to make it a clean COUNT.
+		$r = $this->parse_args(
+			array(
+				'fields'   => $this->parse_count( true ),
+				'limits'   => '',
+				'orderby'  => '',
+				'distinct' => '',
+			),
+			$this->get_current_array( 'request_clauses' )
+		);
+
+		// Build and filter the found-items query.
+		$query = $this->filter_found_items_query( $this->parse_request_clauses( $r ) );
+
+		// Run it when there is one; otherwise keep this page's count.
+		return ! empty( $query )
+			? (int) $this->db()->get_var( $query )
+			: $retval;
+	}
 }
