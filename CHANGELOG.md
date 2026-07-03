@@ -410,6 +410,10 @@ Notable changes to BerlinDB are documented here.
 - Fixes a `groupby` with an unknown column emitting a malformed `GROUP BY`. An
   invalid column is now dropped (treated as ungrouped) across rows, count, and
   aggregate queries, with the validation shared by one helper (#217).
+- Adds `Index::safe_prefix_chars()` — computes a safe index prefix length (in
+  characters) from a named storage-engine profile and a column charset,
+  replacing the hardcoded `191`. Conservative by default (legacy InnoDB +
+  utf8mb4 = 191); the engine/charset-aware path lands with #220/#221 (#222).
 - **Breaking:** `Query::get_columns()` no longer reads a legacy `$columns` property
   declared directly on a `Query` (sub)class - the pre-3.0 inline-columns source. Columns
   now come solely from the schema object. A subclass that defined its columns via a

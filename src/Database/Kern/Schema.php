@@ -699,9 +699,10 @@ class Schema {
 	 * Whether a column can be indexed in full (not only via a prefix length).
 	 *
 	 * Numbers, dates, and booleans always can; a bounded string (char/varchar/binary/
-	 * varbinary) only within the conservative limit; unbounded text/blob cannot - they
-	 * need an explicit prefixed Index. The exact safe length per engine + encoding
-	 * awaits #222; 191 mirrors the conservative utf8mb4 value WordPress uses.
+	 * varbinary) only within the safe prefix length; unbounded text/blob cannot - they
+	 * need an explicit prefixed Index. The safe length comes from
+	 * Index::safe_prefix_chars(); its conservative default (legacy InnoDB + utf8mb4) is
+	 * WordPress's 191. Passing the resolved engine profile + charset awaits #220/#221.
 	 *
 	 * @since 3.1.0
 	 *
@@ -715,10 +716,19 @@ class Schema {
 			return true;
 		}
 
-		// A bounded string within the conservative limit; unbounded text/blob cannot.
-		$length = (int) $column->length;
+		// Only bounded strings can be indexed in full; unbounded text/blob cannot.
+		if ( ! $column->is_bounded_string() ) {
+			return false;
+		}
 
-		return $column->is_bounded_string() && ( $length > 0 ) && ( $length <= 191 );
+		// A zero or unknown length has nothing to index in full.
+		$length = (int) $column->length;
+		if ( $length <= 0 ) {
+			return false;
+		}
+
+		// Full-indexable only when the whole column fits within the safe prefix length.
+		return ( $length <= Index::safe_prefix_chars() );
 	}
 
 	/** Public Item Core ******************************************************/

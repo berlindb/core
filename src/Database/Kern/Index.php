@@ -53,6 +53,44 @@ class Index {
 	 */
 	private const SUPPORTED_MYSQL_INDEX_TYPES = array( 'BTREE', 'HASH', 'FULLTEXT' );
 
+	/**
+	 * Maximum indexable prefix in BYTES, per storage-engine profile.
+	 *
+	 * A prefix-length index is byte-bounded and the ceiling depends on the engine
+	 * (and, for InnoDB, whether innodb_large_prefix is on). These are named profiles,
+	 * NOT inferred from an engine string: INNODB_LEGACY (767) is the universal floor a
+	 * caller uses without a verified capability; INNODB_MODERN (3072) is opt-in only
+	 * when large-prefix is known on; MYISAM allows 1000. Unknown profile -> the legacy
+	 * floor. See berlindb/core #222.
+	 *
+	 * @since 3.1.0
+	 * @var array<string,int>
+	 */
+	private const ENGINE_PREFIX_BYTES = array(
+		'INNODB_LEGACY' => 767,
+		'INNODB_MODERN' => 3072,
+		'MYISAM'        => 1000,
+	);
+
+	/**
+	 * Bytes per character, per column character set.
+	 *
+	 * The width used to turn a byte ceiling into a char-count prefix. Only the sets
+	 * that matter for the calculation are listed; an unknown/absent charset assumes 4
+	 * (utf8mb4, the safe worst case, matching WordPress's conservative 191).
+	 *
+	 * @since 3.1.0
+	 * @var array<string,int>
+	 */
+	private const CHARSET_BYTES_PER_CHAR = array(
+		'utf8mb4' => 4,
+		'utf8mb3' => 3,
+		'utf8'    => 3,
+		'latin1'  => 1,
+		'ascii'   => 1,
+		'binary'  => 1,
+	);
+
 	/** Attributes ************************************************************/
 
 	/**
@@ -328,6 +366,34 @@ class Index {
 	}
 
 	/** Public Helpers ********************************************************/
+
+	/**
+	 * The maximum number of characters that can be indexed as a prefix.
+	 *
+	 * Turns the byte ceiling of a storage-engine profile into a CHARACTER count for
+	 * a column's charset - the safe prefix length under that profile. Both are named
+	 * lookups (see ENGINE_PREFIX_BYTES / CHARSET_BYTES_PER_CHAR); an unknown profile
+	 * falls back to the legacy 767-byte floor and an unknown charset to 4 bytes/char,
+	 * so the default is WordPress's conservative utf8mb4-on-legacy-InnoDB 191.
+	 *
+	 * The result is safe UNDER THE CHOSEN PROFILE only - 3072 (INNODB_MODERN) requires
+	 * a verified innodb_large_prefix. Callers cap it at the column length themselves
+	 * (a full-column prefix is min(length, this)). See berlindb/core #222.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $engine_profile Engine profile key: INNODB_LEGACY (default),
+	 *                               INNODB_MODERN, or MYISAM.
+	 * @param string $charset        Column character set, e.g. utf8mb4 (default), utf8,
+	 *                               latin1. Unknown assumes 4 bytes/char.
+	 * @return int The maximum indexable prefix, in characters.
+	 */
+	public static function safe_prefix_chars( string $engine_profile = 'INNODB_LEGACY', string $charset = 'utf8mb4' ): int {
+		$bytes    = self::ENGINE_PREFIX_BYTES[ strtoupper( $engine_profile ) ] ?? self::ENGINE_PREFIX_BYTES[ 'INNODB_LEGACY' ];
+		$per_char = self::CHARSET_BYTES_PER_CHAR[ strtolower( $charset ) ] ?? 4;
+
+		return intdiv( $bytes, $per_char );
+	}
 
 	/**
 	 * Get the index name as it appears in SQL.
