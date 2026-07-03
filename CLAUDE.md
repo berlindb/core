@@ -82,7 +82,10 @@ bin/run-tests.sh -p 8.2 -w 6.7 -- --group default
   `Column`, `Row`, `Index`, `Relationship`.
 - `src/Database/Traits/` — composable behavior (`Parser`, `Sanitizer`, `Cast`,
   `Lifecycle`, `Log`, `Boot`, `Configuration`, `Magic`, `Generator`, `Operator`,
-  `Environment`, `Error`, `Base`).
+  `Environment`, `Error`, `Base`) — the shared kernel every Kern class composes.
+- `src/Database/Traits/Query/` — Query-only concerns split out of the `Query`
+  class (`Cache`, `Meta`, `Hydration`, `Relationships`, `Columns`, `Filters`,
+  `Clauses`), composed into `Query` alongside `Base`/`Boot` (#217).
 - `src/Database/Parsers/` + `Operators/` — reusable SQL clause builders.
 - `src/Database/Presets/` — recipe base classes (e.g. `Presets\Meta\Query`), one
   directory per recipe. Plain classes a plugin extends with thin stubs; Kern
