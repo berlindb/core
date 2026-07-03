@@ -407,6 +407,9 @@ Notable changes to BerlinDB are documented here.
   trigger autoloading, so a type check against a legacy name resolved to false until the
   name was loaded some other way. The alias is now registered eagerly when its `Kern\*`
   target class loads (#223).
+- Fixes a `groupby` with an unknown column emitting a malformed `GROUP BY`. An
+  invalid column is now dropped (treated as ungrouped) across rows, count, and
+  aggregate queries, with the validation shared by one helper (#217).
 - **Breaking:** `Query::get_columns()` no longer reads a legacy `$columns` property
   declared directly on a `Query` (sub)class - the pre-3.0 inline-columns source. Columns
   now come solely from the schema object. A subclass that defined its columns via a
