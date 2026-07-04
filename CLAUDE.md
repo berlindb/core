@@ -90,13 +90,20 @@ bin/run-tests.sh -p 8.2 -w 6.7 -- --group default
   `Environment`, `Error`, `Base`) — the shared kernel every Kern class composes.
 - `src/Database/Traits/Query/` — Query-only concerns split out of the `Query`
   class (`Cache`, `Meta`, `Hydration`, `Relationships`, `Columns`, `Filters`,
-  `Clauses`), composed into `Query` alongside `Base`/`Boot` (#217).
+  `Clauses`, `Execution`, `Aggregates`, `Crud`, `Variables`, `Operands`), composed
+  into `Query` alongside `Base`/`Boot` (#217). `Operands` turns an operand spec into
+  an `Operands\*` value object — it lives on `Query` because resolution needs the
+  schema, alias, and connection a Query already unifies (a parser resolves via
+  `$this->caller->resolve_operand()`).
 - `src/Database/Parsers/` + `Operators/` + `Operands/` — reusable SQL clause
   builders, each a class hierarchy in its own directory. **A value-object family's
   manager is a class in that family's directory, not a trait** — e.g.
   `Operators\Registry` (holds a set of operators and looks them up, used by the
   parsers and by Query's HAVING). Consumers *hold* the manager; they don't compose
   it as a mixin. Add new registries/resolvers/factories the same way.
+- `src/Database/Clauses/` — clause value objects (`Where`, `Join`, `BooleanGroup`,
+  `Builder`, `Predicate`). `Predicate` is one comparison (`{left operand} {operator}
+  {right}`) that renders itself; WHERE / relationship / HAVING all assemble one.
 - `src/Database/Presets/` — recipe base classes (e.g. `Presets\Meta\Query`), one
   directory per recipe. Plain classes a plugin extends with thin stubs; Kern
   classes never reference presets.

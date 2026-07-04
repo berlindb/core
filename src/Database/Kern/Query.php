@@ -75,6 +75,7 @@ class Query {
 	use \BerlinDB\Database\Traits\Query\Aggregates;
 	use \BerlinDB\Database\Traits\Query\Crud;
 	use \BerlinDB\Database\Traits\Query\Variables;
+	use \BerlinDB\Database\Traits\Query\Operands;
 
 	/** Constants *************************************************************/
 

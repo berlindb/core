@@ -734,7 +734,7 @@ class Relationship extends Base {
 		$column_object = reset( $columns );
 
 		// Determine the comparison operator and the value.
-		if ( $this->is_operand_spec( $cond ) ) {
+		if ( \BerlinDB\Database\Operands\Base::is_spec( $cond ) ) {
 
 			// A bare operand spec (e.g. column-to-column) defaults to equality.
 			$compare = '=';
@@ -758,7 +758,7 @@ class Relationship extends Base {
 		 * back to equality, consistent with the bare-operand and Compare paths.
 		 */
 		if ( ! in_array( $compare, $this->get_operators(), true ) ) {
-			$compare = ( is_array( $value ) && ! $this->is_operand_spec( $value ) )
+			$compare = ( is_array( $value ) && ! \BerlinDB\Database\Operands\Base::is_spec( $value ) )
 				? 'IN'
 				: '=';
 		}
@@ -778,16 +778,16 @@ class Relationship extends Base {
 
 		/*
 		 * Resolve an optional, opt-in CAST for the column side (shared with the
-		 * generic clause builder via resolve_clause_sql_cast()). An explicit but
+		 * generic clause builder via the remote query's resolve_sql_cast()). An explicit but
 		 * invalid cast fails closed - consistent with the rest of the relationship
 		 * API - so a misspelled 'SIGNED' matches no rows, not a lexical compare.
 		 */
 		// A nested-array condition (not an operand spec) may carry an opt-in cast.
-		$cast_source = ( is_array( $cond ) && ! $this->is_operand_spec( $cond ) )
+		$cast_source = ( is_array( $cond ) && ! \BerlinDB\Database\Operands\Base::is_spec( $cond ) )
 			? $cond
 			: array();
 
-		$cast = $this->resolve_clause_sql_cast( $column_object, $cast_source );
+		$cast = $remote->resolve_sql_cast( $column_object, $cast_source );
 
 		/*
 		 * Fail closed on an explicit but invalid cast (e.g. a misspelled 'SIGNED').
@@ -804,7 +804,7 @@ class Relationship extends Base {
 		 * and the joined alias. The shared builder fails closed on a non-expression
 		 * operator or an unresolvable operand.
 		 */
-		if ( $this->is_operand_spec( $value ) ) {
+		if ( \BerlinDB\Database\Operands\Base::is_spec( $value ) ) {
 
 			$lhs  = new \BerlinDB\Database\Operands\Column(
 				array(

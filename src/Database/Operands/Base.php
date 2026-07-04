@@ -39,6 +39,25 @@ defined( 'ABSPATH' ) || exit;
 abstract class Base {
 
 	/**
+	 * Whether a value is a structured operand spec (vs a bare scalar or list).
+	 *
+	 * A spec is an associative array carrying an explicit 'operand' marker - e.g.
+	 * `array( 'operand' => 'column', 'name' => 'x' )`. A bare scalar or a numeric-
+	 * keyed list (an IN list) is NOT a spec, so classifying by KEY PRESENCE (not
+	 * value) keeps existing queries on the ordinary value path; a present-but-invalid
+	 * marker still counts as a spec, so it fails closed in resolution rather than
+	 * slipping back to the scalar path.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param mixed $value The value to classify.
+	 * @return bool
+	 */
+	public static function is_spec( $value ): bool {
+		return is_array( $value ) && array_key_exists( 'operand', $value );
+	}
+
+	/**
 	 * Build an operand from a key-value argument array.
 	 *
 	 * Mirrors Operators\Base: the constructor delegates to init(), which each

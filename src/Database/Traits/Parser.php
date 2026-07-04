@@ -1124,7 +1124,7 @@ trait Parser {
 			 * A list value defaults to IN, but a structured operand spec is not a
 			 * list - it defaults to equality (e.g. column-to-column `=`).
 			 */
-			$clause[ 'compare' ] = ( is_array( $clause_value ) && ! $this->is_operand_spec( $clause_value ) )
+			$clause[ 'compare' ] = ( is_array( $clause_value ) && ! \BerlinDB\Database\Operands\Base::is_spec( $clause_value ) )
 				? 'IN'
 				: '=';
 		}
@@ -1159,20 +1159,20 @@ trait Parser {
 			$alias            = $this->caller?->get_table_alias() ?? '';
 			$key              = $clause[ 'key' ];
 			$value            = $clause[ 'value' ] ?? null;
-			$value_is_operand = $this->is_operand_spec( $value );
+			$value_is_operand = \BerlinDB\Database\Operands\Base::is_spec( $value );
 
 			// A structured left-hand operand (column / function) on the 'key'.
-			if ( $this->is_operand_spec( $key ) ) {
+			if ( \BerlinDB\Database\Operands\Base::is_spec( $key ) ) {
 
 				// Resolve against this caller's own schema (same-table operand).
-				$lhs = $this->resolve_operand( $key, $this->caller, $alias );
+				$lhs = $this->caller?->resolve_operand( $key );
 
 				// Fail closed if the left operand spec was unresolvable.
 				if ( ! ( $lhs instanceof \BerlinDB\Database\Operands\Base ) ) {
 					return $this->unresolved_column_clause( $retval );
 				}
 
-				$expr = $this->build_operand_clause( $lhs, $operator, $value, $value_is_operand, $this->caller, $alias );
+				$expr = $this->build_operand_clause( $lhs, $operator, $value, $value_is_operand );
 
 				// Fail closed if the comparison could not be built.
 				if ( false === $expr ) {
@@ -1201,7 +1201,7 @@ trait Parser {
 				 * but invalid cast fails the clause closed (matches no rows) rather
 				 * than silently comparing lexically.
 				 */
-				$cast = $this->resolve_clause_sql_cast( $col, $clause );
+				$cast = $this->caller->resolve_sql_cast( $col, $clause );
 
 				if ( false === $cast ) {
 					return $this->unresolved_column_clause( $retval );
@@ -1217,7 +1217,7 @@ trait Parser {
 							'cast'   => $cast,
 						)
 					);
-					$expr = $this->build_operand_clause( $lhs, $operator, $value, $value_is_operand, $this->caller, $alias );
+					$expr = $this->build_operand_clause( $lhs, $operator, $value, $value_is_operand );
 
 					// Fail closed if the comparison could not be built.
 					if ( false === $expr ) {
@@ -1268,477 +1268,49 @@ trait Parser {
 	}
 
 	/**
-	 * Resolve an optional, opt-in CAST target for a clause's column side.
+	 * Build a predicate from a resolved left operand, or false (fail closed).
 	 *
-	 * Shared by get_sql_for_clause() and the Relationship parser so both read the
-	 * 'cast' clause key the same way. 'cast' => true derives the target from the
-	 * column's own declared type; a non-empty string is an explicit override,
-	 * validated via sanitize_sql_cast_type(). Absent, false, null, or empty means
-	 * no cast - casting is never applied by default.
-	 *
-	 * An explicit but invalid string is a misconfiguration: it returns false so
-	 * the caller fails the clause closed (match no rows), rather than silently
-	 * comparing lexically. A misspelled 'SIGNED' should never widen to an uncast
-	 * compare.
-	 *
-	 * @since 3.1.0
-	 * @internal Query/Parser collaborator API.
-	 *
-	 * @param \BerlinDB\Database\Kern\Column $column The column being compared.
-	 * @param array<string,mixed>            $clause The clause, possibly carrying a 'cast' key.
-	 * @return string|false The CAST target ('' when none), or false when an
-	 *                      explicit cast is invalid (caller must fail closed).
-	 */
-	protected function resolve_clause_sql_cast( \BerlinDB\Database\Kern\Column $column, array $clause ) {
-
-		// Read the opt-in directive; absent, false, and null all mean "no cast".
-		$requested = $clause[ 'cast' ] ?? null;
-
-		// 'cast' => true derives the target from the column's own declared type.
-		if ( true === $requested ) {
-			return $column->get_sql_cast_type();
-		}
-
-		// A non-empty string is an explicit, validated override.
-		if ( is_string( $requested ) && ( '' !== trim( $requested ) ) ) {
-			$cast = $this->sanitize_sql_cast_type( $requested );
-
-			/*
-			 * An explicit but invalid cast is a misconfiguration: signal the
-			 * caller to fail closed, rather than falling back to no cast and
-			 * comparing lexically.
-			 */
-			return ( '' === $cast )
-				? false
-				: $cast;
-		}
-
-		// No cast requested.
-		return '';
-	}
-
-	/**
-	 * Whether a clause value is a structured operand spec (vs a scalar or list).
-	 *
-	 * A structured operand is an associative array carrying an explicit 'operand'
-	 * marker - e.g. `array( 'operand' => 'column', 'name' => 'last_name' )`. A bare
-	 * scalar, or a numeric-keyed list (an IN list), is NOT an operand spec and is
-	 * handled by the ordinary value path, so existing queries are unaffected.
-	 *
-	 * Classification is by KEY PRESENCE, not value: a present-but-null/invalid
-	 * marker (e.g. `array( 'operand' => null )` from decoded JSON) is still an
-	 * operand spec, so it reaches resolve_operand() and fails closed rather than
-	 * slipping back into the ordinary IN/scalar path against the marker fields.
+	 * A structured right-hand operand resolves against the given query - the caller
+	 * by default, or a relationship's remote query (with the joined alias) - and
+	 * fails the clause closed when unresolvable. A bare value is passed through for
+	 * the operator to render. The Predicate does the assembly.
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param mixed $value The clause value to inspect.
-	 * @return bool
-	 */
-	protected function is_operand_spec( $value ): bool {
-		return is_array( $value ) && array_key_exists( 'operand', $value );
-	}
-
-	/**
-	 * Resolve a structured operand spec into a renderable Operand, or fail closed.
-	 *
-	 * The right-hand-side counterpart of resolve_clause_sql_cast(): turns an
-	 * explicit operand spec into an Operand value object the operator renders in
-	 * place of a prepared scalar. Returns null when $value is not an operand spec
-	 * (the caller uses the ordinary value path), or false when the spec is present
-	 * but unresolvable (the caller must fail the clause closed).
-	 *
-	 * Supported operand kinds: `column` (a column reference, optional opt-in
-	 * `cast`, validated against $source's schema), `value` (a prepared literal -
-	 * mainly for nesting inside a function), and `func` (an allow-listed SQL
-	 * function wrapping recursive argument operands). An unknown column, unknown
-	 * function, bad arity, or disallowed argument kind all fail closed. The
-	 * referenced column(s) are qualified with $alias, which the caller supplies
-	 * from known query/relationship state - a caller-supplied alias string is
-	 * never trusted here.
-	 *
-	 * @since 3.1.0
-	 * @internal Query/Parser collaborator API.
-	 *
-	 * @param mixed                              $value  The clause value (possibly an operand spec).
-	 * @param \BerlinDB\Database\Kern\Query|null $source The Query whose schema owns the referenced column.
-	 * @param string                             $alias  Optional. Table alias to qualify the reference.
-	 * @return \BerlinDB\Database\Operands\Base|false|null Operand on success; false to fail closed;
-	 *                                                     null when $value is not an operand spec.
-	 */
-	protected function resolve_operand( $value, $source, string $alias = '' ) {
-
-		// Not a structured operand spec: caller uses the ordinary value path.
-		if ( ! $this->is_operand_spec( $value ) ) {
-			return null;
-		}
-
-		// Normalize the operand kind.
-		$kind = is_string( $value[ 'operand' ] )
-			? strtolower( $value[ 'operand' ] )
-			: '';
-
-		// Dispatch by kind; an unknown kind fails closed.
-		switch ( $kind ) {
-			case 'column':
-				return $this->resolve_column_operand( $value, $source, $alias );
-
-			case 'value':
-				return $this->resolve_value_operand( $value );
-
-			case 'func':
-				return $this->resolve_func_operand( $value, $source, $alias );
-
-			default:
-				return false;
-		}
-	}
-
-	/**
-	 * Resolve a `column` operand spec into a Column operand, or false (fail closed).
-	 *
-	 * @since 3.1.0
-	 *
-	 * @param array<string,mixed>                $value  The operand spec.
-	 * @param \BerlinDB\Database\Kern\Query|null $source The Query whose schema owns the column.
-	 * @param string                             $alias  Table alias to qualify the reference.
-	 * @return \BerlinDB\Database\Operands\Base|false
-	 */
-	private function resolve_column_operand( array $value, $source, string $alias ) {
-
-		// Sanitize the referenced column name.
-		$raw_name = $value[ 'name' ] ?? '';
-		$name     = is_string( $raw_name )
-			? $this->sanitize_column_name( $raw_name )
-			: '';
-
-		// Bail if the name doesn't sanitize to a valid column name.
-		if ( '' === $name ) {
-			return false;
-		}
-
-		// The referenced column must exist in the source schema.
-		$column = ( $source instanceof \BerlinDB\Database\Kern\Query )
-			? $source->get_column_by( array( 'name' => $name ) )
-			: false;
-
-		// Bail if the column doesn't exist in the schema.
-		if ( ! ( $column instanceof \BerlinDB\Database\Kern\Column ) ) {
-			return false;
-		}
-
-		// Resolve an optional, opt-in cast against the REFERENCED column's type.
-		$cast = $this->resolve_clause_sql_cast( $column, $value );
-
-		// Bail if an explicit but invalid cast was requested.
-		if ( false === $cast ) {
-			return false;
-		}
-
-		// Return a Column operand with the cast and alias applied.
-		return new \BerlinDB\Database\Operands\Column(
-			array(
-				'column' => $column,
-				'alias'  => $alias,
-				'cast'   => $cast,
-			)
-		);
-	}
-
-	/**
-	 * Resolve a `value` operand spec into a prepared Value operand, or false.
-	 *
-	 * A value operand carries a scalar that is prepared (via wpdb::prepare) here,
-	 * so the resulting object holds an already-safe fragment. An optional
-	 * `pattern` ('%s', '%d', or '%f') selects the placeholder; anything else
-	 * defaults to a string placeholder.
-	 *
-	 * @since 3.1.0
-	 *
-	 * @param array<string,mixed> $value The operand spec.
-	 * @return \BerlinDB\Database\Operands\Base|false
-	 */
-	private function resolve_value_operand( array $value ) {
-
-		// A value operand must carry a scalar value.
-		if ( ! array_key_exists( 'value', $value ) || ! is_scalar( $value[ 'value' ] ) ) {
-			return false;
-		}
-
-		// Optional, validated prepare() pattern; default to a string placeholder.
-		$pattern = ( isset( $value[ 'pattern' ] ) && in_array( $value[ 'pattern' ], array( '%s', '%d', '%f' ), true ) )
-			? $value[ 'pattern' ]
-			: '%s';
-
-		// Prepare the literal; an empty result fails closed.
-		$prepared = (string) $this->db()->prepare( $pattern, $value[ 'value' ] );
-
-		if ( '' === $prepared ) {
-			return false;
-		}
-
-		return new \BerlinDB\Database\Operands\Value( array( 'sql' => $prepared ) );
-	}
-
-	/**
-	 * Resolve a `func` operand spec into a Func operand, or false (fail closed).
-	 *
-	 * The function name must be in the Func allow-list, the argument count within
-	 * its declared arity, and every argument must resolve as an operand of an
-	 * allowed kind. A column argument's declared type category must also be one
-	 * the function accepts. Arguments recurse through resolve_operand(), so
-	 * functions nest.
-	 *
-	 * @since 3.1.0
-	 *
-	 * @param array<string,mixed>                $value  The operand spec.
-	 * @param \BerlinDB\Database\Kern\Query|null $source The Query whose schema owns any column arguments.
-	 * @param string                             $alias  Table alias to qualify column arguments.
-	 * @return \BerlinDB\Database\Operands\Base|false
-	 */
-	private function resolve_func_operand( array $value, $source, string $alias ) {
-
-		// The function must be in the allow-list.
-		$name       = is_string( $value[ 'name' ] ?? null ) ? $value[ 'name' ] : '';
-		$descriptor = \BerlinDB\Database\Operands\Func::descriptor( $name );
-
-		if ( null === $descriptor ) {
-			return false;
-		}
-
-		// Arguments must be a list within the declared arity.
-		$args_spec = $value[ 'args' ] ?? array();
-
-		if ( ! is_array( $args_spec ) ) {
-			return false;
-		}
-
-		$count = count( $args_spec );
-
-		if ( ( $count < $descriptor[ 'min_args' ] ) || ( $count > $descriptor[ 'max_args' ] ) ) {
-			return false;
-		}
-
-		// Resolve each argument operand, enforcing the function's allowed kinds.
-		$resolved = array();
-
-		foreach ( $args_spec as $arg_spec ) {
-			$arg = $this->resolve_operand_argument( $arg_spec, $descriptor[ 'arg_kinds' ], $source, $alias );
-
-			if ( ! ( $arg instanceof \BerlinDB\Database\Operands\Base ) ) {
-				return false;
-			}
-
-			/*
-			 * Schema-informed type check: a column argument's declared category
-			 * must be one the function accepts (e.g. YEAR() rejects a numeric
-			 * column). Literal and nested-function arguments are not type-checked -
-			 * MySQL coerces freely, so this rejects obvious misuse, not everything.
-			 */
-			if ( ( $arg instanceof \BerlinDB\Database\Operands\Column ) && ! in_array( $arg->get_type_category(), $descriptor[ 'accepts' ], true ) ) {
-				return false;
-			}
-
-			$resolved[] = $arg;
-		}
-
-		return new \BerlinDB\Database\Operands\Func(
-			array(
-				'sql'            => $descriptor[ 'sql' ],
-				'args'           => $resolved,
-				'return_pattern' => $descriptor[ 'return_pattern' ],
-			)
-		);
-	}
-
-	/**
-	 * Resolve a single function argument into an operand, or false (fail closed).
-	 *
-	 * A bare scalar is value-operand sugar (allowed only when the function accepts
-	 * a `value` argument). A structured spec must name one of the function's
-	 * allowed argument kinds, then resolves through resolve_operand().
-	 *
-	 * @since 3.1.0
-	 *
-	 * @param mixed                              $arg_spec  The argument spec (scalar or operand spec).
-	 * @param list<string>                       $arg_kinds The operand kinds this function accepts.
-	 * @param \BerlinDB\Database\Kern\Query|null $source    The Query whose schema owns any column arguments.
-	 * @param string                             $alias     Table alias to qualify column arguments.
-	 * @return \BerlinDB\Database\Operands\Base|false
-	 */
-	private function resolve_operand_argument( $arg_spec, array $arg_kinds, $source, string $alias ) {
-
-		// A bare scalar is value-operand sugar, when the function accepts a value.
-		if ( ! $this->is_operand_spec( $arg_spec ) ) {
-
-			if ( ! in_array( 'value', $arg_kinds, true ) || ! is_scalar( $arg_spec ) ) {
-				return false;
-			}
-
-			return $this->resolve_value_operand( array( 'value' => $arg_spec ) );
-		}
-
-		// A structured argument must be one of the function's allowed kinds.
-		$kind = is_string( $arg_spec[ 'operand' ] )
-			? strtolower( $arg_spec[ 'operand' ] )
-			: '';
-
-		if ( ! in_array( $kind, $arg_kinds, true ) ) {
-			return false;
-		}
-
-		$operand = $this->resolve_operand( $arg_spec, $source, $alias );
-
-		return ( $operand instanceof \BerlinDB\Database\Operands\Base )
-			? $operand
-			: false;
-	}
-
-	/**
-	 * Assemble a two-operand comparison: `{lhs} {compare} {rhs}`.
-	 *
-	 * Both sides are resolved operands (a bare column key becomes a Column
-	 * operand; a structured key/value resolves to any operand). The parser owns
-	 * this - rather than the operator - because operand rendering is uniform
-	 * across the scalar comparison operators (the operator contributes only its
-	 * SQL compare string), whereas value rendering is operator-specific (IN lists,
-	 * BETWEEN pairs, LIKE wildcards). It also avoids widening the public operator
-	 * get_sql() signature, which would fatally break custom operator overrides
-	 * registered via berlindb_database_operator_classes.
-	 *
-	 * @since 3.1.0
-	 *
-	 * @param \BerlinDB\Database\Operands\Base $lhs         The left-hand operand.
-	 * @param string                           $sql_compare The operator's SQL compare string (get_sql_compare()).
-	 * @param \BerlinDB\Database\Operands\Base $rhs         The right-hand operand.
-	 * @return string The assembled comparison SQL, or '' when either side renders nothing.
-	 */
-	protected function build_comparison_sql( \BerlinDB\Database\Operands\Base $lhs, string $sql_compare, \BerlinDB\Database\Operands\Base $rhs ): string {
-
-		$lhs_sql = $lhs->get_sql();
-		$rhs_sql = $rhs->get_sql();
-
-		// Bail if either side rendered nothing.
-		if ( ( '' === $lhs_sql ) || ( '' === $rhs_sql ) ) {
-			return '';
-		}
-
-		return $lhs_sql . ' ' . $sql_compare . ' ' . $rhs_sql;
-	}
-
-	/**
-	 * Assemble a unary comparison: `{lhs} {compare}` (e.g. `{col} IS NULL`).
-	 *
-	 * A unary operator takes no right-hand operand. The left side is a resolved
-	 * operand - a bare column or a structured expression.
-	 *
-	 * @since 3.1.0
-	 *
-	 * @param \BerlinDB\Database\Operands\Base $lhs         The left-hand operand.
-	 * @param string                           $sql_compare The operator's SQL compare string (get_sql_compare()).
-	 * @return string The assembled unary SQL, or '' when the operand renders nothing.
-	 */
-	protected function build_unary_sql( \BerlinDB\Database\Operands\Base $lhs, string $sql_compare ): string {
-
-		$lhs_sql = $lhs->get_sql();
-
-		// Bail if the operand rendered nothing.
-		if ( '' === $lhs_sql ) {
-			return '';
-		}
-
-		return $lhs_sql . ' ' . $sql_compare;
-	}
-
-	/**
-	 * Build a comparison from a resolved left-hand operand, or false (fail closed).
-	 *
-	 * Shared by the compare and relationship clause builders once the left side is
-	 * an operand - a structured 'key', or a bare column wrapped as a Column
-	 * operand. Three cases:
-	 *
-	 * - unary operator (`IS NULL`) -> `{lhs} {compare}` (no right-hand side);
-	 * - a STRUCTURED right-hand operand (column-to-column, function = function) ->
-	 *   limited to the scalar expression operators, paired as two operands;
-	 * - a BARE right-hand value -> paired with the OPERATOR's own value rendering
-	 *   (`get_value_sql`), so `IN` / `BETWEEN` / `LIKE` / `REGEXP` / scalar all work
-	 *   uniformly: the operator owns the value fragment, the parser owns the LHS.
-	 *
-	 * @since 3.1.0
-	 *
-	 * @param \BerlinDB\Database\Operands\Base   $lhs              The resolved left-hand operand.
+	 * @param \BerlinDB\Database\Operands\Base   $lhs              The resolved left operand.
 	 * @param \BerlinDB\Database\Operators\Base  $operator         The resolved operator.
 	 * @param mixed                              $value            The clause value (operand spec or scalar; absent for unary).
 	 * @param bool                               $value_is_operand Whether $value is a structured operand spec.
-	 * @param \BerlinDB\Database\Kern\Query|null $source           The Query whose schema owns any value-side column.
-	 * @param string                             $alias            Table alias to qualify any value-side column.
-	 * @return string|false The comparison SQL (possibly ''), or false to fail the clause closed.
+	 * @param \BerlinDB\Database\Kern\Query|null $resolver         The query a structured right operand resolves against. Null uses the caller. Default null.
+	 * @param string|null                        $alias            Alias to qualify a right-side column. Null uses the resolver's own. Default null.
+	 * @return string|false The predicate SQL (possibly ''), or false to fail the clause closed.
 	 */
-	protected function build_operand_clause( \BerlinDB\Database\Operands\Base $lhs, \BerlinDB\Database\Operators\Base $operator, $value, bool $value_is_operand, $source, string $alias ) {
-
-		// A unary operator (IS NULL) takes no right-hand side.
-		if ( $operator->is_unary() ) {
-			return $this->build_unary_sql( $lhs, $operator->get_sql_compare() );
-		}
+	protected function build_operand_clause( \BerlinDB\Database\Operands\Base $lhs, \BerlinDB\Database\Operators\Base $operator, $value, bool $value_is_operand, ?\BerlinDB\Database\Kern\Query $resolver = null, ?string $alias = null ) {
 
 		/*
-		 * A structured right-hand operand (column-to-column, function = function)
-		 * pairs two operands and is limited to the scalar expression operators.
+		 * A unary operator (IS NULL) takes no right-hand side, so never resolve one -
+		 * a value, even an unresolvable operand-shaped one, is ignored.
 		 */
-		if ( $value_is_operand ) {
+		if ( $operator->is_unary() ) {
+			return ( new \BerlinDB\Database\Clauses\Predicate( $lhs, $operator ) )->to_sql();
+		}
 
-			if ( ! $operator->is_expression() ) {
+		$right = $value;
+
+		// A structured right-hand operand resolves against the resolver query.
+		if ( $value_is_operand ) {
+			$resolver = $resolver ?? $this->caller;
+			$right    = ( $resolver instanceof \BerlinDB\Database\Kern\Query )
+				? $resolver->resolve_operand( $value, $alias )
+				: false;
+
+			// Fail closed if the right operand was unresolvable.
+			if ( ! ( $right instanceof \BerlinDB\Database\Operands\Base ) ) {
 				return false;
 			}
-
-			$rhs = $this->resolve_operand( $value, $source, $alias );
-
-			return ( $rhs instanceof \BerlinDB\Database\Operands\Base )
-				? $this->build_comparison_sql( $lhs, $operator->get_sql_compare(), $rhs )
-				: false;
 		}
 
-		/*
-		 * A bare right-hand value pairs the operand with the operator's own value
-		 * rendering (scalar / IN / BETWEEN / LIKE / REGEXP), prepared with the left
-		 * operand's comparison pattern. EXISTS renders as equality here exactly as
-		 * it does on a plain column; a value-less operator (NOT EXISTS) yields ''.
-		 */
-		return $this->build_operand_value_sql( $lhs, $operator, $value );
-	}
-
-	/**
-	 * Assemble `{operand} {compare} {operator-rendered value}` for a bare value.
-	 *
-	 * Pairs an operand left-hand side with the operator's existing value renderer
-	 * (`get_value_sql`), so the operator keeps owning the value fragment - IN
-	 * parens, BETWEEN `AND`, LIKE wildcards, prepared scalars - while the parser
-	 * supplies the (possibly function/column) left side.
-	 *
-	 * @since 3.1.0
-	 *
-	 * @param \BerlinDB\Database\Operands\Base  $lhs      The left-hand operand.
-	 * @param \BerlinDB\Database\Operators\Base $operator The resolved operator.
-	 * @param mixed                             $value    The bare right-hand value(s).
-	 * @return string The comparison SQL, or '' when the operator renders no value side.
-	 */
-	protected function build_operand_value_sql( \BerlinDB\Database\Operands\Base $lhs, \BerlinDB\Database\Operators\Base $operator, $value ): string {
-
-		// Narrow the left operand's pattern to a known placeholder for prepare().
-		$pattern = $lhs->get_comparison_pattern();
-		$pattern = in_array( $pattern, array( '%s', '%d', '%f' ), true )
-			? $pattern
-			: '%s';
-
-		// The operator renders its value fragment, typed by the left operand.
-		$value_sql = $operator->get_value_sql( $value, $pattern );
-
-		// A value-less operator (e.g. NOT EXISTS) yields nothing.
-		if ( '' === $value_sql ) {
-			return '';
-		}
-
-		return $lhs->get_sql() . ' ' . $operator->get_sql_compare() . ' ' . $value_sql;
+		return ( new \BerlinDB\Database\Clauses\Predicate( $lhs, $operator, $right ) )->to_sql();
 	}
 
 	/**

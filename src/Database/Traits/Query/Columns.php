@@ -116,6 +116,19 @@ trait Columns {
 	}
 
 	/**
+	 * Get this query's schema object (the owner of its columns).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return \BerlinDB\Database\Kern\Schema|null The schema, or null if not yet built.
+	 */
+	public function get_schema(): ?\BerlinDB\Database\Kern\Schema {
+		return ( $this->schema_object instanceof \BerlinDB\Database\Kern\Schema )
+			? $this->schema_object
+			: null;
+	}
+
+	/**
 	 * Get a column from an array of arguments.
 	 *
 	 * @since 1.0.0
