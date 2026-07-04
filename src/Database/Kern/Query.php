@@ -49,9 +49,10 @@ defined( 'ABSPATH' ) || exit;
  *                                      Default false.
  *     @type bool    $update_meta_cache Prime the meta cache for found items.
  *                                      Default false.
- *     @type list<string>|false $with  Relationship names to eager-prime (warms
+ *     @type list<string> $with        Relationship names to eager-prime (warms
  *                                      the related items' caches to avoid N+1).
- *                                      Names only; false disables. Default false.
+ *                                      Names only; an empty array disables.
+ *                                      Default empty array.
  * }
  */
 class Query {
@@ -664,7 +665,7 @@ class Query {
 			'update_meta_cache' => true,
 
 			// Relationship priming (quiet by default; array of names to prime).
-			'with'              => false,
+			'with'              => array(),
 
 			// Cross-parser criteria tree (empty = implicit AND across parsers, the default).
 			'criteria'          => array(),
