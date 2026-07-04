@@ -79,7 +79,8 @@ trait Operator {
 
 	/**
 	 * Whether this operator takes a LIST of values, rendered `( a, b, c )` (IN /
-	 * NOT IN). Pairs with a Collection operand.
+	 * NOT IN). Pairs with a Collection operand. Mutually exclusive with $range - an
+	 * operator's value side is a list OR a range OR neither, never both.
 	 *
 	 * @since 3.1.0
 	 * @var bool
@@ -88,7 +89,8 @@ trait Operator {
 
 	/**
 	 * Whether this operator takes a two-bound RANGE, rendered `a AND b` (BETWEEN /
-	 * NOT BETWEEN). Pairs with a Range operand.
+	 * NOT BETWEEN). Pairs with a Range operand. Mutually exclusive with $list (see
+	 * that property).
 	 *
 	 * @since 3.1.0
 	 * @var bool
