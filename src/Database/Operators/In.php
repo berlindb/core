@@ -60,12 +60,13 @@ class In extends Base {
 	protected $opposite_compare = 'NOT IN';
 
 	/**
-	 * Whether this operator accepts multiple values (IN, BETWEEN).
+	 * Whether this operator takes a LIST of values, rendered `( a, b, c )` (IN /
+	 * NOT IN). A Collection operand pairs with it.
 	 *
-	 * @since 3.0.0
+	 * @since 3.1.0
 	 * @var bool
 	 */
-	protected $multi = true;
+	protected $list = true;
 
 	/**
 	 * Whether this operator is intended for numeric comparisons (>, <, BETWEEN).

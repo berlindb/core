@@ -60,12 +60,13 @@ class Between extends Base {
 	protected $opposite_compare = 'NOT BETWEEN';
 
 	/**
-	 * Whether this operator accepts multiple values (IN, BETWEEN).
+	 * Whether this operator takes a two-bound RANGE, rendered `a AND b` (BETWEEN /
+	 * NOT BETWEEN). A Range operand pairs with it.
 	 *
-	 * @since 3.0.0
+	 * @since 3.1.0
 	 * @var bool
 	 */
-	protected $multi = true;
+	protected $range = true;
 
 	/**
 	 * Whether this operator is intended for numeric comparisons (>, <, BETWEEN).

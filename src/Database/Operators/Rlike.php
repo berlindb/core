@@ -50,14 +50,6 @@ class Rlike extends Base {
 	protected $positive = true;
 
 	/**
-	 * Whether this operator accepts multiple values (IN, BETWEEN).
-	 *
-	 * @since 3.0.0
-	 * @var bool
-	 */
-	protected $multi = false;
-
-	/**
 	 * Whether this operator is intended for numeric comparisons (>, <, BETWEEN).
 	 *
 	 * @since 3.0.0

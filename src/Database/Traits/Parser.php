@@ -1663,13 +1663,14 @@ trait Parser {
 			return false;
 		}
 
-		// Get multi-value comparison operators.
-		$mvk = $this->get_operators( array( 'multi' => true ) );
+		// A multi-value operator (IN list / BETWEEN range) builds one comparison per part.
+		$op       = $this->get_operator( $compare );
+		$is_multi = ( $op instanceof \BerlinDB\Database\Operators\Base ) && ( $op->is_list() || $op->is_range() );
 
 		/*
 		 * Complex combined queries aren't supported for multi-value queries.
 		 */
-		if ( in_array( $compare, $mvk, true ) ) {
+		if ( true === $is_multi ) {
 			$retval = array();
 
 			// Hour.

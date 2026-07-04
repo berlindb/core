@@ -111,4 +111,21 @@ abstract class Base {
 	public function get_comparison_pattern(): string {
 		return '%s';
 	}
+
+	/**
+	 * Whether this operand pairs with the given operator.
+	 *
+	 * A Predicate consults this to fail closed on a shape mismatch. The default -
+	 * a single-value operand (column / function / prepared value) - pairs with the
+	 * scalar comparison operators. Collection and Range operands override this to
+	 * pair with the list and range operators instead.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param \BerlinDB\Database\Operators\Base $operator The operator being paired.
+	 * @return bool
+	 */
+	public function pairs_with( \BerlinDB\Database\Operators\Base $operator ): bool {
+		return $operator->is_expression();
+	}
 }

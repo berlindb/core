@@ -39,7 +39,7 @@ use PHPUnit\Framework\TestCase;
  * Tests for all BerlinDB operator classes.
  *
  * Covers descriptor properties ($compare, $positive, $opposite_compare,
- * $multi, $numeric), the opposite linkage, get_value_sql() output for each
+ * $list, $range, $numeric), the opposite linkage, get_value_sql() output for each
  * operator, and the full-expression get_sql() method on the trait.
  *
  * @since 3.0.0
@@ -59,7 +59,8 @@ class OperatorsTest extends TestCase {
 		$op = new Equal();
 		$this->assertSame( '=', $op->compare );
 		$this->assertTrue( $op->positive );
-		$this->assertFalse( $op->multi );
+		$this->assertFalse( $op->list );
+		$this->assertFalse( $op->range );
 		$this->assertFalse( $op->numeric );
 	}
 
@@ -72,7 +73,8 @@ class OperatorsTest extends TestCase {
 		$op = new NotEqual();
 		$this->assertSame( '!=', $op->compare );
 		$this->assertFalse( $op->positive );
-		$this->assertFalse( $op->multi );
+		$this->assertFalse( $op->list );
+		$this->assertFalse( $op->range );
 		$this->assertFalse( $op->numeric );
 	}
 
@@ -85,7 +87,8 @@ class OperatorsTest extends TestCase {
 		$op = new GreaterThan();
 		$this->assertSame( '>', $op->compare );
 		$this->assertTrue( $op->positive );
-		$this->assertFalse( $op->multi );
+		$this->assertFalse( $op->list );
+		$this->assertFalse( $op->range );
 		$this->assertTrue( $op->numeric );
 	}
 
@@ -98,7 +101,8 @@ class OperatorsTest extends TestCase {
 		$op = new GreaterThanOrEqual();
 		$this->assertSame( '>=', $op->compare );
 		$this->assertTrue( $op->positive );
-		$this->assertFalse( $op->multi );
+		$this->assertFalse( $op->list );
+		$this->assertFalse( $op->range );
 		$this->assertTrue( $op->numeric );
 	}
 
@@ -111,7 +115,8 @@ class OperatorsTest extends TestCase {
 		$op = new LessThan();
 		$this->assertSame( '<', $op->compare );
 		$this->assertTrue( $op->positive );
-		$this->assertFalse( $op->multi );
+		$this->assertFalse( $op->list );
+		$this->assertFalse( $op->range );
 		$this->assertTrue( $op->numeric );
 	}
 
@@ -124,7 +129,8 @@ class OperatorsTest extends TestCase {
 		$op = new LessThanOrEqual();
 		$this->assertSame( '<=', $op->compare );
 		$this->assertTrue( $op->positive );
-		$this->assertFalse( $op->multi );
+		$this->assertFalse( $op->list );
+		$this->assertFalse( $op->range );
 		$this->assertTrue( $op->numeric );
 	}
 
@@ -137,7 +143,8 @@ class OperatorsTest extends TestCase {
 		$op = new In();
 		$this->assertSame( 'IN', $op->compare );
 		$this->assertTrue( $op->positive );
-		$this->assertTrue( $op->multi );
+		$this->assertTrue( $op->list );
+		$this->assertFalse( $op->range );
 		$this->assertFalse( $op->numeric );
 	}
 
@@ -150,7 +157,8 @@ class OperatorsTest extends TestCase {
 		$op = new NotIn();
 		$this->assertSame( 'NOT IN', $op->compare );
 		$this->assertFalse( $op->positive );
-		$this->assertTrue( $op->multi );
+		$this->assertTrue( $op->list );
+		$this->assertFalse( $op->range );
 		$this->assertFalse( $op->numeric );
 	}
 
@@ -163,7 +171,8 @@ class OperatorsTest extends TestCase {
 		$op = new Between();
 		$this->assertSame( 'BETWEEN', $op->compare );
 		$this->assertTrue( $op->positive );
-		$this->assertTrue( $op->multi );
+		$this->assertTrue( $op->range );
+		$this->assertFalse( $op->list );
 		$this->assertTrue( $op->numeric );
 	}
 
@@ -176,7 +185,8 @@ class OperatorsTest extends TestCase {
 		$op = new NotBetween();
 		$this->assertSame( 'NOT BETWEEN', $op->compare );
 		$this->assertFalse( $op->positive );
-		$this->assertTrue( $op->multi );
+		$this->assertTrue( $op->range );
+		$this->assertFalse( $op->list );
 		$this->assertTrue( $op->numeric );
 	}
 
@@ -189,7 +199,8 @@ class OperatorsTest extends TestCase {
 		$op = new Like();
 		$this->assertSame( 'LIKE', $op->compare );
 		$this->assertTrue( $op->positive );
-		$this->assertFalse( $op->multi );
+		$this->assertFalse( $op->list );
+		$this->assertFalse( $op->range );
 		$this->assertFalse( $op->numeric );
 	}
 
@@ -202,7 +213,8 @@ class OperatorsTest extends TestCase {
 		$op = new NotLike();
 		$this->assertSame( 'NOT LIKE', $op->compare );
 		$this->assertFalse( $op->positive );
-		$this->assertFalse( $op->multi );
+		$this->assertFalse( $op->list );
+		$this->assertFalse( $op->range );
 		$this->assertFalse( $op->numeric );
 	}
 
@@ -216,7 +228,8 @@ class OperatorsTest extends TestCase {
 		$this->assertSame( 'EXISTS', $op->compare );
 		$this->assertSame( '=', $op->sql_compare );
 		$this->assertTrue( $op->positive );
-		$this->assertFalse( $op->multi );
+		$this->assertFalse( $op->list );
+		$this->assertFalse( $op->range );
 		$this->assertFalse( $op->numeric );
 	}
 
@@ -229,7 +242,8 @@ class OperatorsTest extends TestCase {
 		$op = new NotExists();
 		$this->assertSame( 'NOT EXISTS', $op->compare );
 		$this->assertFalse( $op->positive );
-		$this->assertFalse( $op->multi );
+		$this->assertFalse( $op->list );
+		$this->assertFalse( $op->range );
 		$this->assertFalse( $op->numeric );
 	}
 
@@ -242,7 +256,8 @@ class OperatorsTest extends TestCase {
 		$op = new Regexp();
 		$this->assertSame( 'REGEXP', $op->compare );
 		$this->assertTrue( $op->positive );
-		$this->assertFalse( $op->multi );
+		$this->assertFalse( $op->list );
+		$this->assertFalse( $op->range );
 		$this->assertFalse( $op->numeric );
 	}
 
@@ -255,7 +270,8 @@ class OperatorsTest extends TestCase {
 		$op = new NotRegexp();
 		$this->assertSame( 'NOT REGEXP', $op->compare );
 		$this->assertFalse( $op->positive );
-		$this->assertFalse( $op->multi );
+		$this->assertFalse( $op->list );
+		$this->assertFalse( $op->range );
 		$this->assertFalse( $op->numeric );
 	}
 
@@ -268,7 +284,8 @@ class OperatorsTest extends TestCase {
 		$op = new Rlike();
 		$this->assertSame( 'RLIKE', $op->compare );
 		$this->assertTrue( $op->positive );
-		$this->assertFalse( $op->multi );
+		$this->assertFalse( $op->list );
+		$this->assertFalse( $op->range );
 		$this->assertFalse( $op->numeric );
 	}
 
@@ -281,7 +298,8 @@ class OperatorsTest extends TestCase {
 		$op = new IsNull();
 		$this->assertSame( 'IS NULL', $op->compare );
 		$this->assertTrue( $op->positive );
-		$this->assertFalse( $op->multi );
+		$this->assertFalse( $op->list );
+		$this->assertFalse( $op->range );
 		$this->assertFalse( $op->numeric );
 		$this->assertTrue( $op->is_unary() );
 	}
@@ -296,7 +314,8 @@ class OperatorsTest extends TestCase {
 		$this->assertSame( 'IS NOT NULL', $op->compare );
 		// Positive: IS NOT NULL is a direct predicate, not an anti-join.
 		$this->assertTrue( $op->positive );
-		$this->assertFalse( $op->multi );
+		$this->assertFalse( $op->list );
+		$this->assertFalse( $op->range );
 		$this->assertFalse( $op->numeric );
 		$this->assertTrue( $op->is_unary() );
 	}
@@ -390,7 +409,7 @@ class OperatorsTest extends TestCase {
 	}
 
 	// -------------------------------------------------------------------------
-	// Descriptor accessors (is_regex / is_numeric / is_multi).
+	// Descriptor accessors (is_regex / is_numeric / is_list / is_range ).
 	// -------------------------------------------------------------------------
 
 	/**
@@ -410,17 +429,23 @@ class OperatorsTest extends TestCase {
 	}
 
 	/**
-	 * Test the is_numeric() and is_multi() descriptor accessors.
+	 * Test the is_numeric(), is_list(), and is_range() descriptor accessors.
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_numeric_and_multi_accessors() {
+	public function test_numeric_list_and_range_accessors() {
 		$this->assertTrue( ( new GreaterThan() )->is_numeric() );
 		$this->assertFalse( ( new Equal() )->is_numeric() );
 
-		$this->assertTrue( ( new In() )->is_multi() );
-		$this->assertTrue( ( new Between() )->is_multi() );
-		$this->assertFalse( ( new Equal() )->is_multi() );
+		// IN / NOT IN are lists; BETWEEN / NOT BETWEEN are ranges; the two are disjoint.
+		$this->assertTrue( ( new In() )->is_list() );
+		$this->assertFalse( ( new In() )->is_range() );
+
+		$this->assertTrue( ( new Between() )->is_range() );
+		$this->assertFalse( ( new Between() )->is_list() );
+
+		$this->assertFalse( ( new Equal() )->is_list() );
+		$this->assertFalse( ( new Equal() )->is_range() );
 	}
 
 	/**

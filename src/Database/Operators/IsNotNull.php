@@ -68,14 +68,6 @@ class IsNotNull extends Base {
 	protected $opposite_compare = 'IS NULL';
 
 	/**
-	 * Whether this operator accepts multiple values (IN, BETWEEN).
-	 *
-	 * @since 3.1.0
-	 * @var bool
-	 */
-	protected $multi = false;
-
-	/**
 	 * Whether this operator is intended for numeric comparisons (>, <, BETWEEN).
 	 *
 	 * @since 3.1.0

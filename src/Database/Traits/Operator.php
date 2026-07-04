@@ -78,12 +78,22 @@ trait Operator {
 	protected $opposite_compare = '';
 
 	/**
-	 * Whether this operator accepts multiple values (IN, BETWEEN).
+	 * Whether this operator takes a LIST of values, rendered `( a, b, c )` (IN /
+	 * NOT IN). Pairs with a Collection operand.
 	 *
-	 * @since 3.0.0
+	 * @since 3.1.0
 	 * @var bool
 	 */
-	protected $multi = false;
+	protected $list = false;
+
+	/**
+	 * Whether this operator takes a two-bound RANGE, rendered `a AND b` (BETWEEN /
+	 * NOT BETWEEN). Pairs with a Range operand.
+	 *
+	 * @since 3.1.0
+	 * @var bool
+	 */
+	protected $range = false;
 
 	/**
 	 * Whether this operator is unary - a predicate that takes no right-hand
@@ -204,14 +214,27 @@ trait Operator {
 	}
 
 	/**
-	 * Whether this operator accepts multiple values (IN, BETWEEN).
+	 * Whether this operator takes a LIST of values, rendered `( a, b, c )` (IN /
+	 * NOT IN). A Collection operand pairs with it.
 	 *
 	 * @since 3.1.0
 	 *
 	 * @return bool
 	 */
-	public function is_multi(): bool {
-		return (bool) $this->multi;
+	public function is_list(): bool {
+		return (bool) $this->list;
+	}
+
+	/**
+	 * Whether this operator takes a two-bound RANGE, rendered `a AND b` (BETWEEN /
+	 * NOT BETWEEN). A Range operand pairs with it.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return bool
+	 */
+	public function is_range(): bool {
+		return (bool) $this->range;
 	}
 
 	/**

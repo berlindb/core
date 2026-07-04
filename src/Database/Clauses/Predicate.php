@@ -99,9 +99,9 @@ class Predicate {
 			return $this->assemble_unary();
 		}
 
-		// A resolved operand pairs two operands - scalar expression operators only.
+		// A resolved operand pairs with the operator by shape (scalar / list / range).
 		if ( $this->right instanceof Operand ) {
-			return $this->operator->is_expression()
+			return $this->right->pairs_with( $this->operator )
 				? $this->assemble_comparison( $this->right )
 				: false;
 		}
@@ -131,14 +131,16 @@ class Predicate {
 	 * @since 3.1.0
 	 *
 	 * @param Operand $right The right-hand operand.
-	 * @return string The SQL, or '' when either side renders nothing.
+	 * @return string|false The SQL, or false when either operand renders nothing - a
+	 *                      resolved operand that renders empty is broken (e.g. an
+	 *                      empty collection), so fail closed rather than widen.
 	 */
-	private function assemble_comparison( Operand $right ): string {
+	private function assemble_comparison( Operand $right ) {
 		$left_sql  = $this->left->get_sql();
 		$right_sql = $right->get_sql();
 
 		return ( ( '' === $left_sql ) || ( '' === $right_sql ) )
-			? ''
+			? false
 			: $left_sql . ' ' . $this->operator->get_sql_compare() . ' ' . $right_sql;
 	}
 

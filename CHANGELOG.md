@@ -40,6 +40,14 @@ Notable changes to BerlinDB are documented here.
   `DAYOFWEEK`/`HOUR`/`MINUTE`/`SECOND`, each declaring the column-type categories it
   accepts — a column argument whose declared type is wrong for the function (e.g.
   `YEAR()` of a numeric column, `ABS()` of a string column) fails the clause closed.
+  A right-hand operand may also be a `list` (for `IN` / `NOT IN`) or a `range` (for
+  `BETWEEN` / `NOT BETWEEN`) whose members are themselves operands, so
+  `array( 'operand' => 'list', 'items' => array( array( 'operand' => 'column', 'name' => 'other_col' ), 5 ) )`
+  renders `IN ( other_col, 5 )` — mixing columns, functions, and values in a way the
+  bare value list can't. An empty list, a range that isn't exactly two bounds, a
+  nested list/range member, or a shape mismatch (a list on a scalar operator, a
+  single operand on `IN`) fails the clause closed. The bare-array value path
+  (`'value' => array( 1, 2, 3 )`) is unchanged.
 - Adds cross-parser boolean composition via the `criteria` query var (#211): a
   top-level tree combines whole parser WHERE fragments with `OR`/`AND` (nestable)
   instead of the historical implicit `AND`, e.g.

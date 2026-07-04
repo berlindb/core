@@ -22,7 +22,7 @@ defined( 'ABSPATH' ) || exit;
  * Provides shared descriptor properties and SQL-generation behavior via
  * Traits\Operator. Concrete operator subclasses only need to declare the
  * descriptor properties that differ from the trait defaults ($name, $compare,
- * $positive, $opposite_compare, $multi, $numeric, $unary, $regex).
+ * $positive, $opposite_compare, $list, $range, $numeric, $unary, $regex).
  * get_value_sql() is inherited from the trait and handles scalar operators;
  * multi-value or non-standard operators override it. get_sql() assembles the
  * full WHERE expression and lives in the trait; concrete classes rarely need

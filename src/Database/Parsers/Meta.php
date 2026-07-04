@@ -1629,7 +1629,7 @@ class Meta extends Base {
 		if ( '=' === $operator->get_sql_compare() ) {
 			$where = array( 'meta_key' => $key ); // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
 
-		} elseif ( $operator->is_multi() ) {
+		} elseif ( $operator->is_list() || $operator->is_range() ) {
 			$where = array( 'meta_key' => (array) $key ); // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
 
 		} else {

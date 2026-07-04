@@ -1686,4 +1686,219 @@ class CompareParserTest extends TestCase {
 			$this->assertStringNotContainsString( '1 = 0', $where );
 		}
 	}
+
+	/* Collection ( IN ) and Range ( BETWEEN ) operands **************************/
+
+	/**
+	 * An IN with a `list` operand renders a parenthesised list whose members are
+	 * operands - a column and a value here - which a bare value list can't express.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_list_operand_renders_in_list() {
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => 'priority',
+				'compare' => 'IN',
+				'value'   => array(
+					'operand' => 'list',
+					'items'   => array(
+						array(
+							'operand' => 'column',
+							'name'    => 'id',
+						),
+						5,
+					),
+				),
+			)
+		);
+
+		$this->assertStringContainsString( ' IN ', $where );
+		$this->assertStringContainsString( '`id`', $where );
+		$this->assertStringContainsString( '5', $where );
+		$this->assertStringNotContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * NOT IN pairs with a list operand the same way.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_list_operand_not_in() {
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => 'priority',
+				'compare' => 'NOT IN',
+				'value'   => array(
+					'operand' => 'list',
+					'items'   => array( 1, 2, 3 ),
+				),
+			)
+		);
+
+		$this->assertStringContainsString( ' NOT IN ', $where );
+		$this->assertStringNotContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * A `range` operand on BETWEEN renders `lower AND upper` from two operand bounds.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_range_operand_renders_between() {
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => 'priority',
+				'compare' => 'BETWEEN',
+				'value'   => array(
+					'operand' => 'range',
+					'items'   => array( 1, 10 ),
+				),
+			)
+		);
+
+		$this->assertStringContainsString( ' BETWEEN ', $where );
+		$this->assertStringContainsString( ' AND ', $where );
+		$this->assertStringNotContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * A list can mix column, function, and value members.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_list_operand_mixes_member_kinds() {
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => 'name',
+				'compare' => 'IN',
+				'value'   => array(
+					'operand' => 'list',
+					'items'   => array(
+						array(
+							'operand' => 'column',
+							'name'    => 'status',
+						),
+						array(
+							'operand' => 'func',
+							'name'    => 'LOWER',
+							'args'    => array(
+								array(
+									'operand' => 'column',
+									'name'    => 'status',
+								),
+							),
+						),
+						'x',
+					),
+				),
+			)
+		);
+
+		$this->assertStringContainsString( ' IN ', $where );
+		$this->assertStringContainsString( 'LOWER(', $where );
+		$this->assertStringContainsString( '`status`', $where );
+		$this->assertStringNotContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * An empty list fails closed - `IN ()` is invalid SQL, never a widening.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_empty_list_operand_fails_closed() {
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => 'priority',
+				'compare' => 'IN',
+				'value'   => array(
+					'operand' => 'list',
+					'items'   => array(),
+				),
+			)
+		);
+
+		$this->assertStringContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * A range that isn't exactly two bounds fails closed.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_range_operand_requires_two_bounds() {
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => 'priority',
+				'compare' => 'BETWEEN',
+				'value'   => array(
+					'operand' => 'range',
+					'items'   => array( 1, 2, 3 ),
+				),
+			)
+		);
+
+		$this->assertStringContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * Shape mismatch fails closed: a list operand on a scalar operator, and a single
+	 * operand on a list operator, both produce no match rather than odd SQL.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_operand_shape_mismatch_fails_closed() {
+
+		// A list on '=' (a scalar operator) - pairs_with() rejects it.
+		$list_on_scalar = $this->compare_where_sql(
+			array(
+				'key'     => 'priority',
+				'compare' => '=',
+				'value'   => array(
+					'operand' => 'list',
+					'items'   => array( 1, 2 ),
+				),
+			)
+		);
+		$this->assertStringContainsString( '1 = 0', $list_on_scalar );
+
+		// A single column operand on IN (a list operator) - also rejected.
+		$scalar_on_list = $this->compare_where_sql(
+			array(
+				'key'     => 'priority',
+				'compare' => 'IN',
+				'value'   => array(
+					'operand' => 'column',
+					'name'    => 'id',
+				),
+			)
+		);
+		$this->assertStringContainsString( '1 = 0', $scalar_on_list );
+	}
+
+	/**
+	 * A nested collection member is not an allowed kind, so it fails closed.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_nested_list_member_fails_closed() {
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => 'priority',
+				'compare' => 'IN',
+				'value'   => array(
+					'operand' => 'list',
+					'items'   => array(
+						1,
+						array(
+							'operand' => 'list',
+							'items'   => array( 2, 3 ),
+						),
+					),
+				),
+			)
+		);
+
+		$this->assertStringContainsString( '1 = 0', $where );
+	}
 }

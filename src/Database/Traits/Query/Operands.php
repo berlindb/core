@@ -37,14 +37,16 @@ defined( 'ABSPATH' ) || exit;
  *
  *   - Column:   array( 'operand' => 'column', 'name' => 'last_name', 'cast' => true )
  *   - Value:    array( 'operand' => 'value',  'value' => 5, 'pattern' => '%d' )
- *   - Function: array( 'operand' => 'func',   'name' => 'LOWER', 'args' => array( ... ) )
+ *   - Function: array( 'operand' => 'func',   'name' => 'LOWER', 'args'  => array( ... ) )
+ *   - List:     array( 'operand' => 'list',   'items' => array( ... ) )  // IN / NOT IN, members are operands
+ *   - Range:    array( 'operand' => 'range',  'items' => array( $a, $b ) )  // BETWEEN, exactly two bounds
  *
  * It only builds operands; pairing an operand with an operator into a predicate is
  * the parser's job.
  *
  * @since 3.1.0
  *
- * @phpstan-type OperandSpec array{operand: string, name?: string, value?: scalar, pattern?: string, args?: array<mixed>, cast?: bool|string}
+ * @phpstan-type OperandSpec array{operand: string, name?: string, value?: scalar, pattern?: string, args?: array<mixed>, items?: array<mixed>, cast?: bool|string}
  */
 trait Operands {
 
@@ -92,6 +94,12 @@ trait Operands {
 
 			case 'func':
 				return $this->resolve_func_operand( $value, $alias );
+
+			case 'list':
+				return $this->resolve_list_operand( $value, $alias );
+
+			case 'range':
+				return $this->resolve_range_operand( $value, $alias );
 
 			default:
 				return false;
@@ -324,5 +332,81 @@ trait Operands {
 		return ( $operand instanceof Base )
 			? $operand
 			: false;
+	}
+
+	/**
+	 * Resolve a `list` operand spec into a Collection operand, or false.
+	 *
+	 * The `items` resolve as member operands (columns / functions / values, plus
+	 * bare-scalar sugar). An empty list, an unresolvable member, or a nested
+	 * collection/range member fails closed - `IN ()` is invalid SQL.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string,mixed> $value The operand spec.
+	 * @param string              $alias Table alias to qualify column members.
+	 * @return Base|false
+	 */
+	private function resolve_list_operand( array $value, string $alias ) {
+		$operands = $this->resolve_operand_members( $value[ 'items' ] ?? null, $alias );
+
+		return ! empty( $operands )
+			? new \BerlinDB\Database\Operands\Collection( array( 'operands' => $operands ) )
+			: false;
+	}
+
+	/**
+	 * Resolve a `range` operand spec into a Range operand, or false.
+	 *
+	 * A range is exactly two bound operands (columns / functions / values). Any
+	 * other count, or an unresolvable bound, fails closed.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string,mixed> $value The operand spec.
+	 * @param string              $alias Table alias to qualify column bounds.
+	 * @return Base|false
+	 */
+	private function resolve_range_operand( array $value, string $alias ) {
+		$operands = $this->resolve_operand_members( $value[ 'items' ] ?? null, $alias );
+
+		return ( 2 === count( $operands ) )
+			? new \BerlinDB\Database\Operands\Range( array( 'operands' => $operands ) )
+			: false;
+	}
+
+	/**
+	 * Resolve the member operands of a list or range, or an empty array on failure.
+	 *
+	 * Members are scalar operands (column / func / value), plus bare-scalar sugar; a
+	 * nested list/range member is not an allowed kind, so it fails. Returns an empty
+	 * array when $items is not a non-empty list or ANY member is unresolvable, so the
+	 * caller fails closed rather than dropping a member (which would change meaning).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param mixed  $items The list/range member specs.
+	 * @param string $alias Table alias to qualify column members.
+	 * @return list<Base> The resolved members, or empty on any failure.
+	 */
+	private function resolve_operand_members( $items, string $alias ): array {
+		if ( ! is_array( $items ) || empty( $items ) ) {
+			return array();
+		}
+
+		$operands = array();
+
+		foreach ( $items as $item ) {
+			$operand = $this->resolve_operand_argument( $item, array( 'column', 'func', 'value' ), $alias );
+
+			// A single unresolvable member invalidates the whole set (never drop one).
+			if ( ! ( $operand instanceof Base ) ) {
+				return array();
+			}
+
+			$operands[] = $operand;
+		}
+
+		return $operands;
 	}
 }
