@@ -574,4 +574,127 @@ class AggregateContainerTest extends TestCase {
 		$this->assertEquals( 2, $distinct[ 'c' ] );  // active, inactive
 		$this->assertEquals( 3, $plain[ 'c' ] );      // all three rows
 	}
+
+	/**
+	 * A grouped aggregate can be ordered by an aggregate alias, both directions.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_grouped_ordered_by_aggregate_alias() {
+
+		// active has 2 rows, inactive 1 - so COUNT(*) orders the groups.
+		$desc = self::$query->query(
+			array(
+				'aggregate' => array( 'n' => array( 'count', '*' ) ),
+				'groupby'   => 'status',
+				'orderby'   => 'n',
+				'order'     => 'DESC',
+			)
+		);
+
+		$this->assertSame( 'active', $desc[ 0 ][ 'status' ] );   // n = 2
+		$this->assertSame( 'inactive', $desc[ 1 ][ 'status' ] ); // n = 1
+
+		$asc = self::$query->query(
+			array(
+				'aggregate' => array( 'n' => array( 'count', '*' ) ),
+				'groupby'   => 'status',
+				'orderby'   => 'n',
+				'order'     => 'ASC',
+			)
+		);
+
+		$this->assertSame( 'inactive', $asc[ 0 ][ 'status' ] );  // n = 1
+		$this->assertSame( 'active', $asc[ 1 ][ 'status' ] );    // n = 2
+	}
+
+	/**
+	 * A grouped aggregate can be ordered by a group column.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_grouped_ordered_by_group_column() {
+		$rows = self::$query->query(
+			array(
+				'aggregate' => array( 'n' => array( 'count', '*' ) ),
+				'groupby'   => 'status',
+				'orderby'   => 'status',
+				'order'     => 'ASC',
+			)
+		);
+
+		// Alphabetical by the group column.
+		$this->assertSame( 'active', $rows[ 0 ][ 'status' ] );
+		$this->assertSame( 'inactive', $rows[ 1 ][ 'status' ] );
+	}
+
+	/**
+	 * Ordering by an unknown key is dropped: the query still returns its groups.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_grouped_ordered_by_unknown_key_is_ignored() {
+		$rows = self::$query->query(
+			array(
+				'aggregate' => array( 'n' => array( 'count', '*' ) ),
+				'groupby'   => 'status',
+				'orderby'   => 'nonexistent',
+			)
+		);
+
+		$this->assertCount( 2, $rows );
+	}
+
+	/**
+	 * An ungrouped aggregate is a single row, so orderby is ignored.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_ungrouped_aggregate_ignores_orderby() {
+		$result = self::$query->query(
+			array(
+				'aggregate' => array( 'n' => array( 'count', '*' ) ),
+				'orderby'   => 'n',
+			)
+		);
+
+		$this->assertEquals( 3, $result[ 'n' ] );
+	}
+
+	/**
+	 * Ordering a grouped aggregate over a fan-out JOIN: ORDER BY is on the OUTER
+	 * query (never the aliasless dedup subquery), and the counts stay deduped.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_ordered_grouped_aggregate_over_fan_out_join() {
+
+		// A query-clauses filter fans each base row out 2x, forcing the dedup subquery.
+		$filter   = 'berlindb_database_widgets_query_clauses';
+		$callback = static function ( $clauses ) {
+			$clauses[ 'join' ] = trim( ( $clauses[ 'join' ] ?? '' ) . ' JOIN ( SELECT 1 UNION ALL SELECT 2 ) AS berlin_fan ON ( 1 = 1 )' );
+			return $clauses;
+		};
+
+		add_filter( $filter, $callback );
+
+		try {
+			$rows = self::$query->query(
+				array(
+					'aggregate' => array( 'n' => array( 'count', '*' ) ),
+					'groupby'   => 'status',
+					'orderby'   => 'n',
+					'order'     => 'DESC',
+				)
+			);
+		} finally {
+			remove_filter( $filter, $callback );
+		}
+
+		// Deduped despite the 2x fan-out (2 and 1, not 4 and 2), ordered DESC by n.
+		$this->assertSame( 'active', $rows[ 0 ][ 'status' ] );
+		$this->assertEquals( 2, $rows[ 0 ][ 'n' ] );
+		$this->assertSame( 'inactive', $rows[ 1 ][ 'status' ] );
+		$this->assertEquals( 1, $rows[ 1 ][ 'n' ] );
+	}
 }

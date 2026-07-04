@@ -371,6 +371,15 @@ trait Aggregates {
 			$clauses = $this->aggregate_via_subquery( $fields_sql, $clauses, $group_clause );
 		}
 
+		/*
+		 * Order the grouped rows by an aggregate alias or a group column. Set on the
+		 * OUTER clause set - after any fan-out dedup, so it is never pushed into the
+		 * inner subquery - and only when grouped (an ungrouped aggregate is one row).
+		 */
+		if ( true === $grouped ) {
+			$clauses[ 'orderby' ] = $this->resolve_aggregate_orderby( $group_names, array_keys( $fields ) );
+		}
+
 		$request = $this->parse_request_clauses( $clauses );
 
 		// Grouped: a list of rows (group column(s) + aliases), as the database returns them.
@@ -390,6 +399,66 @@ trait Aggregates {
 		}
 
 		return $retval;
+	}
+
+	/**
+	 * Resolve the orderby/order vars into an ORDER BY clause for a grouped aggregate.
+	 *
+	 * A grouped aggregate may be ordered by an aggregate ALIAS (by its quoted SELECT
+	 * alias) or a group COLUMN (by its qualified name) - both are in the SELECT. Reuses
+	 * the standard orderby vars: a bare key uses the 'order' direction, the
+	 * array( 'revenue' => 'DESC', 'status' => 'ASC' ) form gives one per key. An
+	 * unknown key is dropped and logged; direction runs through parse_order (ASC/DESC).
+	 * An unset/empty/'none' orderby does not order (it never defaults to the primary
+	 * key, which is not in a grouped aggregate's SELECT).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param list<string> $group_names The valid group column names.
+	 * @param list<string> $aliases     The surviving aggregate aliases (SELECT aliases).
+	 * @return string An "ORDER BY ..." clause, or '' when nothing orders.
+	 */
+	private function resolve_aggregate_orderby( array $group_names, array $aliases ): string {
+		$orderby = $this->get_query_var( 'orderby' );
+
+		// An unset/empty/none orderby does not order a grouped aggregate.
+		if ( empty( $orderby ) || ( 'none' === $orderby ) ) {
+			return '';
+		}
+
+		$order = $this->get_query_var( 'order' );
+
+		// Normalize to key => direction, mirroring parse_orderby's handling.
+		$ordersby = (array) $orderby;
+
+		if ( wp_is_numeric_array( $ordersby ) ) {
+			$ordersby = array_fill_keys( $ordersby, $order );
+		}
+
+		$group_lookup = array_flip( $group_names );
+		$alias_lookup = array_flip( $aliases );
+
+		$fragments = array();
+
+		foreach ( $ordersby as $key => $direction ) {
+			$key       = (string) $key;
+			$direction = $this->parse_order( is_string( $direction ) ? $direction : (string) $order );
+
+			// A group column orders by its qualified name; an aggregate alias by its SELECT alias.
+			if ( isset( $group_lookup[ $key ] ) ) {
+				$fragments[] = $this->get_quoted_column_name_aliased( $key, true ) . ' ' . $direction;
+
+			} elseif ( isset( $alias_lookup[ $key ] ) ) {
+				$fragments[] = $this->quote_identifier( $key ) . ' ' . $direction;
+
+			} else {
+				$this->log( 'warning', 'aggregate', "Cannot order aggregate by unknown key '{$key}'; ignoring it." );
+			}
+		}
+
+		return empty( $fragments )
+			? ''
+			: 'ORDER BY ' . implode( ', ', $fragments );
 	}
 
 	/**

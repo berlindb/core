@@ -419,6 +419,12 @@ Notable changes to BerlinDB are documented here.
   'user_id', 'distinct' => true ) )` renders `COUNT(DISTINCT user_id)`. Named
   form only; currently `COUNT`-only, with the canonical model open to other
   aggregates. `Operands\Func` gained a `distinct` option (#225).
+- Adds ordering to grouped aggregates — a grouped `aggregate` query can be
+  ordered by an aggregate alias or a group column through the standard
+  `orderby`/`order` vars (`array( 'aggregate' => array( 'revenue' => array(
+  'sum', 'amount' ) ), 'groupby' => 'status', 'orderby' => 'revenue', 'order' =>
+  'DESC' )`). Unknown keys are dropped; ORDER BY runs on the outer grouped query
+  (never the fan-out dedup subquery). `LIMIT`/top-N is a follow-on (#225).
 - **Breaking:** `Query::get_columns()` no longer reads a legacy `$columns` property
   declared directly on a `Query` (sub)class - the pre-3.0 inline-columns source. Columns
   now come solely from the schema object. A subclass that defined its columns via a
