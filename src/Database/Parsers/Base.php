@@ -275,28 +275,8 @@ abstract class Base {
 	 */
 	protected function get_operator_classes() {
 
-		// Default set of operator classes.
-		$operators = array(
-			'BerlinDB\\Database\\Operators\\Between',
-			'BerlinDB\\Database\\Operators\\Equal',
-			'BerlinDB\\Database\\Operators\\Exists',
-			'BerlinDB\\Database\\Operators\\GreaterThan',
-			'BerlinDB\\Database\\Operators\\GreaterThanOrEqual',
-			'BerlinDB\\Database\\Operators\\In',
-			'BerlinDB\\Database\\Operators\\IsNotNull',
-			'BerlinDB\\Database\\Operators\\IsNull',
-			'BerlinDB\\Database\\Operators\\LessThan',
-			'BerlinDB\\Database\\Operators\\LessThanOrEqual',
-			'BerlinDB\\Database\\Operators\\Like',
-			'BerlinDB\\Database\\Operators\\NotBetween',
-			'BerlinDB\\Database\\Operators\\NotEqual',
-			'BerlinDB\\Database\\Operators\\NotExists',
-			'BerlinDB\\Database\\Operators\\NotIn',
-			'BerlinDB\\Database\\Operators\\NotLike',
-			'BerlinDB\\Database\\Operators\\NotRegexp',
-			'BerlinDB\\Database\\Operators\\Regexp',
-			'BerlinDB\\Database\\Operators\\Rlike',
-		);
+		// The shared default set; a parser filters it below.
+		$operators = $this->default_operator_classes();
 
 		/**
 		 * Filter the default operator class list.
@@ -317,34 +297,14 @@ abstract class Base {
 	/**
 	 * Populate $this->operators with one shared instance per Operator class.
 	 *
-	 * Defined here on the concrete base class (not in Traits\Parser) so that
-	 * the static cache is scoped to this class definition and shared across
-	 * all subclasses, giving a true per-process singleton. A static variable
-	 * inside a trait method gets one copy per using class, which would cause
-	 * all 17 operators to be re-instantiated for each of the 7 parser classes.
+	 * The parser's filtered class list drives the set; the instancing and its
+	 * process cache live in OperatorRegistry::build_operators(), shared with any
+	 * other consumer of the registry (e.g. Query rendering a HAVING clause).
 	 *
 	 * @since 3.0.0
 	 */
 	protected function set_operators(): void {
-		static $instances = array();
-
-		$classes = $this->get_operator_classes();
-		$key     = md5( maybe_serialize( $classes ) );
-
-		if ( ! isset( $instances[ $key ] ) ) {
-			$instances[ $key ] = array();
-
-			foreach ( $classes as $class ) {
-				$operator = $this->instantiate_class( $class );
-
-				if ( $operator instanceof \BerlinDB\Database\Operators\Base ) {
-					$instances[ $key ][] = $operator;
-				}
-			}
-		}
-
-		// Set operators.
-		$this->operators = $instances[ $key ];
+		$this->operators = $this->build_operators( $this->get_operator_classes() );
 	}
 
 	/**

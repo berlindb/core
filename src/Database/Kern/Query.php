@@ -63,6 +63,7 @@ class Query {
 	 */
 	use \BerlinDB\Database\Traits\Base;
 	use \BerlinDB\Database\Traits\Boot;
+	use \BerlinDB\Database\Traits\OperatorRegistry;
 	use \BerlinDB\Database\Traits\Query\Cache;
 	use \BerlinDB\Database\Traits\Query\Meta;
 	use \BerlinDB\Database\Traits\Query\Hydration;

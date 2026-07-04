@@ -82,7 +82,9 @@ bin/run-tests.sh -p 8.2 -w 6.7 -- --group default
   `Column`, `Row`, `Index`, `Relationship`.
 - `src/Database/Traits/` — composable behavior (`Parser`, `Sanitizer`, `Cast`,
   `Lifecycle`, `Log`, `Boot`, `Configuration`, `Magic`, `Generator`, `Operator`,
-  `Environment`, `Error`, `Base`) — the shared kernel every Kern class composes.
+  `OperatorRegistry`, `Environment`, `Error`, `Base`) — the shared kernel every Kern
+  class composes. `Operator` is one operator's SQL behavior; `OperatorRegistry` holds
+  a set of them and looks them up (shared by the parsers and Query's HAVING).
 - `src/Database/Traits/Query/` — Query-only concerns split out of the `Query`
   class (`Cache`, `Meta`, `Hydration`, `Relationships`, `Columns`, `Filters`,
   `Clauses`), composed into `Query` alongside `Base`/`Boot` (#217).

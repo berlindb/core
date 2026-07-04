@@ -490,20 +490,10 @@ trait Aggregates {
 			return '';
 		}
 
-		/*
-		 * The scalar comparison operators HAVING accepts, mapped to their Operator
-		 * class. A local map, not a trait const (which needs PHP 8.2); the shared
-		 * predicate layer (the follow-on that lifts operand-clause building out of
-		 * Traits\Parser) will fold this into the one operator registry.
-		 */
-		$operators = array(
-			'='  => \BerlinDB\Database\Operators\Equal::class,
-			'!=' => \BerlinDB\Database\Operators\NotEqual::class,
-			'<'  => \BerlinDB\Database\Operators\LessThan::class,
-			'<=' => \BerlinDB\Database\Operators\LessThanOrEqual::class,
-			'>'  => \BerlinDB\Database\Operators\GreaterThan::class,
-			'>=' => \BerlinDB\Database\Operators\GreaterThanOrEqual::class,
-		);
+		// Prime the shared operator registry from the default set (process-cached).
+		if ( empty( $this->operators ) ) {
+			$this->operators = $this->build_operators( $this->default_operator_classes() );
+		}
 
 		$fragments = array();
 
@@ -525,8 +515,16 @@ trait Aggregates {
 			$compare = (string) ( $spec[ 'compare' ] ?? ( $spec[ 0 ] ?? '' ) );
 			$value   = $spec[ 'value' ] ?? ( $spec[ 1 ] ?? null );
 
-			// The operator must be one of the supported scalar comparisons.
-			if ( ! isset( $operators[ $compare ] ) ) {
+			/*
+			 * Look the operator up in the shared registry. HAVING v1 accepts the
+			 * scalar comparison operators only ( =, !=, <, <=, >, >= ) - the ones
+			 * that compare an expression to a value, flagged is_expression() - not
+			 * the multi-value ( IN / BETWEEN ), pattern ( LIKE ), or unary ( IS NULL )
+			 * operators.
+			 */
+			$operator = $this->get_operator( $compare );
+
+			if ( ! ( $operator instanceof \BerlinDB\Database\Operators\Base ) || ! $operator->is_expression() ) {
 				$this->log( 'warning', 'having', "Unsupported HAVING operator '{$compare}' for '{$alias}'; ignoring it." );
 				continue;
 			}
@@ -535,8 +533,6 @@ trait Aggregates {
 			 * Reuse the operator value object: it renders its own compare SQL and
 			 * prepares the value with the placeholder for this aggregate's result.
 			 */
-			$class     = $operators[ $compare ];
-			$operator  = new $class();
 			$pattern   = $this->having_value_pattern( $surviving[ $alias ] );
 			$value_sql = $operator->get_value_sql( $value, $pattern );
 
