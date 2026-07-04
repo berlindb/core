@@ -697,4 +697,203 @@ class AggregateContainerTest extends TestCase {
 		$this->assertSame( 'inactive', $rows[ 1 ][ 'status' ] );
 		$this->assertEquals( 1, $rows[ 1 ][ 'n' ] );
 	}
+
+	/* HAVING - filter grouped aggregates by their results ****************/
+
+	/**
+	 * The named { compare, value } form filters groups by an aggregate result.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_having_named_form_filters_groups() {
+		$rows = self::$query->query(
+			array(
+				'aggregate' => array( 'n' => array( 'count', '*' ) ),
+				'groupby'   => 'status',
+				'having'    => array(
+					'n' => array(
+						'compare' => '>',
+						'value'   => 1,
+					),
+				),
+			)
+		);
+
+		// Only 'active' has more than one row.
+		$this->assertCount( 1, $rows );
+		$this->assertSame( 'active', $rows[ 0 ][ 'status' ] );
+		$this->assertEquals( 2, $rows[ 0 ][ 'n' ] );
+	}
+
+	/**
+	 * The positional { compare, value } shorthand filters identically.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_having_positional_form_filters_groups() {
+		$rows = self::$query->query(
+			array(
+				'aggregate' => array( 'n' => array( 'count', '*' ) ),
+				'groupby'   => 'status',
+				'having'    => array( 'n' => array( '>', 1 ) ),
+			)
+		);
+
+		$this->assertCount( 1, $rows );
+		$this->assertSame( 'active', $rows[ 0 ][ 'status' ] );
+	}
+
+	/**
+	 * HAVING on a MAX borrows the source column's placeholder, so a numeric bound
+	 * compares numerically ( active peaks at 20, inactive at 30 ).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_having_on_max_uses_column_pattern() {
+		$rows = self::$query->query(
+			array(
+				'aggregate' => array( 'peak' => array( 'max', 'priority' ) ),
+				'groupby'   => 'status',
+				'having'    => array( 'peak' => array( '>', 25 ) ),
+			)
+		);
+
+		$this->assertCount( 1, $rows );
+		$this->assertSame( 'inactive', $rows[ 0 ][ 'status' ] );
+		$this->assertEquals( 30, $rows[ 0 ][ 'peak' ] );
+	}
+
+	/**
+	 * Multiple HAVING entries AND together ( n >= 1 keeps both, peak > 25 keeps only
+	 * inactive ).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_having_multiple_entries_and_together() {
+		$rows = self::$query->query(
+			array(
+				'aggregate' => array(
+					'n'    => array( 'count', '*' ),
+					'peak' => array( 'max', 'priority' ),
+				),
+				'groupby'   => 'status',
+				'having'    => array(
+					'n'    => array( '>=', 1 ),
+					'peak' => array( '>', 25 ),
+				),
+			)
+		);
+
+		$this->assertCount( 1, $rows );
+		$this->assertSame( 'inactive', $rows[ 0 ][ 'status' ] );
+	}
+
+	/**
+	 * A HAVING on an unknown alias is dropped and logged; the groups still return.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_having_unknown_alias_is_dropped_and_logged() {
+		$query = new TestQuery(
+			array(
+				'aggregate' => array( 'n' => array( 'count', '*' ) ),
+				'groupby'   => 'status',
+				'having'    => array( 'nonexistent' => array( '>', 1 ) ),
+			)
+		);
+
+		$this->assertNotEmpty( $query->get_logs( array( 'code' => 'having' ) ) );
+		$this->assertCount( 2, $query->items ); // Unfiltered.
+	}
+
+	/**
+	 * A HAVING with an unsupported operator is dropped and logged.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_having_unsupported_operator_is_dropped_and_logged() {
+		$query = new TestQuery(
+			array(
+				'aggregate' => array( 'n' => array( 'count', '*' ) ),
+				'groupby'   => 'status',
+				'having'    => array( 'n' => array( 'LIKE', 1 ) ),
+			)
+		);
+
+		$this->assertNotEmpty( $query->get_logs( array( 'code' => 'having' ) ) );
+		$this->assertCount( 2, $query->items ); // Unfiltered.
+	}
+
+	/**
+	 * An ungrouped aggregate is a single row, so HAVING is ignored.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_ungrouped_aggregate_ignores_having() {
+		$result = self::$query->query(
+			array(
+				'aggregate' => array( 'n' => array( 'count', '*' ) ),
+				'having'    => array( 'n' => array( '>', 100 ) ), // Would exclude everything, if applied.
+			)
+		);
+
+		// Ignored: the flat assoc still reports the full count.
+		$this->assertEquals( 3, $result[ 'n' ] );
+	}
+
+	/**
+	 * HAVING and ORDER BY coexist: filter the groups, then order the survivors ( both
+	 * peak >= 20, ordered peak DESC gives inactive (30) before active (20) ).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_having_and_orderby_together() {
+		$rows = self::$query->query(
+			array(
+				'aggregate' => array( 'peak' => array( 'max', 'priority' ) ),
+				'groupby'   => 'status',
+				'having'    => array( 'peak' => array( '>=', 20 ) ),
+				'orderby'   => 'peak',
+				'order'     => 'DESC',
+			)
+		);
+
+		$this->assertCount( 2, $rows );
+		$this->assertSame( 'inactive', $rows[ 0 ][ 'status' ] ); // peak = 30
+		$this->assertSame( 'active', $rows[ 1 ][ 'status' ] );   // peak = 20
+	}
+
+	/**
+	 * HAVING filters the OUTER, deduped aggregate over a fan-out JOIN: with the 2x
+	 * fan-out deduped, only 'active' has more than one row ( n = 2 vs 1 ), so
+	 * `n > 1` keeps it alone - proving HAVING sees the deduped counts, not the
+	 * fanned-out ones ( where inactive would also be 2 and survive ).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_having_over_fan_out_join_filters_deduped_counts() {
+		$filter   = 'berlindb_database_widgets_query_clauses';
+		$callback = static function ( $clauses ) {
+			$clauses[ 'join' ] = trim( ( $clauses[ 'join' ] ?? '' ) . ' JOIN ( SELECT 1 UNION ALL SELECT 2 ) AS berlin_fan ON ( 1 = 1 )' );
+			return $clauses;
+		};
+
+		add_filter( $filter, $callback );
+
+		try {
+			$rows = self::$query->query(
+				array(
+					'aggregate' => array( 'n' => array( 'count', '*' ) ),
+					'groupby'   => 'status',
+					'having'    => array( 'n' => array( '>', 1 ) ),
+				)
+			);
+		} finally {
+			remove_filter( $filter, $callback );
+		}
+
+		$this->assertCount( 1, $rows );
+		$this->assertSame( 'active', $rows[ 0 ][ 'status' ] );
+		$this->assertEquals( 2, $rows[ 0 ][ 'n' ] );
+	}
 }

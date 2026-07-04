@@ -411,7 +411,7 @@ class Query {
 	 * @since 3.0.0
 	 */
 	protected function start(): void {
-		$clause_keys = array( 'explain', 'select', 'distinct', 'fields', 'from', 'index_hints', 'join', 'where', 'groupby', 'orderby', 'limits' );
+		$clause_keys = array( 'explain', 'select', 'distinct', 'fields', 'from', 'index_hints', 'join', 'where', 'groupby', 'having', 'orderby', 'limits' );
 
 		$this->init_current(
 			array(
@@ -673,6 +673,9 @@ class Query {
 
 			// Aggregate container ( alias => { function, column } ); see #225.
 			'aggregate'         => array(),
+
+			// HAVING container ( aggregate alias => { compare, value } ); grouped-only, see #225.
+			'having'            => array(),
 		);
 
 		/*

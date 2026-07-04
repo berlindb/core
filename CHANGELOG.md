@@ -116,7 +116,14 @@ Notable changes to BerlinDB are documented here.
   `array( 'orders' => array( 'count', '*' ), 'revenue' => array( 'sum', 'amount' ) )`;
   `'*'` is the row count (`COUNT(*)`), a real column is `COUNT(col)` (non-null), and an
   empty set counts 0 (not null). The top-level `count => true` pagination var is
-  unchanged - this is the value count, a peer of the other aggregates.
+  unchanged - this is the value count, a peer of the other aggregates. A grouped
+  aggregate can be filtered by its results with a `having` container -
+  `array( 'having' => array( 'revenue' => array( '>', 1000 ) ) )` keeps only the
+  groups whose `revenue` exceeds 1000. HAVING accepts the scalar comparison operators
+  (`=`, `!=`, `<`, `<=`, `>`, `>=`) against a surviving aggregate alias (named
+  `array( 'compare' => '>', 'value' => 1000 )` or positional `array( '>', 1000 )`),
+  reusing the query's operator library to render and prepare each comparison; multiple
+  entries AND together, and it applies to grouped aggregates only.
 - Adds a `by` column-filter container:
   `array( 'by' => array( 'status' => 'active', 'type' => array( 1, 2 ) ) )` folds each
   entry to the canonical `{column}__in` var during normalization (rendering `= value`

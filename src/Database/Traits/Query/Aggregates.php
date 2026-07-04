@@ -377,6 +377,7 @@ trait Aggregates {
 		 * inner subquery - and only when grouped (an ungrouped aggregate is one row).
 		 */
 		if ( true === $grouped ) {
+			$clauses[ 'having' ]  = $this->resolve_aggregate_having( array_intersect_key( $aggregate, $fields ) );
 			$clauses[ 'orderby' ] = $this->resolve_aggregate_orderby( $group_names, array_keys( $fields ) );
 		}
 
@@ -462,6 +463,132 @@ trait Aggregates {
 	}
 
 	/**
+	 * Resolve the 'having' var into a HAVING clause for a grouped aggregate.
+	 *
+	 * HAVING is a WHERE that runs AFTER grouping, filtering the groups by their
+	 * aggregate results. Each entry keys a surviving aggregate ALIAS to a
+	 * { compare, value } spec - named ( array( 'compare' => '>', 'value' => 1000 ) )
+	 * or positional ( array( '>', 1000 ) ). The alias must be a surviving aggregate
+	 * (a group column is filtered in WHERE, not HAVING); the compare must be one of
+	 * the scalar comparison operators. Both are reused from the Operators library:
+	 * the operator renders its own compare SQL and prepares the value, with a
+	 * placeholder derived from the aggregate's function ( see having_value_pattern ).
+	 * An unknown alias, unsupported operator, or empty value is dropped and logged;
+	 * multiple entries AND together.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string,array{function:string,column:string}> $surviving
+	 *        The surviving aggregate specs, keyed by their SELECT alias.
+	 * @return string A "HAVING ..." clause, or '' when nothing filters.
+	 */
+	private function resolve_aggregate_having( array $surviving ): string {
+		$having = $this->get_query_var( 'having' );
+
+		// Nothing filters without a structured having map.
+		if ( empty( $having ) || ! is_array( $having ) ) {
+			return '';
+		}
+
+		/*
+		 * The scalar comparison operators HAVING accepts, mapped to their Operator
+		 * class. A local map, not a trait const (which needs PHP 8.2); the shared
+		 * predicate layer (the follow-on that lifts operand-clause building out of
+		 * Traits\Parser) will fold this into the one operator registry.
+		 */
+		$operators = array(
+			'='  => \BerlinDB\Database\Operators\Equal::class,
+			'!=' => \BerlinDB\Database\Operators\NotEqual::class,
+			'<'  => \BerlinDB\Database\Operators\LessThan::class,
+			'<=' => \BerlinDB\Database\Operators\LessThanOrEqual::class,
+			'>'  => \BerlinDB\Database\Operators\GreaterThan::class,
+			'>=' => \BerlinDB\Database\Operators\GreaterThanOrEqual::class,
+		);
+
+		$fragments = array();
+
+		foreach ( $having as $alias => $spec ) {
+			$alias = (string) $alias;
+
+			// The alias must be a surviving aggregate (group columns filter in WHERE).
+			if ( ! isset( $surviving[ $alias ] ) ) {
+				$this->log( 'warning', 'having', "Cannot filter aggregate by unknown alias '{$alias}'; ignoring it." );
+				continue;
+			}
+
+			// A having entry must be a { compare, value } spec, named or positional.
+			if ( ! is_array( $spec ) ) {
+				$this->log( 'warning', 'having', "HAVING entry '{$alias}' must be a { compare, value } spec; ignoring it." );
+				continue;
+			}
+
+			$compare = (string) ( $spec[ 'compare' ] ?? ( $spec[ 0 ] ?? '' ) );
+			$value   = $spec[ 'value' ] ?? ( $spec[ 1 ] ?? null );
+
+			// The operator must be one of the supported scalar comparisons.
+			if ( ! isset( $operators[ $compare ] ) ) {
+				$this->log( 'warning', 'having', "Unsupported HAVING operator '{$compare}' for '{$alias}'; ignoring it." );
+				continue;
+			}
+
+			/*
+			 * Reuse the operator value object: it renders its own compare SQL and
+			 * prepares the value with the placeholder for this aggregate's result.
+			 */
+			$class     = $operators[ $compare ];
+			$operator  = new $class();
+			$pattern   = $this->having_value_pattern( $surviving[ $alias ] );
+			$value_sql = $operator->get_value_sql( $value, $pattern );
+
+			// A value that prepares to nothing filters nothing.
+			if ( '' === $value_sql ) {
+				continue;
+			}
+
+			$fragments[] = $this->quote_identifier( $alias ) . ' ' . $operator->get_sql_compare() . ' ' . $value_sql;
+		}
+
+		return empty( $fragments )
+			? ''
+			: 'HAVING ' . implode( ' AND ', $fragments );
+	}
+
+	/**
+	 * The wpdb::prepare() placeholder a value uses when compared, in HAVING, against
+	 * an aggregate's result.
+	 *
+	 * COUNT is always an integer; AVG is always fractional; SUM, MIN, and MAX carry
+	 * their source column's type, so they borrow the column's own placeholder (an
+	 * integer column keeps `%d`, so a large integer bound is not floated through PHP,
+	 * a float column gets `%f`), falling back to a string.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array{function:string,column:string} $spec The aggregate spec.
+	 * @return '%d'|'%f'|'%s' A wpdb::prepare() placeholder for the value.
+	 */
+	private function having_value_pattern( array $spec ): string {
+		$function = (string) ( $spec[ 'function' ] ?? '' );
+
+		// COUNT is always an integer; AVG is always fractional.
+		if ( 'COUNT' === $function ) {
+			return '%d';
+		}
+
+		if ( 'AVG' === $function ) {
+			return '%f';
+		}
+
+		// SUM / MIN / MAX carry the source column's type, so borrow its placeholder.
+		$pattern = (string) $this->get_column_field( array( 'name' => (string) ( $spec[ 'column' ] ?? '' ) ), 'pattern', '%s' );
+
+		// Constrain an unexpected column placeholder to a safe string prepare.
+		return in_array( $pattern, array( '%d', '%f' ), true )
+			? $pattern
+			: '%s';
+	}
+
+	/**
 	 * Wrap a scalar aggregate around a distinct-primary subquery.
 	 *
 	 * A filter that joins the base table one-to-many (a meta / relationship filter,
@@ -535,6 +662,7 @@ trait Aggregates {
 			'join'        => $join,
 			'where'       => $where,
 			'groupby'     => $groupby,
+			'having'      => '',
 			'orderby'     => '',
 			'limits'      => '',
 		);
