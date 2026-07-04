@@ -490,10 +490,8 @@ trait Aggregates {
 			return '';
 		}
 
-		// Prime the shared operator registry from the default set (process-cached).
-		if ( empty( $this->operators ) ) {
-			$this->operators = $this->build_operators( $this->default_operator_classes() );
-		}
+		// The operator registry (default set) renders each comparison.
+		$operators = new \BerlinDB\Database\Operators\Registry();
 
 		$fragments = array();
 
@@ -522,7 +520,7 @@ trait Aggregates {
 			 * the multi-value ( IN / BETWEEN ), pattern ( LIKE ), or unary ( IS NULL )
 			 * operators.
 			 */
-			$operator = $this->get_operator( $compare );
+			$operator = $operators->get_operator( $compare );
 
 			if ( ! ( $operator instanceof \BerlinDB\Database\Operators\Base ) || ! $operator->is_expression() ) {
 				$this->log( 'warning', 'having', "Unsupported HAVING operator '{$compare}' for '{$alias}'; ignoring it." );

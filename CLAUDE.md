@@ -51,8 +51,13 @@ hand-rolled queries — never more surprising.
    methods at run time.)
 6. **Keep changes focused and tested.** Bug fixes and new behavior ship with
    tests. No unrelated formatting or refactors in the same change.
-7. **Back-compat matters.** Downstream plugins (EDD, Sugar Calendar, etc.) build
-   on these internals. Call out any compatibility tradeoff explicitly.
+7. **Back-compat matters — for released API (3.0 and earlier).** Downstream
+   plugins (EDD, Sugar Calendar, etc.) build on these internals; call out any
+   compatibility tradeoff explicitly. But code added in the current **unreleased**
+   version (master / 3.1.0) is fair game to refactor, simplify, or reshape freely
+   — it never shipped, so there's nothing to break — as long as tests cover the
+   behavior and 3.0-and-earlier stays compatible. Check a symbol's `@since` before
+   preserving it "for BC."
 8. **Verify mechanism before building on it.** Before stating how this codebase
    does something — *especially* as the basis for an analysis, recommendation,
    plan, or tradeoff — confirm it in the actual source this session and cite the
@@ -82,13 +87,16 @@ bin/run-tests.sh -p 8.2 -w 6.7 -- --group default
   `Column`, `Row`, `Index`, `Relationship`.
 - `src/Database/Traits/` — composable behavior (`Parser`, `Sanitizer`, `Cast`,
   `Lifecycle`, `Log`, `Boot`, `Configuration`, `Magic`, `Generator`, `Operator`,
-  `OperatorRegistry`, `Environment`, `Error`, `Base`) — the shared kernel every Kern
-  class composes. `Operator` is one operator's SQL behavior; `OperatorRegistry` holds
-  a set of them and looks them up (shared by the parsers and Query's HAVING).
+  `Environment`, `Error`, `Base`) — the shared kernel every Kern class composes.
 - `src/Database/Traits/Query/` — Query-only concerns split out of the `Query`
   class (`Cache`, `Meta`, `Hydration`, `Relationships`, `Columns`, `Filters`,
   `Clauses`), composed into `Query` alongside `Base`/`Boot` (#217).
-- `src/Database/Parsers/` + `Operators/` — reusable SQL clause builders.
+- `src/Database/Parsers/` + `Operators/` + `Operands/` — reusable SQL clause
+  builders, each a class hierarchy in its own directory. **A value-object family's
+  manager is a class in that family's directory, not a trait** — e.g.
+  `Operators\Registry` (holds a set of operators and looks them up, used by the
+  parsers and by Query's HAVING). Consumers *hold* the manager; they don't compose
+  it as a mixin. Add new registries/resolvers/factories the same way.
 - `src/Database/Presets/` — recipe base classes (e.g. `Presets\Meta\Query`), one
   directory per recipe. Plain classes a plugin extends with thin stubs; Kern
   classes never reference presets.

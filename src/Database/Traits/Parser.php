@@ -29,7 +29,6 @@ trait Parser {
 	 * @since 3.0.0
 	 */
 	use \BerlinDB\Database\Traits\Base;
-	use \BerlinDB\Database\Traits\OperatorRegistry;
 
 	/**
 	 * Query class responsible for constructing this parser.
@@ -114,6 +113,14 @@ trait Parser {
 	 * @var array<string,mixed>
 	 */
 	public $clauses = array();
+
+	/**
+	 * The operator instances (the registry's set).
+	 *
+	 * @since 3.0.0
+	 * @var   list<\BerlinDB\Database\Operators\Base>
+	 */
+	public $operators = array();
 
 	/**
 	 * Supported multi-value comparison types.
@@ -547,6 +554,55 @@ trait Parser {
 		$retval = array_intersect_key( $query, array_flip( $intersect ) );
 
 		return $retval;
+	}
+
+	/**
+	 * Get operators, possibly filtered & plucked.
+	 *
+	 * Reads the parser's own $operators set (which a subclass may override via
+	 * set_operators), so a custom operator added there is honored here.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param array<string,mixed> $filter Optional. Key => value pairs to match against each
+	 *                                    operator's properties. Default empty array.
+	 * @param bool|string         $field  Optional. A property name to pluck from each operator
+	 *                                    instead of returning the full object. Default 'compare'.
+	 * @return array<string,mixed>
+	 */
+	protected function get_operators( $filter = array(), $field = 'compare' ) {
+		return wp_filter_object_list( $this->operators, $filter, 'and', $field );
+	}
+
+	/**
+	 * Get a single operator instance by an array of property arguments.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param array<string,mixed> $args Key => value pairs to match against operator properties.
+	 * @return \BerlinDB\Database\Operators\Base|false The first matching operator, or false.
+	 */
+	protected function get_operator_by( $args = array() ) {
+		$filter = $this->get_operators( $args, false );
+		$first  = ! empty( $filter )
+			? reset( $filter )
+			: false;
+
+		return ( $first instanceof \BerlinDB\Database\Operators\Base )
+			? $first
+			: false;
+	}
+
+	/**
+	 * Get a single operator instance by its compare string.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param string $compare The SQL operator string, e.g. '=', 'IN', 'NOT LIKE'.
+	 * @return \BerlinDB\Database\Operators\Base|false The matching operator, or false.
+	 */
+	protected function get_operator( $compare = '' ) {
+		return $this->get_operator_by( array( 'compare' => $compare ) );
 	}
 
 	/**

@@ -276,7 +276,7 @@ abstract class Base {
 	protected function get_operator_classes() {
 
 		// The shared default set; a parser filters it below.
-		$operators = $this->default_operator_classes();
+		$operators = \BerlinDB\Database\Operators\Registry::default_classes();
 
 		/**
 		 * Filter the default operator class list.
@@ -295,16 +295,17 @@ abstract class Base {
 	}
 
 	/**
-	 * Populate $this->operators with one shared instance per Operator class.
+	 * Populate the public $operators set from this parser's operator registry.
 	 *
-	 * The parser's filtered class list drives the set; the instancing and its
-	 * process cache live in OperatorRegistry::build_operators(), shared with any
-	 * other consumer of the registry (e.g. Query rendering a HAVING clause).
+	 * The parser's filtered class list drives the registry; the instancing and its
+	 * process cache live in Operators\Registry, shared with any other consumer
+	 * (e.g. Query rendering a HAVING clause). The parser then looks operators up in
+	 * its own $operators set, so a subclass may override this to add custom ones.
 	 *
 	 * @since 3.0.0
 	 */
 	protected function set_operators(): void {
-		$this->operators = $this->build_operators( $this->get_operator_classes() );
+		$this->operators = ( new \BerlinDB\Database\Operators\Registry( $this->get_operator_classes() ) )->all();
 	}
 
 	/**
