@@ -234,6 +234,155 @@ Negate one bucket while keeping another positive by **nesting** a negated group:
 the tree composes parser *buckets*, and raw conditions belong in the query vars
 that feed those buckets.
 
+## Expression Operands (3.1.0, #211)
+
+Beyond a bare `key` / `value` / `compare`, `compare_query` accepts **structured
+operand specs** on either side of a comparison — a column reference, a function, a
+prepared value, a list, a range, or a row-constructor tuple. Each is an array with
+an `operand` marker; a bare scalar or numeric-keyed list is NOT an operand spec, so
+existing queries are unaffected. All are opt-in, resolved against the query's own
+schema, and **fail the clause closed** (match no rows, `1 = 0`) on anything
+unresolvable — there is no raw-SQL passthrough.
+
+**Column-to-column** — compare two columns of the same table:
+
+```php
+'compare_query' => array(
+    'key'     => 'updated',
+    'compare' => '>',
+    'value'   => array( 'operand' => 'column', 'name' => 'created' ),
+),
+// -> WHERE `updated` > `created`
+```
+
+**Functions** — an allow-listed SQL function wraps an operand (they nest): `LOWER`,
+`UPPER`, `LENGTH`, `ABS`, `DATE`, `YEAR`, `MONTH`, `DAYOFMONTH`, `DAYOFYEAR`,
+`DAYOFWEEK`, `HOUR`, `MINUTE`, `SECOND`. Position (`key` vs `value`) picks the side;
+a bare scalar on the other side is prepared with the function's return type:
+
+```php
+'compare_query' => array(
+    'key'     => array(
+        'operand' => 'func',
+        'name'    => 'LOWER',
+        'args'    => array( array( 'operand' => 'column', 'name' => 'name' ) ),
+    ),
+    'compare' => '=',
+    'value'   => 'acme',
+),
+// -> WHERE LOWER(`name`) = 'acme'
+```
+
+A column operand takes an opt-in `'cast' => true` (cast to the column's declared
+type) or an explicit `'cast' => 'SIGNED'` string; an invalid cast fails closed.
+
+**Lists (IN / NOT IN)** — members are operands, so a list can mix columns,
+functions, and values, which a bare value list can't:
+
+```php
+'compare_query' => array(
+    'key'     => 'status',
+    'compare' => 'IN',
+    'value'   => array( 'operand' => 'list', 'items' => array(
+        array( 'operand' => 'column', 'name' => 'default_status' ),
+        'active',
+        'pending',
+    ) ),
+),
+// -> WHERE `status` IN ( `default_status`, 'active', 'pending' )
+```
+
+(The plain `'value' => array( 'active', 'pending' )` bare list still works and is
+simpler for scalars.)
+
+**Ranges (BETWEEN)** — exactly two operand bounds (columns / functions / values):
+
+```php
+'value' => array( 'operand' => 'range', 'items' => array( 1, 100 ) ),
+// -> ... BETWEEN 1 AND 100
+```
+
+**Tuples (row constructors)** — a multi-column value on either side, for row
+equality or multi-column `IN`:
+
+```php
+'key'     => array( 'operand' => 'tuple', 'items' => array(
+    array( 'operand' => 'column', 'name' => 'a' ),
+    array( 'operand' => 'column', 'name' => 'b' ),
+) ),
+'compare' => 'IN',
+'value'   => array( 'operand' => 'list', 'items' => array(
+    array( 'operand' => 'tuple', 'items' => array( 1, 2 ) ),
+    array( 'operand' => 'tuple', 'items' => array( 3, 4 ) ),
+) ),
+// -> WHERE ( `a`, `b` ) IN ( ( 1, 2 ), ( 3, 4 ) )
+```
+
+**Shape rules** — operands pair by shape AND *width*: a scalar to a scalar, an
+`( a, b )` tuple to a same-width tuple or a list of same-width tuples. A width
+mismatch (`( a, b ) = ( c, d, e )`), a value-shape operand (list/range) used as the
+left subject, a tuple with `IS NULL`, an empty list, or a ragged list of tuples all
+fail closed rather than emit malformed SQL. Only scalar comparison operators pair a
+structured operand on both sides; `IN` pairs a list, `BETWEEN` a range. Relationship
+`where` conditions accept the same operand specs (resolved against the remote table).
+
+## Aggregates (3.1.0, #225)
+
+The `aggregate` container computes one or more SQL aggregates over the matched (and
+filtered) rows in one cached query, returning values instead of item rows:
+
+```php
+$totals = $query->query( array(
+    'aggregate' => array(
+        'revenue' => array( 'sum', 'amount' ),   // alias => array( function, column )
+        'orders'  => array( 'count', '*' ),       // COUNT(*)
+        'peak'    => array( 'max', 'created' ),
+    ),
+    'status'    => 'complete',                     // aggregates honor your filters
+) );
+// $totals = array( 'revenue' => '1234.50', 'orders' => 42, 'peak' => '2026-06-...' )
+```
+
+- Functions: `sum`, `avg`, `max`, `min`, `count`. The shorthand
+  `array( 'sum' => 'amount' )` keys by the function; the named form
+  `array( 'function' => 'sum', 'column' => 'amount' )` is equivalent.
+- `count` folds in: `array( 'count', '*' )` = `COUNT(*)`, `array( 'count', 'col' )` =
+  `COUNT(col)`, and the named form with `'distinct' => true` = `COUNT(DISTINCT col)`.
+- An empty set is `null` per alias (not `0`) — except `COUNT`, which is `0`.
+- A JOIN-fanning filter (meta / relationship) is aggregated over a distinct-primary
+  subquery, so a one-to-many join never double-counts.
+- Unknown/non-numeric column, unsupported function, or a duplicate alias is dropped
+  and logged.
+
+**Grouped** — add a `groupby` column to get one row per group (the group column(s)
+plus each alias):
+
+```php
+$rows = $query->query( array(
+    'aggregate' => array( 'revenue' => array( 'sum', 'amount' ) ),
+    'groupby'   => 'status',
+) );
+// $rows = array( array( 'status' => 'complete', 'revenue' => '...' ), ... )
+```
+
+**Order + filter groups** — a grouped aggregate orders by an alias or group column
+via the usual `orderby` / `order`, and filters groups by their results with
+`having`:
+
+```php
+'aggregate' => array( 'revenue' => array( 'sum', 'amount' ) ),
+'groupby'   => 'status',
+'orderby'   => 'revenue',
+'order'     => 'DESC',
+'having'    => array( 'revenue' => array( '>', 1000 ) ), // or array( 'compare' => '>', 'value' => 1000 )
+// -> ... GROUP BY status HAVING `revenue` > 1000 ORDER BY `revenue` DESC
+```
+
+`having` takes the scalar comparisons (`=`, `!=`, `<`, `<=`, `>`, `>=`) against a
+surviving aggregate alias; it applies to **grouped** aggregates only, and multiple
+entries AND together. The scalar `get_sum()` / `get_avg()` / `get_max()` /
+`get_min()` methods remain the friendly path for a single ungrouped aggregate.
+
 ## JSON And Complex Values
 
 BerlinDB does not magically know an arbitrary PHP array should be stored as

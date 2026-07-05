@@ -40,7 +40,9 @@ Read only the reference needed for the task:
 - `references/schema-table.md`: schemas, columns, indexes, tables, installs,
   upgrades, table versions, and nullability.
 - `references/query-row.md`: query classes, row shapes, CRUD return values,
-  filters, `__in`/`__not_in`, JSON, casts, and the three-cache model
+  filters, `__in`/`__not_in`, `criteria` boolean trees, **expression operands**
+  (column/function/list/range/tuple comparisons), **aggregates** (`aggregate`
+  container, grouped + `having`), JSON, casts, and the three-cache model
   (query/by-id/secondary) with `last_changed` salt invalidation.
 - `references/debugging.md`: silent save failures, table upgrade issues,
   wrong primary key usage, malformed query vars, and logging.
