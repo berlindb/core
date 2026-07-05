@@ -128,4 +128,36 @@ abstract class Base {
 	public function pairs_with( \BerlinDB\Database\Operators\Base $operator ): bool {
 		return $operator->is_expression();
 	}
+
+	/**
+	 * The arity of this operand - how many columns wide it is.
+	 *
+	 * A single-value operand (column / function / prepared value) is width 1. A
+	 * Tuple is as wide as its members; a Collection is as wide as each of its
+	 * members. A Predicate pairs two operands only when their widths match, so a
+	 * scalar compares to a scalar and a `( a, b )` tuple to a `( c, d )` tuple.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return int
+	 */
+	public function get_width(): int {
+		return 1;
+	}
+
+	/**
+	 * Whether this operand may be the LEFT subject of a comparison.
+	 *
+	 * A single expression ( column / function / value ) and a Tuple ( a row value )
+	 * can be compared; a Collection ( an IN value-set ) and a Range ( BETWEEN bounds )
+	 * are value shapes valid only on the RIGHT, so they override this to false. A
+	 * Predicate rejects an invalid left rather than emit malformed SQL.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return bool
+	 */
+	public function can_be_left(): bool {
+		return true;
+	}
 }

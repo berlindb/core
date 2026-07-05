@@ -94,16 +94,46 @@ class Predicate {
 	 */
 	public function to_sql() {
 
+		/*
+		 * A collection / range is a value shape - valid only on the right, never as
+		 * the left subject of a comparison. Reject it rather than emit malformed SQL.
+		 */
+		if ( ! $this->left->can_be_left() ) {
+			return false;
+		}
+
 		// A unary operator (IS NULL) takes no right-hand side.
 		if ( $this->operator->is_unary() ) {
+
+			// It is single-column, so a wider left (a tuple) fails closed.
+			if ( 1 !== $this->left->get_width() ) {
+				return false;
+			}
+
 			return $this->assemble_unary();
 		}
 
-		// A resolved operand pairs with the operator by shape (scalar / list / range).
+		/*
+		 * A resolved operand pairs with the operator by shape (scalar / list / range)
+		 * and with the left by width (a scalar to a scalar, an ( a, b ) tuple to a
+		 * same-width tuple / a list of same-width tuples). A shape or width mismatch
+		 * fails closed.
+		 */
 		if ( $this->right instanceof Operand ) {
-			return $this->right->pairs_with( $this->operator )
+			$pairs = $this->right->pairs_with( $this->operator )
+				&& ( $this->left->get_width() === $this->right->get_width() );
+
+			return $pairs
 				? $this->assemble_comparison( $this->right )
 				: false;
+		}
+
+		/*
+		 * A bare value ( or value list ) is single-column, so a wider left - a tuple -
+		 * cannot compare against it; fail closed rather than emit invalid SQL.
+		 */
+		if ( 1 !== $this->left->get_width() ) {
+			return false;
 		}
 
 		// A bare value: the operator renders its own value fragment.
@@ -115,13 +145,14 @@ class Predicate {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @return string The SQL, or '' when the operand renders nothing.
+	 * @return string|false The SQL, or false when the left renders nothing - a broken
+	 *                      operand fails closed rather than emit ` IS NULL`.
 	 */
-	private function assemble_unary(): string {
+	private function assemble_unary() {
 		$left = $this->left->get_sql();
 
 		return ( '' === $left )
-			? ''
+			? false
 			: $left . ' ' . $this->operator->get_sql_compare();
 	}
 
@@ -154,9 +185,18 @@ class Predicate {
 	 * @since 3.1.0
 	 *
 	 * @param mixed $value The bare value.
-	 * @return string The SQL, or '' when the operator renders nothing.
+	 * @return string|false '' when the operator renders no value ( NOT EXISTS ), false
+	 *                      when the left renders nothing ( broken - fail closed ), else
+	 *                      the SQL.
 	 */
-	private function assemble_value( $value ): string {
+	private function assemble_value( $value ) {
+
+		// A left that renders nothing is broken - fail closed, never emit ` = value`.
+		$left_sql = $this->left->get_sql();
+
+		if ( '' === $left_sql ) {
+			return false;
+		}
 
 		// Narrow the left operand's pattern to a known placeholder for prepare().
 		$pattern = $this->left->get_comparison_pattern();
@@ -167,10 +207,11 @@ class Predicate {
 		// The operator renders its value fragment, typed by the left operand.
 		$value_sql = $this->operator->get_value_sql( $value, $pattern );
 
+		// A value-less operator ( NOT EXISTS ) renders nothing - skip, not fail-closed.
 		if ( '' === $value_sql ) {
 			return '';
 		}
 
-		return $this->left->get_sql() . ' ' . $this->operator->get_sql_compare() . ' ' . $value_sql;
+		return $left_sql . ' ' . $this->operator->get_sql_compare() . ' ' . $value_sql;
 	}
 }

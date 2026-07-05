@@ -47,7 +47,14 @@ Notable changes to BerlinDB are documented here.
   bare value list can't. An empty list, a range that isn't exactly two bounds, a
   nested list/range member, or a shape mismatch (a list on a scalar operator, a
   single operand on `IN`) fails the clause closed. The bare-array value path
-  (`'value' => array( 1, 2, 3 )`) is unchanged.
+  (`'value' => array( 1, 2, 3 )`) is unchanged. A `tuple` operand builds a row
+  constructor usable on either side of a comparison -
+  `array( 'operand' => 'tuple', 'items' => array( ... ) )` renders `( a, b )` - so
+  `( a, b ) = ( c, d )` and `( a, b ) IN ( ( 1, 2 ), ( 3, 4 ) )` work. Operands carry
+  a width (a scalar is 1, a tuple is its member count, a list is its members' common
+  width), and a comparison pairs two operands only when their widths match; a width
+  or shape mismatch (unequal tuple widths, a ragged list of tuples, a value-shape
+  collection/range used as the left subject, a tuple with `IS NULL`) fails closed.
 - Adds cross-parser boolean composition via the `criteria` query var (#211): a
   top-level tree combines whole parser WHERE fragments with `OR`/`AND` (nestable)
   instead of the historical implicit `AND`, e.g.

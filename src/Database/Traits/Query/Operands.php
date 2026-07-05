@@ -40,6 +40,7 @@ defined( 'ABSPATH' ) || exit;
  *   - Function: array( 'operand' => 'func',   'name' => 'LOWER', 'args'  => array( ... ) )
  *   - List:     array( 'operand' => 'list',   'items' => array( ... ) )  // IN / NOT IN, members are operands
  *   - Range:    array( 'operand' => 'range',  'items' => array( $a, $b ) )  // BETWEEN, exactly two bounds
+ *   - Tuple:    array( 'operand' => 'tuple',  'items' => array( $a, $b ) )  // ( a, b ) row constructor
  *
  * It only builds operands; pairing an operand with an operator into a predicate is
  * the parser's job.
@@ -100,6 +101,9 @@ trait Operands {
 
 			case 'range':
 				return $this->resolve_range_operand( $value, $alias );
+
+			case 'tuple':
+				return $this->resolve_tuple_operand( $value, $alias );
 
 			default:
 				return false;
@@ -348,10 +352,19 @@ trait Operands {
 	 * @return Base|false
 	 */
 	private function resolve_list_operand( array $value, string $alias ) {
-		$operands = $this->resolve_operand_members( $value[ 'items' ] ?? null, $alias );
 
-		return ! empty( $operands )
-			? new \BerlinDB\Database\Operands\Collection( array( 'operands' => $operands ) )
+		// List members may be scalars ( `IN ( 1, 2 )` ) or tuples ( `IN ( ( 1, 2 ), ... )` ).
+		$operands = $this->resolve_operand_members( $value[ 'items' ] ?? null, $alias, array( 'column', 'func', 'value', 'tuple' ) );
+
+		if ( empty( $operands ) ) {
+			return false;
+		}
+
+		$collection = new \BerlinDB\Database\Operands\Collection( array( 'operands' => $operands ) );
+
+		// A ragged collection ( members of differing widths ) fails closed.
+		return ( $collection->get_width() > 0 )
+			? $collection
 			: false;
 	}
 
@@ -368,7 +381,9 @@ trait Operands {
 	 * @return Base|false
 	 */
 	private function resolve_range_operand( array $value, string $alias ) {
-		$operands = $this->resolve_operand_members( $value[ 'items' ] ?? null, $alias );
+
+		// Range bounds are scalar operands ( a range of tuples is not a thing ).
+		$operands = $this->resolve_operand_members( $value[ 'items' ] ?? null, $alias, array( 'column', 'func', 'value' ) );
 
 		return ( 2 === count( $operands ) )
 			? new \BerlinDB\Database\Operands\Range( array( 'operands' => $operands ) )
@@ -376,20 +391,45 @@ trait Operands {
 	}
 
 	/**
-	 * Resolve the member operands of a list or range, or an empty array on failure.
+	 * Resolve a `tuple` operand spec into a Tuple ( row constructor ), or false.
 	 *
-	 * Members are scalar operands (column / func / value), plus bare-scalar sugar; a
-	 * nested list/range member is not an allowed kind, so it fails. Returns an empty
-	 * array when $items is not a non-empty list or ANY member is unresolvable, so the
-	 * caller fails closed rather than dropping a member (which would change meaning).
+	 * A tuple's `items` are scalar operands ( columns / functions / values ) - a
+	 * nested tuple/list/range member is not an allowed kind, so one level only. An
+	 * empty tuple, or any unresolvable member, fails closed.
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param mixed  $items The list/range member specs.
-	 * @param string $alias Table alias to qualify column members.
+	 * @param array<string,mixed> $value The operand spec.
+	 * @param string              $alias Table alias to qualify column members.
+	 * @return Base|false
+	 */
+	private function resolve_tuple_operand( array $value, string $alias ) {
+		$operands = $this->resolve_operand_members( $value[ 'items' ] ?? null, $alias, array( 'column', 'func', 'value' ) );
+
+		return ! empty( $operands )
+			? new \BerlinDB\Database\Operands\Tuple( array( 'operands' => $operands ) )
+			: false;
+	}
+
+	/**
+	 * Resolve the member operands of a list, range, or tuple, or an empty array on
+	 * failure.
+	 *
+	 * $kinds is the allow-list of member operand kinds - scalar ( column / func /
+	 * value ) everywhere, plus `tuple` for a list ( so `IN` takes tuples ), never for
+	 * a range or a tuple ( so nesting is one level only ). Bare-scalar sugar is
+	 * allowed when `value` is in $kinds. Returns an empty array when $items is not a
+	 * non-empty list or ANY member is unresolvable, so the caller fails closed rather
+	 * than dropping a member ( which would change meaning ).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param mixed        $items The member specs.
+	 * @param string       $alias Table alias to qualify column members.
+	 * @param list<string> $kinds The allowed member operand kinds.
 	 * @return list<Base> The resolved members, or empty on any failure.
 	 */
-	private function resolve_operand_members( $items, string $alias ): array {
+	private function resolve_operand_members( $items, string $alias, array $kinds ): array {
 		if ( ! is_array( $items ) || empty( $items ) ) {
 			return array();
 		}
@@ -397,7 +437,7 @@ trait Operands {
 		$operands = array();
 
 		foreach ( $items as $item ) {
-			$operand = $this->resolve_operand_argument( $item, array( 'column', 'func', 'value' ), $alias );
+			$operand = $this->resolve_operand_argument( $item, $kinds, $alias );
 
 			// A single unresolvable member invalidates the whole set (never drop one).
 			if ( ! ( $operand instanceof Base ) ) {

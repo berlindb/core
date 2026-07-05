@@ -1901,4 +1901,253 @@ class CompareParserTest extends TestCase {
 
 		$this->assertStringContainsString( '1 = 0', $where );
 	}
+
+	/* Tuple ( row constructor ) comparisons ************************************/
+
+	/**
+	 * Helper: a tuple operand spec over the given column names.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string ...$names Column names.
+	 * @return array<string,mixed>
+	 */
+	private function tuple( string ...$names ): array {
+		$items = array();
+
+		foreach ( $names as $name ) {
+			$items[] = array(
+				'operand' => 'column',
+				'name'    => $name,
+			);
+		}
+
+		return array(
+			'operand' => 'tuple',
+			'items'   => $items,
+		);
+	}
+
+	/**
+	 * A row equality `( a, b ) = ( c, d )` renders two same-width tuples.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_tuple_equality_renders_row_comparison() {
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => $this->tuple( 'priority', 'id' ),
+				'compare' => '=',
+				'value'   => $this->tuple( 'id', 'priority' ),
+			)
+		);
+
+		$this->assertStringContainsString( '`priority`', $where );
+		$this->assertStringContainsString( '`id`', $where );
+		$this->assertStringContainsString( ' = ', $where );
+		$this->assertStringNotContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * A tuple IN a list of same-width tuples renders `( a, b ) IN ( ( .. ), ( .. ) )`.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_tuple_in_list_of_tuples() {
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => $this->tuple( 'priority', 'id' ),
+				'compare' => 'IN',
+				'value'   => array(
+					'operand' => 'list',
+					'items'   => array(
+						array(
+							'operand' => 'tuple',
+							'items'   => array( 1, 2 ),
+						),
+						array(
+							'operand' => 'tuple',
+							'items'   => array( 3, 4 ),
+						),
+					),
+				),
+			)
+		);
+
+		$this->assertStringContainsString( ' IN ', $where );
+		$this->assertStringContainsString( '`priority`', $where );
+		$this->assertStringNotContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * A scalar list still works unchanged - the width check is 1 == 1.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_scalar_list_still_works_under_width_check() {
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => 'priority',
+				'compare' => 'IN',
+				'value'   => array(
+					'operand' => 'list',
+					'items'   => array( 1, 2, 3 ),
+				),
+			)
+		);
+
+		$this->assertStringContainsString( ' IN ', $where );
+		$this->assertStringNotContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * Every width / shape mismatch fails closed, never emitting invalid SQL.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_tuple_shape_mismatches_fail_closed() {
+
+		// Unequal tuple widths: ( a, b ) = ( c, d, e ).
+		$this->assertStringContainsString(
+			'1 = 0',
+			$this->compare_where_sql(
+				array(
+					'key'     => $this->tuple( 'priority', 'id' ),
+					'compare' => '=',
+					'value'   => $this->tuple( 'id', 'priority', 'status' ),
+				)
+			)
+		);
+
+		// A tuple against a bare scalar: ( a, b ) = 5.
+		$this->assertStringContainsString(
+			'1 = 0',
+			$this->compare_where_sql(
+				array(
+					'key'     => $this->tuple( 'priority', 'id' ),
+					'compare' => '=',
+					'value'   => 5,
+				)
+			)
+		);
+
+		// A tuple against a bare value list: ( a, b ) IN [ 1, 2, 3 ].
+		$this->assertStringContainsString(
+			'1 = 0',
+			$this->compare_where_sql(
+				array(
+					'key'     => $this->tuple( 'priority', 'id' ),
+					'compare' => 'IN',
+					'value'   => array( 1, 2, 3 ),
+				)
+			)
+		);
+
+		// A scalar against a tuple: priority = ( id, status ).
+		$this->assertStringContainsString(
+			'1 = 0',
+			$this->compare_where_sql(
+				array(
+					'key'     => 'priority',
+					'compare' => '=',
+					'value'   => $this->tuple( 'id', 'status' ),
+				)
+			)
+		);
+
+		// A ragged list of tuples: ( a, b ) IN ( ( 1, 2 ), ( 3, 4, 5 ) ).
+		$this->assertStringContainsString(
+			'1 = 0',
+			$this->compare_where_sql(
+				array(
+					'key'     => $this->tuple( 'priority', 'id' ),
+					'compare' => 'IN',
+					'value'   => array(
+						'operand' => 'list',
+						'items'   => array(
+							array(
+								'operand' => 'tuple',
+								'items'   => array( 1, 2 ),
+							),
+							array(
+								'operand' => 'tuple',
+								'items'   => array( 3, 4, 5 ),
+							),
+						),
+					),
+				)
+			)
+		);
+
+		// A nested tuple inside a tuple ( deeper than one level ).
+		$this->assertStringContainsString(
+			'1 = 0',
+			$this->compare_where_sql(
+				array(
+					'key'     => 'priority',
+					'compare' => '=',
+					'value'   => array(
+						'operand' => 'tuple',
+						'items'   => array(
+							1,
+							array(
+								'operand' => 'tuple',
+								'items'   => array( 2, 3 ),
+							),
+						),
+					),
+				)
+			)
+		);
+	}
+
+	/**
+	 * A value-shape operand ( collection / range ) is rejected on the LEFT, and a
+	 * tuple with a unary operator fails closed - none may render malformed SQL.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_invalid_left_operands_fail_closed() {
+
+		// A tuple with IS NULL: `( a, b ) IS NULL` is invalid ( row IS NULL ).
+		$this->assertStringContainsString(
+			'1 = 0',
+			$this->compare_where_sql(
+				array(
+					'key'     => $this->tuple( 'priority', 'id' ),
+					'compare' => 'IS NULL',
+				)
+			)
+		);
+
+		// A collection on the left ( a value-set is right-side only ).
+		$this->assertStringContainsString(
+			'1 = 0',
+			$this->compare_where_sql(
+				array(
+					'key'     => array(
+						'operand' => 'list',
+						'items'   => array( 1, 2 ),
+					),
+					'compare' => '=',
+					'value'   => 5,
+				)
+			)
+		);
+
+		// A range on the left ( BETWEEN bounds are right-side only ).
+		$this->assertStringContainsString(
+			'1 = 0',
+			$this->compare_where_sql(
+				array(
+					'key'     => array(
+						'operand' => 'range',
+						'items'   => array( 1, 10 ),
+					),
+					'compare' => '=',
+					'value'   => 5,
+				)
+			)
+		);
+	}
 }

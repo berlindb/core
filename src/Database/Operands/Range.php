@@ -99,4 +99,15 @@ class Range extends Base {
 	public function pairs_with( \BerlinDB\Database\Operators\Base $operator ): bool {
 		return $operator->is_range();
 	}
+
+	/**
+	 * A range is BETWEEN's bounds - valid only on the RIGHT, never as a left subject.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return bool
+	 */
+	public function can_be_left(): bool {
+		return false;
+	}
 }
