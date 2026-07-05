@@ -30,6 +30,21 @@ defined( 'ABSPATH' ) || exit;
 class Range extends Base {
 
 	/**
+	 * A range is a value shape ( BETWEEN bounds ): valid only on the RIGHT, and not
+	 * a scalar expression ( so it cannot be wrapped in a CAST ).
+	 *
+	 * @since 3.1.0
+	 * @var bool
+	 */
+	protected $left = false;
+
+	/**
+	 * @since 3.1.0
+	 * @var bool
+	 */
+	protected $scalar = false;
+
+	/**
 	 * The two bound operands: [ lower, upper ].
 	 *
 	 * @since 3.1.0
@@ -98,16 +113,5 @@ class Range extends Base {
 	 */
 	public function pairs_with( \BerlinDB\Database\Operators\Base $operator ): bool {
 		return $operator->is_range();
-	}
-
-	/**
-	 * A range is BETWEEN's bounds - valid only on the RIGHT, never as a left subject.
-	 *
-	 * @since 3.1.0
-	 *
-	 * @return bool
-	 */
-	public function can_be_left(): bool {
-		return false;
 	}
 }

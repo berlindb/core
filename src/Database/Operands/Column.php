@@ -76,6 +76,17 @@ class Column extends Base {
 
 		$this->alias = isset( $args[ 'alias' ] ) ? (string) $args[ 'alias' ] : '';
 		$this->cast  = isset( $args[ 'cast' ] ) ? (string) $args[ 'cast' ] : '';
+
+		/*
+		 * The compared-scalar placeholder is the column's own, folding an inline cast
+		 * ( a CHAR-cast column compares lexically as '%s', not the column's own '%d' ),
+		 * matching how the Operands\Cast decorator derives a non-column expression's
+		 * cast. Stored as the Base $pattern property, so get_comparison_pattern() needs
+		 * no override.
+		 */
+		if ( $this->column instanceof ColumnObject ) {
+			$this->pattern = $this->column->get_pattern( $this->cast );
+		}
 	}
 
 	/**
@@ -87,18 +98,6 @@ class Column extends Base {
 	 */
 	public function get_sql(): string {
 		return $this->column->get_name_sql( $this->alias, $this->cast );
-	}
-
-	/**
-	 * Return the referenced column's own prepare() placeholder, so a scalar
-	 * compared against this column is prepared with the matching type.
-	 *
-	 * @since 3.1.0
-	 *
-	 * @return string
-	 */
-	public function get_comparison_pattern(): string {
-		return $this->column->pattern;
 	}
 
 	/**

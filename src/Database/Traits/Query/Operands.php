@@ -42,6 +42,14 @@ defined( 'ABSPATH' ) || exit;
  *   - Range:    array( 'operand' => 'range',  'items' => array( $a, $b ) )  // BETWEEN, exactly two bounds
  *   - Tuple:    array( 'operand' => 'tuple',  'items' => array( $a, $b ) )  // ( a, b ) row constructor
  *
+ * Any SCALAR operand ( column / value / function / cast ) may also carry a `cast`
+ * key ( a validated CAST target string ) that wraps it in CAST( ... AS <type> ) -
+ * e.g. `array( 'operand' => 'func', 'name' => 'LOWER', 'args' => array( ... ), 'cast' => 'CHAR' )`.
+ * Columns apply the cast inline ( it also feeds their type-category check ); every
+ * other scalar operand is wrapped in an Operands\Cast decorator. A `cast` on a
+ * non-scalar shape ( list / range / tuple ), or a requested-but-invalid cast target,
+ * fails closed.
+ *
  * It only builds operands; pairing an operand with an operator into a predicate is
  * the parser's job.
  *
@@ -87,27 +95,89 @@ trait Operands {
 
 		// Dispatch by kind; an unknown kind fails closed.
 		switch ( $kind ) {
+
+			/*
+			 * Columns apply their own cast inline (it also drives the category check),
+			 * so they resolve directly - never through the decorator wrap below.
+			 */
 			case 'column':
 				return $this->resolve_column_operand( $value, $alias );
 
 			case 'value':
-				return $this->resolve_value_operand( $value );
+				$operand = $this->resolve_value_operand( $value );
+				break;
 
 			case 'func':
-				return $this->resolve_func_operand( $value, $alias );
+				$operand = $this->resolve_func_operand( $value, $alias );
+				break;
 
 			case 'list':
-				return $this->resolve_list_operand( $value, $alias );
+				$operand = $this->resolve_list_operand( $value, $alias );
+				break;
 
 			case 'range':
-				return $this->resolve_range_operand( $value, $alias );
+				$operand = $this->resolve_range_operand( $value, $alias );
+				break;
 
 			case 'tuple':
-				return $this->resolve_tuple_operand( $value, $alias );
+				$operand = $this->resolve_tuple_operand( $value, $alias );
+				break;
 
 			default:
 				return false;
 		}
+
+		// A resolved non-column operand may carry an opt-in cast that wraps it.
+		return $this->maybe_cast_operand( $operand, $value );
+	}
+
+	/**
+	 * Wrap a resolved operand in a CAST when its spec carries a `cast` key, or fail
+	 * closed. Absent / false / null / '' mean "no cast" and return the operand as-is.
+	 *
+	 * A requested cast must be an explicit, valid target from the safe subset AND the
+	 * operand must be a scalar expression ( casting a list / range / tuple is not
+	 * valid SQL ); either failing returns false so the clause fails closed rather than
+	 * silently dropping the cast. `true` ( "derive from the column type" ) has no
+	 * meaning for a non-column operand and so also fails closed here.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param Base|false          $operand The resolved operand (or false to pass through).
+	 * @param array<string,mixed> $value   The operand spec carrying the optional `cast`.
+	 * @return Base|false
+	 */
+	private function maybe_cast_operand( $operand, array $value ) {
+
+		// Pass a failed resolution straight through.
+		if ( ! ( $operand instanceof Base ) ) {
+			return $operand;
+		}
+
+		// No cast requested: absent / false / null / '' all mean "no cast".
+		$requested = $value[ 'cast' ] ?? null;
+
+		if ( ( null === $requested ) || ( false === $requested ) || ( '' === $requested ) ) {
+			return $operand;
+		}
+
+		// A cast IS requested: it must validate, and the operand must be scalar.
+		$cast = is_string( $requested )
+			? $this->sanitize_sql_cast_type( $requested )
+			: '';
+
+		if ( ( '' === $cast ) || ! $operand->is_scalar() ) {
+			return false;
+		}
+
+		return new \BerlinDB\Database\Operands\Cast(
+			array(
+				'operand'  => $operand,
+				'cast'     => $cast,
+				'pattern'  => $this->sql_cast_type_pattern( $cast ),
+				'category' => $this->sql_cast_type_category( $cast ),
+			)
+		);
 	}
 
 	/**
@@ -127,8 +197,12 @@ trait Operands {
 	 */
 	public function resolve_sql_cast( Column $column, array $clause ) {
 
-		// Read the opt-in directive; absent, false, and null all mean "no cast".
+		// Read the opt-in directive; absent, false, null, and '' all mean "no cast".
 		$requested = $clause[ 'cast' ] ?? null;
+
+		if ( ( null === $requested ) || ( false === $requested ) || ( '' === $requested ) ) {
+			return '';
+		}
 
 		// 'cast' => true derives the target from the column's own declared type.
 		if ( true === $requested ) {
@@ -144,8 +218,12 @@ trait Operands {
 				: $cast;
 		}
 
-		// No cast requested.
-		return '';
+		/*
+		 * Anything else present is a malformed directive ( an array / object, a
+		 * number, a whitespace-only string ) - fail closed rather than silently
+		 * ignore it, matching how maybe_cast_operand() treats a non-string cast.
+		 */
+		return false;
 	}
 
 	/**
@@ -237,9 +315,10 @@ trait Operands {
 	 *
 	 * The function name must be allow-listed, the argument count within its declared
 	 * arity (a variadic function has a lower bound only), and every argument must
-	 * resolve as an operand of an allowed kind. A column argument's declared type
-	 * category must also be one the function accepts. Arguments recurse through
-	 * resolve_operand(), so functions nest. A descriptor whose `return_pattern` is
+	 * resolve as an operand of an allowed kind. A column or cast argument's declared
+	 * type category must also be one the function accepts. Arguments recurse through
+	 * resolve_operand() ( so functions nest, and a cast argument like
+	 * `CAST(x AS CHAR)` is validated by its target category ). A descriptor whose `return_pattern` is
 	 * null derives its pattern from the resolved arguments (see derive_return_pattern).
 	 *
 	 * The operand-func path never emits DISTINCT ( it is not read from the spec here ),
@@ -292,8 +371,12 @@ trait Operands {
 				return false;
 			}
 
-			// A column argument's declared category must be one the function accepts.
-			if ( ( $arg instanceof \BerlinDB\Database\Operands\Column ) && ! in_array( $arg->get_type_category(), $descriptor[ 'accepts' ], true ) ) {
+			/*
+			 * A column or cast argument's declared category must be one the function
+			 * accepts ( a cast to CHAR is 'string', to SIGNED is 'numeric', etc. );
+			 * literal and nested-function arguments stay unchecked.
+			 */
+			if ( ( ( $arg instanceof \BerlinDB\Database\Operands\Column ) || ( $arg instanceof \BerlinDB\Database\Operands\Cast ) ) && ! in_array( $arg->get_type_category(), $descriptor[ 'accepts' ], true ) ) {
 				return false;
 			}
 
@@ -371,8 +454,11 @@ trait Operands {
 	 */
 	private function classify_operand_pattern( Base $operand, $arg_spec ): string {
 
-		// A column or nested function reports its own resolved pattern.
-		if ( ( $operand instanceof \BerlinDB\Database\Operands\Column ) || ( $operand instanceof Func ) ) {
+		/*
+		 * A column, nested function, or cast reports its own resolved pattern ( a
+		 * cast's pattern comes from its target type, not the raw literal it wraps ).
+		 */
+		if ( ( $operand instanceof \BerlinDB\Database\Operands\Column ) || ( $operand instanceof Func ) || ( $operand instanceof \BerlinDB\Database\Operands\Cast ) ) {
 			return $operand->get_comparison_pattern();
 		}
 

@@ -60,6 +60,19 @@ Notable changes to BerlinDB are documented here.
   width), and a comparison pairs two operands only when their widths match; a width
   or shape mismatch (unequal tuple widths, a ragged list of tuples, a value-shape
   collection/range used as the left subject, a tuple with `IS NULL`) fails closed.
+  Any *scalar* operand (column / value / function / nested cast) may carry a `cast`
+  key (a validated CAST target) that wraps it in `CAST( ... AS <type> )` - so an
+  arbitrary expression casts, not just a column, e.g.
+  `array( 'operand' => 'func', 'name' => 'LOWER', 'args' => array( ... ), 'cast' => 'CHAR' )`.
+  Columns keep applying the cast inline (it also feeds their type-category check);
+  every other scalar operand is wrapped in an `Operands\Cast` decorator, which
+  composes as a function argument (validated by its target category, e.g. a `DATE`
+  cast is accepted by `YEAR()`). A cast on a non-scalar shape (`list`/`range`/`tuple`),
+  a requested-but-invalid target, or `cast => true` on a non-column (no declared type
+  to derive from) fails the clause closed. The compared-scalar placeholder derives
+  from the target: `SIGNED` prepares as `%d`, everything else (`UNSIGNED`/`DECIMAL`/
+  char/temporal) as `%s`, so the value is preserved losslessly and the `CAST` performs
+  the conversion.
 - Adds cross-parser boolean composition via the `criteria` query var (#211): a
   top-level tree combines whole parser WHERE fragments with `OR`/`AND` (nestable)
   instead of the historical implicit `AND`, e.g.

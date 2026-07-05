@@ -32,6 +32,31 @@ defined( 'ABSPATH' ) || exit;
 class Collection extends Base {
 
 	/**
+	 * A collection is a value shape ( an IN set ): valid only on the RIGHT, and not
+	 * a scalar expression ( so it cannot be wrapped in a CAST ).
+	 *
+	 * @since 3.1.0
+	 * @var bool
+	 */
+	protected $left = false;
+
+	/**
+	 * @since 3.1.0
+	 * @var bool
+	 */
+	protected $scalar = false;
+
+	/**
+	 * Default to 0 width so an operand-less collection ( never built by the resolver,
+	 * which rejects an empty list up front ) reports 0, not the Base default of 1;
+	 * init() computes the real common-member width for a populated collection.
+	 *
+	 * @since 3.1.0
+	 * @var int
+	 */
+	protected $width = 0;
+
+	/**
 	 * The member operands, in order.
 	 *
 	 * @since 3.1.0
@@ -61,6 +86,26 @@ class Collection extends Base {
 		}
 
 		$this->operands = $operands;
+
+		/*
+		 * Precompute the width: the members' common width, or 0 when empty / RAGGED
+		 * ( members of differing widths ), so the Predicate's width check can never
+		 * match a broken collection and the clause fails closed.
+		 */
+		$width = 0;
+
+		if ( ! empty( $operands ) ) {
+			$width = $operands[0]->get_width();
+
+			foreach ( $operands as $operand ) {
+				if ( $operand->get_width() !== $width ) {
+					$width = 0;
+					break;
+				}
+			}
+		}
+
+		$this->width = $width;
 	}
 
 	/**
@@ -106,45 +151,5 @@ class Collection extends Base {
 	 */
 	public function pairs_with( \BerlinDB\Database\Operators\Base $operator ): bool {
 		return $operator->is_list();
-	}
-
-	/**
-	 * A collection is as wide as each of its members - 1 for a scalar list
-	 * ( `IN ( 1, 2, 3 )` ), N for a list of N-wide tuples ( `IN ( ( 1, 2 ), ( 3, 4 ) )` ).
-	 *
-	 * Returns 0 when empty or RAGGED ( members of differing widths ), so the
-	 * Predicate's width check can never match it and the clause fails closed. The
-	 * resolver also rejects a ragged collection up front.
-	 *
-	 * @since 3.1.0
-	 *
-	 * @return int
-	 */
-	public function get_width(): int {
-		if ( empty( $this->operands ) ) {
-			return 0;
-		}
-
-		$width = $this->operands[0]->get_width();
-
-		foreach ( $this->operands as $operand ) {
-			if ( $operand->get_width() !== $width ) {
-				return 0;
-			}
-		}
-
-		return $width;
-	}
-
-	/**
-	 * A collection is an IN value-set - valid only on the RIGHT, never as a left
-	 * subject.
-	 *
-	 * @since 3.1.0
-	 *
-	 * @return bool
-	 */
-	public function can_be_left(): bool {
-		return false;
 	}
 }

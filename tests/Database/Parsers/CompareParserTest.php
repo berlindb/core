@@ -1624,6 +1624,469 @@ class CompareParserTest extends TestCase {
 	}
 
 	/**
+	 * Test that a `cast` key on a function operand wraps it in CAST( ... AS type ) -
+	 * casting an arbitrary expression, not just a column.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_cast_wraps_function_expression() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => array(
+					'operand' => 'func',
+					'name'    => 'LOWER',
+					'args'    => array(
+						array(
+							'operand' => 'column',
+							'name'    => 'name',
+						),
+					),
+					'cast'    => 'CHAR',
+				),
+				'compare' => '=',
+				'value'   => 'acme',
+			)
+		);
+
+		$this->assertMatchesRegularExpression( '/CAST\(\s*LOWER\([^)]*`name`[^)]*\)\s+AS CHAR\)/i', $where );
+		$this->assertStringNotContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * Test that a cast expression works on the RIGHT side of a comparison too.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_cast_expression_on_right_side() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => 'name',
+				'compare' => '=',
+				'value'   => array(
+					'operand' => 'func',
+					'name'    => 'LOWER',
+					'args'    => array(
+						array(
+							'operand' => 'column',
+							'name'    => 'status',
+						),
+					),
+					'cast'    => 'CHAR',
+				),
+			)
+		);
+
+		$this->assertStringContainsString( '= CAST(LOWER(', $where );
+		$this->assertStringContainsString( 'AS CHAR)', $where );
+		$this->assertStringNotContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * Test that a SIGNED cast derives a %d comparison pattern, so a bare scalar on
+	 * the other side is prepared unquoted.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_cast_signed_derives_numeric_pattern() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => array(
+					'operand' => 'func',
+					'name'    => 'LENGTH',
+					'args'    => array(
+						array(
+							'operand' => 'column',
+							'name'    => 'name',
+						),
+					),
+					'cast'    => 'SIGNED',
+				),
+				'compare' => '=',
+				'value'   => 5,
+			)
+		);
+
+		$this->assertStringContainsString( 'AS SIGNED)', $where );
+		$this->assertMatchesRegularExpression( '/=\s*5\b/', $where );
+		$this->assertStringNotContainsString( "= '5'", $where );
+	}
+
+	/**
+	 * Test that a CHAR cast overrides even a %d-returning function's pattern with %s,
+	 * so the compared scalar is prepared as a quoted string.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_cast_char_forces_string_pattern() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => array(
+					'operand' => 'func',
+					'name'    => 'LENGTH',
+					'args'    => array(
+						array(
+							'operand' => 'column',
+							'name'    => 'name',
+						),
+					),
+					'cast'    => 'CHAR',
+				),
+				'compare' => '=',
+				'value'   => 5,
+			)
+		);
+
+		// LENGTH returns %d, but the CHAR cast makes the comparison string-typed.
+		$this->assertStringContainsString( 'AS CHAR)', $where );
+		$this->assertStringContainsString( "= '5'", $where );
+	}
+
+	/**
+	 * Test that a cast expression nests as a function argument and is validated by
+	 * its target category: CAST(value AS DATE) is 'date', which YEAR() accepts.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_cast_argument_accepted_by_function_category() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => array(
+					'operand' => 'func',
+					'name'    => 'YEAR',
+					'args'    => array(
+						array(
+							'operand' => 'value',
+							'value'   => '2024-06-15',
+							'cast'    => 'DATE',
+						),
+					),
+				),
+				'compare' => '=',
+				'value'   => 2024,
+			)
+		);
+
+		$this->assertStringContainsString( 'YEAR(CAST(', $where );
+		$this->assertStringContainsString( 'AS DATE)', $where );
+		$this->assertStringNotContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * Test that a cast argument whose target category the function rejects fails the
+	 * clause closed: CAST(x AS SIGNED) is 'numeric', which YEAR() does not accept.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_cast_argument_rejected_by_function_category() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => array(
+					'operand' => 'func',
+					'name'    => 'YEAR',
+					'args'    => array(
+						array(
+							'operand' => 'value',
+							'value'   => '2024',
+							'cast'    => 'SIGNED',
+						),
+					),
+				),
+				'compare' => '=',
+				'value'   => 2024,
+			)
+		);
+
+		$this->assertStringContainsString( '1 = 0', $where );
+		$this->assertStringNotContainsString( 'YEAR(', $where );
+	}
+
+	/**
+	 * Test that a requested-but-invalid cast target fails the clause closed rather
+	 * than silently dropping the cast.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_cast_invalid_target_fails_closed() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => array(
+					'operand' => 'func',
+					'name'    => 'LENGTH',
+					'args'    => array(
+						array(
+							'operand' => 'column',
+							'name'    => 'name',
+						),
+					),
+					'cast'    => 'BOGUS',
+				),
+				'compare' => '=',
+				'value'   => 5,
+			)
+		);
+
+		$this->assertStringContainsString( '1 = 0', $where );
+		$this->assertStringNotContainsString( 'CAST(', $where );
+	}
+
+	/**
+	 * Test that `cast => true` fails closed on a non-column operand - there is no
+	 * declared column type to derive the cast from.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_cast_true_on_non_column_fails_closed() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => array(
+					'operand' => 'func',
+					'name'    => 'LOWER',
+					'args'    => array(
+						array(
+							'operand' => 'column',
+							'name'    => 'name',
+						),
+					),
+					'cast'    => true,
+				),
+				'compare' => '=',
+				'value'   => 'x',
+			)
+		);
+
+		$this->assertStringContainsString( '1 = 0', $where );
+		$this->assertStringNotContainsString( 'CAST(', $where );
+	}
+
+	/**
+	 * Test that `cast => false` is a no-op: the expression renders with no CAST.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_cast_false_is_a_noop() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => array(
+					'operand' => 'func',
+					'name'    => 'LOWER',
+					'args'    => array(
+						array(
+							'operand' => 'column',
+							'name'    => 'name',
+						),
+					),
+					'cast'    => false,
+				),
+				'compare' => '=',
+				'value'   => 'x',
+			)
+		);
+
+		$this->assertStringContainsString( 'LOWER(', $where );
+		$this->assertStringNotContainsString( 'CAST(', $where );
+		$this->assertStringNotContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * Test that a cast on a non-scalar value shape (a list) fails closed -
+	 * `CAST( ( 1, 2, 3 ) AS ... )` is not valid SQL.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_cast_on_list_fails_closed() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => 'priority',
+				'compare' => 'IN',
+				'value'   => array(
+					'operand' => 'list',
+					'items'   => array( 1, 2, 3 ),
+					'cast'    => 'SIGNED',
+				),
+			)
+		);
+
+		$this->assertStringContainsString( '1 = 0', $where );
+		$this->assertStringNotContainsString( 'CAST(', $where );
+	}
+
+	/**
+	 * Test a cast expression end-to-end: CAST(LENGTH(status) AS SIGNED) = 6 matches
+	 * the 'active' rows ('active' is 6 characters), proving the wrapped SQL runs.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_cast_expression_matches_rows_end_to_end() {
+
+		$results = self::$query->query(
+			array(
+				'compare_query' => array(
+					'key'     => array(
+						'operand' => 'func',
+						'name'    => 'LENGTH',
+						'args'    => array(
+							array(
+								'operand' => 'column',
+								'name'    => 'status',
+							),
+						),
+						'cast'    => 'SIGNED',
+					),
+					'compare' => '=',
+					'value'   => 6,
+				),
+			)
+		);
+
+		$this->assertCount( 2, $results );
+
+		$names = wp_list_pluck( $results, 'name' );
+		$this->assertContains( 'Alpha Widget', $names );
+		$this->assertContains( 'Beta Widget', $names );
+	}
+
+	/**
+	 * Test that a column `cast` key still renders inline ( unchanged ) and is NOT
+	 * double-wrapped by the new decorator path.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_column_cast_key_still_inline_not_double_wrapped() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => array(
+					'operand' => 'column',
+					'name'    => 'priority',
+					'cast'    => 'SIGNED',
+				),
+				'compare' => '=',
+				'value'   => 30,
+			)
+		);
+
+		$this->assertStringContainsString( 'AS SIGNED)', $where );
+		$this->assertSame( 1, substr_count( $where, 'CAST(' ) );
+	}
+
+	/**
+	 * Test that an inline COLUMN cast folds into the comparison pattern too, so it
+	 * matches the decorator: a SIGNED cast makes a bare scalar prepare as %d even
+	 * though the underlying column's own pattern is a string placeholder.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_column_cast_folds_comparison_pattern() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => array(
+					'operand' => 'column',
+					'name'    => 'name',
+					'cast'    => 'SIGNED',
+				),
+				'compare' => '=',
+				'value'   => 5,
+			)
+		);
+
+		// The SIGNED cast overrides the column's string pattern -> %d (unquoted 5).
+		$this->assertStringContainsString( 'AS SIGNED)', $where );
+		$this->assertMatchesRegularExpression( '/=\s*5\b/', $where );
+		$this->assertStringNotContainsString( "= '5'", $where );
+	}
+
+	/**
+	 * Test that the plain ( non-operand ) `cast` clause key folds the pattern too:
+	 * a bare column key with `cast => SIGNED` prepares its scalar as %d, matching the
+	 * operand path ( the fold lives on the Kern column, so every cast site shares it ).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_plain_comparison_cast_folds_pattern() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => 'name',
+				'compare' => '=',
+				'value'   => 5,
+				'cast'    => 'SIGNED',
+			)
+		);
+
+		$this->assertStringContainsString( 'AS SIGNED)', $where );
+		$this->assertMatchesRegularExpression( '/=\s*5\b/', $where );
+		$this->assertStringNotContainsString( "= '5'", $where );
+	}
+
+	/**
+	 * Test that a malformed ( non-string, non-bool ) `cast` on a plain column key
+	 * fails closed rather than being silently ignored - matching the operand path.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_plain_comparison_malformed_cast_fails_closed() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => 'name',
+				'compare' => '=',
+				'value'   => 5,
+				'cast'    => array( 'SIGNED' ),
+			)
+		);
+
+		$this->assertStringContainsString( '1 = 0', $where );
+		$this->assertStringNotContainsString( 'CAST(', $where );
+	}
+
+	/**
+	 * Test that COALESCE derivation reads a cast argument's target pattern ( not the
+	 * raw literal it wraps ): COALESCE( CAST(name AS SIGNED), 0 ) derives %d.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_coalesce_derives_pattern_from_cast_argument() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => array(
+					'operand' => 'func',
+					'name'    => 'COALESCE',
+					'args'    => array(
+						array(
+							'operand' => 'column',
+							'name'    => 'name',
+							'cast'    => 'SIGNED',
+						),
+						array(
+							'operand' => 'value',
+							'value'   => 0,
+						),
+					),
+				),
+				'compare' => '=',
+				'value'   => 5,
+			)
+		);
+
+		// Both arguments are numeric ( a SIGNED cast + an integer literal ) -> %d.
+		$this->assertStringContainsString( 'COALESCE(CAST(', $where );
+		$this->assertMatchesRegularExpression( '/=\s*5\b/', $where );
+		$this->assertStringNotContainsString( "= '5'", $where );
+	}
+
+	/**
 	 * Test that a left-hand function operand pairs with a bare value through the
 	 * operator's own value rendering - LOWER(name) LIKE '%x%' (the operator owns
 	 * the LIKE wildcards; the operand supplies the left side).

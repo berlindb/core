@@ -33,6 +33,24 @@ defined( 'ABSPATH' ) || exit;
 class Tuple extends Base {
 
 	/**
+	 * A tuple is a value shape ( a row constructor ), not a scalar expression, so it
+	 * cannot be wrapped in a CAST. It CAN be a left subject ( the Base default ).
+	 *
+	 * @since 3.1.0
+	 * @var bool
+	 */
+	protected $scalar = false;
+
+	/**
+	 * Default to 0 width so an operand-less tuple reports 0, not the Base default of
+	 * 1; init() sets the member count for a populated tuple.
+	 *
+	 * @since 3.1.0
+	 * @var int
+	 */
+	protected $width = 0;
+
+	/**
 	 * The member operands, in order.
 	 *
 	 * @since 3.1.0
@@ -62,6 +80,9 @@ class Tuple extends Base {
 		}
 
 		$this->operands = $operands;
+
+		// A tuple is as wide as its member count.
+		$this->width = count( $operands );
 	}
 
 	/**
@@ -106,16 +127,5 @@ class Tuple extends Base {
 	 */
 	public function pairs_with( \BerlinDB\Database\Operators\Base $operator ): bool {
 		return $operator->is_expression();
-	}
-
-	/**
-	 * A tuple is as wide as its member count.
-	 *
-	 * @since 3.1.0
-	 *
-	 * @return int
-	 */
-	public function get_width(): int {
-		return count( $this->operands );
 	}
 }

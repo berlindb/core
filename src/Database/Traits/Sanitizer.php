@@ -293,6 +293,66 @@ trait Sanitizer {
 			: "CAST({$reference} AS {$cast})";
 	}
 
+	/**
+	 * Map a normalized CAST target to its type category.
+	 *
+	 * The category matches how the cast renders: SIGNED / UNSIGNED / DECIMAL are
+	 * 'numeric', DATE / DATETIME are 'date', TIME is 'time', and CHAR / BINARY are
+	 * 'string'. $cast MUST already be normalized (e.g. via sanitize_sql_cast_type());
+	 * an empty target yields '' (no category). Shared by Column::get_type_category()
+	 * and the operand CAST path so a cast reports one category everywhere.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $cast A normalized CAST target (e.g. 'SIGNED', 'DATETIME'), or ''.
+	 * @return string 'numeric' / 'date' / 'time' / 'string', or '' when $cast is empty.
+	 */
+	protected function sql_cast_type_category( string $cast = '' ): string {
+
+		// No cast: no category.
+		if ( '' === $cast ) {
+			return '';
+		}
+
+		// SIGNED / UNSIGNED / DECIMAL -> numeric.
+		if ( str_starts_with( $cast, 'SIGNED' ) || str_starts_with( $cast, 'UNSIGNED' ) || str_starts_with( $cast, 'DECIMAL' ) ) {
+			return 'numeric';
+		}
+
+		// DATE / DATETIME -> date (date-bearing); TIME -> time.
+		if ( str_starts_with( $cast, 'DATE' ) ) {
+			return 'date';
+		}
+
+		if ( str_starts_with( $cast, 'TIME' ) ) {
+			return 'time';
+		}
+
+		// CHAR / BINARY -> string.
+		return 'string';
+	}
+
+	/**
+	 * Map a normalized CAST target to the placeholder a compared scalar uses.
+	 *
+	 * Only an exact SIGNED integer cast prepares as '%d' (it fits a PHP int
+	 * exactly). UNSIGNED (can exceed PHP_INT_MAX), DECIMAL (loses precision through
+	 * a PHP float), and the char / temporal casts all prepare as '%s' so the
+	 * submitted value is preserved losslessly - the CAST itself performs the
+	 * SQL-side conversion, so the placeholder need only carry the value safely.
+	 * $cast MUST already be normalized (e.g. via sanitize_sql_cast_type()).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $cast A normalized CAST target (e.g. 'SIGNED', 'CHAR(20)'), or ''.
+	 * @return '%d'|'%s' A wpdb::prepare() placeholder ('%d' for SIGNED, else '%s').
+	 */
+	protected function sql_cast_type_pattern( string $cast = '' ): string {
+		return ( 'SIGNED' === $cast )
+			? '%d'
+			: '%s';
+	}
+
 	/** Value Sanitizers ******************************************************/
 
 	/**

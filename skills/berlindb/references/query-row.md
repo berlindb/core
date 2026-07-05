@@ -297,8 +297,31 @@ string placeholder when they mix:
 // -> WHERE COALESCE(`display_name`, `user_login`, 'guest') = 'acme'
 ```
 
-A column operand takes an opt-in `'cast' => true` (cast to the column's declared
-type) or an explicit `'cast' => 'SIGNED'` string; an invalid cast fails closed.
+**Cast** — any *scalar* operand (column / value / function / nested cast) takes an
+opt-in `'cast'` key that wraps it in `CAST( ... AS <type> )`, so an arbitrary
+expression casts, not just a column:
+
+```php
+'compare_query' => array(
+    'key'     => array(
+        'operand' => 'func',
+        'name'    => 'LOWER',
+        'args'    => array( array( 'operand' => 'column', 'name' => 'name' ) ),
+        'cast'    => 'CHAR',
+    ),
+    'compare' => '=',
+    'value'   => 'acme',
+),
+// -> WHERE CAST(LOWER(`name`) AS CHAR) = 'acme'
+```
+
+A column also accepts `'cast' => true` (cast to its own declared type). The target
+is validated against the safe subset (`BINARY`, `CHAR(n)`, `DATE`, `DATETIME`,
+`TIME`, `SIGNED`, `UNSIGNED`, `DECIMAL(p,s)`); a requested-but-invalid target, a
+`cast` on a non-scalar shape (list/range/tuple), or `cast => true` on a non-column
+fails closed. A cast composes as a function argument and is validated by its target
+category (a `DATE` cast is accepted by `YEAR()`). The compared scalar derives its
+placeholder from the target: `SIGNED` → `%d`, everything else → `%s`.
 
 **Lists (IN / NOT IN)** — members are operands, so a list can mix columns,
 functions, and values, which a bare value list can't:

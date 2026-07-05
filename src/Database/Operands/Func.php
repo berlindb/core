@@ -213,14 +213,6 @@ class Func extends Base {
 	private $args = array();
 
 	/**
-	 * The wpdb::prepare() placeholder for this function's result.
-	 *
-	 * @since 3.1.0
-	 * @var string
-	 */
-	private $return_pattern = '%s';
-
-	/**
 	 * Whether to prefix the arguments with the DISTINCT quantifier.
 	 *
 	 * Mainly for aggregate functions - COUNT( DISTINCT col ), SUM( DISTINCT col ) -
@@ -258,9 +250,9 @@ class Func extends Base {
 			}
 		}
 
-		$this->args           = $operands;
-		$this->return_pattern = isset( $args[ 'return_pattern' ] ) ? (string) $args[ 'return_pattern' ] : '%s';
-		$this->distinct       = ! empty( $args[ 'distinct' ] );
+		$this->args     = $operands;
+		$this->pattern  = isset( $args[ 'return_pattern' ] ) ? (string) $args[ 'return_pattern' ] : '%s';
+		$this->distinct = ! empty( $args[ 'distinct' ] );
 	}
 
 	/**
@@ -275,18 +267,6 @@ class Func extends Base {
 		$key = strtoupper( trim( $name ) );
 
 		return self::ALLOWED[ $key ] ?? null;
-	}
-
-	/**
-	 * Return the prepare() placeholder a scalar should use when compared against
-	 * this function's result (e.g. `YEAR(date_col) = 2024` prepares 2024 as %d).
-	 *
-	 * @since 3.1.0
-	 *
-	 * @return string
-	 */
-	public function get_comparison_pattern(): string {
-		return $this->return_pattern;
 	}
 
 	/**

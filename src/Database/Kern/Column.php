@@ -2240,29 +2240,42 @@ class Column {
 
 		// A valid explicit cast determines the effective category.
 		if ( '' !== $cast ) {
-
-			// SIGNED / UNSIGNED / DECIMAL -> numeric.
-			if ( str_starts_with( $cast, 'SIGNED' ) || str_starts_with( $cast, 'UNSIGNED' ) || str_starts_with( $cast, 'DECIMAL' ) ) {
-				return 'numeric';
-			}
-
-			// DATE / DATETIME -> date (date-bearing); TIME -> time.
-			if ( str_starts_with( $cast, 'DATE' ) ) {
-				return 'date';
-			}
-
-			if ( str_starts_with( $cast, 'TIME' ) ) {
-				return 'time';
-			}
-
-			// CHAR / BINARY -> string.
-			return 'string';
+			return $this->sql_cast_type_category( $cast );
 		}
 
 		// No cast: the (type-inferred or explicitly set) category property decides.
 		return ( '' !== $this->type_category )
 			? $this->type_category
 			: $this->sanitize_type_category();
+	}
+
+	/**
+	 * Return this column's effective prepare() placeholder, folding an optional cast.
+	 *
+	 * Mirrors get_type_category(): a sanitizable cast determines the placeholder a
+	 * scalar compared against the cast expression should use (SIGNED -> '%d', every
+	 * other target -> '%s', so a CHAR-cast integer compares lexically rather than
+	 * truncating the compared value); an invalid or absent cast falls back to the
+	 * column's own declared pattern.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $cast Optional. A CAST target overriding the declared pattern.
+	 * @return '%s'|'%d'|'%f' A wpdb::prepare() placeholder.
+	 */
+	public function get_pattern( string $cast = '' ): string {
+
+		// A valid explicit cast determines the effective placeholder.
+		if ( '' !== $cast ) {
+			$cast = $this->sanitize_sql_cast_type( $cast );
+
+			if ( '' !== $cast ) {
+				return $this->sql_cast_type_pattern( $cast );
+			}
+		}
+
+		// No cast: the column's own declared pattern decides.
+		return $this->pattern;
 	}
 
 	/**

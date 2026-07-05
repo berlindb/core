@@ -334,8 +334,9 @@ trait Operator {
 	 *
 	 * Assembles "{column} {compare} {value}" using the Column's own SQL
 	 * representation, get_sql_compare(), and get_value_sql(). The pattern is
-	 * derived from $col->pattern so callers do not need to supply it separately.
-	 * Returns an empty string when get_value_sql() returns '' (e.g. NOT EXISTS).
+	 * derived from $col->get_pattern( $cast ) - folding an optional cast - so
+	 * callers do not need to supply it separately. Returns an empty string when
+	 * get_value_sql() returns '' (e.g. NOT EXISTS).
 	 *
 	 * @since 3.0.0
 	 *
@@ -348,8 +349,12 @@ trait Operator {
 	 */
 	public function get_sql( Column $col, string $alias = '', $value = null, string $cast = '' ): string {
 
-		// Get the prepared value fragment, deriving the pattern from the column.
-		$value_sql = $this->get_value_sql( $value, $col->pattern );
+		/*
+		 * Derive the pattern from the column, folding the cast: a cast column side
+		 * ( CAST( col AS SIGNED ) ) compares against a scalar of the CAST's type, not
+		 * the column's own - matching how an operand-spec column cast prepares its RHS.
+		 */
+		$value_sql = $this->get_value_sql( $value, $col->get_pattern( $cast ) );
 
 		// Bail if no value fragment - operator has no value side (e.g. NOT EXISTS).
 		if ( '' === $value_sql ) {
