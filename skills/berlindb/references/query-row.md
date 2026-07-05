@@ -326,6 +326,12 @@ fail closed rather than emit malformed SQL. Only scalar comparison operators pai
 structured operand on both sides; `IN` pairs a list, `BETWEEN` a range. Relationship
 `where` conditions accept the same operand specs (resolved against the remote table).
 
+An `orderby` term may also be a `column` or `func` operand spec, to sort by an
+expression: `'orderby' => array( 'operand' => 'func', 'name' => 'LENGTH', 'args' =>
+array( array( 'operand' => 'column', 'name' => 'name' ) ) )` renders `ORDER BY
+LENGTH( name )` (alone, or mixed into a numeric orderby list). An unresolvable or
+non-scalar orderby spec is dropped (ordering never changes which rows match).
+
 ## Aggregates (3.1.0, #225)
 
 The `aggregate` container computes one or more SQL aggregates over the matched (and
