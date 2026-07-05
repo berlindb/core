@@ -229,6 +229,12 @@ Notable changes to BerlinDB are documented here.
   flipped to its positive operator and emitted as `NOT EXISTS` over the key —
   "the object has no meta row whose key matches" — matching the bespoke engine;
   combining a negative `compare_key` with a value still fails closed.
+- Adds value-side `IS NULL` / `IS NOT NULL` to `meta_query` (#211), in both the
+  bespoke JOIN engine and the store-backed relationship path, so they behave
+  identically regardless of caller. The predicate is value-less (any supplied `value`
+  is ignored) and requires a matching meta row — so it means "has a meta row for this
+  key whose value is (non-)NULL", and key ABSENCE never satisfies `IS NULL` (that is
+  `NOT EXISTS`). Previously a unary `compare` silently fell back to `=`.
 - Adds ordering by meta value (#204): `orderby => 'meta_value'` / `'meta_value_num'`
   (numeric), or a named `meta_query` clause key, orders results by that key's value —
   for both the bespoke parser (via the clause's JOIN alias) and store-backed objects

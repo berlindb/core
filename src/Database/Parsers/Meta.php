@@ -505,9 +505,10 @@ class Meta extends Base {
 		}
 
 		/*
-		 * Operators. Unary predicates (IS NULL) aren't built by the meta engine
-		 * yet, so exclude them here - an unrecognized compare falls back to '='
-		 * rather than silently no-op'ing. Meta IS NULL support is tracked in #211.
+		 * Operators. A value-side unary predicate ( IS NULL / IS NOT NULL ) is now
+		 * built ( #211 ); an unrecognized compare still falls back to '=' rather than
+		 * silently no-op'ing. Unary is kept OUT of $non_numeric_operators because that
+		 * set also validates the KEY side ( compare_key ), where unary is meaningless.
 		 */
 		$non_numeric_operators = $this->get_operators(
 			array(
@@ -516,9 +517,14 @@ class Meta extends Base {
 			)
 		);
 		$numeric_operators     = $this->get_operators( array( 'numeric' => true ) );
+		$unary_operators       = $this->get_operators( array( 'unary' => true ) );
 
 		// Fallback if bad comparison.
-		if ( ! in_array( $clause[ 'compare' ], $non_numeric_operators, true ) && ! in_array( $clause[ 'compare' ], $numeric_operators, true ) ) {
+		if (
+			! in_array( $clause[ 'compare' ], $non_numeric_operators, true )
+			&& ! in_array( $clause[ 'compare' ], $numeric_operators, true )
+			&& ! in_array( $clause[ 'compare' ], $unary_operators, true )
+		) {
 			$clause[ 'compare' ] = '=';
 		}
 
@@ -734,25 +740,33 @@ class Meta extends Base {
 			}
 		}
 
-		// meta_value - build_value() normalizes the mixed input.
-		if ( array_key_exists( 'value', $clause ) ) {
+		// meta_value.
+		$qt_value_ref = "{$qt_alias}." . $this->quote_identifier( 'meta_value' );
+
+		if ( ( false !== $operator ) && $operator->is_unary() ) {
+
+			/*
+			 * A value-side unary predicate ( IS NULL / IS NOT NULL ) is value-less, so
+			 * any supplied 'value' is ignored. The INNER JOIN means a matching meta row
+			 * must exist for the object, so key ABSENCE never satisfies IS NULL; and no
+			 * CAST is applied ( NULL is NULL regardless of the declared type ).
+			 */
+			$retval[ 'where' ][] = "{$qt_value_ref} {$meta_sql_compare}";
+
+			// meta_value - build_value() normalizes the mixed input.
+		} elseif ( array_key_exists( 'value', $clause ) ) {
 			$where = $this->build_value( $meta_compare, $clause[ 'value' ], '%s' );
 
 			// Not empty, so maybe cast...
 			if ( ! empty( $where ) ) {
-
-				// Set column to meta_value.
-				$column    = 'meta_value';
-				$qt_column = $this->quote_identifier( $column );
 
 				/*
 				 * Optionally CAST the value column. Meta uses 'CHAR' as its "no
 				 * cast" sentinel (the native string type), so map it to '' for
 				 * cast_reference(); any other type wraps in CAST().
 				 */
-				$qt_ref              = "{$qt_alias}.{$qt_column}";
 				$value_cast          = ( 'CHAR' === $meta_type ) ? '' : $meta_type;
-				$retval[ 'where' ][] = $this->cast_reference( $qt_ref, $value_cast ) . " {$meta_sql_compare} {$where}";
+				$retval[ 'where' ][] = $this->cast_reference( $qt_value_ref, $value_cast ) . " {$meta_sql_compare} {$where}";
 			}
 		}
 
@@ -1495,16 +1509,8 @@ class Meta extends Base {
 			$compare = '=';
 		}
 
-		/*
-		 * Unary predicates (IS NULL) aren't supported for meta values yet; fall
-		 * back to '=' so the store path mirrors the bespoke engine rather than
-		 * emitting a value-less predicate. Meta IS NULL support is tracked in #211.
-		 */
+		// Resolve the operator; a value-side unary predicate ( IS NULL ) is built below.
 		$compare_op = $this->get_operator( $compare );
-
-		if ( ( false !== $compare_op ) && $compare_op->is_unary() ) {
-			$compare = '=';
-		}
 
 		// The meta_key condition.
 		if ( array_key_exists( 'key', $meta_clause ) ) {
@@ -1522,7 +1528,17 @@ class Meta extends Base {
 			 * single EXISTS clause can't express - fail closed for that combination.
 			 */
 			if ( $key_condition[ 'negate' ] ) {
-				if ( array_key_exists( 'value', $meta_clause ) && ! in_array( $compare, array( 'EXISTS', 'NOT EXISTS' ), true ) ) {
+
+				/*
+				 * A negative compare_key is NOT EXISTS ( the object has no matching
+				 * key ), so it cannot also carry a value-side condition - a bare value
+				 * OR a value-side unary IS NULL - unless the compare is itself
+				 * EXISTS / NOT EXISTS.
+				 */
+				$has_value_side = array_key_exists( 'value', $meta_clause )
+					|| ( ( false !== $compare_op ) && $compare_op->is_unary() );
+
+				if ( $has_value_side && ! in_array( $compare, array( 'EXISTS', 'NOT EXISTS' ), true ) ) {
 					return null;
 				}
 
@@ -1535,6 +1551,16 @@ class Meta extends Base {
 		// The value side: EXISTS/NOT EXISTS are key-only; otherwise compare the value.
 		if ( 'NOT EXISTS' === $compare ) {
 			$clause_args[ 'exists' ] = false;
+
+		} elseif ( ( 'EXISTS' !== $compare ) && ( false !== $compare_op ) && $compare_op->is_unary() ) {
+
+			/*
+			 * A value-side unary predicate ( IS NULL / IS NOT NULL ) is value-less, so
+			 * any supplied value is ignored. It rides the same relationship EXISTS as a
+			 * valued compare, so key absence never satisfies it - mirroring the JOIN
+			 * engine's INNER JOIN + `meta_value IS NULL`.
+			 */
+			$where[ 'meta_value' ] = array( 'compare' => $compare ); // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
 
 		} elseif ( ( 'EXISTS' !== $compare ) && array_key_exists( 'value', $meta_clause ) ) {
 			$value_condition = array(

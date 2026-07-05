@@ -272,7 +272,10 @@ existing WordPress-shaped query surface keeps working), with `compare`, `type`
 casts, and `relation` AND/OR all honored. A negative `compare_key` (e.g. `NOT LIKE`
 on the key) becomes a `NOT EXISTS` over the key — "the object has no meta row whose
 key matches" — except when paired with a value, which still fails closed.
-WordPress-core objects keep the bespoke meta parser unchanged.
+WordPress-core objects keep the bespoke meta parser unchanged. A value-side
+`compare => 'IS NULL'` / `'IS NOT NULL'` is supported (both engines, value-less — any
+`value` is ignored): it means "the object has a meta row for this key whose value is
+(non-)NULL". Key *absence* is `NOT EXISTS`, not `IS NULL`.
 
 You can also order by a meta value: `orderby => 'meta_value'` (or `'meta_value_num'`
 for numeric) sorts by the simple/first clause's value, and a named `meta_query`

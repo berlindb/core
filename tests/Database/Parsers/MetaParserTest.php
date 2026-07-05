@@ -254,6 +254,102 @@ class MetaParserTest extends TestCase {
 	}
 
 	/**
+	 * Seed a `berlindb_test_nullable` meta row per object: Alpha gets a genuine SQL
+	 * NULL value, Beta a non-null value, Gamma no row at all. add_metadata() stores
+	 * '' rather than NULL, so the NULL row is inserted directly.
+	 *
+	 * @since 3.1.0
+	 */
+	private function seed_nullable_meta(): void {
+		global $wpdb;
+
+		$wpdb->query( "DELETE FROM {$wpdb->postmeta} WHERE meta_key = 'berlindb_test_nullable'" );
+
+		// Alpha: a real NULL meta_value (add_metadata() cannot store NULL).
+		$wpdb->query( $wpdb->prepare( "INSERT INTO {$wpdb->postmeta} ( post_id, meta_key, meta_value ) VALUES ( %d, 'berlindb_test_nullable', NULL )", $this->ids[0] ) );
+
+		// Beta: a non-null value. Gamma: intentionally no row.
+		add_metadata( 'post', $this->ids[1], 'berlindb_test_nullable', 'present' );
+
+		wp_cache_flush();
+	}
+
+	/**
+	 * Test that a value-side IS NULL matches an object whose meta row has a NULL
+	 * value - and NOT an object that simply lacks the key ( key absence is not NULL ).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_meta_query_value_is_null() {
+		$this->seed_nullable_meta();
+
+		$results = self::$query->query(
+			array(
+				'meta_query' => array(
+					array(
+						'key'     => 'berlindb_test_nullable',
+						'compare' => 'IS NULL',
+					),
+				),
+			)
+		);
+
+		// Only Alpha has a row with a NULL value; Gamma ( no row ) must not match.
+		$this->assertCount( 1, $results );
+		$this->assertSame( 'Alpha Widget', $results[0]->name );
+	}
+
+	/**
+	 * Test that IS NOT NULL matches an object whose meta row has a non-null value,
+	 * excluding both the NULL-valued row and the object with no row.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_meta_query_value_is_not_null() {
+		$this->seed_nullable_meta();
+
+		$results = self::$query->query(
+			array(
+				'meta_query' => array(
+					array(
+						'key'     => 'berlindb_test_nullable',
+						'compare' => 'IS NOT NULL',
+					),
+				),
+			)
+		);
+
+		// Only Beta has a non-null value.
+		$this->assertCount( 1, $results );
+		$this->assertSame( 'Beta Widget', $results[0]->name );
+	}
+
+	/**
+	 * Test that a unary IS NULL ignores any supplied value ( it is value-less ).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_meta_query_is_null_ignores_supplied_value() {
+		$this->seed_nullable_meta();
+
+		$results = self::$query->query(
+			array(
+				'meta_query' => array(
+					array(
+						'key'     => 'berlindb_test_nullable',
+						'compare' => 'IS NULL',
+						'value'   => 'ignored',
+					),
+				),
+			)
+		);
+
+		// The 'value' is ignored; still just Alpha's NULL row.
+		$this->assertCount( 1, $results );
+		$this->assertSame( 'Alpha Widget', $results[0]->name );
+	}
+
+	/**
 	 * Test that compare_key LIKE matches meta keys by substring.
 	 *
 	 * @since 3.0.0
@@ -429,30 +525,6 @@ class MetaParserTest extends TestCase {
 
 		$this->assertCount( 1, $results );
 		$this->assertSame( 'Gamma Gadget', $results[0]->name );
-	}
-
-	/**
-	 * Test that a unary compare (IS NULL) is not built by the meta engine yet,
-	 * falling back to '=' rather than silently no-op'ing (#211).
-	 *
-	 * @since 3.1.0
-	 */
-	public function test_meta_query_is_null_value_falls_back_to_equals() {
-		$results = self::$query->query(
-			array(
-				'meta_query' => array(
-					array(
-						'key'     => 'berlindb_test_color',
-						'value'   => 'red',
-						'compare' => 'IS NULL',
-					),
-				),
-			)
-		);
-
-		// Treated as `meta_value = 'red'`, so only Alpha (color red) matches.
-		$this->assertCount( 1, $results );
-		$this->assertSame( 'Alpha Widget', $results[0]->name );
 	}
 
 	/**

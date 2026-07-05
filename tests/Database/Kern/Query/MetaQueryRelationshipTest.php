@@ -601,14 +601,16 @@ class MetaQueryRelationshipTest extends TestCase {
 	}
 
 	/**
-	 * A unary value compare (IS NULL) is not built by the store path yet; it
-	 * falls back to '=' rather than emitting a value-less predicate (#211).
+	 * A value-side IS NULL emits a value-less predicate ( #211 ): any supplied value
+	 * is ignored, and since no object has a NULL 'color' ( A=blue, B=red, C=no row ),
+	 * it matches nothing - proving it no longer falls back to `= 'blue'` ( which would
+	 * match A ). Key absence ( C ) does not satisfy IS NULL either.
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_is_null_value_falls_back_to_equals() {
+	public function test_value_is_null_ignores_value_and_matches_none() {
 		$this->assertSame(
-			array( 'A' ),
+			array(),
 			$this->labels(
 				array(
 					'meta_query' => array(
@@ -616,6 +618,28 @@ class MetaQueryRelationshipTest extends TestCase {
 							'key'     => 'color',
 							'value'   => 'blue',
 							'compare' => 'IS NULL',
+						),
+					),
+				)
+			)
+		);
+	}
+
+	/**
+	 * A value-side IS NOT NULL matches objects that HAVE a ( non-null ) 'color' row -
+	 * A and B - and excludes C ( no color row ), through the store relationship path.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_value_is_not_null_matches_present_values() {
+		$this->assertSame(
+			array( 'A', 'B' ),
+			$this->labels(
+				array(
+					'meta_query' => array(
+						array(
+							'key'     => 'color',
+							'compare' => 'IS NOT NULL',
 						),
 					),
 				)
