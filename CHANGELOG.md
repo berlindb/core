@@ -37,9 +37,14 @@ Notable changes to BerlinDB are documented here.
   the operand supplies the left side). A *structured* right-hand operand (column or
   function) still requires a scalar comparison operator. Allow-listed functions
   cover `LOWER`/`UPPER`/`LENGTH`/`ABS`/`DATE`/`YEAR`/`MONTH`/`DAYOFMONTH`/`DAYOFYEAR`/
-  `DAYOFWEEK`/`HOUR`/`MINUTE`/`SECOND`, each declaring the column-type categories it
-  accepts — a column argument whose declared type is wrong for the function (e.g.
-  `YEAR()` of a numeric column, `ABS()` of a string column) fails the clause closed.
+  `DAYOFWEEK`/`HOUR`/`MINUTE`/`SECOND`/`COALESCE`, each declaring the column-type
+  categories it accepts — a column argument whose declared type is wrong for the
+  function (e.g. `YEAR()` of a numeric column, `ABS()` of a string column) fails the
+  clause closed. `COALESCE` is the first *variadic* function (two or more arguments,
+  returning the first non-`NULL`) and the first with a *derived* return type: having
+  no type of its own, the placeholder a bare scalar compares against is the common
+  type of its arguments (a `%d`-patterned argument and an integer literal derive
+  `%d`; mixed types fall back to a string placeholder).
   A right-hand operand may also be a `list` (for `IN` / `NOT IN`) or a `range` (for
   `BETWEEN` / `NOT BETWEEN`) whose members are themselves operands, so
   `array( 'operand' => 'list', 'items' => array( array( 'operand' => 'column', 'name' => 'other_col' ), 5 ) )`

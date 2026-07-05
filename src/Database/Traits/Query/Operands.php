@@ -236,9 +236,14 @@ trait Operands {
 	 * Resolve a `func` operand spec into a Func operand, or false (fail closed).
 	 *
 	 * The function name must be allow-listed, the argument count within its declared
-	 * arity, and every argument must resolve as an operand of an allowed kind. A
-	 * column argument's declared type category must also be one the function accepts.
-	 * Arguments recurse through resolve_operand(), so functions nest.
+	 * arity (a variadic function has a lower bound only), and every argument must
+	 * resolve as an operand of an allowed kind. A column argument's declared type
+	 * category must also be one the function accepts. Arguments recurse through
+	 * resolve_operand(), so functions nest. A descriptor whose `return_pattern` is
+	 * null derives its pattern from the resolved arguments (see derive_return_pattern).
+	 *
+	 * The operand-func path never emits DISTINCT ( it is not read from the spec here ),
+	 * so an invalid `COALESCE( DISTINCT ... )` is unreachable and needs no guard.
 	 *
 	 * @since 3.1.0
 	 *
@@ -263,14 +268,22 @@ trait Operands {
 			return false;
 		}
 
-		$count = count( $args_spec );
+		// A variadic function bounds the count below only; a fixed one, both ends.
+		$count    = count( $args_spec );
+		$variadic = ! empty( $descriptor[ 'variadic' ] );
+		$max_args = $descriptor[ 'max_args' ] ?? 0;
 
-		if ( ( $count < $descriptor[ 'min_args' ] ) || ( $count > $descriptor[ 'max_args' ] ) ) {
+		if ( ( $count < $descriptor[ 'min_args' ] ) || ( ! $variadic && ( $count > $max_args ) ) ) {
 			return false;
 		}
 
-		// Resolve each argument operand, enforcing the function's allowed kinds.
+		/*
+		 * Resolve each argument operand, enforcing the function's allowed kinds.
+		 * $raw_args is kept index-aligned with $resolved (deriving a pattern from a
+		 * literal reads its raw spec, so the two must line up even if $args_spec is keyed).
+		 */
 		$resolved = array();
+		$raw_args = array();
 
 		foreach ( $args_spec as $arg_spec ) {
 			$arg = $this->resolve_operand_argument( $arg_spec, $descriptor[ 'arg_kinds' ], $alias );
@@ -285,15 +298,103 @@ trait Operands {
 			}
 
 			$resolved[] = $arg;
+			$raw_args[] = $arg_spec;
 		}
+
+		// A null descriptor pattern is DERIVED from the arguments (e.g. COALESCE).
+		$return_pattern = ( null === $descriptor[ 'return_pattern' ] )
+			? $this->derive_return_pattern( $resolved, $raw_args )
+			: $descriptor[ 'return_pattern' ];
 
 		return new Func(
 			array(
 				'sql'            => $descriptor[ 'sql' ],
 				'args'           => $resolved,
-				'return_pattern' => $descriptor[ 'return_pattern' ],
+				'return_pattern' => $return_pattern,
 			)
 		);
+	}
+
+	/**
+	 * Derive a function's result placeholder from the common type of its arguments.
+	 *
+	 * For a function with no type of its own ( COALESCE returns whichever argument
+	 * is non-NULL ), the placeholder a bare scalar compared against it should use is
+	 * the common type of the arguments. Each argument classifies to a pattern -
+	 * a column or nested function by its own resolved pattern, a literal by its PHP
+	 * type - and the set unifies: all-identical keeps the type, mixed integer and
+	 * float promotes to float, anything else falls back conservatively to a string
+	 * placeholder ( which never truncates ). This stays local to derivation and does
+	 * NOT change how a Value operand reports its own comparison pattern.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param list<Base> $resolved  The resolved argument operands, in order.
+	 * @param list<mixed> $args_spec The raw argument specs, index-aligned with $resolved.
+	 * @return string A wpdb::prepare() placeholder ('%s', '%d', or '%f').
+	 */
+	private function derive_return_pattern( array $resolved, array $args_spec ): string {
+		$patterns = array();
+
+		foreach ( $resolved as $index => $operand ) {
+			$patterns[] = $this->classify_operand_pattern( $operand, $args_spec[ $index ] ?? null );
+		}
+
+		$unique = array_values( array_unique( $patterns ) );
+
+		// A single common type carries through unchanged.
+		if ( 1 === count( $unique ) ) {
+			return $unique[ 0 ];
+		}
+
+		// Integer and float together promote to float; anything else is lexical.
+		sort( $unique );
+
+		return ( array( '%d', '%f' ) === $unique )
+			? '%f'
+			: '%s';
+	}
+
+	/**
+	 * Classify one function argument to the placeholder its result compares as.
+	 *
+	 * A column or nested function knows its own comparison pattern; a bare literal
+	 * does not survive preparation as a typed Value, so it classifies from the raw
+	 * spec instead - an explicit `pattern` if given, otherwise the literal's PHP
+	 * type ( int/bool -> %d, float -> %f, else %s ).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param Base  $operand  The resolved argument operand.
+	 * @param mixed $arg_spec The raw argument spec (scalar or operand spec).
+	 * @return string A wpdb::prepare() placeholder ('%s', '%d', or '%f').
+	 */
+	private function classify_operand_pattern( Base $operand, $arg_spec ): string {
+
+		// A column or nested function reports its own resolved pattern.
+		if ( ( $operand instanceof \BerlinDB\Database\Operands\Column ) || ( $operand instanceof Func ) ) {
+			return $operand->get_comparison_pattern();
+		}
+
+		// An explicit, validated pattern on a value spec wins.
+		if ( Base::is_spec( $arg_spec ) && isset( $arg_spec[ 'pattern' ] ) && in_array( $arg_spec[ 'pattern' ], array( '%s', '%d', '%f' ), true ) ) {
+			return $arg_spec[ 'pattern' ];
+		}
+
+		// Otherwise classify the bare literal by its PHP type.
+		$literal = Base::is_spec( $arg_spec )
+			? ( $arg_spec[ 'value' ] ?? null )
+			: $arg_spec;
+
+		if ( is_int( $literal ) || is_bool( $literal ) ) {
+			return '%d';
+		}
+
+		if ( is_float( $literal ) ) {
+			return '%f';
+		}
+
+		return '%s';
 	}
 
 	/**

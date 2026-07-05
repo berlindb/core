@@ -1330,6 +1330,300 @@ class CompareParserTest extends TestCase {
 	}
 
 	/**
+	 * Test that COALESCE renders every argument in order - it is the first variadic
+	 * function, so a two-column call emits `COALESCE( a, b )`.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_coalesce_renders_all_arguments() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => array(
+					'operand' => 'func',
+					'name'    => 'COALESCE',
+					'args'    => array(
+						array(
+							'operand' => 'column',
+							'name'    => 'name',
+						),
+						array(
+							'operand' => 'column',
+							'name'    => 'status',
+						),
+					),
+				),
+				'compare' => '=',
+				'value'   => 'active',
+			)
+		);
+
+		$this->assertStringContainsString( 'COALESCE(', $where );
+		$this->assertStringContainsString( '`name`', $where );
+		$this->assertStringContainsString( '`status`', $where );
+		$this->assertStringNotContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * Test that COALESCE takes three (or more) arguments - being variadic, it has no
+	 * upper arity bound, unlike every other allow-listed function.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_coalesce_variadic_three_arguments() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => array(
+					'operand' => 'func',
+					'name'    => 'COALESCE',
+					'args'    => array(
+						array(
+							'operand' => 'column',
+							'name'    => 'name',
+						),
+						array(
+							'operand' => 'column',
+							'name'    => 'status',
+						),
+						array(
+							'operand' => 'value',
+							'value'   => 'fallback',
+						),
+					),
+				),
+				'compare' => '=',
+				'value'   => 'active',
+			)
+		);
+
+		$this->assertStringContainsString( 'COALESCE(', $where );
+		$this->assertStringContainsString( "'fallback'", $where );
+		$this->assertStringNotContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * Test that a one-argument COALESCE fails closed - the descriptor requires at
+	 * least two arguments (a one-argument COALESCE is a pointless column reference).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_coalesce_single_argument_fails_closed() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => array(
+					'operand' => 'func',
+					'name'    => 'COALESCE',
+					'args'    => array(
+						array(
+							'operand' => 'column',
+							'name'    => 'name',
+						),
+					),
+				),
+				'compare' => '=',
+				'value'   => 'active',
+			)
+		);
+
+		$this->assertStringContainsString( '1 = 0', $where );
+		$this->assertStringNotContainsString( 'COALESCE(', $where );
+	}
+
+	/**
+	 * Test that an unresolvable COALESCE argument fails the whole clause closed - a
+	 * single bad member never silently drops.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_coalesce_unresolvable_argument_fails_closed() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => array(
+					'operand' => 'func',
+					'name'    => 'COALESCE',
+					'args'    => array(
+						array(
+							'operand' => 'column',
+							'name'    => 'nonexistent',
+						),
+						array(
+							'operand' => 'column',
+							'name'    => 'name',
+						),
+					),
+				),
+				'compare' => '=',
+				'value'   => 'active',
+			)
+		);
+
+		$this->assertStringContainsString( '1 = 0', $where );
+		$this->assertStringNotContainsString( 'COALESCE(', $where );
+	}
+
+	/**
+	 * Test that COALESCE derives a numeric return pattern from its arguments: a
+	 * %d-returning function and an integer literal share a numeric common type, so a
+	 * bare scalar compared against the COALESCE is prepared as %d (rendered
+	 * unquoted), not %s. ( The fixture's own columns declare a string pattern, so the
+	 * %d here comes from LENGTH's declared return pattern - proving derivation reads
+	 * each argument's real pattern. )
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_coalesce_derives_numeric_return_pattern() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => array(
+					'operand' => 'func',
+					'name'    => 'COALESCE',
+					'args'    => array(
+						array(
+							'operand' => 'func',
+							'name'    => 'LENGTH',
+							'args'    => array(
+								array(
+									'operand' => 'column',
+									'name'    => 'name',
+								),
+							),
+						),
+						array(
+							'operand' => 'value',
+							'value'   => 0,
+						),
+					),
+				),
+				'compare' => '=',
+				'value'   => 5,
+			)
+		);
+
+		// Numeric common type -> the right-hand 5 is a bare %d, not a quoted '5'.
+		$this->assertMatchesRegularExpression( '/=\s*5\b/', $where );
+		$this->assertStringNotContainsString( "= '5'", $where );
+	}
+
+	/**
+	 * Test that COALESCE falls back to a string return pattern when its arguments
+	 * mix types (a %d-returning function and a string column have no common numeric
+	 * type), so a bare scalar compared against it is prepared as %s (quoted).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_coalesce_mixed_types_fall_back_to_string_pattern() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => array(
+					'operand' => 'func',
+					'name'    => 'COALESCE',
+					'args'    => array(
+						array(
+							'operand' => 'func',
+							'name'    => 'LENGTH',
+							'args'    => array(
+								array(
+									'operand' => 'column',
+									'name'    => 'name',
+								),
+							),
+						),
+						array(
+							'operand' => 'column',
+							'name'    => 'name',
+						),
+					),
+				),
+				'compare' => '=',
+				'value'   => 5,
+			)
+		);
+
+		// Mixed types -> conservative %s, so the right-hand 5 is a quoted '5'.
+		$this->assertStringContainsString( "= '5'", $where );
+	}
+
+	/**
+	 * Test COALESCE end-to-end: COALESCE(priority, 0) returns the (never-null)
+	 * priority, so `= 30` matches the priority-30 row.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_coalesce_matches_rows_end_to_end() {
+
+		$results = self::$query->query(
+			array(
+				'compare_query' => array(
+					'key'     => array(
+						'operand' => 'func',
+						'name'    => 'COALESCE',
+						'args'    => array(
+							array(
+								'operand' => 'column',
+								'name'    => 'priority',
+							),
+							array(
+								'operand' => 'value',
+								'value'   => 0,
+							),
+						),
+					),
+					'compare' => '=',
+					'value'   => 30,
+				),
+			)
+		);
+
+		// priority 30 -> the Gamma Gadget row.
+		$this->assertCount( 1, $results );
+		$this->assertSame( 'Gamma Gadget', $results[0]->name );
+	}
+
+	/**
+	 * Test that COALESCE nests other functions - COALESCE(LOWER(name), status).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_coalesce_nests_functions() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => array(
+					'operand' => 'func',
+					'name'    => 'COALESCE',
+					'args'    => array(
+						array(
+							'operand' => 'func',
+							'name'    => 'LOWER',
+							'args'    => array(
+								array(
+									'operand' => 'column',
+									'name'    => 'name',
+								),
+							),
+						),
+						array(
+							'operand' => 'column',
+							'name'    => 'status',
+						),
+					),
+				),
+				'compare' => '=',
+				'value'   => 'active',
+			)
+		);
+
+		$this->assertStringContainsString( 'COALESCE(LOWER(', $where );
+		$this->assertStringContainsString( '`status`', $where );
+		$this->assertStringNotContainsString( '1 = 0', $where );
+	}
+
+	/**
 	 * Test that a left-hand function operand pairs with a bare value through the
 	 * operator's own value rendering - LOWER(name) LIKE '%x%' (the operator owns
 	 * the LIKE wildcards; the operand supplies the left side).

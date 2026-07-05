@@ -257,8 +257,9 @@ unresolvable — there is no raw-SQL passthrough.
 
 **Functions** — an allow-listed SQL function wraps an operand (they nest): `LOWER`,
 `UPPER`, `LENGTH`, `ABS`, `DATE`, `YEAR`, `MONTH`, `DAYOFMONTH`, `DAYOFYEAR`,
-`DAYOFWEEK`, `HOUR`, `MINUTE`, `SECOND`. Position (`key` vs `value`) picks the side;
-a bare scalar on the other side is prepared with the function's return type:
+`DAYOFWEEK`, `HOUR`, `MINUTE`, `SECOND`, `COALESCE`. Position (`key` vs `value`)
+picks the side; a bare scalar on the other side is prepared with the function's
+return type:
 
 ```php
 'compare_query' => array(
@@ -271,6 +272,29 @@ a bare scalar on the other side is prepared with the function's return type:
     'value'   => 'acme',
 ),
 // -> WHERE LOWER(`name`) = 'acme'
+```
+
+Most functions take a fixed number of arguments; `COALESCE` is **variadic** (two or
+more) and returns the first non-`NULL` argument. It has no type of its own, so the
+placeholder a bare scalar compares against is DERIVED from its arguments — the common
+type when they agree (e.g. a `%d` column and an integer literal give `%d`), and a
+string placeholder when they mix:
+
+```php
+'compare_query' => array(
+    'key'     => array(
+        'operand' => 'func',
+        'name'    => 'COALESCE',
+        'args'    => array(
+            array( 'operand' => 'column', 'name' => 'display_name' ),
+            array( 'operand' => 'column', 'name' => 'user_login' ),
+            'guest',
+        ),
+    ),
+    'compare' => '=',
+    'value'   => 'acme',
+),
+// -> WHERE COALESCE(`display_name`, `user_login`, 'guest') = 'acme'
 ```
 
 A column operand takes an opt-in `'cast' => true` (cast to the column's declared

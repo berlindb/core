@@ -50,10 +50,16 @@ class Func extends Base {
 	 * the column-type categories it accepts as a column argument. Kept deliberately
 	 * small and stable; grows only as functions earn a place with tests.
 	 *
+	 * - `max_args` - the upper argument bound. OMITTED for a variadic function (one
+	 *   that also declares `variadic => true`); present for every fixed-arity one.
+	 * - `variadic` - true for a function that takes any number of arguments at or
+	 *   above `min_args` (e.g. COALESCE). Mutually exclusive with `max_args`.
 	 * - `return_pattern` - the wpdb::prepare() placeholder for the function's
 	 *   RESULT, used to prepare a bare scalar compared against it (`YEAR(col) =
 	 *   2024` prepares 2024 as `%d`). ABS keeps `%s` because it preserves its
-	 *   input's type (a `%d` would truncate `ABS(x) = 1.5` to `= 1`).
+	 *   input's type (a `%d` would truncate `ABS(x) = 1.5` to `= 1`). `null` means
+	 *   the pattern is DERIVED from the arguments at resolution (COALESCE returns
+	 *   the common type of its arguments), not fixed here.
 	 * - `accepts` - the type categories ('numeric' / 'string' / 'date') allowed for
 	 *   a COLUMN argument; the parser fails a clause closed when a column argument's
 	 *   declared type is not in this list (e.g. `YEAR(an_int_column)`). Conservative
@@ -61,7 +67,7 @@ class Func extends Base {
 	 *   coerce; literal and nested-function arguments are not type-checked.
 	 *
 	 * @since 3.1.0
-	 * @var array<string,array{sql:string,min_args:int,max_args:int,arg_kinds:list<string>,return_pattern:string,accepts:list<string>}>
+	 * @var array<string,array{sql:string,min_args:int,max_args?:int,variadic?:bool,arg_kinds:list<string>,return_pattern:string|null,accepts:list<string>}>
 	 */
 	private const ALLOWED = array(
 		'LOWER'      => array(
@@ -172,6 +178,22 @@ class Func extends Base {
 			'return_pattern' => '%d',
 			'accepts'        => array( 'date', 'time', 'string' ),
 		),
+
+		/*
+		 * COALESCE( a, b, ... ) returns its first non-NULL argument. It is the
+		 * first VARIADIC function (two-or-more arguments, no upper bound) and the
+		 * first with a DERIVED return pattern - it has no type of its own, so the
+		 * pattern is the common type of its arguments, computed at resolution. Any
+		 * column type is a valid argument, so it accepts every category.
+		 */
+		'COALESCE'   => array(
+			'sql'            => 'COALESCE',
+			'min_args'       => 2,
+			'variadic'       => true,
+			'arg_kinds'      => array( 'column', 'func', 'value' ),
+			'return_pattern' => null,
+			'accepts'        => self::ANY_TYPE,
+		),
 	);
 
 	/**
@@ -247,7 +269,7 @@ class Func extends Base {
 	 * @since 3.1.0
 	 *
 	 * @param string $name The function name (case-insensitive).
-	 * @return array{sql:string,min_args:int,max_args:int,arg_kinds:list<string>,return_pattern:string,accepts:list<string>}|null
+	 * @return array{sql:string,min_args:int,max_args?:int,variadic?:bool,arg_kinds:list<string>,return_pattern:string|null,accepts:list<string>}|null
 	 */
 	public static function descriptor( string $name ): ?array {
 		$key = strtoupper( trim( $name ) );
