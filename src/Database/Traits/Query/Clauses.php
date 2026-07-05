@@ -587,13 +587,23 @@ trait Clauses {
 			// Ordering by something, so figure it out.
 		} else {
 
-			// Cast orderby as an array.
-			$ordersby = (array) $orderby;
+			/*
+			 * A single operand spec ( orderby => array( 'operand' => 'func', ... ) ) is
+			 * one expression term; otherwise cast the string / list / assoc to an array.
+			 * A spec cannot be an assoc key, so expression terms ride the numeric-list
+			 * form and share the top-level $order direction.
+			 */
+			$ordersby = \BerlinDB\Database\Operands\Base::is_spec( $orderby )
+				? array( $orderby )
+				: (array) $orderby;
 
-			// Fill if numeric.
-			if ( wp_is_numeric_array( $ordersby ) ) {
-				$ordersby = array_fill_keys( $ordersby, $order );
-			}
+			/*
+			 * A numeric list orders by each ELEMENT ( a column name or an operand spec )
+			 * with the shared $order; a non-numeric array stays the historical column =>
+			 * direction map ( keyed by column, unchanged ). Decided at the array level,
+			 * not per key, so a mixed array behaves exactly as before.
+			 */
+			$is_list = wp_is_numeric_array( $ordersby );
 
 			// Default return value.
 			$orderby_array = array();
@@ -601,8 +611,23 @@ trait Clauses {
 			// Loop through orderby's.
 			foreach ( $ordersby as $key => $value ) {
 
-				// Parse orderby.
-				$parsed = $this->parse_single_orderby( $key, $alias );
+				if ( true === $is_list ) {
+
+					/*
+					 * The element is the term: an operand spec renders its expression, a
+					 * column name resolves as before; both take the shared $order.
+					 */
+					$direction = $order;
+					$parsed    = \BerlinDB\Database\Operands\Base::is_spec( $value )
+						? $this->parse_operand_orderby( $value, $alias )
+						: ( is_string( $value ) ? $this->parse_single_orderby( $value, $alias ) : '' );
+
+				} else {
+
+					// The historical map: the key is the column, the value the direction.
+					$direction = $value;
+					$parsed    = $this->parse_single_orderby( $key, $alias );
+				}
 
 				// Skip if empty.
 				if ( empty( $parsed ) ) {
@@ -610,7 +635,7 @@ trait Clauses {
 				}
 
 				// Append the orderby fragment (with optional NULLS emulation) to array.
-				$orderby_array[] = $this->parse_single_orderby_fragment( $parsed, $value );
+				$orderby_array[] = $this->parse_single_orderby_fragment( $parsed, $direction );
 			}
 
 			// Only set if valid orderby.
@@ -789,6 +814,43 @@ trait Clauses {
 
 		// Return SQL.
 		return $retval;
+	}
+
+	/**
+	 * Resolve an operand-spec orderby term into its ORDER BY expression, or ''.
+	 *
+	 * Sorts by a rendered expression - a column reference or an allow-listed
+	 * function over one ( `orderby => array( 'operand' => 'func', 'name' => 'LENGTH',
+	 * 'args' => array( ... ) )` -> `ORDER BY LENGTH( name )` ). Only a `column` or
+	 * `func` operand is meaningful to sort by; a list/range/tuple/value spec, or an
+	 * unresolvable one, returns '' so the term is simply dropped ( ORDER BY never
+	 * changes which rows match, so an invalid term is ignored, not failed closed ).
+	 * The expression is resolved through the same operand machinery as WHERE, so its
+	 * column is schema-checked and quoted and its members are safe.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param mixed $spec  The operand spec.
+	 * @param bool  $alias Whether to qualify a column with the table alias.
+	 * @return string The ORDER BY expression SQL, or '' to drop the term.
+	 */
+	private function parse_operand_orderby( $spec, bool $alias ): string {
+
+		// Only a column or function expression is meaningful to sort by.
+		$kind = ( is_array( $spec ) && is_string( $spec[ 'operand' ] ?? null ) )
+			? strtolower( $spec[ 'operand' ] )
+			: '';
+
+		if ( ! in_array( $kind, array( 'column', 'func' ), true ) ) {
+			return '';
+		}
+
+		// Resolve against this query's own schema; null alias uses its table alias.
+		$operand = $this->resolve_operand( $spec, ( true === $alias ) ? null : '' );
+
+		return ( $operand instanceof \BerlinDB\Database\Operands\Base )
+			? $operand->get_sql()
+			: '';
 	}
 
 	/**

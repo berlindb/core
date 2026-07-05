@@ -158,6 +158,15 @@ Notable changes to BerlinDB are documented here.
   syntax, so it is emulated with a leading `ISNULL( col )` sort key (`DESC` floats
   NULLs first, `ASC` sinks them last); a plain direction is unchanged. Applies to a
   single sort key; the rest of the orderby list orders normally.
+- Adds ordering by an expression (#211): an `orderby` term may be an operand spec,
+  so a query can sort by a column or an allow-listed function over one -
+  `'orderby' => array( 'operand' => 'func', 'name' => 'LENGTH', 'args' => array( array( 'operand' => 'column', 'name' => 'name' ) ) )`
+  renders `ORDER BY LENGTH( name )`, either alone or mixed into a numeric orderby
+  list. It resolves through the same operand machinery as `compare_query` (schema-
+  checked columns, allow-listed functions, no raw SQL). Only a `column` / `func`
+  spec is meaningful to sort by; an unresolvable or non-scalar spec is dropped (not
+  failed closed, since ordering does not change which rows match). The string, list,
+  and `column => direction` map forms are unchanged.
 - Adds an `index_hints` query var (#219) for MySQL/MariaDB index hints
   (`USE` / `FORCE` / `IGNORE INDEX`). Takes one spec or a list of them -
   `array( 'type' => 'force', 'indexes' => array( 'idx_status' ), 'for' => 'join' )` -
