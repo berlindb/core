@@ -14,25 +14,25 @@ use BerlinDB\Database\Kern\Column;
 use BerlinDB\Database\Operands\Column as ColumnOperand;
 use BerlinDB\Database\Operands\Func as FuncOperand;
 use BerlinDB\Database\Operands\Value as ValueOperand;
-use BerlinDB\Database\Operators\Between;
-use BerlinDB\Database\Operators\Equal;
-use BerlinDB\Database\Operators\Exists;
-use BerlinDB\Database\Operators\GreaterThan;
-use BerlinDB\Database\Operators\GreaterThanOrEqual;
-use BerlinDB\Database\Operators\In;
-use BerlinDB\Database\Operators\IsNotNull;
-use BerlinDB\Database\Operators\IsNull;
-use BerlinDB\Database\Operators\LessThan;
-use BerlinDB\Database\Operators\LessThanOrEqual;
-use BerlinDB\Database\Operators\Like;
-use BerlinDB\Database\Operators\NotBetween;
-use BerlinDB\Database\Operators\NotEqual;
-use BerlinDB\Database\Operators\NotExists;
-use BerlinDB\Database\Operators\NotIn;
-use BerlinDB\Database\Operators\NotLike;
-use BerlinDB\Database\Operators\NotRegexp;
-use BerlinDB\Database\Operators\Regexp;
-use BerlinDB\Database\Operators\Rlike;
+use BerlinDB\Database\Operators\Comparisons\Between;
+use BerlinDB\Database\Operators\Comparisons\Equal;
+use BerlinDB\Database\Operators\Comparisons\Exists;
+use BerlinDB\Database\Operators\Comparisons\GreaterThan;
+use BerlinDB\Database\Operators\Comparisons\GreaterThanOrEqual;
+use BerlinDB\Database\Operators\Comparisons\In;
+use BerlinDB\Database\Operators\Comparisons\IsNotNull;
+use BerlinDB\Database\Operators\Comparisons\IsNull;
+use BerlinDB\Database\Operators\Comparisons\LessThan;
+use BerlinDB\Database\Operators\Comparisons\LessThanOrEqual;
+use BerlinDB\Database\Operators\Comparisons\Like;
+use BerlinDB\Database\Operators\Comparisons\NotBetween;
+use BerlinDB\Database\Operators\Comparisons\NotEqual;
+use BerlinDB\Database\Operators\Comparisons\NotExists;
+use BerlinDB\Database\Operators\Comparisons\NotIn;
+use BerlinDB\Database\Operators\Comparisons\NotLike;
+use BerlinDB\Database\Operators\Comparisons\NotRegexp;
+use BerlinDB\Database\Operators\Comparisons\Regexp;
+use BerlinDB\Database\Operators\Comparisons\Rlike;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -1130,7 +1130,7 @@ class OperatorsTest extends TestCase {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @return array<string, \BerlinDB\Database\Operators\Base>
+	 * @return array<string, \BerlinDB\Database\Operators\Comparisons\Base>
 	 */
 	private function operators_by_compare(): array {
 		$instances = array(

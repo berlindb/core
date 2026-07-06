@@ -109,10 +109,10 @@ class Interval extends Base {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param \BerlinDB\Database\Operators\Base $operator The operator being paired.
+	 * @param \BerlinDB\Database\Operators\Comparisons\Base $operator The operator being paired.
 	 * @return bool
 	 */
-	public function pairs_with( \BerlinDB\Database\Operators\Base $operator ): bool {
+	public function pairs_with( \BerlinDB\Database\Operators\Comparisons\Base $operator ): bool {
 		return false;
 	}
 }

@@ -1,6 +1,6 @@
 <?php
 /**
- * Is Not Null Operator.
+ * Is Null Operator.
  *
  * @package     Database
  * @subpackage  Operators
@@ -11,7 +11,7 @@
 
 declare( strict_types = 1 );
 
-namespace BerlinDB\Database\Operators;
+namespace BerlinDB\Database\Operators\Comparisons;
 
 use BerlinDB\Database\Kern\Column;
 
@@ -19,16 +19,15 @@ use BerlinDB\Database\Kern\Column;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * IS NOT NULL operator - matches rows whose column holds a non-NULL value.
+ * IS NULL operator - matches rows whose column holds SQL NULL.
  *
  * A unary postfix predicate: it takes no right-hand value, so it emits
- * `{column} IS NOT NULL` directly rather than the trait's
- * `{column} OP {value}`. The logical opposite of IsNull (via
- * $opposite_compare), but still a positive, direct predicate.
+ * `{column} IS NULL` directly rather than the trait's `{column} OP {value}`.
+ * The companion to a nullable Column ($allow_null) on the query side.
  *
  * @since 3.1.0
  */
-class IsNotNull extends Base {
+class IsNull extends Base {
 
 	/**
 	 * Human-readable name of this operator.
@@ -36,7 +35,7 @@ class IsNotNull extends Base {
 	 * @since 3.1.0
 	 * @var string
 	 */
-	protected $name = 'IsNotNull';
+	protected $name = 'IsNull';
 
 	/**
 	 * SQL operator string used in comparisons (e.g. '=', 'IN', 'BETWEEN').
@@ -44,15 +43,10 @@ class IsNotNull extends Base {
 	 * @since 3.1.0
 	 * @var string
 	 */
-	protected $compare = 'IS NOT NULL';
+	protected $compare = 'IS NULL';
 
 	/**
 	 * Whether this is a positive (non-negating) operator.
-	 *
-	 * True: `IS NOT NULL` is a direct predicate, not an anti-join. Unlike
-	 * NOT IN / NOT LIKE / NOT EXISTS it needs no NOT EXISTS wrapping, so the
-	 * negation-planning that keys off $positive must not treat it as negative.
-	 * Its relationship to IS NULL is the separate $opposite_compare axis.
 	 *
 	 * @since 3.1.0
 	 * @var bool
@@ -65,7 +59,7 @@ class IsNotNull extends Base {
 	 * @since 3.1.0
 	 * @var string
 	 */
-	protected $opposite_compare = 'IS NULL';
+	protected $opposite_compare = 'IS NOT NULL';
 
 	/**
 	 * Whether this operator is intended for numeric comparisons (>, <, BETWEEN).
@@ -84,7 +78,7 @@ class IsNotNull extends Base {
 	protected $unary = true;
 
 	/**
-	 * Assemble the unary predicate: `{column} IS NOT NULL`.
+	 * Assemble the unary predicate: `{column} IS NULL`.
 	 *
 	 * Overrides the trait's value-driven get_sql() because a unary operator has
 	 * no value operand; $value and $cast are intentionally ignored.
@@ -96,7 +90,7 @@ class IsNotNull extends Base {
 	 * @param mixed  $value Unused. Unary operators take no value.
 	 * @param string $cast  Unused. A NULL test never casts.
 	 *
-	 * @return string The `{column} IS NOT NULL` expression.
+	 * @return string The `{column} IS NULL` expression.
 	 */
 	public function get_sql( Column $col, string $alias = '', $value = null, string $cast = '' ): string {
 		return $col->get_name_sql( $alias ) . ' ' . $this->get_sql_compare();
@@ -104,6 +98,9 @@ class IsNotNull extends Base {
 
 	/**
 	 * Returns an empty string - a unary operator has no value fragment.
+	 *
+	 * Keeps value-driven builders (e.g. Parser::build_value()) from emitting a
+	 * spurious operand: they guard on a non-empty return and skip the clause.
 	 *
 	 * @since 3.1.0
 	 *

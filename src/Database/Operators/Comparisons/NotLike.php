@@ -11,7 +11,7 @@
 
 declare( strict_types = 1 );
 
-namespace BerlinDB\Database\Operators;
+namespace BerlinDB\Database\Operators\Comparisons;
 
 defined( 'ABSPATH' ) || exit;
 

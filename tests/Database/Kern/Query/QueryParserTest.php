@@ -11,7 +11,7 @@
 namespace BerlinDB\Tests;
 
 use BerlinDB\Database\Parsers\Base as ParserBase;
-use BerlinDB\Database\Operators\Base as OperatorBase;
+use BerlinDB\Database\Operators\Comparisons\Base as OperatorBase;
 use BerlinDB\Database\Parsers\Meta as MetaParser;
 use BerlinDB\Database\Query as BerlinQuery;
 use BerlinDB\Tests\Fixtures\TestQuery;

@@ -1,6 +1,6 @@
 <?php
 /**
- * Greater Than Or Equal Operator.
+ * Less Than Or Equal Operator.
  *
  * @package     Database
  * @subpackage  Operators
@@ -11,19 +11,19 @@
 
 declare( strict_types = 1 );
 
-namespace BerlinDB\Database\Operators;
+namespace BerlinDB\Database\Operators\Comparisons;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Greater Than Or Equal operator (>=).
+ * Less Than Or Equal operator (<=).
  *
  * Numeric comparison. Generates a value fragment prepared for use in
- * `{column} >= {value}` expressions.
+ * `{column} <= {value}` expressions.
  *
  * @since 3.0.0
  */
-class GreaterThanOrEqual extends Base {
+class LessThanOrEqual extends Base {
 
 	/**
 	 * Human-readable name of this operator.
@@ -31,7 +31,7 @@ class GreaterThanOrEqual extends Base {
 	 * @since 3.0.0
 	 * @var string
 	 */
-	protected $name = 'Greater Than Or Equal';
+	protected $name = 'Less Than Or Equal';
 
 	/**
 	 * SQL operator string used in comparisons (e.g. '=', 'IN', 'BETWEEN').
@@ -39,7 +39,7 @@ class GreaterThanOrEqual extends Base {
 	 * @since 3.0.0
 	 * @var string
 	 */
-	protected $compare = '>=';
+	protected $compare = '<=';
 
 	/**
 	 * Whether this is a positive (non-negating) operator.
@@ -55,7 +55,7 @@ class GreaterThanOrEqual extends Base {
 	 * @since 3.1.0
 	 * @var string
 	 */
-	protected $opposite_compare = '<';
+	protected $opposite_compare = '>';
 
 	/**
 	 * Whether this operator is intended for numeric comparisons (>, <, BETWEEN).

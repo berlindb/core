@@ -1,6 +1,6 @@
 <?php
 /**
- * Equal Operator.
+ * Exists Operator.
  *
  * @package     Database
  * @subpackage  Operators
@@ -11,19 +11,20 @@
 
 declare( strict_types = 1 );
 
-namespace BerlinDB\Database\Operators;
+namespace BerlinDB\Database\Operators\Comparisons;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Equality operator (=).
+ * EXISTS operator - validates that a meta key exists.
  *
- * The default comparison operator. Generates a value fragment prepared for
- * use in `{column} = {value}` expressions.
+ * The identifier 'EXISTS' is used for query validation and operator lookup.
+ * Because `{column} EXISTS {value}` is not valid MySQL syntax, $sql_compare
+ * is set to '=' so parsers correctly assemble `{column} = {value}` instead.
  *
  * @since 3.0.0
  */
-class Equal extends Base {
+class Exists extends Base {
 
 	/**
 	 * Human-readable name of this operator.
@@ -31,7 +32,7 @@ class Equal extends Base {
 	 * @since 3.0.0
 	 * @var string
 	 */
-	protected $name = 'Equal';
+	protected $name = 'Exists';
 
 	/**
 	 * SQL operator string used in comparisons (e.g. '=', 'IN', 'BETWEEN').
@@ -39,7 +40,22 @@ class Equal extends Base {
 	 * @since 3.0.0
 	 * @var string
 	 */
-	protected $compare = '=';
+	protected $compare = 'EXISTS';
+
+	/**
+	 * Overrides the default to '=' because `{column} EXISTS {value}` is not
+	 * valid MySQL syntax. Parsers use this value when assembling WHERE clauses.
+	 *
+	 * @since 3.0.0
+	 * @var string
+	 */
+	/**
+	 * SQL operator string to use when assembling a WHERE clause.
+	 *
+	 * @since 3.0.0
+	 * @var string
+	 */
+	protected $sql_compare = '=';
 
 	/**
 	 * Whether this is a positive (non-negating) operator.
@@ -55,7 +71,7 @@ class Equal extends Base {
 	 * @since 3.1.0
 	 * @var string
 	 */
-	protected $opposite_compare = '!=';
+	protected $opposite_compare = 'NOT EXISTS';
 
 	/**
 	 * Whether this operator is intended for numeric comparisons (>, <, BETWEEN).
@@ -64,13 +80,4 @@ class Equal extends Base {
 	 * @var bool
 	 */
 	protected $numeric = false;
-
-	/**
-	 * Whether this operator accepts an expression operand (column/function/
-	 * subquery) on the right-hand side instead of only a prepared scalar value.
-	 *
-	 * @since 3.1.0
-	 * @var bool
-	 */
-	protected $expression = true;
 }

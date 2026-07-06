@@ -1,6 +1,6 @@
 <?php
 /**
- * Not Equal Operator.
+ * Less Than Operator.
  *
  * @package     Database
  * @subpackage  Operators
@@ -11,19 +11,19 @@
 
 declare( strict_types = 1 );
 
-namespace BerlinDB\Database\Operators;
+namespace BerlinDB\Database\Operators\Comparisons;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Not Equal operator (!=).
+ * Less Than operator (<).
  *
- * Generates a value fragment prepared for use in `{column} != {value}`
- * expressions.
+ * Numeric comparison. Generates a value fragment prepared for use in
+ * `{column} < {value}` expressions.
  *
  * @since 3.0.0
  */
-class NotEqual extends Base {
+class LessThan extends Base {
 
 	/**
 	 * Human-readable name of this operator.
@@ -31,7 +31,7 @@ class NotEqual extends Base {
 	 * @since 3.0.0
 	 * @var string
 	 */
-	protected $name = 'Not Equal';
+	protected $name = 'Less Than';
 
 	/**
 	 * SQL operator string used in comparisons (e.g. '=', 'IN', 'BETWEEN').
@@ -39,7 +39,7 @@ class NotEqual extends Base {
 	 * @since 3.0.0
 	 * @var string
 	 */
-	protected $compare = '!=';
+	protected $compare = '<';
 
 	/**
 	 * Whether this is a positive (non-negating) operator.
@@ -47,7 +47,7 @@ class NotEqual extends Base {
 	 * @since 3.0.0
 	 * @var bool
 	 */
-	protected $positive = false;
+	protected $positive = true;
 
 	/**
 	 * The $compare of this operator's logical opposite.
@@ -55,7 +55,7 @@ class NotEqual extends Base {
 	 * @since 3.1.0
 	 * @var string
 	 */
-	protected $opposite_compare = '=';
+	protected $opposite_compare = '>=';
 
 	/**
 	 * Whether this operator is intended for numeric comparisons (>, <, BETWEEN).
@@ -63,7 +63,7 @@ class NotEqual extends Base {
 	 * @since 3.0.0
 	 * @var bool
 	 */
-	protected $numeric = false;
+	protected $numeric = true;
 
 	/**
 	 * Whether this operator accepts an expression operand (column/function/

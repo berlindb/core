@@ -14,7 +14,7 @@ declare( strict_types = 1 );
 namespace BerlinDB\Database\Clauses;
 
 use BerlinDB\Database\Operands\Base as Operand;
-use BerlinDB\Database\Operators\Base as Operator;
+use BerlinDB\Database\Operators\Comparisons\Base as Operator;
 
 // Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;

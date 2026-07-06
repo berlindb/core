@@ -1,6 +1,6 @@
 <?php
 /**
- * Greater Than Operator.
+ * Rlike Operator.
  *
  * @package     Database
  * @subpackage  Operators
@@ -11,19 +11,19 @@
 
 declare( strict_types = 1 );
 
-namespace BerlinDB\Database\Operators;
+namespace BerlinDB\Database\Operators\Comparisons;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Greater Than operator (>).
+ * RLIKE operator - MySQL alias for REGEXP.
  *
- * Numeric comparison. Generates a value fragment prepared for use in
- * `{column} > {value}` expressions.
+ * Functionally identical to REGEXP. Generates a value fragment prepared for
+ * use in `{column} RLIKE {pattern}` expressions.
  *
  * @since 3.0.0
  */
-class GreaterThan extends Base {
+class Rlike extends Base {
 
 	/**
 	 * Human-readable name of this operator.
@@ -31,7 +31,7 @@ class GreaterThan extends Base {
 	 * @since 3.0.0
 	 * @var string
 	 */
-	protected $name = 'Greater Than';
+	protected $name = 'Rlike';
 
 	/**
 	 * SQL operator string used in comparisons (e.g. '=', 'IN', 'BETWEEN').
@@ -39,7 +39,7 @@ class GreaterThan extends Base {
 	 * @since 3.0.0
 	 * @var string
 	 */
-	protected $compare = '>';
+	protected $compare = 'RLIKE';
 
 	/**
 	 * Whether this is a positive (non-negating) operator.
@@ -50,27 +50,18 @@ class GreaterThan extends Base {
 	protected $positive = true;
 
 	/**
-	 * The $compare of this operator's logical opposite.
-	 *
-	 * @since 3.1.0
-	 * @var string
-	 */
-	protected $opposite_compare = '<=';
-
-	/**
 	 * Whether this operator is intended for numeric comparisons (>, <, BETWEEN).
 	 *
 	 * @since 3.0.0
 	 * @var bool
 	 */
-	protected $numeric = true;
+	protected $numeric = false;
 
 	/**
-	 * Whether this operator accepts an expression operand (column/function/
-	 * subquery) on the right-hand side instead of only a prepared scalar value.
+	 * Whether this operator is a regular-expression match (REGEXP / RLIKE).
 	 *
 	 * @since 3.1.0
 	 * @var bool
 	 */
-	protected $expression = true;
+	protected $regex = true;
 }

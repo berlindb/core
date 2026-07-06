@@ -276,7 +276,7 @@ abstract class Base {
 	protected function get_operator_classes() {
 
 		// The shared default set; a parser filters it below.
-		$operators = \BerlinDB\Database\Operators\Registry::default_classes();
+		$operators = \BerlinDB\Database\Operators\Comparisons\Registry::default_classes();
 
 		/**
 		 * Filter the default operator class list.
@@ -305,7 +305,7 @@ abstract class Base {
 	 * @since 3.0.0
 	 */
 	protected function set_operators(): void {
-		$this->operators = ( new \BerlinDB\Database\Operators\Registry( $this->get_operator_classes() ) )->all();
+		$this->operators = ( new \BerlinDB\Database\Operators\Comparisons\Registry( $this->get_operator_classes() ) )->all();
 	}
 
 	/**

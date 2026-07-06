@@ -1,6 +1,6 @@
 <?php
 /**
- * Not Regexp Operator.
+ * Equal Operator.
  *
  * @package     Database
  * @subpackage  Operators
@@ -11,19 +11,19 @@
 
 declare( strict_types = 1 );
 
-namespace BerlinDB\Database\Operators;
+namespace BerlinDB\Database\Operators\Comparisons;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
- * NOT REGEXP operator - negated regular expression match.
+ * Equality operator (=).
  *
- * Generates a value fragment prepared for use in `{column} NOT REGEXP {pattern}`
- * expressions. The value is passed as-is to wpdb::prepare().
+ * The default comparison operator. Generates a value fragment prepared for
+ * use in `{column} = {value}` expressions.
  *
  * @since 3.0.0
  */
-class NotRegexp extends Base {
+class Equal extends Base {
 
 	/**
 	 * Human-readable name of this operator.
@@ -31,7 +31,7 @@ class NotRegexp extends Base {
 	 * @since 3.0.0
 	 * @var string
 	 */
-	protected $name = 'Not Regexp';
+	protected $name = 'Equal';
 
 	/**
 	 * SQL operator string used in comparisons (e.g. '=', 'IN', 'BETWEEN').
@@ -39,7 +39,7 @@ class NotRegexp extends Base {
 	 * @since 3.0.0
 	 * @var string
 	 */
-	protected $compare = 'NOT REGEXP';
+	protected $compare = '=';
 
 	/**
 	 * Whether this is a positive (non-negating) operator.
@@ -47,7 +47,7 @@ class NotRegexp extends Base {
 	 * @since 3.0.0
 	 * @var bool
 	 */
-	protected $positive = false;
+	protected $positive = true;
 
 	/**
 	 * The $compare of this operator's logical opposite.
@@ -55,7 +55,7 @@ class NotRegexp extends Base {
 	 * @since 3.1.0
 	 * @var string
 	 */
-	protected $opposite_compare = 'REGEXP';
+	protected $opposite_compare = '!=';
 
 	/**
 	 * Whether this operator is intended for numeric comparisons (>, <, BETWEEN).
@@ -66,10 +66,11 @@ class NotRegexp extends Base {
 	protected $numeric = false;
 
 	/**
-	 * Whether this operator is a regular-expression match (REGEXP / RLIKE).
+	 * Whether this operator accepts an expression operand (column/function/
+	 * subquery) on the right-hand side instead of only a prepared scalar value.
 	 *
 	 * @since 3.1.0
 	 * @var bool
 	 */
-	protected $regex = true;
+	protected $expression = true;
 }

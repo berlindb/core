@@ -1,6 +1,6 @@
 <?php
 /**
- * Regexp Operator.
+ * Not Regexp Operator.
  *
  * @package     Database
  * @subpackage  Operators
@@ -11,19 +11,19 @@
 
 declare( strict_types = 1 );
 
-namespace BerlinDB\Database\Operators;
+namespace BerlinDB\Database\Operators\Comparisons;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
- * REGEXP operator - regular expression match.
+ * NOT REGEXP operator - negated regular expression match.
  *
- * Generates a value fragment prepared for use in `{column} REGEXP {pattern}`
+ * Generates a value fragment prepared for use in `{column} NOT REGEXP {pattern}`
  * expressions. The value is passed as-is to wpdb::prepare().
  *
  * @since 3.0.0
  */
-class Regexp extends Base {
+class NotRegexp extends Base {
 
 	/**
 	 * Human-readable name of this operator.
@@ -31,7 +31,7 @@ class Regexp extends Base {
 	 * @since 3.0.0
 	 * @var string
 	 */
-	protected $name = 'Regexp';
+	protected $name = 'Not Regexp';
 
 	/**
 	 * SQL operator string used in comparisons (e.g. '=', 'IN', 'BETWEEN').
@@ -39,7 +39,7 @@ class Regexp extends Base {
 	 * @since 3.0.0
 	 * @var string
 	 */
-	protected $compare = 'REGEXP';
+	protected $compare = 'NOT REGEXP';
 
 	/**
 	 * Whether this is a positive (non-negating) operator.
@@ -47,7 +47,7 @@ class Regexp extends Base {
 	 * @since 3.0.0
 	 * @var bool
 	 */
-	protected $positive = true;
+	protected $positive = false;
 
 	/**
 	 * The $compare of this operator's logical opposite.
@@ -55,7 +55,7 @@ class Regexp extends Base {
 	 * @since 3.1.0
 	 * @var string
 	 */
-	protected $opposite_compare = 'NOT REGEXP';
+	protected $opposite_compare = 'REGEXP';
 
 	/**
 	 * Whether this operator is intended for numeric comparisons (>, <, BETWEEN).

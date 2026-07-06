@@ -96,11 +96,16 @@ bin/run-tests.sh -p 8.2 -w 6.7 -- --group default
   schema, alias, and connection a Query already unifies (a parser resolves via
   `$this->caller->resolve_operand()`).
 - `src/Database/Parsers/` + `Operators/` + `Operands/` — reusable SQL clause
-  builders, each a class hierarchy in its own directory. **A value-object family's
-  manager is a class in that family's directory, not a trait** — e.g.
-  `Operators\Registry` (holds a set of operators and looks them up, used by the
-  parsers and by Query's HAVING). Consumers *hold* the manager; they don't compose
-  it as a mixin. Add new registries/resolvers/factories the same way.
+  builders, each a class hierarchy in its own directory. **Operators are grouped by
+  KIND into subdirectories**: `Operators\Comparisons\` (predicate operators — `=`,
+  `IN`, `BETWEEN`, `IS NULL`, …, plus their `Base` + `Registry`) and
+  `Operators\Arithmetic\` (expression operators — `Add`/`Subtract`/`Multiply`/`Divide`);
+  a comparison builds a `Clauses\Predicate` (boolean), an arithmetic operator an
+  `Operands\Math` expression (value). **A value-object family's manager is a class in
+  that family's directory, not a trait** — e.g. `Operators\Comparisons\Registry` (holds
+  a set of operators and looks them up, used by the parsers and by Query's HAVING).
+  Consumers *hold* the manager; they don't compose it as a mixin. Add new
+  registries/resolvers/factories the same way.
 - `src/Database/Clauses/` — clause value objects (`Where`, `Join`, `BooleanGroup`,
   `Builder`, `Predicate`). `Predicate` is one comparison (`{left operand} {operator}
   {right}`) that renders itself; WHERE / relationship / HAVING all assemble one.

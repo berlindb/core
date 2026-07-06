@@ -1,6 +1,6 @@
 <?php
 /**
- * Exists Operator.
+ * Not Equal Operator.
  *
  * @package     Database
  * @subpackage  Operators
@@ -11,20 +11,19 @@
 
 declare( strict_types = 1 );
 
-namespace BerlinDB\Database\Operators;
+namespace BerlinDB\Database\Operators\Comparisons;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
- * EXISTS operator - validates that a meta key exists.
+ * Not Equal operator (!=).
  *
- * The identifier 'EXISTS' is used for query validation and operator lookup.
- * Because `{column} EXISTS {value}` is not valid MySQL syntax, $sql_compare
- * is set to '=' so parsers correctly assemble `{column} = {value}` instead.
+ * Generates a value fragment prepared for use in `{column} != {value}`
+ * expressions.
  *
  * @since 3.0.0
  */
-class Exists extends Base {
+class NotEqual extends Base {
 
 	/**
 	 * Human-readable name of this operator.
@@ -32,7 +31,7 @@ class Exists extends Base {
 	 * @since 3.0.0
 	 * @var string
 	 */
-	protected $name = 'Exists';
+	protected $name = 'Not Equal';
 
 	/**
 	 * SQL operator string used in comparisons (e.g. '=', 'IN', 'BETWEEN').
@@ -40,22 +39,7 @@ class Exists extends Base {
 	 * @since 3.0.0
 	 * @var string
 	 */
-	protected $compare = 'EXISTS';
-
-	/**
-	 * Overrides the default to '=' because `{column} EXISTS {value}` is not
-	 * valid MySQL syntax. Parsers use this value when assembling WHERE clauses.
-	 *
-	 * @since 3.0.0
-	 * @var string
-	 */
-	/**
-	 * SQL operator string to use when assembling a WHERE clause.
-	 *
-	 * @since 3.0.0
-	 * @var string
-	 */
-	protected $sql_compare = '=';
+	protected $compare = '!=';
 
 	/**
 	 * Whether this is a positive (non-negating) operator.
@@ -63,7 +47,7 @@ class Exists extends Base {
 	 * @since 3.0.0
 	 * @var bool
 	 */
-	protected $positive = true;
+	protected $positive = false;
 
 	/**
 	 * The $compare of this operator's logical opposite.
@@ -71,7 +55,7 @@ class Exists extends Base {
 	 * @since 3.1.0
 	 * @var string
 	 */
-	protected $opposite_compare = 'NOT EXISTS';
+	protected $opposite_compare = '=';
 
 	/**
 	 * Whether this operator is intended for numeric comparisons (>, <, BETWEEN).
@@ -80,4 +64,13 @@ class Exists extends Base {
 	 * @var bool
 	 */
 	protected $numeric = false;
+
+	/**
+	 * Whether this operator accepts an expression operand (column/function/
+	 * subquery) on the right-hand side instead of only a prepared scalar value.
+	 *
+	 * @since 3.1.0
+	 * @var bool
+	 */
+	protected $expression = true;
 }

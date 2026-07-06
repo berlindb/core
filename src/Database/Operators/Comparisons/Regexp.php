@@ -1,6 +1,6 @@
 <?php
 /**
- * Less Than Operator.
+ * Regexp Operator.
  *
  * @package     Database
  * @subpackage  Operators
@@ -11,19 +11,19 @@
 
 declare( strict_types = 1 );
 
-namespace BerlinDB\Database\Operators;
+namespace BerlinDB\Database\Operators\Comparisons;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Less Than operator (<).
+ * REGEXP operator - regular expression match.
  *
- * Numeric comparison. Generates a value fragment prepared for use in
- * `{column} < {value}` expressions.
+ * Generates a value fragment prepared for use in `{column} REGEXP {pattern}`
+ * expressions. The value is passed as-is to wpdb::prepare().
  *
  * @since 3.0.0
  */
-class LessThan extends Base {
+class Regexp extends Base {
 
 	/**
 	 * Human-readable name of this operator.
@@ -31,7 +31,7 @@ class LessThan extends Base {
 	 * @since 3.0.0
 	 * @var string
 	 */
-	protected $name = 'Less Than';
+	protected $name = 'Regexp';
 
 	/**
 	 * SQL operator string used in comparisons (e.g. '=', 'IN', 'BETWEEN').
@@ -39,7 +39,7 @@ class LessThan extends Base {
 	 * @since 3.0.0
 	 * @var string
 	 */
-	protected $compare = '<';
+	protected $compare = 'REGEXP';
 
 	/**
 	 * Whether this is a positive (non-negating) operator.
@@ -55,7 +55,7 @@ class LessThan extends Base {
 	 * @since 3.1.0
 	 * @var string
 	 */
-	protected $opposite_compare = '>=';
+	protected $opposite_compare = 'NOT REGEXP';
 
 	/**
 	 * Whether this operator is intended for numeric comparisons (>, <, BETWEEN).
@@ -63,14 +63,13 @@ class LessThan extends Base {
 	 * @since 3.0.0
 	 * @var bool
 	 */
-	protected $numeric = true;
+	protected $numeric = false;
 
 	/**
-	 * Whether this operator accepts an expression operand (column/function/
-	 * subquery) on the right-hand side instead of only a prepared scalar value.
+	 * Whether this operator is a regular-expression match (REGEXP / RLIKE).
 	 *
 	 * @since 3.1.0
 	 * @var bool
 	 */
-	protected $expression = true;
+	protected $regex = true;
 }

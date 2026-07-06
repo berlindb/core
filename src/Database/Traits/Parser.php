@@ -118,7 +118,7 @@ trait Parser {
 	 * The operator instances (the registry's set).
 	 *
 	 * @since 3.0.0
-	 * @var   list<\BerlinDB\Database\Operators\Base>
+	 * @var   list<\BerlinDB\Database\Operators\Comparisons\Base>
 	 */
 	public $operators = array();
 
@@ -580,7 +580,7 @@ trait Parser {
 	 * @since 3.0.0
 	 *
 	 * @param array<string,mixed> $args Key => value pairs to match against operator properties.
-	 * @return \BerlinDB\Database\Operators\Base|false The first matching operator, or false.
+	 * @return \BerlinDB\Database\Operators\Comparisons\Base|false The first matching operator, or false.
 	 */
 	protected function get_operator_by( $args = array() ) {
 		$filter = $this->get_operators( $args, false );
@@ -588,7 +588,7 @@ trait Parser {
 			? reset( $filter )
 			: false;
 
-		return ( $first instanceof \BerlinDB\Database\Operators\Base )
+		return ( $first instanceof \BerlinDB\Database\Operators\Comparisons\Base )
 			? $first
 			: false;
 	}
@@ -599,7 +599,7 @@ trait Parser {
 	 * @since 3.0.0
 	 *
 	 * @param string $compare The SQL operator string, e.g. '=', 'IN', 'NOT LIKE'.
-	 * @return \BerlinDB\Database\Operators\Base|false The matching operator, or false.
+	 * @return \BerlinDB\Database\Operators\Comparisons\Base|false The matching operator, or false.
 	 */
 	protected function get_operator( $compare = '' ) {
 		return $this->get_operator_by( array( 'compare' => $compare ) );
@@ -617,13 +617,13 @@ trait Parser {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param \BerlinDB\Database\Operators\Base $operator The operator to invert.
+	 * @param \BerlinDB\Database\Operators\Comparisons\Base $operator The operator to invert.
 	 *
-	 * @return \BerlinDB\Database\Operators\Base|false The opposite operator, or
+	 * @return \BerlinDB\Database\Operators\Comparisons\Base|false The opposite operator, or
 	 *         false when the operator declares no opposite (e.g. 'RLIKE') or that
 	 *         opposite is not in the filtered registry.
 	 */
-	protected function get_opposite_operator( \BerlinDB\Database\Operators\Base $operator ) {
+	protected function get_opposite_operator( \BerlinDB\Database\Operators\Comparisons\Base $operator ) {
 		$compare = $operator->get_opposite_compare();
 
 		return ( '' !== $compare )
@@ -1278,14 +1278,14 @@ trait Parser {
 	 * @since 3.1.0
 	 *
 	 * @param \BerlinDB\Database\Operands\Base   $lhs              The resolved left operand.
-	 * @param \BerlinDB\Database\Operators\Base  $operator         The resolved operator.
+	 * @param \BerlinDB\Database\Operators\Comparisons\Base  $operator         The resolved operator.
 	 * @param mixed                              $value            The clause value (operand spec or scalar; absent for unary).
 	 * @param bool                               $value_is_operand Whether $value is a structured operand spec.
 	 * @param \BerlinDB\Database\Kern\Query|null $resolver         The query a structured right operand resolves against. Null uses the caller. Default null.
 	 * @param string|null                        $alias            Alias to qualify a right-side column. Null uses the resolver's own. Default null.
 	 * @return string|false The predicate SQL (possibly ''), or false to fail the clause closed.
 	 */
-	protected function build_operand_clause( \BerlinDB\Database\Operands\Base $lhs, \BerlinDB\Database\Operators\Base $operator, $value, bool $value_is_operand, ?\BerlinDB\Database\Kern\Query $resolver = null, ?string $alias = null ) {
+	protected function build_operand_clause( \BerlinDB\Database\Operands\Base $lhs, \BerlinDB\Database\Operators\Comparisons\Base $operator, $value, bool $value_is_operand, ?\BerlinDB\Database\Kern\Query $resolver = null, ?string $alias = null ) {
 
 		/*
 		 * A unary operator (IS NULL) takes no right-hand side, so never resolve one -

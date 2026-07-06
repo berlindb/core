@@ -491,7 +491,7 @@ trait Aggregates {
 		}
 
 		// The operator registry (default set) renders each comparison.
-		$operators = new \BerlinDB\Database\Operators\Registry();
+		$operators = new \BerlinDB\Database\Operators\Comparisons\Registry();
 
 		$fragments = array();
 
@@ -522,7 +522,7 @@ trait Aggregates {
 			 */
 			$operator = $operators->get_operator( $compare );
 
-			if ( ! ( $operator instanceof \BerlinDB\Database\Operators\Base ) || ! $operator->is_expression() ) {
+			if ( ! ( $operator instanceof \BerlinDB\Database\Operators\Comparisons\Base ) || ! $operator->is_expression() ) {
 				$this->log( 'warning', 'having', "Unsupported HAVING operator '{$compare}' for '{$alias}'; ignoring it." );
 				continue;
 			}

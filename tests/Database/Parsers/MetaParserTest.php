@@ -1037,9 +1037,9 @@ class MetaParserTest extends TestCase {
 		$resolve = new \ReflectionMethod( $parser, 'get_opposite_operator' );
 		$resolve->setAccessible( true );
 
-		$opposite = $resolve->invoke( $parser, new \BerlinDB\Database\Operators\NotIn() );
+		$opposite = $resolve->invoke( $parser, new \BerlinDB\Database\Operators\Comparisons\NotIn() );
 
-		$this->assertInstanceOf( \BerlinDB\Database\Operators\In::class, $opposite );
+		$this->assertInstanceOf( \BerlinDB\Database\Operators\Comparisons\In::class, $opposite );
 		$this->assertSame( 'IN', $opposite->compare );
 	}
 
@@ -1055,6 +1055,6 @@ class MetaParserTest extends TestCase {
 		$resolve = new \ReflectionMethod( $parser, 'get_opposite_operator' );
 		$resolve->setAccessible( true );
 
-		$this->assertFalse( $resolve->invoke( $parser, new \BerlinDB\Database\Operators\Rlike() ) );
+		$this->assertFalse( $resolve->invoke( $parser, new \BerlinDB\Database\Operators\Comparisons\Rlike() ) );
 	}
 }
