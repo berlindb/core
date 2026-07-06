@@ -70,7 +70,7 @@ class Func extends Base {
 	 * @var array<string,array{sql:string,min_args:int,max_args?:int,variadic?:bool,arg_kinds:list<string>,return_pattern:string|null,accepts:list<string>}>
 	 */
 	private const ALLOWED = array(
-		'LOWER'      => array(
+		'LOWER'       => array(
 			'sql'            => 'LOWER',
 			'min_args'       => 1,
 			'max_args'       => 1,
@@ -78,7 +78,7 @@ class Func extends Base {
 			'return_pattern' => '%s',
 			'accepts'        => self::ANY_TYPE,
 		),
-		'UPPER'      => array(
+		'UPPER'       => array(
 			'sql'            => 'UPPER',
 			'min_args'       => 1,
 			'max_args'       => 1,
@@ -86,7 +86,7 @@ class Func extends Base {
 			'return_pattern' => '%s',
 			'accepts'        => self::ANY_TYPE,
 		),
-		'LENGTH'     => array(
+		'LENGTH'      => array(
 			'sql'            => 'LENGTH',
 			'min_args'       => 1,
 			'max_args'       => 1,
@@ -94,7 +94,7 @@ class Func extends Base {
 			'return_pattern' => '%d',
 			'accepts'        => self::ANY_TYPE,
 		),
-		'ABS'        => array(
+		'ABS'         => array(
 			'sql'            => 'ABS',
 			'min_args'       => 1,
 			'max_args'       => 1,
@@ -106,7 +106,7 @@ class Func extends Base {
 			'return_pattern' => '%s',
 			'accepts'        => array( 'numeric' ),
 		),
-		'DATE'       => array(
+		'DATE'        => array(
 			'sql'            => 'DATE',
 			'min_args'       => 1,
 			'max_args'       => 1,
@@ -114,7 +114,7 @@ class Func extends Base {
 			'return_pattern' => '%s',
 			'accepts'        => array( 'date', 'string' ),
 		),
-		'YEAR'       => array(
+		'YEAR'        => array(
 			'sql'            => 'YEAR',
 			'min_args'       => 1,
 			'max_args'       => 1,
@@ -122,7 +122,7 @@ class Func extends Base {
 			'return_pattern' => '%d',
 			'accepts'        => array( 'date', 'string' ),
 		),
-		'MONTH'      => array(
+		'MONTH'       => array(
 			'sql'            => 'MONTH',
 			'min_args'       => 1,
 			'max_args'       => 1,
@@ -130,7 +130,7 @@ class Func extends Base {
 			'return_pattern' => '%d',
 			'accepts'        => array( 'date', 'string' ),
 		),
-		'DAYOFMONTH' => array(
+		'DAYOFMONTH'  => array(
 			'sql'            => 'DAYOFMONTH',
 			'min_args'       => 1,
 			'max_args'       => 1,
@@ -138,7 +138,7 @@ class Func extends Base {
 			'return_pattern' => '%d',
 			'accepts'        => array( 'date', 'string' ),
 		),
-		'DAYOFYEAR'  => array(
+		'DAYOFYEAR'   => array(
 			'sql'            => 'DAYOFYEAR',
 			'min_args'       => 1,
 			'max_args'       => 1,
@@ -146,7 +146,7 @@ class Func extends Base {
 			'return_pattern' => '%d',
 			'accepts'        => array( 'date', 'string' ),
 		),
-		'DAYOFWEEK'  => array(
+		'DAYOFWEEK'   => array(
 			'sql'            => 'DAYOFWEEK',
 			'min_args'       => 1,
 			'max_args'       => 1,
@@ -154,7 +154,7 @@ class Func extends Base {
 			'return_pattern' => '%d',
 			'accepts'        => array( 'date', 'string' ),
 		),
-		'HOUR'       => array(
+		'HOUR'        => array(
 			'sql'            => 'HOUR',
 			'min_args'       => 1,
 			'max_args'       => 1,
@@ -162,7 +162,7 @@ class Func extends Base {
 			'return_pattern' => '%d',
 			'accepts'        => array( 'date', 'time', 'string' ),
 		),
-		'MINUTE'     => array(
+		'MINUTE'      => array(
 			'sql'            => 'MINUTE',
 			'min_args'       => 1,
 			'max_args'       => 1,
@@ -170,7 +170,7 @@ class Func extends Base {
 			'return_pattern' => '%d',
 			'accepts'        => array( 'date', 'time', 'string' ),
 		),
-		'SECOND'     => array(
+		'SECOND'      => array(
 			'sql'            => 'SECOND',
 			'min_args'       => 1,
 			'max_args'       => 1,
@@ -186,13 +186,61 @@ class Func extends Base {
 		 * pattern is the common type of its arguments, computed at resolution. Any
 		 * column type is a valid argument, so it accepts every category.
 		 */
-		'COALESCE'   => array(
+		'COALESCE'    => array(
 			'sql'            => 'COALESCE',
 			'min_args'       => 2,
 			'variadic'       => true,
 			'arg_kinds'      => array( 'column', 'func', 'value' ),
 			'return_pattern' => null,
 			'accepts'        => self::ANY_TYPE,
+		),
+
+		// WEEKDAY( date ) -> 0 (Monday) .. 6 (Sunday). Used ( +1 ) for ISO day-of-week.
+		'WEEKDAY'     => array(
+			'sql'            => 'WEEKDAY',
+			'min_args'       => 1,
+			'max_args'       => 1,
+			'arg_kinds'      => array( 'column', 'func', 'value' ),
+			'return_pattern' => '%d',
+			'accepts'        => array( 'date', 'string' ),
+		),
+
+		// WEEK( date, mode ) -> the week number under the given mode ( 0-7 ).
+		'WEEK'        => array(
+			'sql'            => 'WEEK',
+			'min_args'       => 2,
+			'max_args'       => 2,
+			'arg_kinds'      => array( 'column', 'func', 'value' ),
+			'return_pattern' => '%d',
+			'accepts'        => array( 'date', 'string' ),
+		),
+
+		/*
+		 * DATE_FORMAT( date, format ) -> a formatted string. It returns a STRING (
+		 * category 'string' ), so a bare scalar compared against it prepares as %s;
+		 * a caller that needs a numeric comparison casts or compares explicitly.
+		 */
+		'DATE_FORMAT' => array(
+			'sql'            => 'DATE_FORMAT',
+			'min_args'       => 2,
+			'max_args'       => 2,
+			'arg_kinds'      => array( 'column', 'func', 'value' ),
+			'return_pattern' => '%s',
+			'accepts'        => array( 'date', 'string' ),
+		),
+
+		/*
+		 * NOW() -> the current datetime. A zero-argument function ( it takes no
+		 * column ), so it enables relative-date filters like `date_created > NOW()`
+		 * and, with DATE_SUB / INTERVAL, "the last 30 days".
+		 */
+		'NOW'         => array(
+			'sql'            => 'NOW',
+			'min_args'       => 0,
+			'max_args'       => 0,
+			'arg_kinds'      => array(),
+			'return_pattern' => '%s',
+			'accepts'        => array(),
 		),
 	);
 

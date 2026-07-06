@@ -2291,6 +2291,122 @@ class CompareParserTest extends TestCase {
 	}
 
 	/**
+	 * Test that WEEKDAY( date ) renders ( a 1-arg date function, %d result ).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_weekday_function_renders() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => array(
+					'operand' => 'func',
+					'name'    => 'WEEKDAY',
+					'args'    => array(
+						array(
+							'operand' => 'column',
+							'name'    => 'date_created',
+						),
+					),
+				),
+				'compare' => '=',
+				'value'   => 3,
+			)
+		);
+
+		$this->assertMatchesRegularExpression( '/WEEKDAY\([^)]*`date_created`[^)]*\)\s*=\s*3\b/i', $where );
+	}
+
+	/**
+	 * Test that WEEK( date, mode ) renders as a two-argument function.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_week_function_two_args_renders() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => array(
+					'operand' => 'func',
+					'name'    => 'WEEK',
+					'args'    => array(
+						array(
+							'operand' => 'column',
+							'name'    => 'date_created',
+						),
+						array(
+							'operand' => 'value',
+							'value'   => 0,
+							'pattern' => '%d',
+						),
+					),
+				),
+				'compare' => '=',
+				'value'   => 5,
+			)
+		);
+
+		$this->assertMatchesRegularExpression( '/WEEK\(\s*`?[\w]*`?\.?`date_created`\s*,\s*0\s*\)\s*=\s*5\b/i', $where );
+		$this->assertStringNotContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * Test that DATE_FORMAT( date, format ) renders, comparing as a string (%s).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_date_format_function_renders() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => array(
+					'operand' => 'func',
+					'name'    => 'DATE_FORMAT',
+					'args'    => array(
+						array(
+							'operand' => 'column',
+							'name'    => 'date_created',
+						),
+						array(
+							'operand' => 'value',
+							'value'   => '%Y',
+						),
+					),
+				),
+				'compare' => '=',
+				'value'   => '2024',
+			)
+		);
+
+		$this->assertStringContainsString( 'DATE_FORMAT(', $where );
+		$this->assertStringContainsString( "= '2024'", $where );
+		$this->assertStringNotContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * Test that NOW() renders as a zero-argument function on the value side, enabling
+	 * relative-date filters like `date_created > NOW()`.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_now_function_as_value_operand() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => 'date_created',
+				'compare' => '>',
+				'value'   => array(
+					'operand' => 'func',
+					'name'    => 'NOW',
+				),
+			)
+		);
+
+		$this->assertMatchesRegularExpression( '/`date_created`\s*>\s*NOW\(\)/i', $where );
+		$this->assertStringNotContainsString( '1 = 0', $where );
+	}
+
+	/**
 	 * Test that a left-hand function operand pairs with a bare value through the
 	 * operator's own value rendering - LOWER(name) LIKE '%x%' (the operator owns
 	 * the LIKE wildcards; the operand supplies the left side).
