@@ -561,24 +561,37 @@ class Date extends Base {
 			}
 		}
 
-		// Specific value queries.
+		/*
+		 * Specific date-part queries ( #211 Date migration, slice 3 ): each extracts a
+		 * part with an allow-listed function operand and compares it through the shared
+		 * engine. week / w ( WEEK + start_of_week ), dayofweek_iso ( WEEKDAY + 1 ), and
+		 * the combined time query stay bespoke - they have no single function operand.
+		 */
 		if ( isset( $clause[ 'year' ] ) ) {
-			$value = $this->build_numeric_value( $compare, $clause[ 'year' ] );
-			if ( false !== $value ) {
-				$where[] = "YEAR( {$column} ) {$compare} {$value}";
+			$expr = $this->build_date_part_expression( 'YEAR', $column_name, $clause[ 'year' ], $compare );
+
+			if ( null !== $expr ) {
+				$where[] = $expr;
 			}
 		}
 
 		// month / monthnum are aliases - try month first, fall back to monthnum.
-		$value = false;
+		$month_raw = null;
+
 		if ( isset( $clause[ 'month' ] ) ) {
-			$value = $this->build_numeric_value( $compare, $clause[ 'month' ] );
+			$month_raw = $clause[ 'month' ];
 		}
-		if ( false === $value && isset( $clause[ 'monthnum' ] ) ) {
-			$value = $this->build_numeric_value( $compare, $clause[ 'monthnum' ] );
+
+		$expr = ( null !== $month_raw )
+			? $this->build_date_part_expression( 'MONTH', $column_name, $month_raw, $compare )
+			: null;
+
+		if ( ( null === $expr ) && isset( $clause[ 'monthnum' ] ) ) {
+			$expr = $this->build_date_part_expression( 'MONTH', $column_name, $clause[ 'monthnum' ], $compare );
 		}
-		if ( false !== $value ) {
-			$where[] = "MONTH( {$column} ) {$compare} {$value}";
+
+		if ( null !== $expr ) {
+			$where[] = $expr;
 		}
 
 		// week / w are aliases - try week first, fall back to w.
@@ -594,23 +607,26 @@ class Date extends Base {
 		}
 
 		if ( isset( $clause[ 'dayofyear' ] ) ) {
-			$value = $this->build_numeric_value( $compare, $clause[ 'dayofyear' ] );
-			if ( false !== $value ) {
-				$where[] = "DAYOFYEAR( {$column} ) {$compare} {$value}";
+			$expr = $this->build_date_part_expression( 'DAYOFYEAR', $column_name, $clause[ 'dayofyear' ], $compare );
+
+			if ( null !== $expr ) {
+				$where[] = $expr;
 			}
 		}
 
 		if ( isset( $clause[ 'day' ] ) ) {
-			$value = $this->build_numeric_value( $compare, $clause[ 'day' ] );
-			if ( false !== $value ) {
-				$where[] = "DAYOFMONTH( {$column} ) {$compare} {$value}";
+			$expr = $this->build_date_part_expression( 'DAYOFMONTH', $column_name, $clause[ 'day' ], $compare );
+
+			if ( null !== $expr ) {
+				$where[] = $expr;
 			}
 		}
 
 		if ( isset( $clause[ 'dayofweek' ] ) ) {
-			$value = $this->build_numeric_value( $compare, $clause[ 'dayofweek' ] );
-			if ( false !== $value ) {
-				$where[] = "DAYOFWEEK( {$column} ) {$compare} {$value}";
+			$expr = $this->build_date_part_expression( 'DAYOFWEEK', $column_name, $clause[ 'dayofweek' ], $compare );
+
+			if ( null !== $expr ) {
+				$where[] = $expr;
 			}
 		}
 
@@ -716,6 +732,104 @@ class Date extends Base {
 			'join'  => array(),
 			'where' => $where,
 		);
+	}
+
+	/**
+	 * Normalize a numeric date-part value for the shared engine, mirroring the former
+	 * build_numeric_value(): a null value bails, non-numeric members are dropped, and
+	 * the rest are cast to int. Returns the ints as a list ( the caller shapes them per
+	 * operator - the whole list for IN/BETWEEN, the first for a scalar compare ), or
+	 * null to skip the branch - the "forget me" contract every date-part key already
+	 * honors ( a null / non-numeric value was never a filter ). 0 stays a real value.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param mixed $value The raw date-part value ( scalar or array ).
+	 * @return list<int>|null The normalized ints, or null to skip.
+	 */
+	private function normalize_date_part_value( $value ): ?array {
+
+		// A null value is "forget me" - nothing to compare.
+		if ( is_null( $value ) ) {
+			return null;
+		}
+
+		// Drop non-numeric members ( keeps 0 ); bail if nothing numeric remains.
+		$numeric = array_filter( (array) $value, 'is_numeric' );
+
+		if ( empty( $numeric ) ) {
+			return null;
+		}
+
+		return array_map( 'intval', array_values( $numeric ) );
+	}
+
+	/**
+	 * Build a date-part comparison ( e.g. `YEAR( column ) = 2024` ) through the shared
+	 * operator/operand engine: the extracted part is an allow-listed function operand
+	 * over the date column, compared with the normalized numeric value. Replaces the
+	 * hand-built `FUNC( col ) {compare} {value}` string ( #211 Date migration, slice 3 ).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $func_name   The allow-listed function ( 'YEAR', 'MONTH', ... ).
+	 * @param string $column_name The date column name.
+	 * @param mixed  $raw_value   The raw date-part value.
+	 * @param string $compare     The comparison operator ( already unary-excluded ).
+	 * @return string|null The SQL fragment, '1 = 0' on engine failure ( fail closed ),
+	 *                     or null to SKIP the branch ( a "forget me" value ).
+	 */
+	private function build_date_part_expression( string $func_name, string $column_name, $raw_value, string $compare ): ?string {
+
+		/*
+		 * A "forget me" / non-numeric value skips the branch entirely ( as
+		 * build_numeric_value returning false did ) - this is the ONLY null return, so
+		 * the monthnum fallback below keys off exactly that, never an engine failure.
+		 */
+		$ints = $this->normalize_date_part_value( $raw_value );
+
+		if ( null === $ints ) {
+			return null;
+		}
+
+		// The date part is an allow-listed function operand over the date column.
+		$lhs = $this->caller?->resolve_operand(
+			array(
+				'operand' => 'func',
+				'name'    => $func_name,
+				'args'    => array(
+					array(
+						'operand' => 'column',
+						'name'    => $column_name,
+					),
+				),
+			)
+		);
+
+		$operator = $this->get_operator( $compare );
+
+		/*
+		 * An unresolvable function operand or operator is an engine failure, not a
+		 * "forget me" - fail closed rather than drop the filter and widen results.
+		 */
+		if ( ! ( $lhs instanceof \BerlinDB\Database\Operands\Base ) || ( false === $operator ) ) {
+			return '1 = 0';
+		}
+
+		/*
+		 * Shape the value the way build_numeric_value did: a list operator ( IN ) takes
+		 * the whole list and a range operator ( BETWEEN ) its bounds, but a SCALAR
+		 * operator ( =, <, ... ) uses only the FIRST value ( the old default `reset()` ).
+		 */
+		$value = ( $operator->is_list() || $operator->is_range() )
+			? $ints
+			: $ints[0];
+
+		$expr = $this->build_operand_clause( $lhs, $operator, $value, false );
+
+		return ( is_string( $expr ) && ( '' !== $expr ) )
+			? $expr
+			: '1 = 0';
 	}
 
 	/**

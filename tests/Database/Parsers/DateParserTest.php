@@ -553,6 +553,62 @@ class DateParserTest extends TestCase {
 	}
 
 	/**
+	 * Test that a date-part query now renders through an allow-listed function operand
+	 * ( YEAR( date_created ) = 2023 ) - the numeric value prepared as %d ( unquoted ),
+	 * migration slice 3. The existing year/month/dayof* tests prove result parity.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_date_part_renders_via_func_operand() {
+		$sql = $this->date_query_sql(
+			array(
+				'column'  => 'date_created',
+				'year'    => 2023,
+				'compare' => '=',
+			)
+		);
+
+		$this->assertMatchesRegularExpression( '/YEAR\([^)]*`date_created`[^)]*\)\s*=\s*2023\b/i', $sql );
+		$this->assertStringNotContainsString( "= '2023'", $sql );
+	}
+
+	/**
+	 * Test that a date-part IN list renders through the operand engine too.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_date_part_in_list_renders() {
+		$sql = $this->date_query_sql(
+			array(
+				'column'  => 'date_created',
+				'month'   => array( 1, 12 ),
+				'compare' => 'IN',
+			)
+		);
+
+		$this->assertMatchesRegularExpression( '/MONTH\([^)]*`date_created`[^)]*\)\s+IN\s*\(\s*1,\s*12\s*\)/i', $sql );
+	}
+
+	/**
+	 * Test that a SCALAR operator with a multi-value date-part array uses only the
+	 * FIRST value ( build_numeric_value's `reset()` parity ), not the whole list.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_date_part_scalar_with_multi_value_uses_first() {
+		$sql = $this->date_query_sql(
+			array(
+				'column'  => 'date_created',
+				'year'    => array( 2020, 2021 ),
+				'compare' => '=',
+			)
+		);
+
+		$this->assertMatchesRegularExpression( '/YEAR\([^)]*\)\s*=\s*2020\b/i', $sql );
+		$this->assertStringNotContainsString( '2021', $sql );
+	}
+
+	/**
 	 * Test that before filter returns rows created before the given date.
 	 *
 	 * @since 3.0.0
