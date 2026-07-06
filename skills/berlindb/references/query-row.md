@@ -258,8 +258,9 @@ unresolvable — there is no raw-SQL passthrough.
 **Functions** — an allow-listed SQL function wraps an operand (they nest): `LOWER`,
 `UPPER`, `LENGTH`, `ABS`, `DATE`, `YEAR`, `MONTH`, `DAYOFMONTH`, `DAYOFYEAR`,
 `DAYOFWEEK`, `WEEKDAY`, `WEEK`, `HOUR`, `MINUTE`, `SECOND`, `DATE_FORMAT`, `COALESCE`,
-`NOW`, `DATE_SUB`, `DATE_ADD`. Position (`key` vs `value`) picks the side; a bare
-scalar on the other side is prepared with the function's return type:
+`GREATEST`, `LEAST`, `CONCAT`, `CONCAT_WS`, `NOW`, `DATE_SUB`, `DATE_ADD`. Position
+(`key` vs `value`) picks the side; a bare scalar on the other side is prepared with the
+function's return type:
 
 ```php
 'compare_query' => array(

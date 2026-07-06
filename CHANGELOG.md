@@ -4,6 +4,11 @@ Notable changes to BerlinDB are documented here.
 
 ## 3.1.0 - Unreleased
 
+- Adds the variadic scalar functions `GREATEST` / `LEAST` ( return the largest / smallest
+  argument, with a COALESCE-style derived return type ) and `CONCAT` / `CONCAT_WS` ( join
+  arguments into a string, so they compare as `%s` ) to the operand function allow-list
+  (#226). All are variadic ( two or more arguments ) and fail closed on fewer.
+
 - Adds an arithmetic `math` operand (#211): `array( 'operand' => 'math', 'operator' =>
   '+', 'operands' => array( ... ) )` renders a parenthesized infix expression - `( price
   * quantity ) > 100`, `( a + b ) = c` - which the plain operator/value model can't

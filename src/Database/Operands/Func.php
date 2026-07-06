@@ -270,6 +270,52 @@ class Func extends Base {
 			'return_pattern' => '%s',
 			'accepts'        => array( 'date', 'string' ),
 		),
+
+		/*
+		 * GREATEST / LEAST ( #226 ) return the largest / smallest argument. Like
+		 * COALESCE they are variadic with a DERIVED return type ( they have no type of
+		 * their own - the result is the common type of the arguments ). Any column type
+		 * is a valid argument. ( NULL semantics differ across engines - MySQL / MariaDB
+		 * return NULL if ANY argument is NULL. )
+		 */
+		'GREATEST'    => array(
+			'sql'            => 'GREATEST',
+			'min_args'       => 2,
+			'variadic'       => true,
+			'arg_kinds'      => array( 'column', 'func', 'value' ),
+			'return_pattern' => null,
+			'accepts'        => self::ANY_TYPE,
+		),
+		'LEAST'       => array(
+			'sql'            => 'LEAST',
+			'min_args'       => 2,
+			'variadic'       => true,
+			'arg_kinds'      => array( 'column', 'func', 'value' ),
+			'return_pattern' => null,
+			'accepts'        => self::ANY_TYPE,
+		),
+
+		/*
+		 * CONCAT / CONCAT_WS ( #226 ) join their arguments into a string, so they
+		 * always return a STRING ( category 'string', compared as %s ) - no derivation.
+		 * CONCAT_WS's first argument is the separator; both are variadic ( two or more ).
+		 */
+		'CONCAT'      => array(
+			'sql'            => 'CONCAT',
+			'min_args'       => 2,
+			'variadic'       => true,
+			'arg_kinds'      => array( 'column', 'func', 'value' ),
+			'return_pattern' => '%s',
+			'accepts'        => self::ANY_TYPE,
+		),
+		'CONCAT_WS'   => array(
+			'sql'            => 'CONCAT_WS',
+			'min_args'       => 2,
+			'variadic'       => true,
+			'arg_kinds'      => array( 'column', 'func', 'value' ),
+			'return_pattern' => '%s',
+			'accepts'        => self::ANY_TYPE,
+		),
 	);
 
 	/**

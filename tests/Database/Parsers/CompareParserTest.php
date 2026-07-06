@@ -2563,6 +2563,145 @@ class CompareParserTest extends TestCase {
 	}
 
 	/**
+	 * Test that GREATEST renders as a variadic function ( #226 ).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_greatest_renders() {
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => array(
+					'operand' => 'func',
+					'name'    => 'GREATEST',
+					'args'    => array(
+						array(
+							'operand' => 'column',
+							'name'    => 'priority',
+						),
+						array(
+							'operand' => 'value',
+							'value'   => 10,
+							'pattern' => '%d',
+						),
+						array(
+							'operand' => 'value',
+							'value'   => 20,
+							'pattern' => '%d',
+						),
+					),
+				),
+				'compare' => '>',
+				'value'   => 5,
+			)
+		);
+
+		$this->assertMatchesRegularExpression( '/GREATEST\([^)]*`priority`[^)]*\)/i', $where );
+		$this->assertStringNotContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * Test that LEAST derives a numeric %d pattern from all-numeric arguments ( so a
+	 * bare compared scalar is unquoted ), mirroring COALESCE's derivation ( #226 ).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_least_derives_numeric_pattern() {
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => array(
+					'operand' => 'func',
+					'name'    => 'LEAST',
+					'args'    => array(
+						array(
+							'operand' => 'func',
+							'name'    => 'LENGTH',
+							'args'    => array(
+								array(
+									'operand' => 'column',
+									'name'    => 'name',
+								),
+							),
+						),
+						array(
+							'operand' => 'value',
+							'value'   => 5,
+							'pattern' => '%d',
+						),
+					),
+				),
+				'compare' => '=',
+				'value'   => 3,
+			)
+		);
+
+		$this->assertStringContainsString( 'LEAST(', $where );
+		$this->assertMatchesRegularExpression( '/=\s*3\b/', $where );
+		$this->assertStringNotContainsString( "= '3'", $where );
+	}
+
+	/**
+	 * Test that CONCAT / CONCAT_WS render and compare as strings ( #226 ).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_concat_renders_and_compares_as_string() {
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => array(
+					'operand' => 'func',
+					'name'    => 'CONCAT_WS',
+					'args'    => array(
+						array(
+							'operand' => 'value',
+							'value'   => ', ',
+						),
+						array(
+							'operand' => 'column',
+							'name'    => 'name',
+						),
+						array(
+							'operand' => 'column',
+							'name'    => 'status',
+						),
+					),
+				),
+				'compare' => '=',
+				'value'   => 'x',
+			)
+		);
+
+		$this->assertStringContainsString( 'CONCAT_WS(', $where );
+		$this->assertStringContainsString( "= 'x'", $where );
+		$this->assertStringNotContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * Test that a one-argument GREATEST fails closed ( variadic requires >= 2 ).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_greatest_needs_two_args_fails_closed() {
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => array(
+					'operand' => 'func',
+					'name'    => 'GREATEST',
+					'args'    => array(
+						array(
+							'operand' => 'column',
+							'name'    => 'priority',
+						),
+					),
+				),
+				'compare' => '>',
+				'value'   => 5,
+			)
+		);
+
+		$this->assertStringContainsString( '1 = 0', $where );
+	}
+
+	/**
 	 * Test that a left-hand function operand pairs with a bare value through the
 	 * operator's own value rendering - LOWER(name) LIKE '%x%' (the operator owns
 	 * the LIKE wildcards; the operand supplies the left side).
