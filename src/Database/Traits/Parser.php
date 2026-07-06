@@ -59,7 +59,7 @@ trait Parser {
 	 *
 	 * Can be changed via the query arguments.
 	 *
-	 * Can be either 'AND' or 'OR'.
+	 * Can be 'AND', 'OR', or 'XOR'.
 	 *
 	 * @since 3.0.0
 	 * @var string
@@ -139,6 +139,7 @@ trait Parser {
 	public $relation_keys = array(
 		'OR',
 		'AND',
+		'XOR',
 	);
 
 	/**
@@ -493,6 +494,10 @@ trait Parser {
 		if ( 'OR' === $relation ) {
 			$retval[ 'relation' ]  = 'OR';
 			$this->has_or_relation = true;
+
+			// XOR joins clauses exclusively ( never treated as an OR combine ).
+		} elseif ( 'XOR' === $relation ) {
+			$retval[ 'relation' ] = 'XOR';
 
 			/*
 			* If there is only a single clause, call the relation 'OR'.
@@ -1069,10 +1074,16 @@ trait Parser {
 		$sql[ 'join' ]  = array_filter( $sql[ 'join' ] );
 		$sql[ 'where' ] = array_filter( $sql[ 'where' ] );
 
-		// Default relation.
-		if ( empty( $relation ) || ! is_string( $relation ) ) {
-			$relation = 'AND';
-		}
+		/*
+		 * Resolve the relation keyword through the canonical logical Registry
+		 * ( AND / OR / XOR ), defaulting to AND for anything unknown.
+		 */
+		$operator = is_string( $relation )
+			? ( new \BerlinDB\Database\Operators\Logical\Registry() )->get_operator( strtoupper( $relation ) )
+			: null;
+		$relation = ( $operator instanceof \BerlinDB\Database\Operators\Logical\Base )
+			? $operator->get_symbol()
+			: 'AND';
 
 		// Remove duplicate JOIN clauses, and combine into a single string.
 		if ( ! empty( $sql[ 'join' ] ) ) {

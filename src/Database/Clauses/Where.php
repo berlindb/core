@@ -195,7 +195,7 @@ class Where {
 	/**
 	 * Recursively render one 'criteria' group to SQL.
 	 *
-	 * A group is array( 'relation' => 'AND'|'OR', 'not' => bool, <item>, <item>, ... )
+	 * A group is array( 'relation' => 'AND'|'OR'|'XOR', 'not' => bool, <item>, <item>, ... )
 	 * where each positional item is either a parser-name string (a leaf) or a nested
 	 * group. The optional 'not' flag wraps the whole group in NOT( ... ). Note the
 	 * standard SQL three-valued semantics: NOT( col = x ) excludes rows where col IS
@@ -220,18 +220,19 @@ class Where {
 			? strtoupper( $node[ 'relation' ] )
 			: 'AND';
 
-		if ( ! in_array( $relation, array( 'AND', 'OR' ), true ) ) {
-			return $this->fail( "criteria relation must be AND or OR, got '{$relation}'" );
+		if ( ! in_array( $relation, array( 'AND', 'OR', 'XOR' ), true ) ) {
+			return $this->fail( "criteria relation must be AND, OR, or XOR, got '{$relation}'" );
 		}
 
 		// Optional group negation (wraps the group in NOT).
 		$negated = ! empty( $node[ 'not' ] );
 
 		/*
-		 * OR or NOT anywhere in the ancestry makes JOIN-emitting leaves unsafe: a
-		 * JOIN's INNER pre-filtering cannot be widened by OR nor inverted by NOT.
+		 * A non-AND relation ( OR / XOR ) or a NOT anywhere in the ancestry makes
+		 * JOIN-emitting leaves unsafe: a JOIN's INNER pre-filtering cannot be widened
+		 * by OR / XOR nor inverted by NOT.
 		 */
-		$join_unsafe = $join_unsafe || ( 'OR' === $relation ) || $negated;
+		$join_unsafe = $join_unsafe || ( 'AND' !== $relation ) || $negated;
 
 		// Render each positional item (the 'relation'/'not' keys are not items).
 		$rendered = array();

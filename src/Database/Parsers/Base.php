@@ -309,19 +309,27 @@ abstract class Base {
 	}
 
 	/**
-	 * Read a clause group's boolean relation: 'OR' when set, else 'AND' (default).
+	 * Read a clause group's boolean relation: 'AND' (default), 'OR', or 'XOR'.
 	 *
 	 * `relation` is a group directive (not a clause); callers unset it after
-	 * reading. Shared by the relationship and meta clause-group builders.
+	 * reading. Shared by the relationship and meta clause-group builders. The
+	 * keyword resolves through the canonical Operators\Logical\Registry, so an
+	 * unknown relation falls back to 'AND'.
 	 *
 	 * @since 3.1.0
 	 *
 	 * @param array<int|string,mixed> $clauses A clause group.
-	 * @return string 'OR' or 'AND'.
+	 * @return string 'AND', 'OR', or 'XOR'.
 	 */
 	protected function get_clause_relation( array $clauses ): string {
-		return ( isset( $clauses[ 'relation' ] ) && is_string( $clauses[ 'relation' ] ) && ( 'OR' === strtoupper( $clauses[ 'relation' ] ) ) )
-			? 'OR'
+		$relation = ( isset( $clauses[ 'relation' ] ) && is_string( $clauses[ 'relation' ] ) )
+			? strtoupper( $clauses[ 'relation' ] )
+			: 'AND';
+
+		$operator = ( new \BerlinDB\Database\Operators\Logical\Registry() )->get_operator( $relation );
+
+		return ( $operator instanceof \BerlinDB\Database\Operators\Logical\Base )
+			? $operator->get_symbol()
 			: 'AND';
 	}
 }

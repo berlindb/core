@@ -4,6 +4,16 @@ Notable changes to BerlinDB are documented here.
 
 ## 3.1.0 - Unreleased
 
+- Adds an `Operators\Logical\` operator family (#211) - `Conjunction` (AND), `Disjunction`
+  (OR), `ExclusiveDisjunction` (XOR), and `Negation` (NOT) - alongside the existing
+  `Comparisons\` and `Arithmetic\` families, each a thin keyword carrier resolved through
+  a canonical `Operators\Logical\Registry`. `Clauses\BooleanGroup` now joins fragments via
+  a resolved relation operator (and wraps negated groups via `Negation`) instead of a raw
+  string, and the parser boolean tree resolves its `relation` through the same registry.
+  The visible new capability is **`relation => 'XOR'`** in any parser bucket (`compare_query`
+  / `meta_query` / `date_query`), the meta/relationship group builders, and the `criteria`
+  tree - clauses joined by chained SQL `XOR` (matches when an ODD number are true; for the
+  common two-clause group, exactly one). Unknown relations still fall back to `AND`.
 - Adds the variadic scalar functions `GREATEST` / `LEAST` ( return the largest / smallest
   argument, with a COALESCE-style derived return type ) and `CONCAT` / `CONCAT_WS` ( join
   arguments into a string, so they compare as `%s` ) to the operand function allow-list

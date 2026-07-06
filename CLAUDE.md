@@ -46,7 +46,7 @@ hand-rolled queries — never more surprising.
    vendor/bin/phpcs
    ```
 5. **Don't invent APIs.** If unsure how something behaves, search `src/` and
-   `tests/` — the source and its 1503 test methods are the source of truth, ahead
+   `tests/` — the source and its 1511 test methods are the source of truth, ahead
    of memory or training data. (PHPUnit reports more cases: data providers expand
    methods at run time.)
 6. **Keep changes focused and tested.** Bug fixes and new behavior ship with
@@ -98,10 +98,13 @@ bin/run-tests.sh -p 8.2 -w 6.7 -- --group default
 - `src/Database/Parsers/` + `Operators/` + `Operands/` — reusable SQL clause
   builders, each a class hierarchy in its own directory. **Operators are grouped by
   KIND into subdirectories**: `Operators\Comparisons\` (predicate operators — `=`,
-  `IN`, `BETWEEN`, `IS NULL`, …, plus their `Base` + `Registry`) and
-  `Operators\Arithmetic\` (expression operators — `Add`/`Subtract`/`Multiply`/`Divide`);
-  a comparison builds a `Clauses\Predicate` (boolean), an arithmetic operator an
-  `Operands\Math` expression (value). **A value-object family's manager is a class in
+  `IN`, `BETWEEN`, `IS NULL`, …, plus their `Base` + `Registry`), `Operators\Arithmetic\`
+  (expression operators — `Add`/`Subtract`/`Multiply`/`Divide`), and `Operators\Logical\`
+  (boolean combiners — `Conjunction`/`Disjunction`/`ExclusiveDisjunction` relations +
+  the unary `Negation`, plus a relation `Registry`); a comparison builds a
+  `Clauses\Predicate` (boolean), an arithmetic operator an `Operands\Math` expression
+  (value), a logical operator combines fragments in a `Clauses\BooleanGroup`. **A
+  value-object family's manager is a class in
   that family's directory, not a trait** — e.g. `Operators\Comparisons\Registry` (holds
   a set of operators and looks them up, used by the parsers and by Query's HAVING).
   Consumers *hold* the manager; they don't compose it as a mixin. Add new

@@ -437,6 +437,43 @@ class CompareParserTest extends TestCase {
 	}
 
 	/**
+	 * Test that a top-level relation => XOR joins clauses exclusively.
+	 *
+	 * ( status = 'active' XOR priority >= 20 ): Beta is the tell - it satisfies BOTH
+	 * ( active AND 20 >= 20 ), so XOR excludes it. OR would return all 5, AND only Beta.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_relation_xor_joins_first_order_clauses_exclusively() {
+
+		$results = self::$query->query(
+			array(
+				'compare_query' => array(
+					'relation' => 'XOR',
+					array(
+						'key'   => 'status',
+						'value' => 'active',
+					),
+					array(
+						'key'     => 'priority',
+						'value'   => 20,
+						'compare' => '>=',
+					),
+				),
+			)
+		);
+
+		$this->assertCount( 4, $results );
+
+		$names = wp_list_pluck( $results, 'name' );
+		$this->assertContains( 'Alpha Widget', $names );
+		$this->assertContains( 'Gamma Gadget', $names );
+		$this->assertContains( 'Delta Gadget', $names );
+		$this->assertContains( 'Epsilon Widget', $names );
+		$this->assertNotContains( 'Beta Widget', $names );
+	}
+
+	/**
 	 * Test that an AND subgroup nested inside a top-level OR recurses correctly.
 	 *
 	 * @since 3.0.0

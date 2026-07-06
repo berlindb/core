@@ -736,6 +736,43 @@ class RelationshipParserTest extends TestCase {
 	}
 
 	/**
+	 * A clause group with relation=XOR combines EXISTS clauses with XOR.
+	 *
+	 * Proves get_clause_relation() now passes XOR through ( it renders like OR, via
+	 * the same implode ), so exclusive relationship-group filters are expressible.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_xor_clause_group_combines_exists_with_xor() {
+		$result = $this->parse(
+			array(
+				'relation' => 'XOR',
+				array(
+					'name'  => 'items',
+					'where' => array( 'status' => 'active' ),
+				),
+				array(
+					'name'  => 'items',
+					'where' => array(
+						'total' => array(
+							'compare' => '>',
+							'value'   => 1000,
+						),
+					),
+				),
+			),
+			array(
+				'items' => $this->relationship( 'items', 'has_many', array( 'id' ), array( 'order_id' ) ),
+			)
+		);
+
+		// No JOIN (both clauses are correlated EXISTS), combined with XOR in WHERE.
+		$this->assertSame( '', $result['join'] );
+		$this->assertStringContainsString( ' XOR ', $result['where'] );
+		$this->assertStringStartsWith( '( ', $result['where'] );
+	}
+
+	/**
 	 * A relation=OR group with a single clause emits no OR and no wrapping parens.
 	 *
 	 * @since 3.1.0

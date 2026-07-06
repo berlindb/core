@@ -306,7 +306,7 @@ class CriteriaIntegrationTest extends TestCase {
 			array(
 				'status'   => 'active',
 				'criteria' => array(
-					'relation' => 'XOR',
+					'relation' => 'NAND',
 					'columns',
 					'compare',
 				),

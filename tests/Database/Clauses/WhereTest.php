@@ -120,6 +120,30 @@ class WhereTest extends TestCase {
 	}
 
 	/**
+	 * Test that an XOR criteria group renders chained exclusive-or SQL.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_xor_grouping() {
+		$this->assertSame(
+			array( '( x = 1 XOR y = 2 )' ),
+			$this->where_clause(
+				array(
+					'relation' => 'XOR',
+					'by',
+					'meta',
+				),
+				array(
+					'by'   => 'x = 1',
+					'meta' => 'y = 2',
+				),
+				array(),
+				array( 'by', 'meta' )
+			)->get_clauses()
+		);
+	}
+
+	/**
 	 * Test that nested groups nest to arbitrary depth.
 	 *
 	 * @since 3.1.0
@@ -321,7 +345,7 @@ class WhereTest extends TestCase {
 	public function test_malformed_relation_fails_closed() {
 		$clause = $this->where_clause(
 			array(
-				'relation' => 'XOR',
+				'relation' => 'NAND',
 				'a',
 				'b',
 			),

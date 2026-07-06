@@ -111,7 +111,24 @@ class BooleanGroupTest extends TestCase {
 			'( a = 1 AND b = 2 )',
 			( new BooleanGroup(
 				array(
-					'relation' => 'XOR',
+					'relation' => 'NAND',
+					'items'    => array( 'a = 1', 'b = 2' ),
+				)
+			) )->get_sql()
+		);
+	}
+
+	/**
+	 * Test that the XOR relation joins items exclusively.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_xor_relation() {
+		$this->assertSame(
+			'( a = 1 XOR b = 2 )',
+			( new BooleanGroup(
+				array(
+					'relation' => 'xor',
 					'items'    => array( 'a = 1', 'b = 2' ),
 				)
 			) )->get_sql()

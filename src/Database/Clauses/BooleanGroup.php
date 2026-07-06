@@ -13,6 +13,11 @@ declare( strict_types = 1 );
 
 namespace BerlinDB\Database\Clauses;
 
+use BerlinDB\Database\Operators\Logical\Base as LogicalOperator;
+use BerlinDB\Database\Operators\Logical\Conjunction;
+use BerlinDB\Database\Operators\Logical\Negation;
+use BerlinDB\Database\Operators\Logical\Registry;
+
 // Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
 
@@ -39,12 +44,15 @@ defined( 'ABSPATH' ) || exit;
 class BooleanGroup {
 
 	/**
-	 * The boolean relation joining the items: 'AND' or 'OR'.
+	 * The logical relation joining the items ( a Conjunction / Disjunction /
+	 * ExclusiveDisjunction ). Resolved from the 'relation' arg through the canonical
+	 * Operators\Logical\Registry, defaulting to Conjunction ( AND ). Null only for an
+	 * empty-args group ( which renders '' before the relation is ever used ).
 	 *
 	 * @since 3.1.0
-	 * @var string
+	 * @var LogicalOperator|null
 	 */
-	private $relation = 'AND';
+	private $relation = null;
 
 	/**
 	 * The items to combine - each a raw SQL string or a nested BooleanGroup.
@@ -55,12 +63,12 @@ class BooleanGroup {
 	private $items = array();
 
 	/**
-	 * Whether the group is negated (wrapped in NOT).
+	 * The unary negation wrapping the group, or null when not negated.
 	 *
 	 * @since 3.1.0
-	 * @var bool
+	 * @var Negation|null
 	 */
-	private $negated = false;
+	private $negation = null;
 
 	/**
 	 * Build a boolean group from a key-value argument array.
@@ -85,16 +93,17 @@ class BooleanGroup {
 	 * @since 3.1.0
 	 *
 	 * @param array<string,mixed> $args {
-	 *     @type string                         $relation The relation: 'AND' or 'OR' (anything else is AND). Default 'AND'.
+	 *     @type string                         $relation The relation: 'AND', 'OR', or 'XOR' (anything else is AND). Default 'AND'.
 	 *     @type array<int,string|BooleanGroup> $items    The SQL fragments / nested groups to combine. Default empty.
 	 *     @type bool                           $negated  Whether to wrap the group in NOT. Default false.
 	 * }
 	 * @return void
 	 */
 	protected function init( array $args ): void {
-		$relation       = ( isset( $args[ 'relation' ] ) && is_string( $args[ 'relation' ] ) ) ? strtoupper( $args[ 'relation' ] ) : 'AND';
-		$this->relation = ( 'OR' === $relation ) ? 'OR' : 'AND';
-		$this->negated  = ! empty( $args[ 'negated' ] );
+		$this->relation = self::resolve_relation( $args[ 'relation' ] ?? null );
+		$this->negation = ! empty( $args[ 'negated' ] )
+			? new Negation()
+			: null;
 
 		// Keep only string fragments and nested groups.
 		$items = array();
@@ -108,6 +117,30 @@ class BooleanGroup {
 		}
 
 		$this->items = $items;
+	}
+
+	/**
+	 * Resolve a relation keyword to a logical relation operator.
+	 *
+	 * Routes the keyword through the canonical Operators\Logical\Registry ( AND / OR /
+	 * XOR ) instead of hand-coercing strings; an unknown or non-string keyword falls
+	 * back to Conjunction ( AND ).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param mixed $relation The relation keyword.
+	 * @return LogicalOperator
+	 */
+	private static function resolve_relation( $relation ): LogicalOperator {
+		if ( is_string( $relation ) ) {
+			$operator = ( new Registry() )->get_operator( strtoupper( $relation ) );
+
+			if ( $operator instanceof LogicalOperator ) {
+				return $operator;
+			}
+		}
+
+		return new Conjunction();
 	}
 
 	/**
@@ -137,12 +170,15 @@ class BooleanGroup {
 			return '';
 		}
 
-		// Join the parts with the relation.
-		$inner = implode( " {$this->relation} ", $parts );
+		// Join the parts with the relation ( empty-args groups never reach here ).
+		$relation = ( $this->relation instanceof LogicalOperator )
+			? $this->relation
+			: new Conjunction();
+		$inner    = implode( " {$relation->get_symbol()} ", $parts );
 
-		// A negated group always wraps in NOT( ... ).
-		if ( $this->negated ) {
-			return "NOT ( {$inner} )";
+		// A negated group always wraps in NOT ( ... ).
+		if ( $this->negation instanceof Negation ) {
+			return "{$this->negation->get_symbol()} ( {$inner} )";
 		}
 
 		// A single condition needs no grouping; many are parenthesised.
