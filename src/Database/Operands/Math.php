@@ -13,6 +13,8 @@ declare( strict_types = 1 );
 
 namespace BerlinDB\Database\Operands;
 
+use BerlinDB\Database\Operators\Arithmetic\Base as ArithmeticOperator;
+
 // Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
 
@@ -36,20 +38,13 @@ defined( 'ABSPATH' ) || exit;
 class Math extends Base {
 
 	/**
-	 * The allow-list of infix arithmetic operators.
+	 * The arithmetic operator ( an Operators\Arithmetic\* object; it owns the infix
+	 * symbol ), resolved and validated by the parser via Arithmetic\Registry.
 	 *
 	 * @since 3.1.0
-	 * @var list<string>
+	 * @var ArithmeticOperator|null
 	 */
-	private const ALLOWED_OPERATORS = array( '+', '-', '*', '/' );
-
-	/**
-	 * The validated arithmetic operator.
-	 *
-	 * @since 3.1.0
-	 * @var string
-	 */
-	private $operator = '+';
+	private $operator = null;
 
 	/**
 	 * The member operands, in order.
@@ -68,34 +63,22 @@ class Math extends Base {
 	private $category = 'numeric';
 
 	/**
-	 * Whether an operator is one of the allow-listed arithmetic operators.
-	 *
-	 * @since 3.1.0
-	 *
-	 * @param string $operator The operator to check.
-	 * @return bool
-	 */
-	public static function is_allowed_operator( string $operator ): bool {
-		return in_array( $operator, self::ALLOWED_OPERATORS, true );
-	}
-
-	/**
 	 * Assign constructor arguments to properties.
 	 *
 	 * @since 3.1.0
 	 *
 	 * @param array<string,mixed> $args {
-	 *     @type string     $operator The validated arithmetic operator (required).
-	 *     @type list<Base> $operands The resolved member operands (two or more).
-	 *     @type string     $pattern  The compared-scalar placeholder. Default '%d'.
-	 *     @type string     $category The result type category. Default 'numeric'.
+	 *     @type ArithmeticOperator $operator The resolved arithmetic operator (required).
+	 *     @type list<Base>         $operands The resolved member operands (two or more).
+	 *     @type string             $pattern  The compared-scalar placeholder. Default '%d'.
+	 *     @type string             $category The result type category. Default 'numeric'.
 	 * }
 	 * @return void
 	 */
 	protected function init( array $args ): void {
-		$this->operator = ( isset( $args[ 'operator' ] ) && self::is_allowed_operator( (string) $args[ 'operator' ] ) )
-			? (string) $args[ 'operator' ]
-			: '+';
+		$this->operator = ( isset( $args[ 'operator' ] ) && ( $args[ 'operator' ] instanceof ArithmeticOperator ) )
+			? $args[ 'operator' ]
+			: null;
 
 		$operands = array();
 
@@ -122,8 +105,8 @@ class Math extends Base {
 	 */
 	public function get_sql(): string {
 
-		// Arithmetic needs at least two operands.
-		if ( count( $this->operands ) < 2 ) {
+		// Arithmetic needs an operator and at least two operands.
+		if ( ! ( $this->operator instanceof ArithmeticOperator ) || ( count( $this->operands ) < 2 ) ) {
 			return '';
 		}
 
@@ -140,7 +123,9 @@ class Math extends Base {
 			$rendered[] = $sql;
 		}
 
-		return '( ' . implode( " {$this->operator} ", $rendered ) . ' )';
+		$symbol = $this->operator->get_symbol();
+
+		return '( ' . implode( " {$symbol} ", $rendered ) . ' )';
 	}
 
 	/**

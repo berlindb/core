@@ -634,10 +634,11 @@ trait Operands {
 	 */
 	private function resolve_math_operand( array $value, string $alias ) {
 
-		// The arithmetic operator must be allow-listed.
-		$operator = is_string( $value[ 'operator' ] ?? null ) ? $value[ 'operator' ] : '';
+		// Resolve the arithmetic operator by symbol; an unknown symbol fails closed.
+		$symbol   = is_string( $value[ 'operator' ] ?? null ) ? $value[ 'operator' ] : '';
+		$operator = ( new \BerlinDB\Database\Operators\Arithmetic\Registry() )->get_operator( $symbol );
 
-		if ( ! Math::is_allowed_operator( $operator ) ) {
+		if ( null === $operator ) {
 			return false;
 		}
 
@@ -672,15 +673,13 @@ trait Operands {
 		}
 
 		/*
-		 * The result is numeric: division is always a float ( %f ); every other
-		 * operator is an integer ( %d ) UNLESS a member is a float ( promote to %f ),
-		 * so a fractional comparison is never truncated.
+		 * The result is numeric. The operator owns its intrinsic pattern ( division is
+		 * a float ); a float MEMBER promotes any integer operator to '%f' too, so a
+		 * fractional comparison is never truncated.
 		 */
-		$pattern = '%d';
+		$pattern = $operator->get_pattern();
 
-		if ( '/' === $operator ) {
-			$pattern = '%f';
-		} else {
+		if ( '%f' !== $pattern ) {
 			foreach ( $operands as $index => $member ) {
 				if ( '%f' === $this->classify_operand_pattern( $member, $raw[ $index ] ?? null ) ) {
 					$pattern = '%f';
