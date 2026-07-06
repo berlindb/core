@@ -527,15 +527,16 @@ class MetaParserTest extends TestCase {
 		$this->assertSame( 'Gamma Gadget', $results[0]->name );
 	}
 
-	/** Bespoke-engine SQL characterization (#212) ***************************/
+	/** WP-core-meta engine SQL characterization (#212) **********************/
 
 	/*
-	 * These lock the EXACT SQL the bespoke WP-core-meta engine emits for each
-	 * meta_key ( compare_key ) branch of the switch in get_sql_for_clause(), plus
-	 * the key-vs-value REGEXP asymmetry. #212 tracks routing the key side through
-	 * operator->get_sql() (like the value side already is), which WOULD change these
-	 * shapes ( e.g. inline `REGEXP BINARY` -> `CAST(... AS BINARY) REGEXP` ). When
-	 * that lands, update these deliberately - a diff here means the SQL shape moved.
+	 * These lock the EXACT SQL the WP-core-meta engine emits for each meta_key
+	 * ( compare_key ) branch of get_sql_for_clause(). #212 unified the key side onto
+	 * the operator path the meta_value side already used ( cast_reference() +
+	 * operator->get_sql_compare() + build_value() ), so the two sides now render the
+	 * same idiom - e.g. `CAST(meta_key AS BINARY) REGEXP` rather than the old inline
+	 * `REGEXP BINARY`. A diff here means the emitted SQL shape moved; update it
+	 * deliberately.
 	 */
 
 	/**
@@ -589,9 +590,9 @@ class MetaParserTest extends TestCase {
 			)
 		);
 
-		// IN: comma list.
+		// IN: comma list ( operator path renders a space after each comma ).
 		$this->assertStringContainsString(
-			"`wptests_postmeta`.`meta_key` IN ('color','score')",
+			"`wptests_postmeta`.`meta_key` IN ('color', 'score')",
 			$this->bespoke_sql(
 				array(
 					'key'         => array( 'color', 'score' ),
@@ -601,9 +602,9 @@ class MetaParserTest extends TestCase {
 			)
 		);
 
-		// REGEXP: no cast leaves a DOUBLE space before the pattern (current quirk).
+		// REGEXP: single space ( the operator path drops the old empty-cast double space ).
 		$this->assertStringContainsString(
-			"`wptests_postmeta`.`meta_key` REGEXP  '^color$'",
+			"`wptests_postmeta`.`meta_key` REGEXP '^color$'",
 			$this->bespoke_sql(
 				array(
 					'key'         => '^color$',
@@ -613,9 +614,9 @@ class MetaParserTest extends TestCase {
 			)
 		);
 
-		// REGEXP + type_key BINARY: INLINE `REGEXP BINARY` (key side; contrast value side below).
+		// REGEXP + type_key BINARY: now CAST-wrapped ( key side matches the value side ).
 		$this->assertStringContainsString(
-			"`wptests_postmeta`.`meta_key` REGEXP BINARY '^color$'",
+			"CAST(`wptests_postmeta`.`meta_key` AS BINARY) REGEXP '^color$'",
 			$this->bespoke_sql(
 				array(
 					'key'         => '^color$',
@@ -666,9 +667,9 @@ class MetaParserTest extends TestCase {
 			)
 		);
 
-		// NOT REGEXP ( subquery emits a positive REGEXP, double space for empty cast ).
+		// NOT REGEXP ( subquery emits a positive REGEXP; single space via the operator path ).
 		$this->assertStringContainsString(
-			"AND `mt1`.`meta_key` REGEXP  'color' LIMIT 1)",
+			"AND `mt1`.`meta_key` REGEXP 'color' LIMIT 1)",
 			$this->bespoke_sql(
 				array(
 					'key'         => 'color',
@@ -742,6 +743,39 @@ class MetaParserTest extends TestCase {
 				)
 			)
 		);
+	}
+
+	/**
+	 * An empty IN key list must FAIL CLOSED ( match nothing ), not omit the predicate
+	 * and let the INNER JOIN widen to any meta row.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_bespoke_sql_empty_in_key_fails_closed() {
+		$sql = $this->bespoke_sql(
+			array(
+				'key'         => array(),
+				'compare_key' => 'IN',
+				'compare'     => 'EXISTS',
+			)
+		);
+
+		$this->assertStringContainsString( '1 = 0', $sql );
+
+		// And it returns no rows ( never widens ).
+		$results = self::$query->query(
+			array(
+				'meta_query' => array(
+					array(
+						'key'         => array(),
+						'compare_key' => 'IN',
+						'compare'     => 'EXISTS',
+					),
+				),
+			)
+		);
+
+		$this->assertCount( 0, $results );
 	}
 
 	/**

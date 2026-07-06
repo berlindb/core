@@ -642,101 +642,66 @@ class Meta extends Base {
 			} else {
 
 				/*
-				 * Is this key operator negative? Read the operator's own polarity
-				 * descriptor rather than rebuilding a list of NOT-* compare names.
-				 * Mirrors how the store-backed meta_key_condition() decides.
+				 * Build the meta_key comparison through the operator path - the same
+				 * cast_reference() + operator->get_sql_compare() + build_value() assembly
+				 * the meta_value side below uses. compare_key EXISTS / NOT EXISTS are key
+				 * equality / inequality ( they never reach the value-side EXISTS handling
+				 * above ), so fold them to = / != before resolving the operator.
 				 */
-				$key_operator = $this->get_operator( $meta_compare_key );
-				$is_negative  = ( false !== $key_operator ) && ! $key_operator->is_positive();
+				$key_compare = $meta_compare_key;
 
-				// Initialize subquery fragments; only populated for negative compare_key operators.
-				$subquery_alias            = '';
-				$qt_subquery_alias         = '';
-				$meta_compare_string_start = '';
-				$meta_compare_string_end   = '';
-
-				/*
-				 * In joined clauses negative operators have to be nested into a
-				 * NOT EXISTS clause and flipped, to avoid returning records with
-				 * matching post IDs but different meta keys. Here we prepare the
-				 * nested clause.
-				 */
-				if ( true === $is_negative ) {
-
-					// Negative clauses may be reused.
-					$i                 = count( $this->table_aliases );
-					$subquery_alias    = ! empty( $i )
-						? 'mt' . $i
-						: $this->meta_table;
-					$qt_subquery_alias = $this->quote_identifier( $subquery_alias );
-
-					// Add to table_aliases.
-					$this->table_aliases[] = $subquery_alias;
-
-					// Setup start & end of meta compare SQL.
-					$meta_compare_string_start  = 'NOT EXISTS (';
-					$meta_compare_string_start .= "SELECT 1 FROM {$qt_meta_table} {$qt_subquery_alias} ";
-					$meta_compare_string_start .= "WHERE {$qt_subquery_alias}.{$qt_meta_column} = {$qt_alias}.{$qt_meta_column} ";
-					$meta_compare_string_end    = 'LIMIT 1';
-					$meta_compare_string_end   .= ')';
+				if ( 'EXISTS' === $key_compare ) {
+					$key_compare = '=';
+				} elseif ( 'NOT EXISTS' === $key_compare ) {
+					$key_compare = '!=';
 				}
 
-				// Default empty where.
+				$key_operator = $this->get_operator( $key_compare );
+
+				// Default empty where; an unresolvable operator fails the clause closed.
 				$where = '';
 
-				// Which compare?
-				switch ( $meta_compare_key ) {
-					case '=':
-					case 'EXISTS':
-						$where = $this->db()->prepare( "{$qt_alias}.{$qt_column} = %s", trim( $clause[ 'key' ] ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-						break;
+				if ( false !== $key_operator ) {
 
-					case 'LIKE':
-						$meta_compare_value = '%' . $this->db()->esc_like( trim( $clause[ 'key' ] ) ) . '%';
-						$where              = $this->db()->prepare( "{$qt_alias}.{$qt_column} LIKE %s", $meta_compare_value ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-						break;
+					// A positive operator renders inline.
+					if ( $key_operator->is_positive() ) {
+						$where = $this->build_meta_key_comparison( $qt_alias, $qt_column, $key_operator, $key_compare, $clause );
 
-					case 'IN':
-						$meta_compare_string = "{$qt_alias}.{$qt_column} IN (" . substr( str_repeat( ',%s', count( (array) $clause[ 'key' ] ) ), 1 ) . ')';
-						$where               = $this->db()->prepare( $meta_compare_string, $clause[ 'key' ] ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
-						break;
+						/*
+						 * A negative operator nests its POSITIVE opposite inside a
+						 * correlated NOT EXISTS, so a different meta row on the same object
+						 * cannot satisfy it ( `key != 'x'` must exclude objects that also
+						 * hold another key ). Mirrors the old bespoke subquery flip.
+						 */
+					} else {
+						$positive_compare  = $key_operator->get_opposite_compare();
+						$positive_operator = $this->get_operator( $positive_compare );
 
-					case 'RLIKE':
-					case 'REGEXP':
-						$regex_op = $meta_compare_key;
-						$cast     = $this->get_meta_key_cast( $clause, $meta_compare_key );
-						$where    = $this->db()->prepare( "{$qt_alias}.{$qt_column} {$regex_op} {$cast} %s", trim( $clause[ 'key' ] ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-						break;
+						if ( false !== $positive_operator ) {
+							$i                     = count( $this->table_aliases );
+							$subquery_alias        = ! empty( $i ) ? 'mt' . $i : $this->meta_table;
+							$qt_subquery_alias     = $this->quote_identifier( $subquery_alias );
+							$this->table_aliases[] = $subquery_alias;
 
-					case '!=':
-					case 'NOT EXISTS':
-						$meta_compare_string = $meta_compare_string_start . "AND {$qt_subquery_alias}.{$qt_column} = %s " . $meta_compare_string_end;
-						$where               = $this->db()->prepare( $meta_compare_string, $clause[ 'key' ] ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
-						break;
+							$inner = $this->build_meta_key_comparison( $qt_subquery_alias, $qt_column, $positive_operator, $positive_compare, $clause );
 
-					case 'NOT LIKE':
-						$meta_compare_string = $meta_compare_string_start . "AND {$qt_subquery_alias}.{$qt_column} LIKE %s " . $meta_compare_string_end;
-						$meta_compare_value  = '%' . $this->db()->esc_like( trim( $clause[ 'key' ] ) ) . '%';
-						$where               = $this->db()->prepare( $meta_compare_string, $meta_compare_value ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
-						break;
-					case 'NOT IN':
-						$array_subclause     = '(' . substr( str_repeat( ',%s', count( (array) $clause[ 'key' ] ) ), 1 ) . ') ';
-						$meta_compare_string = $meta_compare_string_start . "AND {$qt_subquery_alias}.{$qt_column} IN " . $array_subclause . $meta_compare_string_end;
-						$where               = $this->db()->prepare( $meta_compare_string, $clause[ 'key' ] ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
-						break;
-
-					case 'NOT REGEXP':
-						// The subquery emits a positive REGEXP; cast keyed off that.
-						$cast                = $this->get_meta_key_cast( $clause, 'REGEXP' );
-						$meta_compare_string = $meta_compare_string_start . "AND {$qt_subquery_alias}.{$qt_column} REGEXP {$cast} %s " . $meta_compare_string_end;
-						$where               = $this->db()->prepare( $meta_compare_string, $clause[ 'key' ] ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
-						break;
+							if ( '' !== $inner ) {
+								$where  = "NOT EXISTS (SELECT 1 FROM {$qt_meta_table} {$qt_subquery_alias} ";
+								$where .= "WHERE {$qt_subquery_alias}.{$qt_meta_column} = {$qt_alias}.{$qt_meta_column} ";
+								$where .= "AND {$inner} LIMIT 1)";
+							}
+						}
+					}
 				}
 
-				// Only add if non-empty.
-				if ( ! empty( $where ) ) {
-					$retval[ 'where' ][] = $where;
-				}
+				/*
+				 * A key filter that produced no predicate ( an empty IN / NOT IN list,
+				 * or an unresolvable operator ) must match NOTHING - never widen the
+				 * INNER JOIN to any meta row. Fail closed.
+				 */
+				$retval[ 'where' ][] = ( '' === $where )
+					? '1 = 0'
+					: $where;
 			}
 		}
 
@@ -891,6 +856,45 @@ class Meta extends Base {
 
 		// Return uppercase type.
 		return $upper_type;
+	}
+
+	/**
+	 * Build one meta_key comparison through the operator path.
+	 *
+	 * Mirrors the meta_value assembly: an optionally CAST-wrapped key reference, the
+	 * operator's compare string, and the operator's value SQL. A list operator ( IN )
+	 * treats the key as a set - a scalar is kept as a single item so build_value()
+	 * does not split a delimited string. Returns '' when the value renders to nothing
+	 * ( e.g. an empty IN list ), so the caller fails the clause closed.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string                                        $qt_alias  Quoted table alias to qualify the key column.
+	 * @param string                                        $qt_column Quoted meta_key column name.
+	 * @param \BerlinDB\Database\Operators\Comparisons\Base $operator  The resolved ( positive ) key operator.
+	 * @param string                                        $compare   The operator's compare string.
+	 * @param array<string,mixed>                           $clause    The first-order meta_query clause.
+	 * @return string The comparison SQL, or '' to fail closed.
+	 */
+	private function build_meta_key_comparison( string $qt_alias, string $qt_column, \BerlinDB\Database\Operators\Comparisons\Base $operator, string $compare, array $clause ): string {
+		$key = $clause[ 'key' ];
+
+		// A list operator treats the key as a set; keep a scalar as a single item.
+		if ( $operator->is_list() ) {
+			$key = (array) $key;
+		}
+
+		$value_sql = $this->build_value( $compare, $key, '%s' );
+
+		// An empty value ( e.g. an empty IN list ) renders no predicate.
+		if ( '' === $value_sql ) {
+			return '';
+		}
+
+		$cast    = $this->get_meta_key_cast( $clause, $compare );
+		$key_ref = $this->cast_reference( "{$qt_alias}.{$qt_column}", $cast );
+
+		return $key_ref . ' ' . $operator->get_sql_compare() . ' ' . $value_sql;
 	}
 
 	/**

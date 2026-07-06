@@ -4,6 +4,17 @@ Notable changes to BerlinDB are documented here.
 
 ## 3.1.0 - Unreleased
 
+- Unifies the WP-core-meta engine's `meta_key` comparisons onto the operator path (#212).
+  The bespoke `switch ( $meta_compare_key )` in `Parsers\Meta` that hand-built key SQL is
+  gone; each key comparison now uses the same `cast_reference()` + `operator->get_sql_compare()`
+  + `build_value()` assembly the `meta_value` side already used (negative operators nest their
+  positive opposite in the existing correlated `NOT EXISTS` subquery). Behavior is preserved at
+  the result level for well-formed clauses; the emitted SQL shape converges on the value side's
+  idiom, with three intentional deltas: `meta_key REGEXP BINARY 'x'` -> `CAST(meta_key AS BINARY)
+  REGEXP 'x'` (matching the value side), the empty-cast `REGEXP  ` double space collapses to one,
+  and a `meta_key IN (...)` list gains a space after each comma. A degenerate empty `IN` / `NOT IN`
+  key list, which previously emitted invalid `IN ()` SQL, now fails closed (matches nothing).
+  Characterization tests lock every branch's SQL.
 - Adds an `Operators\Logical\` operator family (#211) - `Conjunction` (AND), `Disjunction`
   (OR), `ExclusiveDisjunction` (XOR), and `Negation` (NOT) - alongside the existing
   `Comparisons\` and `Arithmetic\` families, each a thin keyword carrier resolved through
