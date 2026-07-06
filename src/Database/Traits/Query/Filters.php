@@ -13,6 +13,8 @@ declare( strict_types = 1 );
 
 namespace BerlinDB\Database\Traits\Query;
 
+use BerlinDB\Database\Kern\Query;
+
 // Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
 
@@ -52,7 +54,7 @@ trait Filters {
 		 * @since 1.0.0
 		 *
 		 * @param array<string,mixed>     $item  The item as an array.
-		 * @param \BerlinDB\Database\Query $query Current query instance.
+		 * @param Query $query Current query instance.
 		 */
 		return (array) apply_filters_ref_array(
 			$filter_name,
@@ -121,7 +123,7 @@ trait Filters {
 		 * @since 1.0.0
 		 *
 		 * @param list<object>             $items An array of items.
-		 * @param \BerlinDB\Database\Query $query Current query instance.
+		 * @param Query $query Current query instance.
 		 */
 		return (array) apply_filters_ref_array(
 			$filter_name,
@@ -156,7 +158,7 @@ trait Filters {
 		 *              $request_clauses instead.
 		 *
 		 * @param string                   $sql   SQL query.
-		 * @param \BerlinDB\Database\Query $query Current query instance.
+		 * @param Query $query Current query instance.
 		 */
 		return (string) apply_filters_ref_array(
 			$filter_name,
@@ -189,8 +191,8 @@ trait Filters {
 		 *
 		 * @since 1.0.0
 		 *
-		 * @param array<string,mixed>     $clauses An array of query clauses.
-		 * @param \BerlinDB\Database\Query $query   Current query instance.
+		 * @param array<string,mixed> $clauses An array of query clauses.
+		 * @param Query               $query   Current query instance.
 		 */
 		return (array) apply_filters_ref_array(
 			$filter_name,

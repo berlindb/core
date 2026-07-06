@@ -13,6 +13,14 @@ declare( strict_types = 1 );
 
 namespace BerlinDB\Database\Traits;
 
+use BerlinDB\Database\Clauses\BooleanGroup;
+use BerlinDB\Database\Clauses\Predicate;
+use BerlinDB\Database\Kern\Column;
+use BerlinDB\Database\Kern\Query;
+use BerlinDB\Database\Operands;
+use BerlinDB\Database\Operators\Comparisons;
+use BerlinDB\Database\Operators\Logical;
+
 // Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
 
@@ -34,7 +42,7 @@ trait Parser {
 	 * Query class responsible for constructing this parser.
 	 *
 	 * @since 3.0.0
-	 * @var \BerlinDB\Database\Kern\Query|null
+	 * @var Query|null
 	 */
 	public $caller = null;
 
@@ -118,7 +126,7 @@ trait Parser {
 	 * The operator instances (the registry's set).
 	 *
 	 * @since 3.0.0
-	 * @var   list<\BerlinDB\Database\Operators\Comparisons\Base>
+	 * @var   list<Comparisons\Base>
 	 */
 	public $operators = array();
 
@@ -155,8 +163,8 @@ trait Parser {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string,mixed>                $query_vars Array of query variables.
-	 * @param \BerlinDB\Database\Kern\Query|null $caller The parent Query instance.
+	 * @param array<string,mixed> $query_vars Array of query variables.
+	 * @param Query|null          $caller     The parent Query instance.
 	 */
 	public function __construct( array $query_vars = array(), mixed $caller = null ) {
 		$this->init( $query_vars, $caller );
@@ -173,7 +181,7 @@ trait Parser {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param array<string,mixed>               $query_vars {
+	 * @param array<string,mixed> $query_vars {
 	 *     Array of query clauses.
 	 *
 	 *     @type array ...$0 {
@@ -188,7 +196,7 @@ trait Parser {
 	 *         }
 	 *     }
 	 * }
-	 * @param \BerlinDB\Database\Kern\Query|null $caller The Query class that invoked this parser, or null.
+	 * @param Query|null          $caller     The Query class that invoked this parser, or null.
 	 */
 	protected function init( array $query_vars = array(), mixed $caller = null ): void {
 
@@ -347,11 +355,11 @@ trait Parser {
 	 * @since 3.1.0
 	 * @internal Query/Parser collaborator API.
 	 *
-	 * @param array<string,mixed>           $query_vars All of the caller's query vars.
-	 * @param \BerlinDB\Database\Kern\Query $caller     The Query being normalized.
+	 * @param array<string,mixed> $query_vars All of the caller's query vars.
+	 * @param Query               $caller     The Query being normalized.
 	 * @return array<string,mixed> The (possibly modified) query vars.
 	 */
-	public function normalize_query_vars( array $query_vars, \BerlinDB\Database\Kern\Query $caller ): array {
+	public function normalize_query_vars( array $query_vars, Query $caller ): array {
 		return $query_vars;
 	}
 
@@ -360,7 +368,7 @@ trait Parser {
 	 *
 	 * @since 3.0.0
 	 *
-	 * @param \BerlinDB\Database\Kern\Query|null $caller The parent Query instance.
+	 * @param Query|null $caller The parent Query instance.
 	 */
 	protected function set_caller( mixed $caller = null ): void {
 		$this->caller = $caller;
@@ -585,7 +593,7 @@ trait Parser {
 	 * @since 3.0.0
 	 *
 	 * @param array<string,mixed> $args Key => value pairs to match against operator properties.
-	 * @return \BerlinDB\Database\Operators\Comparisons\Base|false The first matching operator, or false.
+	 * @return Comparisons\Base|false The first matching operator, or false.
 	 */
 	protected function get_operator_by( $args = array() ) {
 		$filter = $this->get_operators( $args, false );
@@ -593,7 +601,7 @@ trait Parser {
 			? reset( $filter )
 			: false;
 
-		return ( $first instanceof \BerlinDB\Database\Operators\Comparisons\Base )
+		return ( $first instanceof Comparisons\Base )
 			? $first
 			: false;
 	}
@@ -604,7 +612,7 @@ trait Parser {
 	 * @since 3.0.0
 	 *
 	 * @param string $compare The SQL operator string, e.g. '=', 'IN', 'NOT LIKE'.
-	 * @return \BerlinDB\Database\Operators\Comparisons\Base|false The matching operator, or false.
+	 * @return Comparisons\Base|false The matching operator, or false.
 	 */
 	protected function get_operator( $compare = '' ) {
 		return $this->get_operator_by( array( 'compare' => $compare ) );
@@ -622,13 +630,13 @@ trait Parser {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param \BerlinDB\Database\Operators\Comparisons\Base $operator The operator to invert.
+	 * @param Comparisons\Base $operator The operator to invert.
 	 *
-	 * @return \BerlinDB\Database\Operators\Comparisons\Base|false The opposite operator, or
+	 * @return Comparisons\Base|false The opposite operator, or
 	 *         false when the operator declares no opposite (e.g. 'RLIKE') or that
 	 *         opposite is not in the filtered registry.
 	 */
-	protected function get_opposite_operator( \BerlinDB\Database\Operators\Comparisons\Base $operator ) {
+	protected function get_opposite_operator( Comparisons\Base $operator ) {
 		$compare = $operator->get_opposite_compare();
 
 		return ( '' !== $compare )
@@ -740,7 +748,7 @@ trait Parser {
 		$col = $this->caller?->get_column_by( array_merge( array( 'name' => $name ), $filter ) );
 
 		// Bail if the column doesn't exist or doesn't match the filter.
-		if ( ! $col instanceof \BerlinDB\Database\Kern\Column ) {
+		if ( ! $col instanceof Column ) {
 			return '';
 		}
 
@@ -1049,7 +1057,7 @@ trait Parser {
 
 					// Get clauses, then combine them (none -> '', one -> bare, many -> AND group).
 					$clause_sql       = $this->get_sql_for_clause( $clause, $query, $key );
-					$sql[ 'where' ][] = \BerlinDB\Database\Clauses\BooleanGroup::combine( 'AND', array_values( $clause_sql[ 'where' ] ) );
+					$sql[ 'where' ][] = BooleanGroup::combine( 'AND', array_values( $clause_sql[ 'where' ] ) );
 
 					// Merge joins.
 					$sql[ 'join' ] = array_merge( $sql[ 'join' ], $clause_sql[ 'join' ] );
@@ -1074,9 +1082,9 @@ trait Parser {
 		 * ( AND / OR / XOR ), defaulting to AND for anything unknown.
 		 */
 		$operator = is_string( $relation )
-			? ( new \BerlinDB\Database\Operators\Logical\Registry() )->get_operator( strtoupper( $relation ) )
+			? ( new Logical\Registry() )->get_operator( strtoupper( $relation ) )
 			: null;
-		$relation = ( $operator instanceof \BerlinDB\Database\Operators\Logical\Base )
+		$relation = ( $operator instanceof Logical\Base )
 			? $operator->get_symbol()
 			: 'AND';
 
@@ -1130,7 +1138,7 @@ trait Parser {
 			 * A list value defaults to IN, but a structured operand spec is not a
 			 * list - it defaults to equality (e.g. column-to-column `=`).
 			 */
-			$clause[ 'compare' ] = ( is_array( $clause_value ) && ! \BerlinDB\Database\Operands\Base::is_spec( $clause_value ) )
+			$clause[ 'compare' ] = ( is_array( $clause_value ) && ! Operands\Base::is_spec( $clause_value ) )
 				? 'IN'
 				: '=';
 		}
@@ -1165,16 +1173,16 @@ trait Parser {
 			$alias            = $this->caller?->get_table_alias() ?? '';
 			$key              = $clause[ 'key' ];
 			$value            = $clause[ 'value' ] ?? null;
-			$value_is_operand = \BerlinDB\Database\Operands\Base::is_spec( $value );
+			$value_is_operand = Operands\Base::is_spec( $value );
 
 			// A structured left-hand operand (column / function) on the 'key'.
-			if ( \BerlinDB\Database\Operands\Base::is_spec( $key ) ) {
+			if ( Operands\Base::is_spec( $key ) ) {
 
 				// Resolve against this caller's own schema (same-table operand).
 				$lhs = $this->caller?->resolve_operand( $key );
 
 				// Fail closed if the left operand spec was unresolvable.
-				if ( ! ( $lhs instanceof \BerlinDB\Database\Operands\Base ) ) {
+				if ( ! ( $lhs instanceof Operands\Base ) ) {
 					return $this->unresolved_column_clause( $retval );
 				}
 
@@ -1216,7 +1224,7 @@ trait Parser {
 				// A unary operator or a structured value enters the operand path.
 				if ( $operator->is_unary() || $value_is_operand ) {
 
-					$lhs  = new \BerlinDB\Database\Operands\Column(
+					$lhs  = new Operands\Column(
 						array(
 							'column' => $col,
 							'alias'  => $alias,
@@ -1246,7 +1254,7 @@ trait Parser {
 		 * Join the WHERE clauses with AND through the shared BooleanGroup renderer:
 		 * a single clause stays bare, multiple wrap in parentheses.
 		 */
-		$combined = \BerlinDB\Database\Clauses\BooleanGroup::combine( 'AND', $retval[ 'where' ] );
+		$combined = BooleanGroup::combine( 'AND', $retval[ 'where' ] );
 
 		$retval[ 'where' ] = ( '' === $combined )
 			? array()
@@ -1288,22 +1296,22 @@ trait Parser {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param \BerlinDB\Database\Operands\Base   $lhs              The resolved left operand.
-	 * @param \BerlinDB\Database\Operators\Comparisons\Base  $operator         The resolved operator.
-	 * @param mixed                              $value            The clause value (operand spec or scalar; absent for unary).
-	 * @param bool                               $value_is_operand Whether $value is a structured operand spec.
-	 * @param \BerlinDB\Database\Kern\Query|null $resolver         The query a structured right operand resolves against. Null uses the caller. Default null.
-	 * @param string|null                        $alias            Alias to qualify a right-side column. Null uses the resolver's own. Default null.
+	 * @param Operands\Base    $lhs              The resolved left operand.
+	 * @param Comparisons\Base $operator         The resolved operator.
+	 * @param mixed            $value            The clause value (operand spec or scalar; absent for unary).
+	 * @param bool             $value_is_operand Whether $value is a structured operand spec.
+	 * @param Query|null       $resolver         The query a structured right operand resolves against. Null uses the caller. Default null.
+	 * @param string|null      $alias            Alias to qualify a right-side column. Null uses the resolver's own. Default null.
 	 * @return string|false The predicate SQL (possibly ''), or false to fail the clause closed.
 	 */
-	protected function build_operand_clause( \BerlinDB\Database\Operands\Base $lhs, \BerlinDB\Database\Operators\Comparisons\Base $operator, $value, bool $value_is_operand, ?\BerlinDB\Database\Kern\Query $resolver = null, ?string $alias = null ) {
+	protected function build_operand_clause( Operands\Base $lhs, Comparisons\Base $operator, $value, bool $value_is_operand, ?Query $resolver = null, ?string $alias = null ) {
 
 		/*
 		 * A unary operator (IS NULL) takes no right-hand side, so never resolve one -
 		 * a value, even an unresolvable operand-shaped one, is ignored.
 		 */
 		if ( $operator->is_unary() ) {
-			return ( new \BerlinDB\Database\Clauses\Predicate( $lhs, $operator ) )->to_sql();
+			return ( new Predicate( $lhs, $operator ) )->to_sql();
 		}
 
 		$right = $value;
@@ -1311,17 +1319,17 @@ trait Parser {
 		// A structured right-hand operand resolves against the resolver query.
 		if ( $value_is_operand ) {
 			$resolver = $resolver ?? $this->caller;
-			$right    = ( $resolver instanceof \BerlinDB\Database\Kern\Query )
+			$right    = ( $resolver instanceof Query )
 				? $resolver->resolve_operand( $value, $alias )
 				: false;
 
 			// Fail closed if the right operand was unresolvable.
-			if ( ! ( $right instanceof \BerlinDB\Database\Operands\Base ) ) {
+			if ( ! ( $right instanceof Operands\Base ) ) {
 				return false;
 			}
 		}
 
-		return ( new \BerlinDB\Database\Clauses\Predicate( $lhs, $operator, $right ) )->to_sql();
+		return ( new Predicate( $lhs, $operator, $right ) )->to_sql();
 	}
 
 	/**

@@ -13,6 +13,8 @@ declare( strict_types = 1 );
 
 namespace BerlinDB\Database\Traits\Query;
 
+use BerlinDB\Database\Kern\Query;
+
 // Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
 
@@ -55,7 +57,7 @@ trait Execution {
 		 *
 		 * @since 1.0.0
 		 *
-		 * @param \BerlinDB\Database\Kern\Query $query Current instance passed by reference.
+		 * @param Query $query Current instance passed by reference.
 		 */
 		do_action_ref_array(
 			$action_name,

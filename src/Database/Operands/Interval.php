@@ -13,6 +13,8 @@ declare( strict_types = 1 );
 
 namespace BerlinDB\Database\Operands;
 
+use BerlinDB\Database\Operators\Comparisons;
+
 // Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
 
@@ -109,10 +111,10 @@ class Interval extends Base {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param \BerlinDB\Database\Operators\Comparisons\Base $operator The operator being paired.
+	 * @param Comparisons\Base $operator The operator being paired.
 	 * @return bool
 	 */
-	public function pairs_with( \BerlinDB\Database\Operators\Comparisons\Base $operator ): bool {
+	public function pairs_with( Comparisons\Base $operator ): bool {
 		return false;
 	}
 }

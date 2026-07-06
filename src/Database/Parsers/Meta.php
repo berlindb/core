@@ -13,6 +13,12 @@ declare( strict_types = 1 );
 
 namespace BerlinDB\Database\Parsers;
 
+use BerlinDB\Database\Clauses\BooleanGroup;
+use BerlinDB\Database\Interfaces\MetaStore;
+use BerlinDB\Database\Kern\Query;
+use BerlinDB\Database\Kern\Relationship;
+use BerlinDB\Database\Operators\Comparisons;
+
 // Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
 
@@ -740,7 +746,7 @@ class Meta extends Base {
 		 * shared BooleanGroup renderer: a single clause stays bare, multiple wrap in
 		 * parentheses.
 		 */
-		$combined = \BerlinDB\Database\Clauses\BooleanGroup::combine( 'AND', $retval[ 'where' ] );
+		$combined = BooleanGroup::combine( 'AND', $retval[ 'where' ] );
 
 		$retval[ 'where' ] = ( '' === $combined )
 			? array()
@@ -869,14 +875,14 @@ class Meta extends Base {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param string                                        $qt_alias  Quoted table alias to qualify the key column.
-	 * @param string                                        $qt_column Quoted meta_key column name.
-	 * @param \BerlinDB\Database\Operators\Comparisons\Base $operator  The resolved ( positive ) key operator.
-	 * @param string                                        $compare   The operator's compare string.
-	 * @param array<string,mixed>                           $clause    The first-order meta_query clause.
+	 * @param string              $qt_alias  Quoted table alias to qualify the key column.
+	 * @param string              $qt_column Quoted meta_key column name.
+	 * @param Comparisons\Base    $operator  The resolved ( positive ) key operator.
+	 * @param string              $compare   The operator's compare string.
+	 * @param array<string,mixed> $clause    The first-order meta_query clause.
 	 * @return string The comparison SQL, or '' to fail closed.
 	 */
-	private function build_meta_key_comparison( string $qt_alias, string $qt_column, \BerlinDB\Database\Operators\Comparisons\Base $operator, string $compare, array $clause ): string {
+	private function build_meta_key_comparison( string $qt_alias, string $qt_column, Comparisons\Base $operator, string $compare, array $clause ): string {
 		$key = $clause[ 'key' ];
 
 		// A list operator treats the key as a set; keep a scalar as a single item.
@@ -968,11 +974,11 @@ class Meta extends Base {
 	 * @since 3.1.0
 	 * @internal Query/Parser collaborator API.
 	 *
-	 * @param array<string,mixed>          $query_vars All of the caller's query vars.
-	 * @param \BerlinDB\Database\Kern\Query $caller     The Query being normalized.
+	 * @param array<string,mixed> $query_vars All of the caller's query vars.
+	 * @param Query               $caller     The Query being normalized.
 	 * @return array<string,mixed> The (possibly modified) query vars.
 	 */
-	public function normalize_query_vars( array $query_vars, \BerlinDB\Database\Kern\Query $caller ): array {
+	public function normalize_query_vars( array $query_vars, Query $caller ): array {
 
 		// Combine the simple clause + meta_query into one clause tree; nothing to do if empty.
 		$meta_query = $this->combine_meta_query_clauses( $query_vars );
@@ -1040,20 +1046,20 @@ class Meta extends Base {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param \BerlinDB\Database\Kern\Query $caller The Query being normalized.
+	 * @param Query $caller The Query being normalized.
 	 * @return bool
 	 */
-	private function caller_has_meta_store( \BerlinDB\Database\Kern\Query $caller ): bool {
+	private function caller_has_meta_store( Query $caller ): bool {
 
 		$relationship = $caller->get_relationship( 'meta' );
 
-		if ( ! ( $relationship instanceof \BerlinDB\Database\Kern\Relationship ) ) {
+		if ( ! ( $relationship instanceof Relationship ) ) {
 			return false;
 		}
 
 		$remote = $this->instantiate_class( $relationship->get_query_class() );
 
-		return ( $remote instanceof \BerlinDB\Database\Interfaces\MetaStore );
+		return ( $remote instanceof MetaStore );
 	}
 
 	/**
@@ -1348,7 +1354,7 @@ class Meta extends Base {
 
 		$caller = $this->caller;
 
-		if ( ! ( $caller instanceof \BerlinDB\Database\Kern\Query ) ) {
+		if ( ! ( $caller instanceof Query ) ) {
 			return '';
 		}
 
@@ -1363,13 +1369,13 @@ class Meta extends Base {
 		// Resolve the sibling via the declared 'meta' relationship.
 		$relationship = $caller->get_relationship( 'meta' );
 
-		if ( ! ( $relationship instanceof \BerlinDB\Database\Kern\Relationship ) ) {
+		if ( ! ( $relationship instanceof Relationship ) ) {
 			return '';
 		}
 
 		$remote = $this->instantiate_class( $relationship->get_query_class() );
 
-		if ( ! ( $remote instanceof \BerlinDB\Database\Kern\Query ) ) {
+		if ( ! ( $remote instanceof Query ) ) {
 			return '';
 		}
 

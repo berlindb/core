@@ -13,6 +13,9 @@ declare( strict_types = 1 );
 
 namespace BerlinDB\Database\Parsers;
 
+use BerlinDB\Database\Clauses\BooleanGroup;
+use BerlinDB\Database\Kern\Query;
+
 // Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
 
@@ -182,7 +185,7 @@ class Search extends Base {
 		}
 
 		// Join the per-column LIKE fragments with OR through the shared renderer.
-		return \BerlinDB\Database\Clauses\BooleanGroup::combine( 'OR', $searches );
+		return BooleanGroup::combine( 'OR', $searches );
 	}
 
 	/**
@@ -216,7 +219,7 @@ class Search extends Base {
 		 * @since 3.0.0 Uses apply_filters_ref_array() instead of apply_filters()
 		 *
 		 * @param array $search_columns Array of column names to be searched.
-		 * @param \BerlinDB\Database\Query $query Current query instance.
+		 * @param Query $query Current query instance.
 		 */
 		$retval = (array) apply_filters_ref_array(
 			$filter_name,

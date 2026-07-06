@@ -19,6 +19,7 @@ defined( 'ABSPATH' ) || exit;
 use BerlinDB\Database\Diff\Comparator;
 use BerlinDB\Database\Diff\Patch;
 use BerlinDB\Database\Diff\Snapshot;
+use BerlinDB\Database\Interfaces\Connection;
 
 /**
  * A base database table schema class, which houses the Column and Index
@@ -218,13 +219,13 @@ class Schema {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param \BerlinDB\Database\Interfaces\Connection $db    The database connection.
+	 * @param Connection $db    The database connection.
 	 * @param non-empty-string                         $query A `SHOW ... FROM %i` statement.
 	 * @param string                                   $table Table name for the %i placeholder.
 	 *
 	 * @return array<int,array<string,mixed>>|null The rows ([] if none), or null on failure.
 	 */
-	private static function introspect_rows( \BerlinDB\Database\Interfaces\Connection $db, string $query, string $table ): ?array {
+	private static function introspect_rows( Connection $db, string $query, string $table ): ?array {
 
 		// Prepare the query; null means prepare() failed.
 		$prepared = $db->prepare( $query, $table );

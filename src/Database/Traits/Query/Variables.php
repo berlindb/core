@@ -17,6 +17,7 @@ namespace BerlinDB\Database\Traits\Query;
 defined( 'ABSPATH' ) || exit;
 
 use BerlinDB\Database\Kern\Column;
+use BerlinDB\Database\Kern\Query;
 
 /**
  * The query-variable vocabulary and normalization pipeline for a Query.
@@ -180,7 +181,7 @@ trait Variables {
 		 *
 		 * @since 1.0.0
 		 *
-		 * @param \BerlinDB\Database\Kern\Query $query Current instance passed by reference.
+		 * @param Query $query Current instance passed by reference.
 		 */
 		if ( '' !== $action_name ) {
 			do_action_ref_array(
