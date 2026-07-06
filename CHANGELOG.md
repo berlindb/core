@@ -4,6 +4,19 @@ Notable changes to BerlinDB are documented here.
 
 ## 3.1.0 - Unreleased
 
+- Begins migrating the `date_query` parser onto the shared operator/operand engine
+  (#211, incremental - slice 1). The straight `value` compare now delegates to the
+  same engine as `compare_query` instead of hand-built SQL, so it gains value-side
+  `IS NULL` / `IS NOT NULL` (opt in with `compare => 'IS NULL'` and `value => null`,
+  since a `value` key is what makes a date clause first-order) and operand-spec values
+  (a column / function / cast on the value side, e.g. `date_created < date_modified`).
+  Byte-identical for a plain scalar or ordinary IN/BETWEEN array. A "forget me" falsey
+  value (`null` / `false`) is still ignored - matching how every date-part key already
+  behaves (`build_numeric_value()` drops null/non-numeric) and the WP_Date_Query
+  contract - while `0` stays a real value (midnight / `0000`); a genuinely malformed
+  input (an explicit empty `IN` list, a broken operand, an unresolvable column) fails
+  the clause closed. The date-part branches (`year`/`month`/`week`/`dayof*`/time) remain
+  bespoke for now.
 - Adds first-class `Relationship` objects (`belongs_to`/`has_many`), wired through
   `Column` and `Schema`, with a Query-level relationship API (#193).
 - Adds relationship-filtered queries — `'in'` (subquery) and `'join'`

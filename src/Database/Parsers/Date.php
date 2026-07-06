@@ -587,10 +587,91 @@ class Date extends Base {
 			}
 		}
 
-		// Straight value compare - build_value() normalizes the mixed input.
-		if ( isset( $clause[ 'value' ] ) ) {
-			$value   = $this->build_value( $compare, $clause[ 'value' ] );
-			$where[] = "{$column} {$compare} {$value}";
+		/*
+		 * Straight value compare, delegated to the shared operator/operand engine
+		 * (Parser::build_operand_clause) rather than hand-built SQL - #211 Date
+		 * migration, slice 1. This renders a unary IS NULL / IS NOT NULL, an
+		 * operand-spec value (column / function / cast), and IN / BETWEEN uniformly,
+		 * and stays byte-identical for a plain scalar (both sides prepare the value
+		 * with the operator's own get_value_sql at the column's '%s' pattern). The
+		 * date-part branches above remain bespoke for now. array_key_exists() so a
+		 * null value is not silently skipped.
+		 */
+		if ( array_key_exists( 'value', $clause ) ) {
+			$date_column = $this->caller?->get_column_by(
+				array(
+					'name'       => $column_name,
+					'date_query' => true,
+				)
+			);
+
+			if ( $date_column instanceof \BerlinDB\Database\Kern\Column ) {
+
+				/*
+				 * Resolve the operator allowing unary ( get_compare() above excludes it
+				 * because the bespoke branches have no value-less path ); fall back to
+				 * '='. A unary operator ( IS NULL / IS NOT NULL, opted into with
+				 * `value => null` ) renders value-less; the clause value is ignored.
+				 */
+				$value_compare = ! empty( $clause[ 'compare' ] )
+					? strtoupper( (string) $clause[ 'compare' ] )
+					: $this->compare;
+				$operator      = $this->get_operator( $value_compare );
+
+				if ( false === $operator ) {
+					$operator = $this->get_operator( '=' );
+				}
+
+				/*
+				 * A "forget me" falsey value ( null / false ) is IGNORED for a
+				 * non-unary operator - the same intent every date-part key honors via
+				 * build_numeric_value() ( which bails on null and filters out non-numeric
+				 * values ), and the WP_Date_Query contract. A real value ( a datetime
+				 * string, 0 = midnight / 0000, or '' ) is processed. A unary operator
+				 * ( IS NULL / IS NOT NULL, opted into with `value => null` ) renders
+				 * value-less regardless.
+				 */
+				$forget_me = ( null === $clause[ 'value' ] ) || ( false === $clause[ 'value' ] );
+
+				if ( ( false !== $operator ) && ( $operator->is_unary() || ! $forget_me ) ) {
+					$lhs = new \BerlinDB\Database\Operands\Column(
+						array(
+							'column' => $date_column,
+							'alias'  => $this->caller->get_table_alias() ?? '',
+						)
+					);
+
+					$value_is_operand = \BerlinDB\Database\Operands\Base::is_spec( $clause[ 'value' ] );
+					$value            = $clause[ 'value' ];
+
+					/*
+					 * Normalize a non-operand value exactly as the former build_value()
+					 * did, so the migrated branch stays byte-identical: reindex arrays,
+					 * stringify floats, and coerce bool / object / null to null.
+					 */
+					if ( ! $value_is_operand ) {
+						if ( is_array( $value ) ) {
+							$value = array_values( $value );
+						} elseif ( is_float( $value ) ) {
+							$value = (string) $value;
+						} elseif ( ! is_int( $value ) && ! is_string( $value ) ) {
+							$value = null;
+						}
+					}
+
+					$expr = $this->build_operand_clause( $lhs, $operator, $value, $value_is_operand );
+
+					/*
+					 * Fail the clause closed on a broken operand ( false ) OR a value
+					 * that renders nothing ( '' - e.g. an empty IN / BETWEEN list ):
+					 * dropping it would silently WIDEN the date filter to every row. A
+					 * unary predicate and an ordinary scalar always render non-empty.
+					 */
+					$where[] = ( ( false === $expr ) || ( '' === $expr ) )
+						? '1 = 0'
+						: $expr;
+				}
+			}
 		}
 
 		// Hour/Minute/Second.

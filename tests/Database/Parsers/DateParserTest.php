@@ -348,6 +348,211 @@ class DateParserTest extends TestCase {
 	}
 
 	/**
+	 * Capture every SQL statement run during the callback, newline-joined.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param callable $callback Code to run while capturing.
+	 * @return string
+	 */
+	private function captured_sql( callable $callback ): string {
+		$queries = array();
+
+		$filter = static function ( $sql ) use ( &$queries ) {
+			$queries[] = $sql;
+			return $sql;
+		};
+
+		add_filter( 'query', $filter );
+		$callback();
+		remove_filter( 'query', $filter );
+
+		return implode( "\n", $queries );
+	}
+
+	/**
+	 * Run a read with the given date_query and return the captured SQL.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string,mixed> $clause A single date_query clause.
+	 * @return string
+	 */
+	private function date_query_sql( array $clause ): string {
+		return $this->captured_sql(
+			function () use ( $clause ) {
+				self::$query->query(
+					array(
+						'date_query'    => array( $clause ),
+						'cache_results' => false,
+					)
+				);
+			}
+		);
+	}
+
+	/**
+	 * Test that a value-side IS NULL on a date column renders a unary predicate now
+	 * that the value branch delegates to the shared engine ( migration slice 1 ). The
+	 * unary compare is opted into with `value => null` ( Date is key-driven, so a
+	 * `value` key is what makes the clause first-order ); the null value is ignored.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_value_is_null_renders_unary_predicate() {
+		$sql = $this->date_query_sql(
+			array(
+				'column'  => 'date_modified',
+				'compare' => 'IS NULL',
+				'value'   => null,
+			)
+		);
+
+		$this->assertMatchesRegularExpression( '/`date_modified`\s+IS NULL/i', $sql );
+		$this->assertStringNotContainsString( '1 = 0', $sql );
+	}
+
+	/**
+	 * Test that IS NOT NULL renders the negated unary predicate.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_value_is_not_null_renders_unary_predicate() {
+		$sql = $this->date_query_sql(
+			array(
+				'column'  => 'date_modified',
+				'compare' => 'IS NOT NULL',
+				'value'   => null,
+			)
+		);
+
+		$this->assertMatchesRegularExpression( '/`date_modified`\s+IS NOT NULL/i', $sql );
+		$this->assertStringNotContainsString( '1 = 0', $sql );
+	}
+
+	/**
+	 * Test that a value-side operand spec ( a column reference ) renders a
+	 * column-to-column comparison, which the hand-built value branch could not do.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_value_operand_renders_column_reference() {
+		$sql = $this->date_query_sql(
+			array(
+				'column'  => 'date_created',
+				'compare' => '<',
+				'value'   => array(
+					'operand' => 'column',
+					'name'    => 'date_modified',
+				),
+			)
+		);
+
+		$this->assertStringContainsString( '`date_created`', $sql );
+		$this->assertMatchesRegularExpression( '/`date_created`\s*<\s*`?[\w]*`?\.?`date_modified`/i', $sql );
+		$this->assertStringNotContainsString( '1 = 0', $sql );
+	}
+
+	/**
+	 * Test that a plain scalar value compare still renders exactly as before ( the
+	 * migration is byte-identical for the ordinary case ): `date_created` = '<date>'.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_value_scalar_compare_unchanged() {
+		$sql = $this->date_query_sql(
+			array(
+				'column'  => 'date_created',
+				'compare' => '=',
+				'value'   => '2022-03-10 00:00:00',
+			)
+		);
+
+		$this->assertStringContainsString( "`date_created` = '2022-03-10 00:00:00'", $sql );
+	}
+
+	/**
+	 * Test that an empty IN list fails the clause closed ( 1 = 0 ) rather than
+	 * dropping the date filter and silently widening results to every row.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_value_empty_in_list_fails_closed() {
+		$sql = $this->date_query_sql(
+			array(
+				'column'  => 'date_created',
+				'compare' => 'IN',
+				'value'   => array(),
+			)
+		);
+
+		$this->assertStringContainsString( '1 = 0', $sql );
+	}
+
+	/**
+	 * Test that a "forget me" falsey value ( null ) is IGNORED, not failed closed:
+	 * the value sub-filter is dropped ( matching the date-part keys' contract ), so
+	 * the query returns all rows rather than none.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_value_null_is_ignored() {
+		$results = self::$query->query(
+			array(
+				'date_query' => array(
+					array(
+						'column'  => 'date_created',
+						'value'   => null,
+						'compare' => '=',
+					),
+				),
+			)
+		);
+
+		$this->assertCount( 5, $results );
+	}
+
+	/**
+	 * Test that a bare `false` value is also "forget me" ( ignored ), consistent with
+	 * how build_numeric_value() drops false for the date-part keys.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_value_false_is_ignored() {
+		$results = self::$query->query(
+			array(
+				'date_query' => array(
+					array(
+						'column'  => 'date_created',
+						'value'   => false,
+						'compare' => '=',
+					),
+				),
+			)
+		);
+
+		$this->assertCount( 5, $results );
+	}
+
+	/**
+	 * Test that 0 is a REAL value ( midnight / 0000 ), not "forget me": it renders a
+	 * concrete comparison ( which happens to match no fixture row ).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_value_zero_is_a_real_value() {
+		$sql = $this->date_query_sql(
+			array(
+				'column'  => 'date_created',
+				'value'   => 0,
+				'compare' => '=',
+			)
+		);
+
+		$this->assertStringContainsString( "`date_created` = '0'", $sql );
+	}
+
+	/**
 	 * Test that before filter returns rows created before the given date.
 	 *
 	 * @since 3.0.0
