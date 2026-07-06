@@ -985,9 +985,12 @@ class Date extends Base {
 				}
 			}
 
-			return ! empty( $parts )
-				? implode( ' AND ', $parts )
-				: null;
+			if ( empty( $parts ) ) {
+				return null;
+			}
+
+			// Join the per-unit comparisons with AND through the shared renderer.
+			return \BerlinDB\Database\Clauses\BooleanGroup::combine( 'AND', $parts );
 		}
 
 		// A single unit is just that date-part comparison.

@@ -119,6 +119,19 @@ class BooleanGroupTest extends TestCase {
 	}
 
 	/**
+	 * Test the combine() convenience factory (one-call construct + render).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_combine_factory() {
+		$this->assertSame( '', BooleanGroup::combine( 'AND', array() ) );
+		$this->assertSame( 'a = 1', BooleanGroup::combine( 'AND', array( 'a = 1' ) ) );
+		$this->assertSame( '( a = 1 OR b = 2 )', BooleanGroup::combine( 'OR', array( 'a = 1', 'b = 2' ) ) );
+		$this->assertSame( 'NOT ( a = 1 AND b = 2 )', BooleanGroup::combine( 'AND', array( 'a = 1', 'b = 2' ), true ) );
+		$this->assertSame( '( a = 1 XOR b = 2 )', BooleanGroup::combine( 'XOR', array( 'a = 1', 'b = 2' ) ) );
+	}
+
+	/**
 	 * Test that the XOR relation joins items exclusively.
 	 *
 	 * @since 3.1.0

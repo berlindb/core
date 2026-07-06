@@ -264,13 +264,7 @@ class Where {
 			return $this->fail( 'criteria group has no items' );
 		}
 
-		return ( new BooleanGroup(
-			array(
-				'relation' => $relation,
-				'negated'  => $negated,
-				'items'    => $rendered,
-			)
-		) )->get_sql();
+		return BooleanGroup::combine( $relation, $rendered, $negated );
 	}
 
 	/**

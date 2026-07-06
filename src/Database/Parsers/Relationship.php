@@ -485,15 +485,8 @@ class Relationship extends Base {
 			}
 		}
 
-		// No conditions.
-		if ( empty( $wheres ) ) {
-			return '';
-		}
-
-		// A single condition needs no grouping; otherwise wrap with the relation.
-		return ( 1 === count( $wheres ) )
-			? $wheres[0]
-			: '( ' . implode( " {$relation} ", $wheres ) . ' )';
+		// Combine the WHERE fragments with the relation ( bare single, wrapped many ).
+		return \BerlinDB\Database\Clauses\BooleanGroup::combine( $relation, $wheres );
 	}
 
 	/**
@@ -622,8 +615,10 @@ class Relationship extends Base {
 		 * unnecessary since the remote table is only used for filtering, never for
 		 * selection or ordering.
 		 */
+		$correlation = \BerlinDB\Database\Clauses\BooleanGroup::combine( 'AND', $sub_where );
+
 		$exists = $keyword . ' ( SELECT 1 FROM ' . $remote_sql . ' AS ' . $alias_sql
-			. ' WHERE ' . implode( ' AND ', $sub_where ) . ' )';
+			. ' WHERE ' . $correlation . ' )';
 
 		return array(
 			'join'  => '',
@@ -690,15 +685,8 @@ class Relationship extends Base {
 			}
 		}
 
-		// No conditions.
-		if ( empty( $where ) ) {
-			return '';
-		}
-
-		// A single condition needs no grouping; otherwise wrap with the relation.
-		return ( 1 === count( $where ) )
-			? $where[0]
-			: '( ' . implode( " {$relation} ", $where ) . ' )';
+		// Combine the WHERE fragments with the relation ( bare single, wrapped many ).
+		return \BerlinDB\Database\Clauses\BooleanGroup::combine( $relation, $where );
 	}
 
 	/**

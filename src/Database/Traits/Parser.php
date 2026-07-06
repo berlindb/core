@@ -1049,12 +1049,7 @@ trait Parser {
 
 					// Get clauses, then combine them (none -> '', one -> bare, many -> AND group).
 					$clause_sql       = $this->get_sql_for_clause( $clause, $query, $key );
-					$sql[ 'where' ][] = ( new \BerlinDB\Database\Clauses\BooleanGroup(
-						array(
-							'relation' => 'AND',
-							'items'    => array_values( $clause_sql[ 'where' ] ),
-						)
-					) )->get_sql();
+					$sql[ 'where' ][] = \BerlinDB\Database\Clauses\BooleanGroup::combine( 'AND', array_values( $clause_sql[ 'where' ] ) );
 
 					// Merge joins.
 					$sql[ 'join' ] = array_merge( $sql[ 'join' ], $clause_sql[ 'join' ] );
@@ -1247,10 +1242,15 @@ trait Parser {
 			}
 		}
 
-		// Multiple WHERE clauses should be joined in parentheses.
-		if ( 1 < count( $retval[ 'where' ] ) ) {
-			$retval[ 'where' ] = array( '( ' . implode( ' AND ', $retval[ 'where' ] ) . ' )' );
-		}
+		/*
+		 * Join the WHERE clauses with AND through the shared BooleanGroup renderer:
+		 * a single clause stays bare, multiple wrap in parentheses.
+		 */
+		$combined = \BerlinDB\Database\Clauses\BooleanGroup::combine( 'AND', $retval[ 'where' ] );
+
+		$retval[ 'where' ] = ( '' === $combined )
+			? array()
+			: array( $combined );
 
 		// Return join/where array.
 		return $retval;

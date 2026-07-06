@@ -88,6 +88,31 @@ class BooleanGroup {
 	}
 
 	/**
+	 * Combine SQL fragments with a boolean relation, in one call.
+	 *
+	 * Convenience factory around the constructor + get_sql(), so callers do not
+	 * repeat the `( new self( array( ... ) ) )->get_sql()` construction. Prefer this
+	 * to a hand-rolled `implode( ' AND ', ... )` when joining WHERE / HAVING fragments:
+	 * a single item stays bare, multiple wrap in parentheses, empties drop.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string                     $relation The relation: 'AND', 'OR', or 'XOR'. Default 'AND'.
+	 * @param array<int,string|self>     $items    The SQL fragments / nested groups to combine.
+	 * @param bool                       $negated  Whether to wrap the group in NOT. Default false.
+	 * @return string The combined SQL, or '' when there are no non-empty items.
+	 */
+	public static function combine( string $relation = 'AND', array $items = array(), bool $negated = false ): string {
+		return ( new self(
+			array(
+				'relation' => $relation,
+				'items'    => $items,
+				'negated'  => $negated,
+			)
+		) )->get_sql();
+	}
+
+	/**
 	 * Assign constructor arguments to properties.
 	 *
 	 * @since 3.1.0

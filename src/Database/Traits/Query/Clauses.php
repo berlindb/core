@@ -663,12 +663,7 @@ trait Clauses {
 	private function parse_where_clause( $where = array() ): string {
 
 		// Combine the parser WHERE fragments with a boolean AND.
-		$sql = ( new \BerlinDB\Database\Clauses\BooleanGroup(
-			array(
-				'relation' => 'AND',
-				'items'    => array_values( (array) $where ),
-			)
-		) )->get_sql();
+		$sql = \BerlinDB\Database\Clauses\BooleanGroup::combine( 'AND', array_values( (array) $where ) );
 
 		// Prefix WHERE only when there is something to filter.
 		return ( '' === $sql )

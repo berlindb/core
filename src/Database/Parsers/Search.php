@@ -172,17 +172,17 @@ class Search extends Base {
 		// Default array.
 		$searches = array();
 
-		// Build search SQL.
+		// Build search SQL, keeping only successfully prepared fragments.
 		foreach ( $column_names as $column ) {
-			$searches[] = $db->prepare( "{$column} LIKE %s", $like );
+			$prepared = $db->prepare( "{$column} LIKE %s", $like );
+
+			if ( is_string( $prepared ) ) {
+				$searches[] = $prepared;
+			}
 		}
 
-		// Concatenate.
-		$values = implode( ' OR ', $searches );
-		$retval = '(' . $values . ')';
-
-		// Return the clause.
-		return $retval;
+		// Join the per-column LIKE fragments with OR through the shared renderer.
+		return \BerlinDB\Database\Clauses\BooleanGroup::combine( 'OR', $searches );
 	}
 
 	/**

@@ -542,9 +542,12 @@ trait Aggregates {
 			$fragments[] = $this->quote_identifier( $alias ) . ' ' . $operator->get_sql_compare() . ' ' . $value_sql;
 		}
 
-		return empty( $fragments )
+		// Join the per-alias HAVING conditions with AND through the shared renderer.
+		$combined = \BerlinDB\Database\Clauses\BooleanGroup::combine( 'AND', $fragments );
+
+		return ( '' === $combined )
 			? ''
-			: 'HAVING ' . implode( ' AND ', $fragments );
+			: 'HAVING ' . $combined;
 	}
 
 	/**

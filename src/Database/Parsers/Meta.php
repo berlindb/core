@@ -771,12 +771,15 @@ class Meta extends Base {
 		}
 
 		/*
-		 * Multiple WHERE clauses (for meta_key and meta_value) should
-		 * be joined in parentheses.
+		 * Join the WHERE clauses (for meta_key and meta_value) with AND through the
+		 * shared BooleanGroup renderer: a single clause stays bare, multiple wrap in
+		 * parentheses.
 		 */
-		if ( 1 < count( $retval[ 'where' ] ) ) {
-			$retval[ 'where' ] = array( '( ' . implode( ' AND ', $retval[ 'where' ] ) . ' )' );
-		}
+		$combined = \BerlinDB\Database\Clauses\BooleanGroup::combine( 'AND', $retval[ 'where' ] );
+
+		$retval[ 'where' ] = ( '' === $combined )
+			? array()
+			: array( $combined );
 
 		// Return join/where clauses.
 		return $retval;
