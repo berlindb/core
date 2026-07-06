@@ -582,11 +582,35 @@ class Meta extends Base {
 					? " AS {$qt_alias}"
 					: '';
 
-				if ( 'LIKE' === $meta_compare_key ) {
-					$join .= $this->db()->prepare( " ON ( {$qt_primary_table}.{$qt_primary_column} = {$qt_alias}.{$qt_meta_column} AND {$qt_alias}.{$qt_column} LIKE %s )", '%' . $this->db()->esc_like( $clause[ 'key' ] ) . '%' );
-				} else {
-					$join .= $this->db()->prepare( " ON ( {$qt_primary_table}.{$qt_primary_column} = {$qt_alias}.{$qt_meta_column} AND {$qt_alias}.{$qt_column} = %s )", $clause[ 'key' ] );
+				/*
+				 * Match the key through the operator path so an array key becomes
+				 * IN (...) instead of a broken `= %s`, and LIKE / BINARY apply as they
+				 * do on the WHERE side. compare_key EXISTS / NOT EXISTS fold to = / !=;
+				 * an unbuildable condition ( e.g. an empty IN list ) fails closed.
+				 */
+				$join_key_compare = $meta_compare_key;
+
+				if ( 'EXISTS' === $join_key_compare ) {
+					$join_key_compare = '=';
+				} elseif ( 'NOT EXISTS' === $join_key_compare ) {
+					$join_key_compare = '!=';
 				}
+
+				$join_key_operator = $this->get_operator( $join_key_compare );
+				$join_key_cond     = ( false !== $join_key_operator )
+					? $this->build_meta_key_comparison( $qt_alias, $qt_column, $join_key_operator, $join_key_compare, $clause )
+					: '';
+
+				/*
+				 * An unbuildable key ( e.g. an empty IN list ) names no key to test for
+				 * absence. Do NOT constrain the ON to `1 = 0` - in a LEFT anti-join that
+				 * matches no meta row, so `IS NULL` becomes true for EVERY object ( fail
+				 * OPEN ). Emit the correlation alone and fail the clause closed in the
+				 * WHERE below instead.
+				 */
+				$join .= ( '' === $join_key_cond )
+					? " ON ( {$qt_primary_table}.{$qt_primary_column} = {$qt_alias}.{$qt_meta_column} )"
+					: " ON ( {$qt_primary_table}.{$qt_primary_column} = {$qt_alias}.{$qt_meta_column} AND {$join_key_cond} )";
 
 				// All other JOIN clauses.
 			} else {
@@ -643,7 +667,13 @@ class Meta extends Base {
 		// meta_key.
 		if ( array_key_exists( 'key', $clause ) ) {
 			if ( 'NOT EXISTS' === $meta_compare ) {
-				$retval[ 'where' ][] = "{$qt_alias}.{$qt_meta_column} IS NULL";
+				/*
+				 * An empty key list names no key to be absent, so the correlation-only
+				 * anti-join above would match every object; fail closed instead.
+				 */
+				$retval[ 'where' ][] = ( is_array( $clause[ 'key' ] ) && empty( $clause[ 'key' ] ) )
+					? '1 = 0'
+					: "{$qt_alias}.{$qt_meta_column} IS NULL";
 
 			} else {
 
@@ -728,8 +758,22 @@ class Meta extends Base {
 		} elseif ( array_key_exists( 'value', $clause ) ) {
 			$where = $this->build_value( $meta_compare, $clause[ 'value' ], '%s' );
 
-			// Not empty, so maybe cast...
-			if ( ! empty( $where ) ) {
+			if ( '' === $where ) {
+
+				/*
+				 * An empty value on a LIST/RANGE operator ( e.g. `IN ()` / `BETWEEN`
+				 * with no bounds ) is a degenerate filter and must fail closed, like the
+				 * key side - not drop the value filter and let the INNER JOIN widen to
+				 * any value. A value-less compare ( EXISTS / NOT EXISTS ) also builds no
+				 * value SQL, but there the value is legitimately ignored, so key off the
+				 * operator, not the value shape.
+				 */
+				if ( ( false !== $operator ) && ( $operator->is_list() || $operator->is_range() ) ) {
+					$retval[ 'where' ][] = '1 = 0';
+				}
+
+				// Not empty, so maybe cast...
+			} else {
 
 				/*
 				 * Optionally CAST the value column. Meta uses 'CHAR' as its "no

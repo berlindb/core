@@ -700,6 +700,57 @@ class MetaParserTest extends TestCase {
 	}
 
 	/**
+	 * compare => 'NOT EXISTS' with an ARRAY key must build IN (...) in the anti-join
+	 * ON clause, not a broken `= %s` fed an array.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_bespoke_sql_key_absence_array_key_uses_in() {
+		$sql = $this->bespoke_sql(
+			array(
+				'key'     => array( 'color', 'score' ),
+				'compare' => 'NOT EXISTS',
+			)
+		);
+
+		$this->assertStringContainsString( 'LEFT JOIN `wptests_postmeta`', $sql );
+		$this->assertStringContainsString( "`wptests_postmeta`.`meta_key` IN ('color', 'score')", $sql );
+		$this->assertStringNotContainsString( "= 'Array'", $sql );
+	}
+
+	/**
+	 * compare => 'NOT EXISTS' with an EMPTY key list must FAIL CLOSED. A `1 = 0` in the
+	 * anti-join ON would match no meta row -> `IS NULL` true for every object (fail
+	 * open); the guard must land in the WHERE instead.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_bespoke_sql_key_absence_empty_array_fails_closed() {
+		$sql = $this->bespoke_sql(
+			array(
+				'key'     => array(),
+				'compare' => 'NOT EXISTS',
+			)
+		);
+
+		$this->assertStringContainsString( '1 = 0', $sql );
+
+		// Must match NOTHING, not every row.
+		$results = self::$query->query(
+			array(
+				'meta_query' => array(
+					array(
+						'key'     => array(),
+						'compare' => 'NOT EXISTS',
+					),
+				),
+			)
+		);
+
+		$this->assertCount( 0, $results );
+	}
+
+	/**
 	 * Characterize the key-vs-value REGEXP asymmetry: the value side already casts
 	 * ( operator-driven ), the key side inlines BINARY. This is the #212 crux.
 	 *
@@ -776,6 +827,82 @@ class MetaParserTest extends TestCase {
 		);
 
 		$this->assertCount( 0, $results );
+	}
+
+	/**
+	 * An empty IN value list must likewise FAIL CLOSED, not drop the value filter and
+	 * let a present key match any value.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_bespoke_sql_empty_in_value_fails_closed() {
+		$sql = $this->bespoke_sql(
+			array(
+				'key'     => 'color',
+				'value'   => array(),
+				'compare' => 'IN',
+			)
+		);
+
+		$this->assertStringContainsString( '1 = 0', $sql );
+
+		// Alpha/Beta have the color key, but an empty value list must match none.
+		$results = self::$query->query(
+			array(
+				'meta_query' => array(
+					array(
+						'key'     => 'color',
+						'value'   => array(),
+						'compare' => 'IN',
+					),
+				),
+			)
+		);
+
+		$this->assertCount( 0, $results );
+	}
+
+	/**
+	 * compare => 'NOT EXISTS' with a value present must IGNORE the value ( it is a
+	 * key-absence test ) rather than fail closed on the value-less operator.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_not_exists_with_value_ignores_the_value() {
+		$results = self::$query->query(
+			array(
+				'meta_query' => array(
+					array(
+						'key'     => 'berlindb_test_color',
+						'value'   => 'red',
+						'compare' => 'NOT EXISTS',
+					),
+				),
+			)
+		);
+
+		// Gamma lacks the color key; the value 'red' must be ignored, not fail closed.
+		$this->assertCount( 1, $results );
+		$this->assertSame( 'Gamma Gadget', $results[0]->name );
+
+		/*
+		 * An EMPTY-array value must also be ignored ( NOT EXISTS is value-less ), not
+		 * mistaken for an empty IN list and failed closed.
+		 */
+		$empty_value = self::$query->query(
+			array(
+				'meta_query' => array(
+					array(
+						'key'     => 'berlindb_test_color',
+						'value'   => array(),
+						'compare' => 'NOT EXISTS',
+					),
+				),
+			)
+		);
+
+		$this->assertCount( 1, $empty_value );
+		$this->assertSame( 'Gamma Gadget', $empty_value[0]->name );
 	}
 
 	/**
