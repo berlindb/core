@@ -527,6 +527,223 @@ class MetaParserTest extends TestCase {
 		$this->assertSame( 'Gamma Gadget', $results[0]->name );
 	}
 
+	/** Bespoke-engine SQL characterization (#212) ***************************/
+
+	/*
+	 * These lock the EXACT SQL the bespoke WP-core-meta engine emits for each
+	 * meta_key ( compare_key ) branch of the switch in get_sql_for_clause(), plus
+	 * the key-vs-value REGEXP asymmetry. #212 tracks routing the key side through
+	 * operator->get_sql() (like the value side already is), which WOULD change these
+	 * shapes ( e.g. inline `REGEXP BINARY` -> `CAST(... AS BINARY) REGEXP` ). When
+	 * that lands, update these deliberately - a diff here means the SQL shape moved.
+	 */
+
+	/**
+	 * Return the emitted SQL for a single-clause meta_query, placeholder-normalized.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string,mixed> $clause One meta_query clause.
+	 * @return string
+	 */
+	private function bespoke_sql( array $clause ): string {
+		global $wpdb;
+
+		self::$query->query(
+			array(
+				'meta_query' => array( $clause ),
+				'number'     => 1,
+			)
+		);
+
+		return $wpdb->remove_placeholder_escape( self::$query->get_request() );
+	}
+
+	/**
+	 * Characterize the meta_key comparison SQL for every compare_key branch.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_bespoke_sql_meta_key_branches() {
+		// = / EXISTS: trimmed equality.
+		$this->assertStringContainsString(
+			"`wptests_postmeta`.`meta_key` = 'color'",
+			$this->bespoke_sql(
+				array(
+					'key'         => '  color  ',
+					'compare_key' => '=',
+					'compare'     => 'EXISTS',
+				)
+			)
+		);
+
+		// LIKE: wildcard-wrapped.
+		$this->assertStringContainsString(
+			"`wptests_postmeta`.`meta_key` LIKE '%color%'",
+			$this->bespoke_sql(
+				array(
+					'key'         => 'color',
+					'compare_key' => 'LIKE',
+					'compare'     => 'EXISTS',
+				)
+			)
+		);
+
+		// IN: comma list.
+		$this->assertStringContainsString(
+			"`wptests_postmeta`.`meta_key` IN ('color','score')",
+			$this->bespoke_sql(
+				array(
+					'key'         => array( 'color', 'score' ),
+					'compare_key' => 'IN',
+					'compare'     => 'EXISTS',
+				)
+			)
+		);
+
+		// REGEXP: no cast leaves a DOUBLE space before the pattern (current quirk).
+		$this->assertStringContainsString(
+			"`wptests_postmeta`.`meta_key` REGEXP  '^color$'",
+			$this->bespoke_sql(
+				array(
+					'key'         => '^color$',
+					'compare_key' => 'REGEXP',
+					'compare'     => 'EXISTS',
+				)
+			)
+		);
+
+		// REGEXP + type_key BINARY: INLINE `REGEXP BINARY` (key side; contrast value side below).
+		$this->assertStringContainsString(
+			"`wptests_postmeta`.`meta_key` REGEXP BINARY '^color$'",
+			$this->bespoke_sql(
+				array(
+					'key'         => '^color$',
+					'compare_key' => 'REGEXP',
+					'type_key'    => 'BINARY',
+					'compare'     => 'EXISTS',
+				)
+			)
+		);
+	}
+
+	/**
+	 * Characterize the negated meta_key branches: each flips to a NOT EXISTS subquery.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_bespoke_sql_negated_meta_key_branches() {
+		// != : correlated NOT EXISTS with LIMIT 1.
+		$this->assertStringContainsString(
+			"NOT EXISTS (SELECT 1 FROM `wptests_postmeta` `mt1` WHERE `mt1`.`post_id` = `wptests_postmeta`.`post_id` AND `mt1`.`meta_key` = 'color' LIMIT 1)",
+			$this->bespoke_sql(
+				array(
+					'key'         => 'color',
+					'compare_key' => '!=',
+				)
+			)
+		);
+
+		// NOT LIKE.
+		$this->assertStringContainsString(
+			"AND `mt1`.`meta_key` LIKE '%color%' LIMIT 1)",
+			$this->bespoke_sql(
+				array(
+					'key'         => 'color',
+					'compare_key' => 'NOT LIKE',
+				)
+			)
+		);
+
+		// NOT IN.
+		$this->assertStringContainsString(
+			"AND `mt1`.`meta_key` IN ('color') LIMIT 1)",
+			$this->bespoke_sql(
+				array(
+					'key'         => array( 'color' ),
+					'compare_key' => 'NOT IN',
+				)
+			)
+		);
+
+		// NOT REGEXP ( subquery emits a positive REGEXP, double space for empty cast ).
+		$this->assertStringContainsString(
+			"AND `mt1`.`meta_key` REGEXP  'color' LIMIT 1)",
+			$this->bespoke_sql(
+				array(
+					'key'         => 'color',
+					'compare_key' => 'NOT REGEXP',
+				)
+			)
+		);
+	}
+
+	/**
+	 * Characterize compare => 'NOT EXISTS' ( key absence ): a LEFT JOIN anti-join.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_bespoke_sql_key_absence_is_left_join_anti_join() {
+		$sql = $this->bespoke_sql(
+			array(
+				'key'     => 'color',
+				'compare' => 'NOT EXISTS',
+			)
+		);
+
+		$this->assertStringContainsString(
+			"LEFT JOIN `wptests_postmeta` ON ( `berlindb_database_tw`.`id` = `wptests_postmeta`.`post_id` AND `wptests_postmeta`.`meta_key` = 'color' )",
+			$sql
+		);
+		$this->assertStringContainsString( '`wptests_postmeta`.`post_id` IS NULL', $sql );
+	}
+
+	/**
+	 * Characterize the key-vs-value REGEXP asymmetry: the value side already casts
+	 * ( operator-driven ), the key side inlines BINARY. This is the #212 crux.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_bespoke_sql_value_side_is_operator_driven() {
+		// Value BINARY REGEXP -> CAST( ... AS BINARY ) REGEXP ( operator path ).
+		$this->assertStringContainsString(
+			"CAST(`wptests_postmeta`.`meta_value` AS BINARY) REGEXP 'RED'",
+			$this->bespoke_sql(
+				array(
+					'key'     => 'color',
+					'value'   => 'RED',
+					'compare' => 'REGEXP',
+					'type'    => 'BINARY',
+				)
+			)
+		);
+
+		// Value NUMERIC -> CAST( ... AS SIGNED ).
+		$this->assertStringContainsString(
+			"CAST(`wptests_postmeta`.`meta_value` AS SIGNED) > '20'",
+			$this->bespoke_sql(
+				array(
+					'key'     => 'score',
+					'value'   => 20,
+					'compare' => '>',
+					'type'    => 'NUMERIC',
+				)
+			)
+		);
+
+		// Key + value together wrap in a single AND group.
+		$this->assertStringContainsString(
+			"( `wptests_postmeta`.`meta_key` = 'color' AND `wptests_postmeta`.`meta_value` = 'red' )",
+			$this->bespoke_sql(
+				array(
+					'key'     => 'color',
+					'value'   => 'red',
+					'compare' => '=',
+				)
+			)
+		);
+	}
+
 	/**
 	 * Test that meta_query with a numeric comparison works correctly.
 	 *
