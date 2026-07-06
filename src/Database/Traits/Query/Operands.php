@@ -14,6 +14,7 @@ namespace BerlinDB\Database\Traits\Query;
 use BerlinDB\Database\Kern\Column;
 use BerlinDB\Database\Operands\Base;
 use BerlinDB\Database\Operands\Func;
+use BerlinDB\Database\Operands\Interval;
 use BerlinDB\Database\Operands\Math;
 use BerlinDB\Database\Operands\Value;
 
@@ -43,6 +44,7 @@ defined( 'ABSPATH' ) || exit;
  *   - Range:    array( 'operand' => 'range',  'items' => array( $a, $b ) )  // BETWEEN, exactly two bounds
  *   - Tuple:    array( 'operand' => 'tuple',  'items' => array( $a, $b ) )  // ( a, b ) row constructor
  *   - Math:     array( 'operand' => 'math',   'operator' => '+', 'operands' => array( ... ) )  // ( a + b ), infix arithmetic
+ *   - Interval: array( 'operand' => 'interval', 'value' => 30, 'unit' => 'DAY' )  // INTERVAL 30 DAY, only inside DATE_SUB/DATE_ADD
  *
  * Any SCALAR operand ( column / value / function / cast ) may also carry a `cast`
  * key ( a validated CAST target string ) that wraps it in CAST( ... AS <type> ) -
@@ -127,6 +129,10 @@ trait Operands {
 
 			case 'math':
 				$operand = $this->resolve_math_operand( $value, $alias );
+				break;
+
+			case 'interval':
+				$operand = $this->resolve_interval_operand( $value );
 				break;
 
 			default:
@@ -346,7 +352,10 @@ trait Operands {
 			return false;
 		}
 
-		// Arguments must be a list within the declared arity.
+		/*
+		 * Arguments must be an array within the declared arity ( keys are ignored -
+		 * argument POSITION is by insertion order, so a keyed args array still works ).
+		 */
 		$args_spec = $value[ 'args' ] ?? array();
 
 		if ( ! is_array( $args_spec ) ) {
@@ -369,9 +378,13 @@ trait Operands {
 		 */
 		$resolved = array();
 		$raw_args = array();
+		$position = 0;
 
 		foreach ( $args_spec as $arg_spec ) {
-			$arg = $this->resolve_operand_argument( $arg_spec, $descriptor[ 'arg_kinds' ], $alias );
+			$kinds = $this->arg_kinds_for_position( $descriptor[ 'arg_kinds' ], $position );
+			$arg   = $this->resolve_operand_argument( $arg_spec, $kinds, $alias );
+
+			++$position;
 
 			if ( ! ( $arg instanceof Base ) ) {
 				return false;
@@ -684,6 +697,70 @@ trait Operands {
 				'category' => 'numeric',
 			)
 		);
+	}
+
+	/**
+	 * Resolve an `interval` operand spec into an Interval operand, or false.
+	 *
+	 * `value` is the amount ( cast to an integer, so the fragment is injection-safe )
+	 * and `unit` must be one of the allow-listed INTERVAL units. An interval is only
+	 * ever accepted as a date function's argument ( see DATE_SUB / DATE_ADD ); it can
+	 * neither be compared nor stand alone, so a non-integer amount or an unknown unit
+	 * fails closed.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string,mixed> $value The operand spec.
+	 * @return Base|false
+	 */
+	private function resolve_interval_operand( array $value ) {
+
+		// The amount must be an integer ( or an integer-like string ).
+		$amount = $value[ 'value' ] ?? null;
+
+		if ( ! is_int( $amount ) && ! ( is_string( $amount ) && ( '' !== $amount ) && ( (string) (int) $amount === $amount ) ) ) {
+			return false;
+		}
+
+		// The unit must be allow-listed.
+		$unit = is_string( $value[ 'unit' ] ?? null ) ? strtoupper( trim( $value[ 'unit' ] ) ) : '';
+
+		if ( ! Interval::is_allowed_unit( $unit ) ) {
+			return false;
+		}
+
+		// The amount is int-cast ( safe ) and the unit is allow-listed ( safe ).
+		$sql = 'INTERVAL ' . (int) $amount . ' ' . $unit;
+
+		return new Interval( array( 'sql' => $sql ) );
+	}
+
+	/**
+	 * Return the operand kinds allowed at a given function-argument position.
+	 *
+	 * A flat `arg_kinds` list ( list<string> ) applies UNIFORMLY to every argument
+	 * ( the common case ); a list of lists is POSITIONAL - element i is the allow-list
+	 * for argument i ( so DATE_SUB's second argument can be constrained to `interval` ).
+	 * A positional descriptor with no entry for a position allows nothing ( fail closed ).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<int,mixed> $arg_kinds The descriptor's arg_kinds ( flat or positional ).
+	 * @param int              $position  The zero-based argument position.
+	 * @return list<string> The operand kinds allowed at that position.
+	 */
+	private function arg_kinds_for_position( array $arg_kinds, int $position ): array {
+
+		// Positional: a list of lists. Uniform: a flat list of strings.
+		if ( isset( $arg_kinds[ 0 ] ) && is_array( $arg_kinds[ 0 ] ) ) {
+			$kinds = $arg_kinds[ $position ] ?? array();
+
+			return is_array( $kinds )
+				? array_values( array_filter( $kinds, 'is_string' ) )
+				: array();
+		}
+
+		return array_values( array_filter( $arg_kinds, 'is_string' ) );
 	}
 
 	/**

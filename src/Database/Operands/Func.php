@@ -60,6 +60,10 @@ class Func extends Base {
 	 *   input's type (a `%d` would truncate `ABS(x) = 1.5` to `= 1`). `null` means
 	 *   the pattern is DERIVED from the arguments at resolution (COALESCE returns
 	 *   the common type of its arguments), not fixed here.
+	 * - `arg_kinds` - the operand kinds allowed as arguments. A flat list applies
+	 *   UNIFORMLY to every argument ( the common case ); a list of lists is
+	 *   POSITIONAL - element i is the allow-list for argument i ( e.g. DATE_SUB's
+	 *   second argument must be an `interval` ). See arg_kinds_for_position().
 	 * - `accepts` - the type categories ('numeric' / 'string' / 'date') allowed for
 	 *   a COLUMN argument; the parser fails a clause closed when a column argument's
 	 *   declared type is not in this list (e.g. `YEAR(an_int_column)`). Conservative
@@ -67,7 +71,7 @@ class Func extends Base {
 	 *   coerce; literal and nested-function arguments are not type-checked.
 	 *
 	 * @since 3.1.0
-	 * @var array<string,array{sql:string,min_args:int,max_args?:int,variadic?:bool,arg_kinds:list<string>,return_pattern:string|null,accepts:list<string>}>
+	 * @var array<string,array{sql:string,min_args:int,max_args?:int,variadic?:bool,arg_kinds:list<string>|list<list<string>>,return_pattern:string|null,accepts:list<string>}>
 	 */
 	private const ALLOWED = array(
 		'LOWER'       => array(
@@ -242,6 +246,30 @@ class Func extends Base {
 			'return_pattern' => '%s',
 			'accepts'        => array(),
 		),
+
+		/*
+		 * DATE_SUB( date, INTERVAL n UNIT ) / DATE_ADD subtract / add a temporal
+		 * amount, returning a datetime. POSITIONAL arg kinds: the first argument is a
+		 * date expression ( column / function / math ), the second MUST be an
+		 * `interval` ( which is legal nowhere else ). With NOW() this expresses
+		 * relative-date filters like `date_created > DATE_SUB( NOW(), INTERVAL 30 DAY )`.
+		 */
+		'DATE_SUB'    => array(
+			'sql'            => 'DATE_SUB',
+			'min_args'       => 2,
+			'max_args'       => 2,
+			'arg_kinds'      => array( array( 'column', 'func', 'math' ), array( 'interval' ) ),
+			'return_pattern' => '%s',
+			'accepts'        => array( 'date', 'string' ),
+		),
+		'DATE_ADD'    => array(
+			'sql'            => 'DATE_ADD',
+			'min_args'       => 2,
+			'max_args'       => 2,
+			'arg_kinds'      => array( array( 'column', 'func', 'math' ), array( 'interval' ) ),
+			'return_pattern' => '%s',
+			'accepts'        => array( 'date', 'string' ),
+		),
 	);
 
 	/**
@@ -309,7 +337,7 @@ class Func extends Base {
 	 * @since 3.1.0
 	 *
 	 * @param string $name The function name (case-insensitive).
-	 * @return array{sql:string,min_args:int,max_args?:int,variadic?:bool,arg_kinds:list<string>,return_pattern:string|null,accepts:list<string>}|null
+	 * @return array{sql:string,min_args:int,max_args?:int,variadic?:bool,arg_kinds:list<string>|list<list<string>>,return_pattern:string|null,accepts:list<string>}|null
 	 */
 	public static function descriptor( string $name ): ?array {
 		$key = strtoupper( trim( $name ) );

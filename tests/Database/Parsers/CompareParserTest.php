@@ -2407,6 +2407,162 @@ class CompareParserTest extends TestCase {
 	}
 
 	/**
+	 * Test the marquee relative-date pattern: date_created > DATE_SUB( NOW(), INTERVAL
+	 * 30 DAY ) - "created in the last 30 days" - built entirely from operands.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_relative_date_via_date_sub_now_interval() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => 'date_created',
+				'compare' => '>',
+				'value'   => array(
+					'operand' => 'func',
+					'name'    => 'DATE_SUB',
+					'args'    => array(
+						array(
+							'operand' => 'func',
+							'name'    => 'NOW',
+						),
+						array(
+							'operand' => 'interval',
+							'value'   => 30,
+							'unit'    => 'DAY',
+						),
+					),
+				),
+			)
+		);
+
+		$this->assertMatchesRegularExpression( '/`date_created`\s*>\s*DATE_SUB\(\s*NOW\(\)\s*,\s*INTERVAL 30 DAY\s*\)/i', $where );
+		$this->assertStringNotContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * Test DATE_ADD with an interval over a column.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_date_add_interval_renders() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => 'date_created',
+				'compare' => '<',
+				'value'   => array(
+					'operand' => 'func',
+					'name'    => 'DATE_ADD',
+					'args'    => array(
+						array(
+							'operand' => 'column',
+							'name'    => 'date_created',
+						),
+						array(
+							'operand' => 'interval',
+							'value'   => 1,
+							'unit'    => 'MONTH',
+						),
+					),
+				),
+			)
+		);
+
+		$this->assertStringContainsString( 'DATE_ADD(', $where );
+		$this->assertStringContainsString( 'INTERVAL 1 MONTH', $where );
+		$this->assertStringNotContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * Test that an interval alone is not a comparison value - it is only legal inside a
+	 * date function, so using it as a value fails closed.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_interval_alone_fails_closed() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => 'date_created',
+				'compare' => '>',
+				'value'   => array(
+					'operand' => 'interval',
+					'value'   => 30,
+					'unit'    => 'DAY',
+				),
+			)
+		);
+
+		$this->assertStringContainsString( '1 = 0', $where );
+		$this->assertStringNotContainsString( 'INTERVAL', $where );
+	}
+
+	/**
+	 * Test the positional arg-kind: DATE_SUB's second argument must be an interval, so
+	 * a plain value there fails closed.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_date_sub_non_interval_second_arg_fails_closed() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => 'date_created',
+				'compare' => '>',
+				'value'   => array(
+					'operand' => 'func',
+					'name'    => 'DATE_SUB',
+					'args'    => array(
+						array(
+							'operand' => 'func',
+							'name'    => 'NOW',
+						),
+						array(
+							'operand' => 'value',
+							'value'   => 30,
+						),
+					),
+				),
+			)
+		);
+
+		$this->assertStringContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * Test that an interval with a non-allow-listed unit fails closed.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_interval_invalid_unit_fails_closed() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => 'date_created',
+				'compare' => '>',
+				'value'   => array(
+					'operand' => 'func',
+					'name'    => 'DATE_SUB',
+					'args'    => array(
+						array(
+							'operand' => 'func',
+							'name'    => 'NOW',
+						),
+						array(
+							'operand' => 'interval',
+							'value'   => 30,
+							'unit'    => 'FORTNIGHT',
+						),
+					),
+				),
+			)
+		);
+
+		$this->assertStringContainsString( '1 = 0', $where );
+	}
+
+	/**
 	 * Test that a left-hand function operand pairs with a bare value through the
 	 * operator's own value rendering - LOWER(name) LIKE '%x%' (the operator owns
 	 * the LIKE wildcards; the operand supplies the left side).
