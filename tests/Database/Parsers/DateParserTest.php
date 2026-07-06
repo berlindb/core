@@ -1167,6 +1167,75 @@ class DateParserTest extends TestCase {
 	}
 
 	/**
+	 * Test that a week query renders through the WEEK() function operand.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_week_renders_via_week_operand() {
+		$sql = $this->date_query_sql(
+			array(
+				'column' => 'date_created',
+				'week'   => 5,
+			)
+		);
+
+		$this->assertMatchesRegularExpression( '/WEEK\(\s*`?[\w]*`?\.?`date_created`\s*,\s*0\s*\)\s*=\s*5\b/i', $sql );
+	}
+
+	/**
+	 * Test that a non-default start_of_week shifts the date with DATE_SUB( ..., INTERVAL
+	 * n DAY ) inside WEEK() - the interval operand dogfooded by the Date parser.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_week_start_of_week_uses_date_sub_interval() {
+		$sql = $this->date_query_sql(
+			array(
+				'column'        => 'date_created',
+				'week'          => 5,
+				'start_of_week' => 3,
+			)
+		);
+
+		$this->assertMatchesRegularExpression( '/WEEK\(\s*DATE_SUB\([^)]*`date_created`[^)]*,\s*INTERVAL 3 DAY\s*\)\s*,\s*0\s*\)/i', $sql );
+	}
+
+	/**
+	 * Test that ISO day-of-week renders WEEKDAY( col ) + 1 as a ( math ) arithmetic
+	 * operand.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_dayofweek_iso_renders_math_operand() {
+		$sql = $this->date_query_sql(
+			array(
+				'column'        => 'date_created',
+				'dayofweek_iso' => 3,
+			)
+		);
+
+		$this->assertMatchesRegularExpression( '/\(\s*WEEKDAY\([^)]*`date_created`[^)]*\)\s*\+\s*1\s*\)\s*=\s*3\b/i', $sql );
+	}
+
+	/**
+	 * Test that a combined hour + minute time query renders through DATE_FORMAT().
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_combined_time_renders_date_format() {
+		$sql = $this->date_query_sql(
+			array(
+				'column' => 'date_created',
+				'hour'   => 12,
+				'minute' => 30,
+			)
+		);
+
+		$this->assertStringContainsString( 'DATE_FORMAT(', $sql );
+		$this->assertStringContainsString( "'12.30'", $sql );
+	}
+
+	/**
 	 * Test that combined minute and second clauses filter rows by both time units.
 	 *
 	 * Beta Widget is updated to 10:30:45 so it is the only row matching

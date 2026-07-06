@@ -562,10 +562,11 @@ class Date extends Base {
 		}
 
 		/*
-		 * Specific date-part queries ( #211 Date migration, slice 3 ): each extracts a
-		 * part with an allow-listed function operand and compares it through the shared
-		 * engine. week / w ( WEEK + start_of_week ), dayofweek_iso ( WEEKDAY + 1 ), and
-		 * the combined time query stay bespoke - they have no single function operand.
+		 * Specific date-part queries ( #211 Date migration ): each extracts a part with
+		 * an allow-listed function operand and compares it through the shared engine.
+		 * week / w use WEEK ( + DATE_SUB / INTERVAL for a mid-week start ), dayofweek_iso
+		 * uses a WEEKDAY( col ) + 1 math operand, and the combined time query uses
+		 * DATE_FORMAT - all now on the shared engine ( see the helpers below ).
 		 */
 		if ( isset( $clause[ 'year' ] ) ) {
 			$expr = $this->build_date_part_expression( 'YEAR', $column_name, $clause[ 'year' ], $compare );
@@ -595,15 +596,18 @@ class Date extends Base {
 		}
 
 		// week / w are aliases - try week first, fall back to w.
-		$value = false;
+		$week_ints = null;
+
 		if ( isset( $clause[ 'week' ] ) ) {
-			$value = $this->build_numeric_value( $compare, $clause[ 'week' ] );
+			$week_ints = $this->normalize_date_part_value( $clause[ 'week' ] );
 		}
-		if ( false === $value && isset( $clause[ 'w' ] ) ) {
-			$value = $this->build_numeric_value( $compare, $clause[ 'w' ] );
+
+		if ( ( null === $week_ints ) && isset( $clause[ 'w' ] ) ) {
+			$week_ints = $this->normalize_date_part_value( $clause[ 'w' ] );
 		}
-		if ( false !== $value ) {
-			$where[] = $this->build_mysql_week( $column, $start_of_week ) . " {$compare} {$value}";
+
+		if ( null !== $week_ints ) {
+			$where[] = $this->build_date_comparison( $this->build_week_operand( $column_name, $start_of_week ), $week_ints, $compare );
 		}
 
 		if ( isset( $clause[ 'dayofyear' ] ) ) {
@@ -631,9 +635,36 @@ class Date extends Base {
 		}
 
 		if ( isset( $clause[ 'dayofweek_iso' ] ) ) {
-			$value = $this->build_numeric_value( $compare, $clause[ 'dayofweek_iso' ] );
-			if ( false !== $value ) {
-				$where[] = "WEEKDAY( {$column} ) + 1 {$compare} {$value}";
+			$iso_ints = $this->normalize_date_part_value( $clause[ 'dayofweek_iso' ] );
+
+			if ( null !== $iso_ints ) {
+
+				// ISO day-of-week is WEEKDAY( col ) + 1, an arithmetic ( math ) operand.
+				$iso_lhs = $this->caller?->resolve_operand(
+					array(
+						'operand'  => 'math',
+						'operator' => '+',
+						'operands' => array(
+							array(
+								'operand' => 'func',
+								'name'    => 'WEEKDAY',
+								'args'    => array(
+									array(
+										'operand' => 'column',
+										'name'    => $column_name,
+									),
+								),
+							),
+							array(
+								'operand' => 'value',
+								'value'   => 1,
+								'pattern' => '%d',
+							),
+						),
+					)
+				);
+
+				$where[] = $this->build_date_comparison( $iso_lhs, $iso_ints, $compare );
 			}
 		}
 
@@ -718,8 +749,8 @@ class Date extends Base {
 				}
 			}
 
-			// Time query.
-			$time_query = $this->build_time_query( $column, $compare, $clause[ 'hour' ], $clause[ 'minute' ], $clause[ 'second' ] );
+			// Time query, delegated to the shared engine ( #211 ).
+			$time_query = $this->build_time_expression( $column_name, $compare, $clause[ 'hour' ], $clause[ 'minute' ], $clause[ 'second' ] );
 
 			// Maybe add to where_parts.
 			if ( ! empty( $time_query ) ) {
@@ -806,26 +837,217 @@ class Date extends Base {
 			)
 		);
 
+		return $this->build_date_comparison( $lhs, $ints, $compare );
+	}
+
+	/**
+	 * Compare a ( pre-resolved ) date expression operand against normalized numeric
+	 * date-part value(s) through the shared engine. Shared by every migrated date-part
+	 * branch ( a function LHS ), the ISO day-of-week branch ( a math LHS ), and the
+	 * week branch ( a WEEK / DATE_SUB LHS ).
+	 *
+	 * The value is shaped as build_numeric_value did: a list operator ( IN ) takes the
+	 * whole list and a range operator ( BETWEEN ) its bounds, but a scalar operator uses
+	 * only the FIRST value. An unresolvable LHS operand or operator is an engine failure
+	 * ( fail closed, `1 = 0` ), never a widen.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param mixed      $lhs     The resolved left operand ( or false/null if it failed ).
+	 * @param list<int>  $ints    The normalized numeric value(s), never empty.
+	 * @param string     $compare The comparison operator.
+	 * @return string The SQL fragment, or '1 = 0' on an engine failure.
+	 */
+	private function build_date_comparison( $lhs, array $ints, string $compare ): string {
 		$operator = $this->get_operator( $compare );
 
-		/*
-		 * An unresolvable function operand or operator is an engine failure, not a
-		 * "forget me" - fail closed rather than drop the filter and widen results.
-		 */
 		if ( ! ( $lhs instanceof \BerlinDB\Database\Operands\Base ) || ( false === $operator ) ) {
 			return '1 = 0';
 		}
 
-		/*
-		 * Shape the value the way build_numeric_value did: a list operator ( IN ) takes
-		 * the whole list and a range operator ( BETWEEN ) its bounds, but a SCALAR
-		 * operator ( =, <, ... ) uses only the FIRST value ( the old default `reset()` ).
-		 */
 		$value = ( $operator->is_list() || $operator->is_range() )
 			? $ints
 			: $ints[0];
 
 		$expr = $this->build_operand_clause( $lhs, $operator, $value, false );
+
+		return ( is_string( $expr ) && ( '' !== $expr ) )
+			? $expr
+			: '1 = 0';
+	}
+
+	/**
+	 * Resolve the WEEK() expression for the given week-start, matching the former
+	 * build_mysql_week(): `WEEK( col, 1 )` when the week starts Monday, `WEEK( col, 0 )`
+	 * for Sunday, and `WEEK( DATE_SUB( col, INTERVAL n DAY ), 0 )` for a mid-week start
+	 * ( 2-6 ). Returns the resolved operand, or false/null if it could not be built.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $column_name   The date column name.
+	 * @param mixed  $start_of_week The 0-6 week-start day.
+	 * @return \BerlinDB\Database\Operands\Base|false|null
+	 */
+	private function build_week_operand( string $column_name, $start_of_week ) {
+		$start       = (int) $start_of_week;
+		$column_spec = array(
+			'operand' => 'column',
+			'name'    => $column_name,
+		);
+
+		if ( ( $start >= 2 ) && ( $start <= 6 ) ) {
+
+			// Shift the date back by $start days, then WEEK( ..., 0 ).
+			$expr = array(
+				'operand' => 'func',
+				'name'    => 'DATE_SUB',
+				'args'    => array(
+					$column_spec,
+					array(
+						'operand' => 'interval',
+						'value'   => $start,
+						'unit'    => 'DAY',
+					),
+				),
+			);
+			$mode = 0;
+
+		} else {
+			$expr = $column_spec;
+			$mode = ( 1 === $start ) ? 1 : 0;
+		}
+
+		return $this->caller?->resolve_operand(
+			array(
+				'operand' => 'func',
+				'name'    => 'WEEK',
+				'args'    => array(
+					$expr,
+					array(
+						'operand' => 'value',
+						'value'   => $mode,
+						'pattern' => '%d',
+					),
+				),
+			)
+		);
+	}
+
+	/**
+	 * Build the hour / minute / second time comparison through the shared engine,
+	 * replacing the former build_time_query(). Three shapes, preserved exactly:
+	 *
+	 *  - A multi-value operator ( IN / NOT IN / BETWEEN ) compares each present unit
+	 *    separately ( HOUR / MINUTE / SECOND ), AND-joined.
+	 *  - A single unit compares just that part ( e.g. HOUR( col ) = 9 ).
+	 *  - Two or more units with a scalar operator compare a zero-padded
+	 *    DATE_FORMAT( col, '%H.%i%s' ) against the same-shaped time string, so a whole
+	 *    time-of-day orders and matches lexically ( minute must be set - hour+second
+	 *    alone is not a supported combination ).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $column_name The date column name.
+	 * @param string $compare     The comparison operator.
+	 * @param mixed  $hour        The hour value, or null.
+	 * @param mixed  $minute      The minute value, or null.
+	 * @param mixed  $second      The second value, or null.
+	 * @return string|null The SQL fragment, or null when nothing to compare.
+	 */
+	private function build_time_expression( string $column_name, string $compare, $hour, $minute, $second ): ?string {
+
+		// Need at least one unit.
+		if ( ! isset( $hour ) && ! isset( $minute ) && ! isset( $second ) ) {
+			return null;
+		}
+
+		$operator = $this->get_operator( $compare );
+		$is_multi = ( false !== $operator ) && ( $operator->is_list() || $operator->is_range() );
+
+		// Multi-value: one comparison per present unit, AND-joined.
+		if ( $is_multi ) {
+			$parts = array();
+			$units = array(
+				'HOUR'   => $hour,
+				'MINUTE' => $minute,
+				'SECOND' => $second,
+			);
+
+			foreach ( $units as $func_name => $raw ) {
+				if ( ! isset( $raw ) ) {
+					continue;
+				}
+
+				$expr = $this->build_date_part_expression( $func_name, $column_name, $raw, $compare );
+
+				if ( null !== $expr ) {
+					$parts[] = $expr;
+				}
+			}
+
+			return ! empty( $parts )
+				? implode( ' AND ', $parts )
+				: null;
+		}
+
+		// A single unit is just that date-part comparison.
+		if ( isset( $hour ) && ! isset( $minute ) && ! isset( $second ) ) {
+			return $this->build_date_part_expression( 'HOUR', $column_name, $hour, $compare );
+		}
+
+		if ( ! isset( $hour ) && isset( $minute ) && ! isset( $second ) ) {
+			return $this->build_date_part_expression( 'MINUTE', $column_name, $minute, $compare );
+		}
+
+		if ( ! isset( $hour ) && ! isset( $minute ) && isset( $second ) ) {
+			return $this->build_date_part_expression( 'SECOND', $column_name, $second, $compare );
+		}
+
+		// Combined: minute must be set ( hour + second alone is not supported ).
+		if ( ! isset( $minute ) ) {
+			return null;
+		}
+
+		// Build the zero-padded format and time strings ( mirrors build_time_query ).
+		if ( null !== $hour ) {
+			$format = '%H.';
+			$time   = sprintf( '%02d', $hour ) . '.';
+		} else {
+			$format = '0.';
+			$time   = '0.';
+		}
+
+		$format .= '%i';
+		$time   .= sprintf( '%02d', $minute );
+
+		if ( isset( $second ) ) {
+			$format .= '%s';
+			$time   .= sprintf( '%02d', $second );
+		}
+
+		// DATE_FORMAT( col, format ) {compare} time, all through the shared engine.
+		$lhs = $this->caller?->resolve_operand(
+			array(
+				'operand' => 'func',
+				'name'    => 'DATE_FORMAT',
+				'args'    => array(
+					array(
+						'operand' => 'column',
+						'name'    => $column_name,
+					),
+					array(
+						'operand' => 'value',
+						'value'   => $format,
+					),
+				),
+			)
+		);
+
+		if ( ! ( $lhs instanceof \BerlinDB\Database\Operands\Base ) || ( false === $operator ) ) {
+			return '1 = 0';
+		}
+
+		$expr = $this->build_operand_clause( $lhs, $operator, $time, false );
 
 		return ( is_string( $expr ) && ( '' !== $expr ) )
 			? $expr
