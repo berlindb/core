@@ -14,6 +14,7 @@ namespace BerlinDB\Database\Traits\Query;
 use BerlinDB\Database\Kern\Column;
 use BerlinDB\Database\Operands\Base;
 use BerlinDB\Database\Operands\Func;
+use BerlinDB\Database\Operands\Math;
 use BerlinDB\Database\Operands\Value;
 
 // Exit if accessed directly.
@@ -41,6 +42,7 @@ defined( 'ABSPATH' ) || exit;
  *   - List:     array( 'operand' => 'list',   'items' => array( ... ) )  // IN / NOT IN, members are operands
  *   - Range:    array( 'operand' => 'range',  'items' => array( $a, $b ) )  // BETWEEN, exactly two bounds
  *   - Tuple:    array( 'operand' => 'tuple',  'items' => array( $a, $b ) )  // ( a, b ) row constructor
+ *   - Math:     array( 'operand' => 'math',   'operator' => '+', 'operands' => array( ... ) )  // ( a + b ), infix arithmetic
  *
  * Any SCALAR operand ( column / value / function / cast ) may also carry a `cast`
  * key ( a validated CAST target string ) that wraps it in CAST( ... AS <type> ) -
@@ -121,6 +123,10 @@ trait Operands {
 
 			case 'tuple':
 				$operand = $this->resolve_tuple_operand( $value, $alias );
+				break;
+
+			case 'math':
+				$operand = $this->resolve_math_operand( $value, $alias );
 				break;
 
 			default:
@@ -596,6 +602,88 @@ trait Operands {
 		return ! empty( $operands )
 			? new \BerlinDB\Database\Operands\Tuple( array( 'operands' => $operands ) )
 			: false;
+	}
+
+	/**
+	 * Resolve a `math` operand spec into a Math ( arithmetic ) operand, or false.
+	 *
+	 * The `operator` must be an allow-listed arithmetic operator ( + - * / ) and the
+	 * `operands` must resolve to two or more scalar members ( columns / functions /
+	 * values / nested math ). An unknown operator, fewer than two members, or any
+	 * unresolvable member fails closed. The comparison pattern is numeric: division
+	 * yields a float ( %f ), every other operator an integer ( %d ).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string,mixed> $value The operand spec.
+	 * @param string              $alias Table alias to qualify column members.
+	 * @return Base|false
+	 */
+	private function resolve_math_operand( array $value, string $alias ) {
+
+		// The arithmetic operator must be allow-listed.
+		$operator = is_string( $value[ 'operator' ] ?? null ) ? $value[ 'operator' ] : '';
+
+		if ( ! Math::is_allowed_operator( $operator ) ) {
+			return false;
+		}
+
+		/*
+		 * Members must be a list of scalar operands; a raw-spec list is kept aligned
+		 * with the resolved operands so a float literal member promotes the pattern.
+		 */
+		$members_spec = $value[ 'operands' ] ?? array();
+
+		if ( ! is_array( $members_spec ) ) {
+			return false;
+		}
+
+		$operands = array();
+		$raw      = array();
+
+		foreach ( $members_spec as $spec ) {
+			$member = $this->resolve_operand_argument( $spec, array( 'column', 'func', 'value', 'math' ), $alias );
+
+			// A single unresolvable member fails the whole expression closed.
+			if ( ! ( $member instanceof Base ) ) {
+				return false;
+			}
+
+			$operands[] = $member;
+			$raw[]      = $spec;
+		}
+
+		// Arithmetic needs at least two operands.
+		if ( count( $operands ) < 2 ) {
+			return false;
+		}
+
+		/*
+		 * The result is numeric: division is always a float ( %f ); every other
+		 * operator is an integer ( %d ) UNLESS a member is a float ( promote to %f ),
+		 * so a fractional comparison is never truncated.
+		 */
+		$pattern = '%d';
+
+		if ( '/' === $operator ) {
+			$pattern = '%f';
+		} else {
+			foreach ( $operands as $index => $member ) {
+				if ( '%f' === $this->classify_operand_pattern( $member, $raw[ $index ] ?? null ) ) {
+					$pattern = '%f';
+					break;
+				}
+			}
+		}
+
+		return new Math(
+			array(
+				'operator' => $operator,
+				'operands' => $operands,
+				'pattern'  => $pattern,
+				'category' => 'numeric',
+			)
+		);
 	}
 
 	/**

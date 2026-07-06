@@ -2087,6 +2087,210 @@ class CompareParserTest extends TestCase {
 	}
 
 	/**
+	 * Test that a math operand renders a parenthesized infix arithmetic expression -
+	 * ( priority * 2 ) > 100 - which the plain operator/value model can't express.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_math_operand_renders_arithmetic() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => array(
+					'operand'  => 'math',
+					'operator' => '*',
+					'operands' => array(
+						array(
+							'operand' => 'column',
+							'name'    => 'priority',
+						),
+						array(
+							'operand' => 'value',
+							'value'   => 2,
+						),
+					),
+				),
+				'compare' => '>',
+				'value'   => 100,
+			)
+		);
+
+		$this->assertMatchesRegularExpression( '/\(\s*`?[\w]*`?\.?`priority`\s*\*\s*.+?\)\s*>\s*100\b/i', $where );
+		$this->assertStringNotContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * Test that math nests: ( ( priority + 1 ) * 2 ).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_math_operand_nests() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => array(
+					'operand'  => 'math',
+					'operator' => '*',
+					'operands' => array(
+						array(
+							'operand'  => 'math',
+							'operator' => '+',
+							'operands' => array(
+								array(
+									'operand' => 'column',
+									'name'    => 'priority',
+								),
+								array(
+									'operand' => 'value',
+									'value'   => 1,
+								),
+							),
+						),
+						array(
+							'operand' => 'value',
+							'value'   => 2,
+						),
+					),
+				),
+				'compare' => '=',
+				'value'   => 62,
+			)
+		);
+
+		$this->assertMatchesRegularExpression( '/\(\s*\(\s*`?[\w]*`?\.?`priority`\s*\+\s*.+?\)\s*\*\s*.+?\)/i', $where );
+		$this->assertStringNotContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * Test that an unknown ( non-allow-listed ) arithmetic operator fails closed.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_math_unknown_operator_fails_closed() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => array(
+					'operand'  => 'math',
+					'operator' => '^',
+					'operands' => array(
+						array(
+							'operand' => 'column',
+							'name'    => 'priority',
+						),
+						array(
+							'operand' => 'value',
+							'value'   => 2,
+						),
+					),
+				),
+				'compare' => '>',
+				'value'   => 100,
+			)
+		);
+
+		$this->assertStringContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * Test that a math operand with fewer than two members fails closed ( arithmetic
+	 * needs at least two operands ).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_math_needs_two_operands_fails_closed() {
+
+		$where = $this->compare_where_sql(
+			array(
+				'key'     => array(
+					'operand'  => 'math',
+					'operator' => '+',
+					'operands' => array(
+						array(
+							'operand' => 'column',
+							'name'    => 'priority',
+						),
+					),
+				),
+				'compare' => '>',
+				'value'   => 100,
+			)
+		);
+
+		$this->assertStringContainsString( '1 = 0', $where );
+	}
+
+	/**
+	 * Test a math operand end-to-end: ( priority + 0 ) = 30 matches the priority-30 row.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_math_operand_matches_rows_end_to_end() {
+
+		$results = self::$query->query(
+			array(
+				'compare_query' => array(
+					'key'     => array(
+						'operand'  => 'math',
+						'operator' => '+',
+						'operands' => array(
+							array(
+								'operand' => 'column',
+								'name'    => 'priority',
+							),
+							array(
+								'operand' => 'value',
+								'value'   => 0,
+							),
+						),
+					),
+					'compare' => '=',
+					'value'   => 30,
+				),
+			)
+		);
+
+		$this->assertCount( 1, $results );
+		$this->assertSame( 'Gamma Gadget', $results[0]->name );
+	}
+
+	/**
+	 * Test that division derives a float pattern ( %f ), so a fractional comparison is
+	 * not truncated: ( priority / 4 ) = 7.5 matches priority 30 ( 30 / 4 = 7.5 ). With a
+	 * %d pattern the 7.5 would truncate to 7 and match nothing.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_math_division_uses_float_pattern() {
+
+		$results = self::$query->query(
+			array(
+				'compare_query' => array(
+					'key'     => array(
+						'operand'  => 'math',
+						'operator' => '/',
+						'operands' => array(
+							array(
+								'operand' => 'column',
+								'name'    => 'priority',
+							),
+							array(
+								'operand' => 'value',
+								'value'   => 4,
+							),
+						),
+					),
+					'compare' => '=',
+					'value'   => 7.5,
+				),
+			)
+		);
+
+		$this->assertCount( 1, $results );
+		$this->assertSame( 'Gamma Gadget', $results[0]->name );
+	}
+
+	/**
 	 * Test that a left-hand function operand pairs with a bare value through the
 	 * operator's own value rendering - LOWER(name) LIKE '%x%' (the operator owns
 	 * the LIKE wildcards; the operand supplies the left side).
