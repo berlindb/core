@@ -4,19 +4,34 @@ Notable changes to BerlinDB are documented here.
 
 ## 3.1.0 - Unreleased
 
-- Begins migrating the `date_query` parser onto the shared operator/operand engine
-  (#211, incremental - slice 1). The straight `value` compare now delegates to the
-  same engine as `compare_query` instead of hand-built SQL, so it gains value-side
-  `IS NULL` / `IS NOT NULL` (opt in with `compare => 'IS NULL'` and `value => null`,
-  since a `value` key is what makes a date clause first-order) and operand-spec values
-  (a column / function / cast on the value side, e.g. `date_created < date_modified`).
-  Byte-identical for a plain scalar or ordinary IN/BETWEEN array. A "forget me" falsey
-  value (`null` / `false`) is still ignored - matching how every date-part key already
-  behaves (`build_numeric_value()` drops null/non-numeric) and the WP_Date_Query
-  contract - while `0` stays a real value (midnight / `0000`); a genuinely malformed
-  input (an explicit empty `IN` list, a broken operand, an unresolvable column) fails
-  the clause closed. The date-part branches (`year`/`month`/`week`/`dayof*`/time) remain
-  bespoke for now.
+- Adds an arithmetic `math` operand (#211): `array( 'operand' => 'math', 'operator' =>
+  '+', 'operands' => array( ... ) )` renders a parenthesized infix expression - `( price
+  * quantity ) > 100`, `( a + b ) = c` - which the plain operator/value model can't
+  express. Allow-listed operators are `+ - * /` (no arbitrary operator or raw SQL);
+  members are themselves scalar operands, so arithmetic nests. The compared-scalar
+  placeholder is numeric and never truncates (division and any float member derive `%f`,
+  otherwise `%d`). Fails closed on an unknown operator, fewer than two members, or an
+  unresolvable member.
+- Adds relative-date filtering (#211): `NOW()` (a zero-argument function), `DATE_SUB` /
+  `DATE_ADD`, and an `interval` operand (`array( 'operand' => 'interval', 'value' => 30,
+  'unit' => 'DAY' )`) compose into `date_created > DATE_SUB( NOW(), INTERVAL 30 DAY )`
+  ("the last 30 days") - built entirely from operands, no PHP-side timestamp math. The
+  interval amount is integer-cast (injection-proof) and the unit is allow-listed
+  (`SECOND`..`YEAR`); an interval is context-restricted (it can ONLY be a `DATE_SUB` /
+  `DATE_ADD` argument, never a comparison value), enforced by a new POSITIONAL
+  `arg_kinds` form on function descriptors. Also allow-lists `WEEKDAY`, `WEEK` (2-arg),
+  and `DATE_FORMAT` (2-arg).
+- Migrates the `date_query` parser fully onto the shared operator/operand engine (#211).
+  The `value` compare, `after`/`before` ranges, every date-part (`year`/`month`/`week`/
+  `dayof*`), the ISO day-of-week (`WEEKDAY(col) + 1`), and the `hour`/`minute`/`second`
+  time query now delegate to the same engine as `compare_query` instead of hand-built
+  SQL - so date columns gain value-side `IS NULL` / `IS NOT NULL` (opt in with `compare
+  => 'IS NULL'` and `value => null`) and operand-spec values (a column / function / cast
+  on the value side, e.g. `date_created < date_modified`). Functionally identical
+  otherwise (a "forget me" `null`/`false` value is still ignored, matching WP_Date_Query;
+  `0` stays a real value; a genuinely malformed input fails the clause closed). The
+  legacy `build_numeric_value()` / `build_mysql_week()` / `build_time_query()` builders
+  are removed.
 - Adds first-class `Relationship` objects (`belongs_to`/`has_many`), wired through
   `Column` and `Schema`, with a Query-level relationship API (#193).
 - Adds relationship-filtered queries — `'in'` (subquery) and `'join'`

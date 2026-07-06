@@ -257,9 +257,9 @@ unresolvable — there is no raw-SQL passthrough.
 
 **Functions** — an allow-listed SQL function wraps an operand (they nest): `LOWER`,
 `UPPER`, `LENGTH`, `ABS`, `DATE`, `YEAR`, `MONTH`, `DAYOFMONTH`, `DAYOFYEAR`,
-`DAYOFWEEK`, `HOUR`, `MINUTE`, `SECOND`, `COALESCE`. Position (`key` vs `value`)
-picks the side; a bare scalar on the other side is prepared with the function's
-return type:
+`DAYOFWEEK`, `WEEKDAY`, `WEEK`, `HOUR`, `MINUTE`, `SECOND`, `DATE_FORMAT`, `COALESCE`,
+`NOW`, `DATE_SUB`, `DATE_ADD`. Position (`key` vs `value`) picks the side; a bare
+scalar on the other side is prepared with the function's return type:
 
 ```php
 'compare_query' => array(
@@ -322,6 +322,51 @@ is validated against the safe subset (`BINARY`, `CHAR(n)`, `DATE`, `DATETIME`,
 fails closed. A cast composes as a function argument and is validated by its target
 category (a `DATE` cast is accepted by `YEAR()`). The compared scalar derives its
 placeholder from the target: `SIGNED` → `%d`, everything else → `%s`.
+
+**Math (arithmetic)** — a parenthesized infix expression over scalar operands, with
+an allow-listed operator (`+` `-` `*` `/`); it nests:
+
+```php
+'compare_query' => array(
+    'key'     => array(
+        'operand'  => 'math',
+        'operator' => '*',
+        'operands' => array(
+            array( 'operand' => 'column', 'name' => 'price' ),
+            array( 'operand' => 'column', 'name' => 'quantity' ),
+        ),
+    ),
+    'compare' => '>',
+    'value'   => 100,
+),
+// -> WHERE ( `price` * `quantity` ) > 100
+```
+
+The result is numeric, so the compared scalar is `%d` (or `%f` for division / a float
+member — never truncated). Fewer than two members or an unknown operator fails closed.
+
+**Relative dates** — `NOW()`, `DATE_SUB` / `DATE_ADD`, and an `interval` operand
+compose the "last 30 days" pattern without computing a timestamp in PHP:
+
+```php
+'compare_query' => array(
+    'key'     => 'date_created',
+    'compare' => '>',
+    'value'   => array(
+        'operand' => 'func',
+        'name'    => 'DATE_SUB',
+        'args'    => array(
+            array( 'operand' => 'func', 'name' => 'NOW' ),
+            array( 'operand' => 'interval', 'value' => 30, 'unit' => 'DAY' ),
+        ),
+    ),
+),
+// -> WHERE `date_created` > DATE_SUB(NOW(), INTERVAL 30 DAY)
+```
+
+The interval amount is integer-cast and the unit is allow-listed (`SECOND` … `YEAR`).
+An `interval` is only valid as a `DATE_SUB`/`DATE_ADD` argument — used anywhere else
+(a comparison value, a list member) it fails closed.
 
 **Lists (IN / NOT IN)** — members are operands, so a list can mix columns,
 functions, and values, which a bare value list can't:
