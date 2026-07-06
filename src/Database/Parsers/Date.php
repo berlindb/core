@@ -487,8 +487,27 @@ class Date extends Base {
 			$gt .= '=';
 		}
 
-		// Pattern is always string.
-		$pattern = '%s';
+		/*
+		 * Shared left operand for the branches migrated onto the shared engine
+		 * (#211: after / before / value) - the same date column as $column, as an
+		 * Operands\Column the engine can render. The still-bespoke date-part branches
+		 * below keep using the qualified $column string. Null only if the column
+		 * vanished between resolution and here, which cannot happen.
+		 */
+		$date_column = $this->caller?->get_column_by(
+			array(
+				'name'       => $column_name,
+				'date_query' => true,
+			)
+		);
+		$lhs         = ( $date_column instanceof \BerlinDB\Database\Kern\Column )
+			? new \BerlinDB\Database\Operands\Column(
+				array(
+					'column' => $date_column,
+					'alias'  => $this->caller->get_table_alias() ?? '',
+				)
+			)
+			: null;
 
 		// Range queries.
 		if ( ! empty( $clause[ 'after' ] ) ) {
@@ -503,9 +522,18 @@ class Date extends Base {
 			}
 			$after = $this->build_mysql_datetime( $after_val, ! $inclusive, $now );
 
-			// Only add to where if valid datetime.
-			if ( false !== $after ) {
-				$where[] = (string) $this->db()->prepare( "{$column} {$gt} {$pattern}", $after );
+			/*
+			 * Only add to where if a valid datetime; the range compare ( >/>= ) is
+			 * delegated to the shared engine, matching the migrated `value` branch.
+			 */
+			$after_operator = $this->get_operator( $gt );
+
+			if ( ( false !== $after ) && ( null !== $lhs ) && ( false !== $after_operator ) ) {
+				$expr = $this->build_operand_clause( $lhs, $after_operator, $after, false );
+
+				if ( is_string( $expr ) && ( '' !== $expr ) ) {
+					$where[] = $expr;
+				}
 			}
 		}
 
@@ -521,9 +549,15 @@ class Date extends Base {
 			}
 			$before = $this->build_mysql_datetime( $before_val, $inclusive, $now );
 
-			// Only add to where if valid datetime.
-			if ( false !== $before ) {
-				$where[] = (string) $this->db()->prepare( "{$column} {$lt} {$pattern}", $before );
+			// Only add to where if a valid datetime; the range compare ( </<= ) is delegated.
+			$before_operator = $this->get_operator( $lt );
+
+			if ( ( false !== $before ) && ( null !== $lhs ) && ( false !== $before_operator ) ) {
+				$expr = $this->build_operand_clause( $lhs, $before_operator, $before, false );
+
+				if ( is_string( $expr ) && ( '' !== $expr ) ) {
+					$where[] = $expr;
+				}
 			}
 		}
 
@@ -597,67 +631,52 @@ class Date extends Base {
 		 * date-part branches above remain bespoke for now. array_key_exists() so a
 		 * null value is not silently skipped.
 		 */
-		if ( array_key_exists( 'value', $clause ) ) {
-			$date_column = $this->caller?->get_column_by(
-				array(
-					'name'       => $column_name,
-					'date_query' => true,
-				)
-			);
+		if ( array_key_exists( 'value', $clause ) && ( null !== $lhs ) ) {
 
-			if ( $date_column instanceof \BerlinDB\Database\Kern\Column ) {
+			/*
+			 * Resolve the operator allowing unary ( get_compare() above excludes it
+			 * because the bespoke branches have no value-less path ); fall back to
+			 * '='. A unary operator ( IS NULL / IS NOT NULL, opted into with
+			 * `value => null` ) renders value-less; the clause value is ignored.
+			 */
+			$value_compare = ! empty( $clause[ 'compare' ] )
+				? strtoupper( (string) $clause[ 'compare' ] )
+				: $this->compare;
+			$operator      = $this->get_operator( $value_compare );
 
-				/*
-				 * Resolve the operator allowing unary ( get_compare() above excludes it
-				 * because the bespoke branches have no value-less path ); fall back to
-				 * '='. A unary operator ( IS NULL / IS NOT NULL, opted into with
-				 * `value => null` ) renders value-less; the clause value is ignored.
-				 */
-				$value_compare = ! empty( $clause[ 'compare' ] )
-					? strtoupper( (string) $clause[ 'compare' ] )
-					: $this->compare;
-				$operator      = $this->get_operator( $value_compare );
+			if ( false === $operator ) {
+				$operator = $this->get_operator( '=' );
+			}
 
-				if ( false === $operator ) {
-					$operator = $this->get_operator( '=' );
-				}
+			/*
+			 * A "forget me" falsey value ( null / false ) is IGNORED for a
+			 * non-unary operator - the same intent every date-part key honors via
+			 * build_numeric_value() ( which bails on null and filters out non-numeric
+			 * values ), and the WP_Date_Query contract. A real value ( a datetime
+			 * string, 0 = midnight / 0000, or '' ) is processed. A unary operator
+			 * ( IS NULL / IS NOT NULL, opted into with `value => null` ) renders
+			 * value-less regardless.
+			 */
+			$forget_me = ( null === $clause[ 'value' ] ) || ( false === $clause[ 'value' ] );
 
-				/*
-				 * A "forget me" falsey value ( null / false ) is IGNORED for a
-				 * non-unary operator - the same intent every date-part key honors via
-				 * build_numeric_value() ( which bails on null and filters out non-numeric
-				 * values ), and the WP_Date_Query contract. A real value ( a datetime
-				 * string, 0 = midnight / 0000, or '' ) is processed. A unary operator
-				 * ( IS NULL / IS NOT NULL, opted into with `value => null` ) renders
-				 * value-less regardless.
-				 */
-				$forget_me = ( null === $clause[ 'value' ] ) || ( false === $clause[ 'value' ] );
-
-				if ( ( false !== $operator ) && ( $operator->is_unary() || ! $forget_me ) ) {
-					$lhs = new \BerlinDB\Database\Operands\Column(
-						array(
-							'column' => $date_column,
-							'alias'  => $this->caller->get_table_alias() ?? '',
-						)
-					);
-
-					$value_is_operand = \BerlinDB\Database\Operands\Base::is_spec( $clause[ 'value' ] );
-					$value            = $clause[ 'value' ];
+			if ( ( false !== $operator ) && ( $operator->is_unary() || ! $forget_me ) ) {
+				$value_is_operand = \BerlinDB\Database\Operands\Base::is_spec( $clause[ 'value' ] );
+					$value        = $clause[ 'value' ];
 
 					/*
 					 * Normalize a non-operand value exactly as the former build_value()
 					 * did, so the migrated branch stays byte-identical: reindex arrays,
 					 * stringify floats, and coerce bool / object / null to null.
 					 */
-					if ( ! $value_is_operand ) {
-						if ( is_array( $value ) ) {
-							$value = array_values( $value );
-						} elseif ( is_float( $value ) ) {
-							$value = (string) $value;
-						} elseif ( ! is_int( $value ) && ! is_string( $value ) ) {
-							$value = null;
-						}
+				if ( ! $value_is_operand ) {
+					if ( is_array( $value ) ) {
+						$value = array_values( $value );
+					} elseif ( is_float( $value ) ) {
+						$value = (string) $value;
+					} elseif ( ! is_int( $value ) && ! is_string( $value ) ) {
+						$value = null;
 					}
+				}
 
 					$expr = $this->build_operand_clause( $lhs, $operator, $value, $value_is_operand );
 
@@ -670,7 +689,6 @@ class Date extends Base {
 					$where[] = ( ( false === $expr ) || ( '' === $expr ) )
 						? '1 = 0'
 						: $expr;
-				}
 			}
 		}
 
