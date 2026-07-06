@@ -266,6 +266,15 @@ the spec** — `meta type`, `object_id`, `prepare()`, `register_meta()`,
   signatures, and docblocks (`array( 'join' => …, 'where' => … )`). It mirrors SQL
   and WordPress clause order (`… JOIN … WHERE …`); never `where` before `join`.
 - Multi-line inline comments use `/* … */` (Non-Negotiable #1).
+- **Import, don't fully-qualify.** Reference other BerlinDB classes by short name
+  via a `use` import — in signatures **and** `@param`/`@return`/`@var` — never a bare
+  `\BerlinDB\Database\…` FQCN inline (it bloats signatures and breaks docblock column
+  alignment). On a leaf-name collision (`Operands\Base` vs `Comparisons\Base`,
+  `Kern\Column` vs `Operands\Column`), namespace-qualify by importing the parent
+  (`use …\Operands;` → `Operands\Base`) so the family stays visible; alias (`as X`)
+  only when that still collides. Order `use` statements **alphabetically by full
+  path** — which also clusters each namespace together, so that's the only rule
+  needed. (Not machine-enforced; hold new code to it.)
 
 ## Auditing (vs. verifying a change)
 
