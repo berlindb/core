@@ -4,6 +4,22 @@ Notable changes to BerlinDB are documented here.
 
 ## 3.1.0 - Unreleased
 
+- Unifies the empty-datetime value behind a single `Column::get_empty_datetime()` source and
+  makes nullable datetimes representable as SQL `NULL` (#231). The DDL default
+  (`get_default_sql()`) and the runtime fallback (`validate_datetime()`) now read the same
+  value, so they no longer disagree - previously the DDL emitted `'0000-00-00 00:00:00'` while
+  the runtime returned `''`. A datetime declared `allow_null => true, default => null` now
+  emits `DEFAULT NULL` and validates empty/invalid input (including a legacy zero-date literal)
+  to `null`; every other datetime keeps the zero-date default, which is intentional for
+  WordPress (wpdb strips `NO_ZERO_DATE` from the session sql_mode and WP core itself declares
+  `NOT NULL DEFAULT '0000-00-00 00:00:00'` datetime columns). Off WordPress, or wherever
+  `NO_ZERO_DATE` is on, declare a nullable datetime to store `NULL` instead. Behavior change:
+  a NOT NULL datetime with no explicit default now resolves empty input to the explicit zero
+  date rather than `''` (the value MySQL stored either way), and `ON UPDATE CURRENT_TIMESTAMP`
+  emits the bare keyword rather than the parenthesized `current_timestamp()`. Also fixes a
+  pre-existing bug where a datetime/timestamp column carrying the `ON UPDATE CURRENT_TIMESTAMP`
+  extra emitted the clause twice (once from the default fragment, once from the extra),
+  producing invalid `CREATE TABLE` DDL - the default fragment now yields it only once.
 - Adds composite (multi-column) foreign-key relationships (#211 Lever D). A `belongs_to` /
   `has_many` relationship may now key on more than one column (`columns` / `references` as
   equal-length arrays), declared via a Schema's `get_relationships()` (the per-column

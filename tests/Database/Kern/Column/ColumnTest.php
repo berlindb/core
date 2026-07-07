@@ -848,15 +848,17 @@ class ColumnTest extends TestCase {
 	}
 
 	/**
-	 * Test that validate_datetime returns an empty value when given an empty input.
+	 * Test that validate_datetime resolves an empty value to the zero date.
+	 *
+	 * A NOT NULL datetime with no explicit default now resolves empty/invalid
+	 * input to the same zero-date value its DDL default emits, so the stored
+	 * value and the schema default agree (#231). Previously the runtime side
+	 * returned '' while the DDL emitted the zero date.
 	 *
 	 * @since 2.1.0
+	 * @since 3.1.0 Empty input resolves to the zero date, not '' (#231).
 	 */
-	public function test_validate_datetime_returns_empty_string_for_empty_value() {
-		/*
-		 * validate_datetime() returns $this->default for empty values, so the
-		 * column must have the zero-date default for this assertion to hold.
-		 */
+	public function test_validate_datetime_returns_zero_date_for_empty_value() {
 		$column = new Column(
 			array(
 				'name' => 'created',
@@ -864,7 +866,7 @@ class ColumnTest extends TestCase {
 			)
 		);
 		$result = $column->validate( '' );
-		$this->assertEmpty( $result );
+		$this->assertSame( '0000-00-00 00:00:00', $result );
 	}
 
 	// Base::__get() magic getter.
@@ -1195,7 +1197,13 @@ class ColumnTest extends TestCase {
 	/**
 	 * Test that a timestamp column with an ON UPDATE extra produces the correct SQL clause.
 	 *
+	 * The bare CURRENT_TIMESTAMP keyword is emitted (not the parenthesized
+	 * current_timestamp() function form), matching the keyword used elsewhere, and
+	 * exactly once - get_default_sql() no longer duplicates the clause the extra
+	 * handler already appends.
+	 *
 	 * @since 3.0.0
+	 * @since 3.1.0 Emits bare CURRENT_TIMESTAMP instead of current_timestamp(), once.
 	 */
 	public function test_get_create_string_timestamp_with_on_update_extra() {
 		$column = new Column(
@@ -1206,7 +1214,152 @@ class ColumnTest extends TestCase {
 			)
 		);
 		$sql    = $column->get_create_string();
-		$this->assertStringContainsString( 'ON UPDATE current_timestamp()', $sql );
+		$this->assertStringContainsString( 'ON UPDATE CURRENT_TIMESTAMP', $sql );
+		$this->assertStringNotContainsString( 'current_timestamp()', $sql );
+		$this->assertSame( 1, substr_count( $sql, 'ON UPDATE CURRENT_TIMESTAMP' ) );
+	}
+
+	// Empty datetime: null vs zero date (#231).
+
+	/**
+	 * Build a nullable datetime column that declares a null default.
+	 *
+	 * @since 3.1.0
+	 * @return Column
+	 */
+	private function nullable_datetime_column(): Column {
+		return new Column(
+			array(
+				'name'       => 'expires',
+				'type'       => 'datetime',
+				'allow_null' => true,
+				'default'    => null,
+			)
+		);
+	}
+
+	/**
+	 * Test that a nullable datetime emits DEFAULT NULL, never the zero date.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_get_create_string_nullable_datetime_uses_default_null() {
+		$sql = $this->nullable_datetime_column()->get_create_string();
+
+		$this->assertStringContainsString( 'default null', $sql );
+		$this->assertStringNotContainsString( '0000-00-00', $sql );
+	}
+
+	/**
+	 * Test that a nullable datetime resolves empty input to SQL null.
+	 *
+	 * This is the runtime half of the DDL DEFAULT NULL: the single-source
+	 * empty-datetime value is null for a nullable column, so the stored value
+	 * matches the schema default (#231).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_validate_nullable_datetime_resolves_empty_to_null() {
+		$this->assertNull( $this->nullable_datetime_column()->validate( '' ) );
+	}
+
+	/**
+	 * Test that a nullable datetime resolves a literal null input to null.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_validate_nullable_datetime_resolves_null_input_to_null() {
+		$this->assertNull( $this->nullable_datetime_column()->validate( null ) );
+	}
+
+	/**
+	 * Test that a nullable datetime normalizes a legacy zero date to null.
+	 *
+	 * A stored '0000-00-00 00:00:00' is an invalid date; on a nullable column it
+	 * normalizes to null rather than round-tripping a zero date.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_validate_nullable_datetime_normalizes_zero_date_to_null() {
+		$this->assertNull( $this->nullable_datetime_column()->validate( '0000-00-00 00:00:00' ) );
+	}
+
+	/**
+	 * Test that the DDL default and the runtime fallback use the same value.
+	 *
+	 * The zero date (NOT NULL) and null (nullable) come from one source, so the
+	 * create-string default and validate() never disagree (#231).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_ddl_and_runtime_empty_datetime_agree() {
+		$not_null = new Column(
+			array(
+				'name' => 'created',
+				'type' => 'datetime',
+			)
+		);
+
+		$this->assertStringContainsString( "default '0000-00-00 00:00:00'", $not_null->get_create_string() );
+		$this->assertSame( '0000-00-00 00:00:00', $not_null->validate( '' ) );
+
+		$nullable = $this->nullable_datetime_column();
+
+		$this->assertStringContainsString( 'default null', $nullable->get_create_string() );
+		$this->assertNull( $nullable->validate( '' ) );
+	}
+
+	/**
+	 * Test that a NOT NULL datetime resolves invalid input to the zero date.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_validate_not_null_datetime_resolves_invalid_input_to_zero_date() {
+		$column = new Column(
+			array(
+				'name' => 'created',
+				'type' => 'datetime',
+			)
+		);
+
+		$this->assertSame( '0000-00-00 00:00:00', $column->validate( 'not a date' ) );
+	}
+
+	/**
+	 * Test that a NOT NULL datetime keeps a literal zero date as the zero date.
+	 *
+	 * The zero-date literal is recognized as empty input rather than parsed by
+	 * strtotime() (which would mangle it into an out-of-range date).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_validate_not_null_datetime_keeps_literal_zero_date() {
+		$column = new Column(
+			array(
+				'name' => 'created',
+				'type' => 'datetime',
+			)
+		);
+
+		$this->assertSame( '0000-00-00 00:00:00', $column->validate( '0000-00-00 00:00:00' ) );
+	}
+
+	/**
+	 * Test that an explicit non-empty datetime default wins at both sites.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_explicit_datetime_default_wins_over_empty_datetime() {
+		$column = new Column(
+			array(
+				'name'    => 'starts',
+				'type'    => 'datetime',
+				'default' => '2020-01-02 03:04:05',
+			)
+		);
+
+		$this->assertStringContainsString( "default '2020-01-02 03:04:05'", $column->get_create_string() );
+		$this->assertSame( '2020-01-02 03:04:05', $column->validate( '' ) );
 	}
 
 	// Cast attribute - auto-detection.

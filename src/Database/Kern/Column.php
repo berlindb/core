@@ -128,6 +128,18 @@ class Column {
 	 */
 	private const RELATIONSHIP_TYPES = array( 'belongs_to', 'has_many' );
 
+	/**
+	 * The zero-date literal MySQL treats as an "empty" datetime.
+	 *
+	 * The recognized empty-input marker for datetime validation, and the default
+	 * empty-datetime value for a NOT NULL column. See get_empty_datetime() for
+	 * why the zero date is the WordPress-compatible default.
+	 *
+	 * @since 3.1.0
+	 * @var   string
+	 */
+	private const ZERO_DATE = '0000-00-00 00:00:00';
+
 	/** Attributes ************************************************************/
 
 	/**
@@ -1806,34 +1818,37 @@ class Column {
 	/**
 	 * Validate a datetime value.
 	 *
-	 * This assumes the following MySQL modes:
-	 * - NO_ZERO_DATE is off (double negative is proof positive!)
-	 * - ALLOW_INVALID_DATES is off
+	 * This assumes ALLOW_INVALID_DATES is off (invalid dates fall back to the
+	 * empty-datetime value).
 	 *
-	 * When MySQL drops support for zero dates, this method will need to be
-	 * updated to support different default values based on the environment.
+	 * The empty-datetime value comes from get_empty_datetime(): the zero date by
+	 * default, or SQL null for a nullable column that declares a null default.
+	 * The zero date is intentional for WordPress, which strips NO_ZERO_DATE from
+	 * the session sql_mode; see get_empty_datetime() for the full rationale.
 	 *
 	 * See: https://dev.mysql.com/doc/refman/8.0/en/sql-mode.html#sqlmode_allow_invalid_dates
 	 *
 	 * @since 1.0.0
 	 * @since 3.0.0 Add support for CURRENT_TIMESTAMP.
+	 * @since 3.1.0 Empty/invalid values resolve through get_empty_datetime(),
+	 *              so a nullable ( allow_null + null default ) datetime yields null.
 	 * @param string $value Default ''. A datetime value that needs validating.
-	 * @return string A valid datetime value.
+	 * @return string|null A valid datetime value, or null for a nullable column.
 	 */
 	protected function validate_datetime( $value = '' ) {
-
-		// Default empty datetime (value with NO_ZERO_DATE off).
-		$default_empty = '0000-00-00 00:00:00';
 
 		// Not using the $default yet.
 		$use_default = false;
 
 		// Handle current_timestamp MySQL constant.
-		if ( 'CURRENT_TIMESTAMP' === strtoupper( $value ) ) {
+		if ( 'CURRENT_TIMESTAMP' === strtoupper( (string) $value ) ) {
 			$value = 'CURRENT_TIMESTAMP';
 
-			// Fallback if "empty" value.
-		} elseif ( empty( $value ) || ( $default_empty === $value ) ) {
+			/*
+			 * Fallback if "empty": a falsy value, or the zero-date literal (which
+			 * strtotime() would otherwise mangle into an out-of-range date).
+			 */
+		} elseif ( empty( $value ) || ( self::ZERO_DATE === $value ) ) {
 			$use_default = true;
 
 			// All other values.
@@ -1852,9 +1867,14 @@ class Column {
 			}
 		}
 
-		// Fallback to $default.
+		/*
+		 * Fall back to the explicit column default when it carries a value, else
+		 * to the empty-datetime value ( which may be null for a nullable column ).
+		 */
 		if ( ! empty( $use_default ) ) {
-			$value = (string) $this->default;
+			$value = ( ( null !== $this->default ) && ( '' !== $this->default ) )
+				? (string) $this->default
+				: $this->get_empty_datetime();
 		}
 
 		// Return the validated value.
@@ -2066,6 +2086,36 @@ class Column {
 	}
 
 	/**
+	 * Return the value used to represent an "empty" datetime.
+	 *
+	 * A nullable datetime that declares a null default represents empty as SQL
+	 * null (matching the DEFAULT NULL that get_default_sql() emits via its
+	 * allow_null guard). Every other datetime represents empty as the zero-date
+	 * sentinel, which both get_default_sql() and validate_datetime() read from
+	 * here - so the DDL default and the runtime fallback never disagree.
+	 *
+	 * The zero date is intentional for WordPress: wpdb strips NO_ZERO_DATE from
+	 * the session sql_mode on connect, and WordPress core itself declares
+	 * datetime columns as NOT NULL DEFAULT '0000-00-00 00:00:00'. Outside of
+	 * WordPress (or wherever NO_ZERO_DATE is on), declare the column with
+	 * allow_null and a null default to represent empty as null instead.
+	 *
+	 * @since 3.1.0
+	 * @return string|null The empty-datetime value; null for a nullable column
+	 *                     that declares a null default.
+	 */
+	protected function get_empty_datetime() {
+
+		// Nullable with an explicit null default: empty is SQL null.
+		if ( ( true === $this->allow_null ) && ( null === $this->default ) ) {
+			return null;
+		}
+
+		// Otherwise: the zero-date sentinel (WordPress default).
+		return self::ZERO_DATE;
+	}
+
+	/**
 	 * Return the SQL DEFAULT clause fragment for this column.
 	 *
 	 * Returns an empty string when no default clause should be emitted
@@ -2108,13 +2158,23 @@ class Column {
 
 		// Datetime or timestamp.
 		if ( $this->is_type( array( 'datetime', 'timestamp' ) ) ) {
+			/*
+			 * An ON UPDATE CURRENT_TIMESTAMP column emits no DEFAULT fragment here:
+			 * get_create_string() appends the ON UPDATE clause once from $this->extra,
+			 * so returning it here too would duplicate it into invalid SQL.
+			 */
 			if ( $this->is_extra( 'ON UPDATE CURRENT_TIMESTAMP' ) ) {
-				return 'ON UPDATE current_timestamp()';
+				return '';
 			}
 
-			// @todo NO_ZERO_DATE
+			/*
+			 * Datetime carries an empty-datetime default; timestamp does not. The
+			 * nullable case (DEFAULT NULL) is already returned by the allow_null
+			 * guard at the top of this method, so get_empty_datetime() is the zero
+			 * date here - the same value validate_datetime() falls back to.
+			 */
 			if ( $this->is_type( 'datetime' ) ) {
-				return "default '0000-00-00 00:00:00'";
+				return "default '{$this->get_empty_datetime()}'";
 			}
 
 			return '';
