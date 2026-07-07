@@ -4,6 +4,16 @@ Notable changes to BerlinDB are documented here.
 
 ## 3.1.0 - Unreleased
 
+- Adds composite (multi-column) foreign-key relationships (#211 Lever D). A `belongs_to` /
+  `has_many` relationship may now key on more than one column (`columns` / `references` as
+  equal-length arrays), declared via a Schema's `get_relationships()` (the per-column
+  `relationships` shorthand stays single-column). Composite relationships **filter**
+  (`relation_query` JOIN / correlated `EXISTS`, correlated on every key column with AND-ed
+  pairs) and **fetch** (`get_related()` matches all key columns), and their opt-in
+  `FOREIGN KEY` DDL (`FOREIGN KEY ( a, b ) REFERENCES ... ( a, b )`) is emitted when enforced.
+  Composite keys default to the `join` strategy (the `in` materialize strategy is
+  single-column only) and are resolved per item rather than batch-primed (composite-key
+  cache priming is a follow-up). Single-column relationship SQL is unchanged.
 - Unifies the WP-core-meta engine's `meta_key` comparisons onto the operator path (#212).
   The bespoke `switch ( $meta_compare_key )` in `Parsers\Meta` that hand-built key SQL is
   gone; each key comparison now uses the same `cast_reference()` + `operator->get_sql_compare()`

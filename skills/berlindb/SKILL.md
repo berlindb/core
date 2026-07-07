@@ -116,6 +116,32 @@ Which side declares it, and what `column` means, differs by `type`:
 ),
 ```
 
+- **Composite (multi-column) keys.** A relationship can key on more than one column.
+  The per-column `relationships` shorthand above models a *single* key column, so declare
+  a composite relationship on the **Schema** via `get_relationships()`, with equal-length
+  `columns` (local) and `references` (remote) arrays:
+
+```php
+public function get_relationships() {
+    return array(
+        new \BerlinDB\Database\Kern\Relationship( array(
+            'name'       => 'tenant',
+            'query'      => \Acme\Database\Queries\Tenant::class,
+            'type'       => 'belongs_to',
+            'columns'    => array( 'region_id', 'account_id' ),  // local
+            'references' => array( 'region_id', 'account_id' ),  // remote
+        ) ),
+    );
+}
+```
+
+  Composite relationships **filter** (`relation` join/EXISTS correlates on every key
+  column) and **fetch** (`get_related()` matches all key columns; a missing part means no
+  relation). They default to the `'join'` strategy (the `'in'` materialize strategy is
+  single-column only) and resolve per item rather than being batch-primed by `with`
+  (composite-key priming is a follow-up). Enforced composite relationships emit a real
+  multi-column `FOREIGN KEY ( a, b ) REFERENCES ... ( a, b )`.
+
 - **Prime caches** with `with` (quiet by default — pass accessor names to warm):
   `$q->query( array( 'status' => 'active', 'with' => array( 'order' ) ) );`
 - **Resolve related rows** with `get_related()` (on the `Query`, not the `Row`):
