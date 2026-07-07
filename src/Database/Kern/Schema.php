@@ -1900,15 +1900,6 @@ class Schema {
 			if ( ( '' !== $relationship->query ) && ! class_exists( $relationship->query ) ) {
 				$errors[] = "Relationship {$relationship_name} names a missing remote query class: {$relationship->query}.";
 			}
-
-			/*
-			 * Composite relationships (more than one local column) are not
-			 * supported at runtime (single-column only). Flag rather than let them
-			 * silently fail closed at query time.
-			 */
-			if ( 1 < count( $relationship->columns ) ) {
-				$errors[] = "Relationship {$relationship_name} is composite (multiple local columns), which is not supported at runtime.";
-			}
 		}
 
 		return array_values( array_unique( $errors ) );

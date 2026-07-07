@@ -272,6 +272,50 @@ class RelationshipParserTest extends TestCase {
 	}
 
 	/**
+	 * A composite (multi-column) belongs_to joins on AND-ed column pairs.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_composite_belongs_to_joins_on_anded_pairs() {
+		$result = $this->parse(
+			array(
+				'name' => 'parent',
+			),
+			array(
+				'parent' => $this->relationship( 'parent', 'belongs_to', array( 'a_id', 'b_id' ), array( 'id', 'order_id' ) ),
+			)
+		);
+
+		$this->assertStringContainsString( 'INNER JOIN', $result['join'] );
+		$this->assertStringContainsString(
+			'ON ( `o`.`a_id` = `bdb_rel_parent`.`id` AND `o`.`b_id` = `bdb_rel_parent`.`order_id` )',
+			$result['join']
+		);
+	}
+
+	/**
+	 * A composite has_many correlates its EXISTS subquery on AND-ed column pairs.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_composite_has_many_correlates_on_anded_pairs() {
+		$result = $this->parse(
+			array(
+				'name' => 'children',
+			),
+			array(
+				'children' => $this->relationship( 'children', 'has_many', array( 'a_id', 'b_id' ), array( 'id', 'order_id' ) ),
+			)
+		);
+
+		$this->assertStringContainsString( 'EXISTS ( SELECT 1 FROM', $result['where'] );
+		$this->assertStringContainsString(
+			'( `bdb_rel_children`.`id` = `o`.`a_id` AND `bdb_rel_children`.`order_id` = `o`.`b_id` )',
+			$result['where']
+		);
+	}
+
+	/**
 	 * Test that a scalar where condition becomes an equality on the joined alias.
 	 *
 	 * @since 3.1.0

@@ -233,14 +233,18 @@ class SchemaRelationshipValidationTest extends TestCase {
 	}
 
 	/**
-	 * Composite (multi-local-column) relationships are reported as unsupported.
+	 * Composite (multi-local-column) relationships are supported: an otherwise-valid
+	 * composite declaration produces no validation error.
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_composite_relationship_reported() {
+	public function test_composite_relationship_is_supported() {
 		$schema = new SchemaValCompositeSchema();
 
-		$this->assertStringContainsString( 'is composite', implode( ' ', $schema->get_validation_errors() ) );
+		$errors = implode( ' ', $schema->get_validation_errors() );
+
+		$this->assertStringNotContainsString( 'is composite', $errors );
+		$this->assertStringNotContainsString( 'mismatched', $errors );
 	}
 
 	/**

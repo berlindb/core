@@ -194,10 +194,25 @@ class Relationship extends Base {
 				break;
 			}
 
-			// Default to the subquery strategy; 'join' is handled separately.
-			$strategy = ( isset( $clause_args[ 'strategy' ] ) && ( 'join' === $clause_args[ 'strategy' ] ) )
-				? 'join'
-				: 'in';
+			/*
+			 * Resolve the strategy. An explicit 'join' / 'in' is honored. With no
+			 * explicit strategy, a COMPOSITE ( multi-column ) key defaults to 'join':
+			 * the 'in' materialize strategy is single-column only, so a composite
+			 * relationship would otherwise default to 'in' and fail closed. Single-
+			 * column keys keep the 'in' default.
+			 */
+			$explicit = ( isset( $clause_args[ 'strategy' ] ) && is_string( $clause_args[ 'strategy' ] ) )
+				? strtolower( $clause_args[ 'strategy' ] )
+				: '';
+
+			if ( ( 'join' === $explicit ) || ( 'in' === $explicit ) ) {
+				$strategy = $explicit;
+			} else {
+				$relationship = $caller->get_relationship( (string) $clause_args[ 'name' ] );
+				$strategy     = ( ( $relationship instanceof RelationshipObject ) && ( count( $relationship->columns ) > 1 ) )
+					? 'join'
+					: 'in';
+			}
 
 			if ( 'in' === $strategy ) {
 				$query_vars = $this->resolve_in_filter( $clause_args, $query_vars, $caller );
@@ -514,12 +529,16 @@ class Relationship extends Base {
 			return false;
 		}
 
-		// Single-column belongs_to or has_many.
+		// belongs_to or has_many, single- or multi-column ( composite ) key.
 		$columns    = $relationship->columns;
 		$references = $relationship->references;
 		$type       = $relationship->type;
 
-		if ( ( 1 !== count( $columns ) ) || ( 1 !== count( $references ) ) || ! in_array( $type, array( 'belongs_to', 'has_many' ), true ) ) {
+		if (
+			! in_array( $type, array( 'belongs_to', 'has_many' ), true )
+			|| empty( $columns )
+			|| ( count( $columns ) !== count( $references ) )
+		) {
 			return false;
 		}
 
@@ -530,12 +549,13 @@ class Relationship extends Base {
 			return false;
 		}
 
-		// The referenced remote column must exist in the remote schema.
+		// Every referenced remote column must exist in the remote schema.
 		$remote_table = $remote->get_table_name();
-		$remote_ref   = $references[0];
 
-		if ( empty( $remote->get_columns( array( 'name' => $remote_ref ) ) ) ) {
-			return false;
+		foreach ( $references as $remote_ref ) {
+			if ( empty( $remote->get_columns( array( 'name' => $remote_ref ) ) ) ) {
+				return false;
+			}
 		}
 
 		/*
@@ -568,10 +588,24 @@ class Relationship extends Base {
 		$exists_positive = ! array_key_exists( 'exists', $clause_args ) || (bool) $clause_args[ 'exists' ];
 
 		// Pre-quote the shared identifiers.
-		$local      = $this->caller->get_quoted_column_name_aliased( $columns[0] );
 		$alias_sql  = $this->quote_identifier( $alias );
 		$remote_sql = $this->quote_identifier( $remote_table );
-		$ref_sql    = $alias_sql . '.' . $this->quote_identifier( $remote_ref );
+
+		/*
+		 * One local = remote equality per positional key-column pair; a composite key
+		 * ANDs them. Two orders are kept so single-column SQL is unchanged: the JOIN ON
+		 * reads local = remote, the correlated EXISTS reads remote = local.
+		 */
+		$join_pairs = array();
+		$corr_pairs = array();
+
+		foreach ( $columns as $i => $local_col ) {
+			$local_sql = $this->caller->get_quoted_column_name_aliased( $local_col );
+			$ref_sql   = $alias_sql . '.' . $this->quote_identifier( $references[ $i ] );
+
+			$join_pairs[] = $local_sql . ' = ' . $ref_sql;
+			$corr_pairs[] = $ref_sql . ' = ' . $local_sql;
+		}
 
 		/*
 		 * belongs_to (positive): this row's foreign key points at one remote
@@ -587,7 +621,8 @@ class Relationship extends Base {
 				? 'LEFT JOIN'
 				: 'INNER JOIN';
 
-			$join = $keyword . ' ' . $remote_sql . ' AS ' . $alias_sql . ' ON ' . $local . ' = ' . $ref_sql;
+			$join = $keyword . ' ' . $remote_sql . ' AS ' . $alias_sql
+				. ' ON ' . \BerlinDB\Database\Clauses\BooleanGroup::combine( 'AND', $join_pairs );
 
 			return array(
 				'join'  => $join,
@@ -600,10 +635,7 @@ class Relationship extends Base {
 		 * keeps each local row once: has_many matching (EXISTS), or "no matching
 		 * relation" in either direction (NOT EXISTS).
 		 */
-		$sub_where = array_merge(
-			array( $ref_sql . ' = ' . $local ),
-			$condition_list
-		);
+		$sub_where = array_merge( $corr_pairs, $condition_list );
 
 		// EXISTS or NOT EXISTS, depending on the 'exists' clause key.
 		$keyword = ( true === $exists_positive )
