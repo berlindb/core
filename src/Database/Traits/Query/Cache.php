@@ -360,7 +360,12 @@ trait Cache {
 		$columns    = $relationship->columns;
 		$references = $relationship->references;
 
-		// Only single-column foreign keys are primed for now.
+		/*
+		 * Composite keys are not batch-primed - a deliberate fallback: get_related()
+		 * still resolves them correctly ( each call hits the remote result cache, just
+		 * one per item instead of a single bulk warm ). Composite-key priming is a
+		 * follow-up ( #211, touches cache-key infra ).
+		 */
 		if ( ( count( $columns ) !== 1 ) || ( count( $references ) !== 1 ) ) {
 			return;
 		}
@@ -401,7 +406,11 @@ trait Cache {
 		$columns    = $relationship->columns;
 		$references = $relationship->references;
 
-		// Only single-column relationships are primed for now.
+		/*
+		 * Composite keys are not batch-primed - a deliberate fallback: get_related()
+		 * still resolves them ( per-item, each cached; just not bulk-warmed ).
+		 * Composite-key priming is a follow-up ( #211 ).
+		 */
 		if ( ( count( $columns ) !== 1 ) || ( count( $references ) !== 1 ) ) {
 			return;
 		}

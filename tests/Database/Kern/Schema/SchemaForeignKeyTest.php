@@ -16,10 +16,45 @@
 
 namespace BerlinDB\Tests;
 
+use BerlinDB\Database\Kern\Relationship;
 use BerlinDB\Database\Kern\Schema;
 use BerlinDB\Tests\Fixtures\TestQuery;
 use BerlinDB\Tests\Fixtures\TestTable;
 use Yoast\WPTestUtils\WPIntegration\TestCase;
+
+/**
+ * Schema with a composite ( two-column ) enforced belongs_to, declared via
+ * get_relationships() ( the per-column shorthand is single-column only ).
+ *
+ * @since 3.1.0
+ */
+class SchemaFkCompositeSchema extends Schema {
+	public $columns = array(
+		array(
+			'name' => 'a',
+			'type' => 'bigint',
+		),
+		array(
+			'name' => 'b',
+			'type' => 'bigint',
+		),
+	);
+
+	public function get_relationships() {
+		return array(
+			new Relationship(
+				array(
+					'name'       => 'comp',
+					'query'      => TestQuery::class,
+					'type'       => 'belongs_to',
+					'columns'    => array( 'a', 'b' ),
+					'references' => array( 'x', 'y' ),
+					'enforce'    => true,
+				)
+			),
+		);
+	}
+}
 
 /**
  * Integration tests for enforced foreign-key emission.
@@ -86,6 +121,19 @@ class SchemaForeignKeyTest extends TestCase {
 		$this->assertStringContainsString( 'FOREIGN KEY', $fragments[0] );
 		$this->assertStringContainsString( '`widget_id`', $fragments[0] );
 		$this->assertStringContainsString( 'test_widgets', $fragments[0] );
+	}
+
+	/**
+	 * A composite enforced relationship yields a multi-column FOREIGN KEY fragment.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_composite_enforced_relationship_yields_a_multi_column_foreign_key() {
+		$fragments = ( new SchemaFkCompositeSchema() )->get_foreign_key_strings();
+
+		$this->assertCount( 1, $fragments );
+		$this->assertStringContainsString( 'FOREIGN KEY (`a`, `b`)', $fragments[0] );
+		$this->assertStringContainsString( '(`x`, `y`)', $fragments[0] );
 	}
 
 	/**

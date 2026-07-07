@@ -267,12 +267,16 @@ class Relationship extends Base {
 			return $this->short_circuit( $query_vars, "unknown relationship: {$name}" );
 		}
 
-		// Only single-column belongs_to is supported by the 'in' strategy.
+		/*
+		 * The 'in' materialize strategy is single-column belongs_to only. A composite
+		 * key cannot be a single {fk}__in list; composite relationships default to (and
+		 * must use) the 'join' / EXISTS strategy, which correlates on every key column.
+		 */
 		$columns    = $relationship->columns;
 		$references = $relationship->references;
 
 		if ( ( 'belongs_to' !== $relationship->type ) || ( count( $columns ) !== 1 ) || ( count( $references ) !== 1 ) ) {
-			return $this->short_circuit( $query_vars, "relation strategy 'in' supports single-column belongs_to only: {$name}" );
+			return $this->short_circuit( $query_vars, "relation strategy 'in' supports single-column belongs_to only ( composite keys use the 'join' strategy ): {$name}" );
 		}
 
 		// The local foreign-key column must support __in.
