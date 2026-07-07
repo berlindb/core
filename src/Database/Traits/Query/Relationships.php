@@ -262,21 +262,28 @@ trait Relationships {
 			return null;
 		}
 
-		// Only single-column relationships are resolved for now.
+		// belongs_to or has_many, single- or multi-column ( composite ) key.
 		$columns    = $relationship->columns;
 		$references = $relationship->references;
-		if ( ( count( $columns ) !== 1 ) || ( count( $references ) !== 1 ) ) {
+		if ( empty( $columns ) || ( count( $columns ) !== count( $references ) ) ) {
 			return null;
 		}
 
 		/*
-		 * Bail unless the local key is present and represents an actual relation
-		 * (see is_empty_relationship_key() for the 0/'0'/''/null policy).
+		 * Build the remote lookup key from every positional column pair. Any missing
+		 * or empty key part means no relation (see is_empty_relationship_key() for the
+		 * 0/'0'/''/null policy) - a composite key needs ALL parts present.
 		 */
-		if ( ! isset( $item->{$columns[0]} ) || $this->is_empty_relationship_key( $item->{$columns[0]} ) ) {
-			return ( 'has_many' === $relationship->type )
-				? array()
-				: null;
+		$key = array();
+
+		foreach ( $columns as $i => $local_col ) {
+			if ( ! isset( $item->{$local_col} ) || $this->is_empty_relationship_key( $item->{$local_col} ) ) {
+				return ( 'has_many' === $relationship->type )
+					? array()
+					: null;
+			}
+
+			$key[ $references[ $i ] ] = $item->{$local_col};
 		}
 
 		// Resolve the remote query instance (guarded; null when unresolvable).
@@ -284,9 +291,6 @@ trait Relationships {
 		if ( null === $remote ) {
 			return null;
 		}
-
-		// Local key value to match against the remote side.
-		$local_value = $item->{$columns[0]};
 
 		/*
 		 * has_many: many remote rows point back at this item's key. Resolve via
@@ -300,34 +304,33 @@ trait Relationships {
 		 * the caller's job via a direct query().
 		 */
 		if ( 'has_many' === $relationship->type ) {
-			$found = $remote->query(
-				array(
-					$references[0] => $local_value,
-					'number'       => 0,
-				)
-			);
+			/*
+			 * array_merge so the reserved 'number' ( limit ) always wins over a key
+			 * column that happened to be named 'number'.
+			 */
+			$found = $remote->query( array_merge( $key, array( 'number' => 0 ) ) );
 
 			return is_array( $found )
 				? $found
 				: array();
 		}
 
-		// belongs_to referencing the remote primary key - cache-friendly.
-		if ( $references[0] === $remote->get_primary_column_name() ) {
-			$found = $remote->get_item( $local_value );
+		/*
+		 * belongs_to referencing the remote primary key - cache-friendly get_item().
+		 * Single-column only: get_item() takes one id, so a composite key (even one
+		 * whose first reference matches the primary column name) must use query() with
+		 * the full key.
+		 */
+		if ( ( 1 === count( $references ) ) && ( $references[0] === $remote->get_primary_column_name() ) ) {
+			$found = $remote->get_item( reset( $key ) );
 
 			return ! empty( $found )
 				? $found
 				: null;
 		}
 
-		// belongs_to referencing a non-primary remote column.
-		$found = $remote->query(
-			array(
-				$references[0] => $local_value,
-				'number'       => 1,
-			)
-		);
+		// belongs_to referencing a non-primary (or composite) remote key.
+		$found = $remote->query( array_merge( $key, array( 'number' => 1 ) ) );
 
 		return ( is_array( $found ) && ! empty( $found ) )
 			? reset( $found )
