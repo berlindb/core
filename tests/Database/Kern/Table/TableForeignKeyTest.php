@@ -127,14 +127,22 @@ class TableForeignKeyTest extends TestCase {
 		parent::setUpBeforeClass();
 
 		self::$parent = new FkParentTable();
-		if ( ! self::$parent->exists() ) {
-			self::$parent->install();
+		self::$child  = new FkChildTable();
+
+		/*
+		 * Force a fresh install so a leftover constraint from an interrupted run cannot
+		 * make the deferred-at-install assertion flaky. Drop the child first ( it
+		 * references the parent ), then reinstall parent-first.
+		 */
+		if ( self::$child->exists() ) {
+			self::$child->uninstall();
+		}
+		if ( self::$parent->exists() ) {
+			self::$parent->uninstall();
 		}
 
-		self::$child = new FkChildTable();
-		if ( ! self::$child->exists() ) {
-			self::$child->install();
-		}
+		self::$parent->install();
+		self::$child->install();
 	}
 
 	/**
@@ -150,23 +158,19 @@ class TableForeignKeyTest extends TestCase {
 	}
 
 	/**
-	 * The enforced FK is DEFERRED: it is not part of the CREATE TABLE, so before
-	 * add_foreign_keys() runs the child table has no referential constraint.
+	 * The enforced FK is DEFERRED at install ( not part of CREATE TABLE ), then
+	 * add_foreign_keys() adds the real constraint once both tables exist. Kept as one
+	 * test so the deferred-then-added ordering is guaranteed, not run-order dependent.
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_enforced_foreign_key_is_deferred_at_install() {
-		$this->assertCount( 0, $this->referential_constraints() );
-	}
-
-	/**
-	 * add_foreign_keys() adds the real constraint once both tables exist.
-	 *
-	 * @since 3.1.0
-	 */
-	public function test_add_foreign_keys_creates_the_constraint() {
+	public function test_enforced_foreign_key_is_deferred_then_added() {
 		global $wpdb;
 
+		// Deferred: the CREATE TABLE did not include the FK.
+		$this->assertCount( 0, $this->referential_constraints() );
+
+		// Adding it now that both tables exist creates a real constraint.
 		$this->assertTrue( self::$child->add_foreign_keys() );
 
 		$constraints = $this->referential_constraints();
