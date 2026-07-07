@@ -173,9 +173,14 @@ Notes:
   are **single-column only** for now — one local key referencing one remote key.
 - Relationship filters **fail closed**: a misconfigured or empty-matching filter
   returns no rows, never all rows.
-- Enforced foreign-key metadata (`enforce`, `on_delete`, `on_update`,
-  `constraint`) is **declarable but not yet emitted as DDL** — relationships are
-  enforced at the application layer (WordPress avoids real foreign keys).
+- **Opt-in real foreign keys.** Relationships are unenforced by default
+  (application-layer integrity, matching WordPress's avoidance of real FKs). Set
+  `enforce => true` on a `belongs_to` to emit real `FOREIGN KEY` DDL (with optional
+  `on_delete` / `on_update` / `constraint`). Emission is **deferred**: install your
+  tables, then call `$table->add_foreign_keys()` once every referenced table exists
+  (the referenced table must precede the constraint). Or set the referencing table's
+  `$foreign_keys = 'inline'` to emit the FK inside `CREATE TABLE` when you control
+  install order. Only enable it if you control the storage engine (InnoDB).
 
 ## Custom Meta Tables (3.1.0, #204)
 
