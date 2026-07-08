@@ -49,6 +49,12 @@ class CtsSchema extends Schema {
 			'default' => 'CURRENT_TIMESTAMP',
 			'extra'   => 'ON UPDATE CURRENT_TIMESTAMP',
 		),
+		array(
+			'name'       => 'touched',
+			'type'       => 'datetime',
+			'default'    => 'CURRENT_TIMESTAMP',
+			'allow_null' => true,
+		),
 	);
 	public $indexes = array(
 		array(
@@ -63,6 +69,7 @@ class CtsRow extends Row {
 	public $name    = '';
 	public $created = '';
 	public $changed = '';
+	public $touched = null;
 }
 
 class CtsQuery extends Query {
@@ -79,7 +86,7 @@ class CtsQuery extends Query {
 class CtsTable extends Table {
 	protected $schema  = CtsSchema::class;
 	protected $name    = 'berlindb_cts_test';
-	protected $version = '202607080';
+	protected $version = '202607081';
 }
 
 /**
@@ -235,5 +242,91 @@ class CurrentTimestampInsertTest extends TestCase {
 		$item = self::$query->get_item( $id );
 
 		$this->assertSame( '1999-12-31 23:59:59', $item->changed );
+	}
+
+	/**
+	 * An omitted nullable CURRENT_TIMESTAMP column is populated by the DB default.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_omitted_nullable_current_timestamp_populates_from_default() {
+		$id   = self::$query->add_item( array( 'name' => 'a' ) );
+		$item = self::$query->get_item( $id );
+
+		$this->assertMatchesRegularExpression( self::DATETIME_RE, (string) $item->touched );
+		$this->assertNotNull( $item->touched );
+	}
+
+	/**
+	 * An explicit null stores SQL NULL on a nullable CT column, on insert (#233).
+	 *
+	 * The caller supplied the column (key present) with null, so it is an explicit
+	 * value - not an omission - and must be stored rather than deferred to DEFAULT.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_explicit_null_stores_null_on_nullable_ct_insert() {
+		$id   = self::$query->add_item(
+			array(
+				'name'    => 'a',
+				'touched' => null,
+			)
+		);
+		$item = self::$query->get_item( $id );
+
+		$this->assertNull( $item->touched );
+	}
+
+	/**
+	 * An explicit null stores SQL NULL on a nullable CT column, on update (#233).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_explicit_null_stores_null_on_nullable_ct_update() {
+		$id = self::$query->add_item( array( 'name' => 'a' ) );
+
+		// Seeded by the DB default first, then explicitly nulled.
+		$this->assertNotNull( self::$query->get_item( $id )->touched );
+
+		self::$query->update_item( $id, array( 'touched' => null ) );
+		wp_cache_flush();
+
+		$this->assertNull( self::$query->get_item( $id )->touched );
+	}
+
+	/**
+	 * An explicit null on a NON-nullable CT column defers, never stores null (#233).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_explicit_null_on_non_nullable_ct_defers_to_default() {
+		$id   = self::$query->add_item(
+			array(
+				'name'    => 'a',
+				'created' => null,
+			)
+		);
+		$item = self::$query->get_item( $id );
+
+		$this->assertMatchesRegularExpression( self::DATETIME_RE, (string) $item->created );
+		$this->assertNotNull( $item->created );
+		$this->assertNotSame( '0000-00-00 00:00:00', $item->created );
+	}
+
+	/**
+	 * An unchanged nullable CT column is not nulled by an unrelated update (#233).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_unchanged_nullable_ct_column_is_not_nulled_on_update() {
+		$id      = self::$query->add_item( array( 'name' => 'a' ) );
+		$initial = self::$query->get_item( $id )->touched;
+
+		$this->assertNotNull( $initial );
+
+		self::$query->update_item( $id, array( 'name' => 'b' ) );
+		wp_cache_flush();
+
+		$this->assertSame( $initial, self::$query->get_item( $id )->touched );
 	}
 }

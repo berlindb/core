@@ -34,10 +34,9 @@ defined( 'ABSPATH' ) || exit;
  * side (emitting DEFAULT CURRENT_TIMESTAMP unquoted) lives in
  * Column::get_default_sql(); this preset owns only the save-time deferral.
  *
- * Limitation: the intercept contract treats null as "field not supplied" (see
- * Base::intercept()), so an explicit null cannot be distinguished from an omitted
- * field - both defer to MySQL rather than storing SQL NULL. For a DB-managed
- * timestamp that is the intended resolution.
+ * A caller-supplied null is honored via intercept()'s $provided flag (key
+ * presence): on a nullable column an explicit null stores SQL NULL, while a
+ * genuine omission defers to the DB clause.
  *
  * @since 3.1.0
  */
@@ -99,6 +98,15 @@ final class CurrentTimestamp extends Base {
 
 		// An explicit, valid datetime value (or one a prior preset set) wins.
 		if ( $this->is_explicit_datetime( $value ) ) {
+			return $value;
+		}
+
+		/*
+		 * A caller-supplied null is an explicit value, not an omission: on a
+		 * nullable column it stores SQL NULL rather than deferring to the DB clause.
+		 * ( An omitted column has $provided === false and falls through to defer. )
+		 */
+		if ( $provided && ( null === $value ) && ( true === $column->allow_null ) ) {
 			return $value;
 		}
 
