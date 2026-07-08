@@ -2013,16 +2013,18 @@ class Column {
 	 * incoming value, and unsets the column when the unset sentinel is returned.
 	 *
 	 * @since 3.1.0
+	 * @since 3.1.0 Added $provided (caller supplied this column - key presence).
 	 *
-	 * @param string $method One of insert|update|select|delete|copy.
-	 * @param mixed  $value  Incoming value (null when the column was not supplied).
+	 * @param string $method   One of insert|update|select|delete|copy.
+	 * @param mixed  $value    Incoming value.
+	 * @param bool   $provided Whether the caller supplied this column. Default true.
 	 * @return mixed
 	 */
-	public function intercept( $method = 'insert', $value = null ) {
+	public function intercept( $method = 'insert', $value = null, bool $provided = true ) {
 
 		// Let each active preset shape the value in turn.
 		foreach ( (array) $this->active_presets as $preset ) {
-			$value = $preset->intercept( (string) $method, $value, $this );
+			$value = $preset->intercept( (string) $method, $value, $this, $provided );
 		}
 
 		// Return the (possibly replaced) value to store.

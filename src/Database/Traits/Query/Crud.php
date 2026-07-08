@@ -249,9 +249,16 @@ trait Crud {
 
 		// Slice data that has columns, and cut out non-keys for meta.
 		$columns = array_flip( $this->get_column_names() );
-		$data    = array_merge( $item, $data );
-		$meta    = array_diff_key( $data, $columns );
-		$save    = array_intersect_key( $data, $columns );
+
+		/*
+		 * Columns the caller supplied, captured BEFORE defaults are merged in, so
+		 * interception can tell an omitted column from an explicit value.
+		 */
+		$provided = array_keys( array_intersect_key( $data, $columns ) );
+
+		$data = array_merge( $item, $data );
+		$meta = array_diff_key( $data, $columns );
+		$save = array_intersect_key( $data, $columns );
 
 		// Bail if nothing to save.
 		if ( empty( $save ) && empty( $meta ) ) {
@@ -260,7 +267,7 @@ trait Crud {
 
 		// Reduce (caps), let columns intercept generated values, then validate.
 		$reduce = $this->reduce_item( 'insert', $save );
-		$save   = $this->intercept_item( 'insert', $reduce );
+		$save   = $this->intercept_item( 'insert', $reduce, $provided );
 		$save   = $this->validate_item( $save );
 
 		// Default return value.
@@ -663,24 +670,36 @@ trait Crud {
 	 * Sits beside reduce_item() and validate_item() in the save pipeline:
 	 * reduce (caps) -> intercept (generated values) -> validate (sanitize).
 	 *
+	 * $provided_keys names the columns the caller actually supplied, so a preset
+	 * can tell an omission from an explicit value (including an explicit null). On
+	 * insert the caller's keys must be captured BEFORE defaults are merged in (they
+	 * would otherwise mark every column present); when null, presence falls back to
+	 * the keys in $item (the post-diff set an update passes).
+	 *
 	 * @since 3.1.0
 	 *
-	 * @param string               $method One of insert|update|select|delete|copy.
-	 * @param array<string,mixed> $item   Item field key/value pairs.
+	 * @param string               $method        One of insert|update|select|delete|copy.
+	 * @param array<string,mixed> $item          Item field key/value pairs.
+	 * @param array<int,string>|null $provided_keys Columns the caller supplied, or null.
 	 * @return array<string,mixed>
 	 */
-	private function intercept_item( $method = 'insert', $item = array() ) {
+	private function intercept_item( $method = 'insert', $item = array(), $provided_keys = null ) {
 
 		// Bail if item is empty or not an array.
 		if ( empty( $item ) || ! is_array( $item ) ) {
 			return $item;
 		}
 
+		// Presence map: caller-supplied keys, or the item's own keys when not given.
+		$provided = ( null === $provided_keys )
+			? $item
+			: array_flip( $provided_keys );
+
 		// Let each column intercept its value.
 		foreach ( $this->get_columns() as $column ) {
 			$name    = $column->name;
 			$current = $item[ $name ] ?? null;
-			$new     = $column->intercept( $method, $current );
+			$new     = $column->intercept( $method, $current, array_key_exists( $name, $provided ) );
 
 			// The column's generated unset sentinel removes the column entirely.
 			if ( $column->is_unset_sentinel( $new ) ) {

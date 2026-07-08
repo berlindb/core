@@ -72,12 +72,13 @@ final class Uuid extends Base {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param string $method insert|update|select|delete|copy.
-	 * @param mixed  $value  Incoming value.
-	 * @param Column $column The column.
+	 * @param string $method   insert|update|select|delete|copy.
+	 * @param mixed  $value    Incoming value.
+	 * @param Column $column   The column.
+	 * @param bool   $provided Whether the caller supplied this column. Default true.
 	 * @return mixed
 	 */
-	public function intercept( string $method, $value, Column $column ) {
+	public function intercept( string $method, $value, Column $column, bool $provided = true ) {
 		if ( 'copy' === $method ) {
 			return $column->get_unset_sentinel();
 		}

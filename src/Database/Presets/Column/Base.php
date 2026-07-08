@@ -136,14 +136,20 @@ abstract class Base {
 	 * no-op, a replacement to store, or the column's unset sentinel to remove the
 	 * field. NEVER return null to mean "no-op" - null is a real incoming value.
 	 *
+	 * $provided reports whether the caller actually supplied this column (key
+	 * presence), distinguishing an omission from an explicit value - including an
+	 * explicit null. When false, $value is the column default (insert) or null
+	 * (update); when true, $value is exactly what the caller passed.
+	 *
 	 * @since 3.1.0
 	 *
-	 * @param string $method One of insert|update|select|delete|copy.
-	 * @param mixed  $value  Incoming value (null when the column was not supplied).
-	 * @param Column $column The column being intercepted.
+	 * @param string $method   One of insert|update|select|delete|copy.
+	 * @param mixed  $value    Incoming value.
+	 * @param Column $column   The column being intercepted.
+	 * @param bool   $provided Whether the caller supplied this column. Default true.
 	 * @return mixed
 	 */
-	public function intercept( string $method, $value, Column $column ) {
+	public function intercept( string $method, $value, Column $column, bool $provided = true ) {
 		return $value;
 	}
 }
