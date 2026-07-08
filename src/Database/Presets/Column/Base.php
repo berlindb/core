@@ -132,24 +132,23 @@ abstract class Base {
 	/**
 	 * Intercept the column value for a save operation.
 	 *
-	 * Mirrors Column::intercept()'s contract exactly: return the original value for a
-	 * no-op, a replacement to store, or the column's unset sentinel to remove the
-	 * field. NEVER return null to mean "no-op" - null is a real incoming value.
+	 * Return the original value for a no-op, a replacement to store, or
+	 * $context->unset_value() to remove the field. NEVER return null to mean
+	 * "no-op" - null is a real incoming value.
 	 *
-	 * $provided reports whether the caller actually supplied this column (key
-	 * presence), distinguishing an omission from an explicit value - including an
-	 * explicit null. When false, $value is the column default (insert) or null
-	 * (update); when true, $value is exactly what the caller passed.
+	 * The $context (a Context value object) carries the method, the Column, and
+	 * $context->provided() - whether the caller supplied this column (key presence),
+	 * distinguishing an omission from an explicit value, including an explicit null.
+	 * Context is a single param on purpose: new save context is added to it without
+	 * changing this signature (which an override must match).
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param string $method   One of insert|update|select|delete|copy.
-	 * @param mixed  $value    Incoming value.
-	 * @param Column $column   The column being intercepted.
-	 * @param bool   $provided Whether the caller supplied this column. Default true.
+	 * @param mixed   $value   Incoming value.
+	 * @param Context $context The intercept context (method, column, provided).
 	 * @return mixed
 	 */
-	public function intercept( string $method, $value, Column $column, bool $provided = true ) {
+	public function intercept( $value, Context $context ) {
 		return $value;
 	}
 }

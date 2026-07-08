@@ -13,8 +13,6 @@ declare( strict_types = 1 );
 
 namespace BerlinDB\Database\Presets\Column;
 
-use BerlinDB\Database\Kern\Column;
-
 // Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
 
@@ -88,35 +86,35 @@ final class CurrentTimestamp extends Base {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param string $method   insert|update|select|delete|copy.
-	 * @param mixed  $value    Incoming value.
-	 * @param Column $column   The column.
-	 * @param bool   $provided Whether the caller supplied this column. Default true.
+	 * @param mixed   $value   Incoming value.
+	 * @param Context $context The intercept context (method, column, provided).
 	 * @return mixed
 	 */
-	public function intercept( string $method, $value, Column $column, bool $provided = true ) {
+	public function intercept( $value, Context $context ) {
 
 		// An explicit, valid datetime value (or one a prior preset set) wins.
 		if ( $this->is_explicit_datetime( $value ) ) {
 			return $value;
 		}
 
+		$column = $context->column();
+
 		/*
 		 * A caller-supplied null is an explicit value, not an omission: on a
 		 * nullable column it stores SQL NULL rather than deferring to the DB clause.
-		 * ( An omitted column has $provided === false and falls through to defer. )
+		 * ( An omitted column has provided() === false and falls through to defer. )
 		 */
-		if ( $provided && ( null === $value ) && ( true === $column->allow_null ) ) {
+		if ( $context->provided() && ( null === $value ) && ( true === $column->allow_null ) ) {
 			return $value;
 		}
 
 		// Defer to MySQL: DEFAULT on insert, ON UPDATE on update.
 		$defers =
-			( ( 'insert' === $method ) && $this->is_current_timestamp( $column->default ) )
-			|| ( ( 'update' === $method ) && $this->is_on_update( $column->extra ) );
+			( ( 'insert' === $context->method() ) && $this->is_current_timestamp( $column->default ) )
+			|| ( ( 'update' === $context->method() ) && $this->is_on_update( $column->extra ) );
 
 		return $defers
-			? $column->get_unset_sentinel()
+			? $context->unset_value()
 			: $value;
 	}
 

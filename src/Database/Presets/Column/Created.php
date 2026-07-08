@@ -74,14 +74,14 @@ final class Created extends Base {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param string $method   insert|update|select|delete|copy.
-	 * @param mixed  $value    Incoming value.
-	 * @param Column $column   The column.
-	 * @param bool   $provided Whether the caller supplied this column. Default true.
+	 * @param mixed   $value   Incoming value.
+	 * @param Context $context The intercept context (method, column, provided).
 	 * @return mixed
 	 */
-	public function intercept( string $method, $value, Column $column, bool $provided = true ) {
-		if ( ( 'insert' === $method ) && ( empty( $value ) || ( $value === $column->default ) ) ) {
+	public function intercept( $value, Context $context ) {
+		$column = $context->column();
+
+		if ( ( 'insert' === $context->method() ) && ( empty( $value ) || ( $value === $column->default ) ) ) {
 			return gmdate( 'Y-m-d H:i:s' );
 		}
 

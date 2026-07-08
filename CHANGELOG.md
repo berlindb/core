@@ -5,12 +5,14 @@ Notable changes to BerlinDB are documented here.
 ## 3.1.0 - Unreleased
 
 - Save-time interception can now tell an omitted column from an explicit value (key presence),
-  so a preset acts on genuine omission (#233). `Column::intercept()` and
-  `Presets\Column\Base::intercept()` gain an optional `$provided` bool (BC-safe); `add_item()`
-  captures the caller's column keys before defaults are merged in, `update_item()` uses the
-  post-diff keys. First payoff: an explicit `null` on a nullable `CURRENT_TIMESTAMP` column now
-  stores SQL `NULL` (it is an explicit value), while an omitted column still defers to the DB
-  DEFAULT.
+  so a preset acts on genuine omission (#233). A preset's `intercept()` now receives
+  `( $value, Presets\Column\Context $context )` - a value object carrying the method, the
+  Column, and `$context->provided()` (whether the caller supplied the column) - replacing the
+  prior positional `( $method, $value, $column )`, so future save context is added to `Context`
+  without changing the signature. `add_item()` captures the caller's column keys before defaults
+  are merged in, `update_item()` uses the post-diff keys. First payoff: an explicit `null` on a
+  nullable `CURRENT_TIMESTAMP` column now stores SQL `NULL` (it is an explicit value), while an
+  omitted column still defers to the DB DEFAULT.
 - Omits the DEFAULT clause for a JSON column with a declared default, instead of emitting an
   invalid literal (`default '[]'`). MySQL rejects a literal DEFAULT on JSON (and BLOB/TEXT)
   columns - only a parenthesized expression default is allowed, which BerlinDB does not emit -

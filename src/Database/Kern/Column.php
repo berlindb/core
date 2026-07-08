@@ -14,6 +14,7 @@ declare( strict_types = 1 );
 namespace BerlinDB\Database\Kern;
 
 use BerlinDB\Database\Presets\Column\Base as ColumnPreset;
+use BerlinDB\Database\Presets\Column\Context;
 use BerlinDB\Database\Presets\Column\Registry as ColumnPresets;
 
 // Exit if accessed directly.
@@ -2013,7 +2014,8 @@ class Column {
 	 * incoming value, and unsets the column when the unset sentinel is returned.
 	 *
 	 * @since 3.1.0
-	 * @since 3.1.0 Added $provided (caller supplied this column - key presence).
+	 * @since 3.1.0 Added $provided (caller supplied this column - key presence),
+	 *              delivered to presets via a Presets\Column\Context.
 	 *
 	 * @param string $method   One of insert|update|select|delete|copy.
 	 * @param mixed  $value    Incoming value.
@@ -2022,9 +2024,11 @@ class Column {
 	 */
 	public function intercept( $method = 'insert', $value = null, bool $provided = true ) {
 
-		// Let each active preset shape the value in turn.
+		// Build the context once and thread the value through each active preset.
+		$context = new Context( (string) $method, $this, $provided );
+
 		foreach ( (array) $this->active_presets as $preset ) {
-			$value = $preset->intercept( (string) $method, $value, $this, $provided );
+			$value = $preset->intercept( $value, $context );
 		}
 
 		// Return the (possibly replaced) value to store.

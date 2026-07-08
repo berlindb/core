@@ -13,7 +13,6 @@ declare( strict_types = 1 );
 
 namespace BerlinDB\Database\Presets\Column;
 
-use BerlinDB\Database\Kern\Column;
 use BerlinDB\Database\Traits\Generator;
 
 // Exit if accessed directly.
@@ -72,18 +71,16 @@ final class Uuid extends Base {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param string $method   insert|update|select|delete|copy.
-	 * @param mixed  $value    Incoming value.
-	 * @param Column $column   The column.
-	 * @param bool   $provided Whether the caller supplied this column. Default true.
+	 * @param mixed   $value   Incoming value.
+	 * @param Context $context The intercept context (method, column, provided).
 	 * @return mixed
 	 */
-	public function intercept( string $method, $value, Column $column, bool $provided = true ) {
-		if ( 'copy' === $method ) {
-			return $column->get_unset_sentinel();
+	public function intercept( $value, Context $context ) {
+		if ( 'copy' === $context->method() ) {
+			return $context->unset_value();
 		}
 
-		if ( ( 'insert' === $method ) && empty( $value ) ) {
+		if ( ( 'insert' === $context->method() ) && empty( $value ) ) {
 			return $this->generate_uuid();
 		}
 
