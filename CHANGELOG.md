@@ -13,13 +13,13 @@ Notable changes to BerlinDB are documented here.
   declared `default => 'CURRENT_TIMESTAMP'` now emits the unquoted SQL function
   `DEFAULT CURRENT_TIMESTAMP` (paired correctly with an `ON UPDATE CURRENT_TIMESTAMP` extra, no
   duplication) instead of the invalid quoted `default 'CURRENT_TIMESTAMP'`, and BerlinDB now
-  DEFERS the write so MySQL populates it. A new `Presets\Column\DateTime` preset activates for a
-  datetime/timestamp column declared with a `CURRENT_TIMESTAMP` default and/or an
+  DEFERS the write so MySQL populates it. A new `Presets\Column\CurrentTimestamp` preset
+  activates for a datetime/timestamp column declared with a `CURRENT_TIMESTAMP` default and/or an
   `ON UPDATE CURRENT_TIMESTAMP` extra, and drops the field on insert (DEFAULT) and on update
-  (ON UPDATE) when the value is empty or the keyword, so MySQL populates it rather than BerlinDB
-  writing the literal string. An explicit datetime value (or one a prior preset such as
-  `created`/`modified` set) still wins. The keyword is case-insensitive and only unquoted on
-  temporal columns; on a string column it stays a quoted literal.
+  (ON UPDATE) when the value is empty, the keyword, or an unparseable date, so MySQL populates it
+  rather than BerlinDB writing the literal string. An explicit, valid datetime value (or one a
+  prior preset such as `created`/`modified` set) still wins. The keyword is case-insensitive and
+  only unquoted on temporal columns; on a string column it stays a quoted literal.
 - Unifies the empty-datetime value behind a single `Column::get_empty_datetime()` source and
   makes nullable datetimes representable as SQL `NULL` (#231). The DDL default
   (`get_default_sql()`) and the runtime fallback (`validate_datetime()`) now read the same

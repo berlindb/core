@@ -1,6 +1,6 @@
 <?php
 /**
- * DateTime Column Preset.
+ * CURRENT_TIMESTAMP Column Preset.
  *
  * @package     Database
  * @subpackage  Presets
@@ -25,17 +25,23 @@ defined( 'ABSPATH' ) || exit;
  * matches(): it activates for a datetime / timestamp column declared
  * DEFAULT CURRENT_TIMESTAMP and / or ON UPDATE CURRENT_TIMESTAMP. On save it drops
  * the field (returns the unset sentinel) so MySQL populates it from its own clause
- * - the DEFAULT on insert, the ON UPDATE on update. An explicit datetime value (or
- * one a prior preset such as Created / Modified set) still wins.
+ * - the DEFAULT on insert, the ON UPDATE on update. An explicit, valid datetime
+ * value (or one a prior preset such as Created / Modified set) still wins; an
+ * empty, keyword, or unparseable value defers to MySQL.
  *
  * Activating off the type keeps this OUT of every non-temporal column's save path -
  * the deferral runs only where a CURRENT_TIMESTAMP clause actually exists. The DDL
  * side (emitting DEFAULT CURRENT_TIMESTAMP unquoted) lives in
  * Column::get_default_sql(); this preset owns only the save-time deferral.
  *
+ * Limitation: the intercept contract treats null as "field not supplied" (see
+ * Base::intercept()), so an explicit null cannot be distinguished from an omitted
+ * field - both defer to MySQL rather than storing SQL NULL. For a DB-managed
+ * timestamp that is the intended resolution.
+ *
  * @since 3.1.0
  */
-final class DateTime extends Base {
+final class CurrentTimestamp extends Base {
 
 	/**
 	 * The preset key.
@@ -44,7 +50,7 @@ final class DateTime extends Base {
 	 * @return string
 	 */
 	public function key(): string {
-		return 'datetime';
+		return 'current_timestamp';
 	}
 
 	/**
@@ -90,8 +96,8 @@ final class DateTime extends Base {
 	 */
 	public function intercept( string $method, $value, Column $column ) {
 
-		// A real datetime value (or one a prior preset set) wins.
-		if ( ! empty( $value ) && ! $this->is_current_timestamp( $value ) ) {
+		// An explicit, valid datetime value (or one a prior preset set) wins.
+		if ( $this->is_explicit_datetime( $value ) ) {
 			return $value;
 		}
 
@@ -103,6 +109,26 @@ final class DateTime extends Base {
 		return $defers
 			? $column->get_unset_sentinel()
 			: $value;
+	}
+
+	/**
+	 * Whether a value is an explicit, parseable datetime the caller wants stored.
+	 *
+	 * Empty, the CURRENT_TIMESTAMP keyword, and unparseable values are NOT explicit
+	 * - they defer to MySQL. Checking parseability here (the same strtotime() gate
+	 * validate_datetime() uses) is what stops an invalid value from later falling
+	 * back to the column's CURRENT_TIMESTAMP default and being bound as a literal.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param mixed $value The value to test.
+	 * @return bool
+	 */
+	private function is_explicit_datetime( $value ): bool {
+		return is_scalar( $value )
+			&& ( '' !== (string) $value )
+			&& ! $this->is_current_timestamp( $value )
+			&& ( false !== strtotime( (string) $value ) );
 	}
 
 	/**

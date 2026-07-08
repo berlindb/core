@@ -649,11 +649,11 @@ class ColumnTest extends TestCase {
 	}
 
 	/**
-	 * Test that a DEFAULT CURRENT_TIMESTAMP datetime activates the datetime preset.
+	 * Test that a DEFAULT CURRENT_TIMESTAMP datetime activates the preset.
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_get_presets_includes_datetime_for_current_timestamp_default() {
+	public function test_get_presets_includes_current_timestamp_for_default() {
 		$column = new Column(
 			array(
 				'name'    => 'created',
@@ -662,15 +662,15 @@ class ColumnTest extends TestCase {
 			)
 		);
 
-		$this->assertContains( 'datetime', $this->preset_keys( $column ) );
+		$this->assertContains( 'current_timestamp', $this->preset_keys( $column ) );
 	}
 
 	/**
-	 * Test that an ON UPDATE CURRENT_TIMESTAMP datetime activates the datetime preset.
+	 * Test that an ON UPDATE CURRENT_TIMESTAMP datetime activates the preset.
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_get_presets_includes_datetime_for_on_update() {
+	public function test_get_presets_includes_current_timestamp_for_on_update() {
 		$column = new Column(
 			array(
 				'name'  => 'changed',
@@ -679,15 +679,15 @@ class ColumnTest extends TestCase {
 			)
 		);
 
-		$this->assertContains( 'datetime', $this->preset_keys( $column ) );
+		$this->assertContains( 'current_timestamp', $this->preset_keys( $column ) );
 	}
 
 	/**
-	 * Test that a plain datetime (no CURRENT_TIMESTAMP) activates no datetime preset.
+	 * Test that a plain datetime (no CURRENT_TIMESTAMP) activates no such preset.
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_get_presets_excludes_datetime_for_plain_datetime() {
+	public function test_get_presets_excludes_current_timestamp_for_plain_datetime() {
 		$column = new Column(
 			array(
 				'name' => 'when',
@@ -695,22 +695,22 @@ class ColumnTest extends TestCase {
 			)
 		);
 
-		$this->assertNotContains( 'datetime', $this->preset_keys( $column ) );
+		$this->assertNotContains( 'current_timestamp', $this->preset_keys( $column ) );
 	}
 
 	/**
-	 * Test that a created column does NOT pick up the datetime preset.
+	 * Test that a created column does NOT pick up the current_timestamp preset.
 	 *
 	 * Created stamps app-side (gmdate) and declares no CURRENT_TIMESTAMP clause, so
-	 * the DB-managed datetime preset must not also apply - they are separate paths.
+	 * the DB-managed preset must not also apply - they are separate paths.
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_get_presets_excludes_datetime_for_created_column() {
+	public function test_get_presets_excludes_current_timestamp_for_created_column() {
 		$keys = $this->preset_keys( new Column( array( 'created' => true ) ) );
 
 		$this->assertContains( 'created', $keys );
-		$this->assertNotContains( 'datetime', $keys );
+		$this->assertNotContains( 'current_timestamp', $keys );
 	}
 
 	/**

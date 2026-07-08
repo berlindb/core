@@ -179,17 +179,61 @@ class CurrentTimestampInsertTest extends TestCase {
 	 * @since 3.1.0
 	 */
 	public function test_on_update_current_timestamp_refreshes_on_update() {
-		$id      = self::$query->add_item( array( 'name' => 'a' ) );
+
+		// Seed an explicit OLD value so the ON UPDATE advance is unambiguous.
+		$id      = self::$query->add_item(
+			array(
+				'name'    => 'a',
+				'changed' => '2000-01-01 00:00:00',
+			)
+		);
 		$initial = self::$query->get_item( $id )->changed;
 
-		$this->assertMatchesRegularExpression( self::DATETIME_RE, (string) $initial );
+		$this->assertSame( '2000-01-01 00:00:00', $initial );
 
 		self::$query->update_item( $id, array( 'name' => 'b' ) );
 		wp_cache_flush();
 		$updated = self::$query->get_item( $id )->changed;
 
 		$this->assertMatchesRegularExpression( self::DATETIME_RE, (string) $updated );
-		$this->assertNotSame( '0000-00-00 00:00:00', $updated );
-		$this->assertGreaterThanOrEqual( $initial, $updated );
+		$this->assertGreaterThan( $initial, $updated );
+	}
+
+	/**
+	 * An unparseable value defers to the DEFAULT rather than binding a literal.
+	 *
+	 * Without the preset's validity gate, an invalid value would fall back through
+	 * validate_datetime() to the column's CURRENT_TIMESTAMP default and be written
+	 * as the literal string - producing a zero/invalid date, not a real timestamp.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_invalid_value_defers_to_default_current_timestamp() {
+		$id   = self::$query->add_item(
+			array(
+				'name'    => 'a',
+				'created' => 'not a date',
+			)
+		);
+		$item = self::$query->get_item( $id );
+
+		$this->assertMatchesRegularExpression( self::DATETIME_RE, (string) $item->created );
+		$this->assertNotSame( 'CURRENT_TIMESTAMP', $item->created );
+		$this->assertNotSame( '0000-00-00 00:00:00', $item->created );
+	}
+
+	/**
+	 * An explicit datetime on update wins over ON UPDATE CURRENT_TIMESTAMP.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_explicit_value_wins_on_update() {
+		$id = self::$query->add_item( array( 'name' => 'a' ) );
+
+		self::$query->update_item( $id, array( 'changed' => '1999-12-31 23:59:59' ) );
+		wp_cache_flush();
+		$item = self::$query->get_item( $id );
+
+		$this->assertSame( '1999-12-31 23:59:59', $item->changed );
 	}
 }
