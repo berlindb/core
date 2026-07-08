@@ -2116,6 +2116,22 @@ class Column {
 	}
 
 	/**
+	 * Whether this column's default is the CURRENT_TIMESTAMP SQL function.
+	 *
+	 * True only for a temporal ( datetime / timestamp ) column whose default is
+	 * the CURRENT_TIMESTAMP keyword (validate_datetime() normalizes it to that
+	 * exact spelling). Used by get_default_sql() to emit the function unquoted
+	 * rather than as a string literal.
+	 *
+	 * @since 3.1.0
+	 * @return bool
+	 */
+	private function is_current_timestamp_default(): bool {
+		return $this->is_type( array( 'datetime', 'timestamp' ) )
+			&& ( 'CURRENT_TIMESTAMP' === strtoupper( (string) $this->default ) );
+	}
+
+	/**
 	 * Return the SQL DEFAULT clause fragment for this column.
 	 *
 	 * Returns an empty string when no default clause should be emitted
@@ -2141,6 +2157,11 @@ class Column {
 			return 'default null';
 		}
 
+		// Datetime / timestamp: all temporal default logic lives together.
+		if ( $this->is_type( array( 'datetime', 'timestamp' ) ) ) {
+			return $this->get_datetime_default_sql();
+		}
+
 		// Explicit default: trust it when not auto-incrementing.
 		if ( ! empty( $this->default ) && ! $this->is_extra( 'AUTO_INCREMENT' ) ) {
 			return "default '{$this->default}'";
@@ -2156,32 +2177,51 @@ class Column {
 			return $this->is_extra( 'AUTO_INCREMENT' ) ? '' : "default '0'";
 		}
 
-		// Datetime or timestamp.
-		if ( $this->is_type( array( 'datetime', 'timestamp' ) ) ) {
-			/*
-			 * An ON UPDATE CURRENT_TIMESTAMP column emits no DEFAULT fragment here:
-			 * get_create_string() appends the ON UPDATE clause once from $this->extra,
-			 * so returning it here too would duplicate it into invalid SQL.
-			 */
-			if ( $this->is_extra( 'ON UPDATE CURRENT_TIMESTAMP' ) ) {
-				return '';
-			}
+		// All other types (strings, binary, etc.).
+		return "default ''";
+	}
 
-			/*
-			 * Datetime carries an empty-datetime default; timestamp does not. The
-			 * nullable case (DEFAULT NULL) is already returned by the allow_null
-			 * guard at the top of this method, so get_empty_datetime() is the zero
-			 * date here - the same value validate_datetime() falls back to.
-			 */
-			if ( $this->is_type( 'datetime' ) ) {
-				return "default '{$this->get_empty_datetime()}'";
-			}
+	/**
+	 * Return the SQL DEFAULT clause fragment for a datetime / timestamp column.
+	 *
+	 * All temporal default cases in one place, in precedence order: the
+	 * CURRENT_TIMESTAMP function (unquoted); an explicit datetime literal; an
+	 * ON UPDATE-only column with no default (no DEFAULT fragment -
+	 * get_create_string() appends the ON UPDATE clause once from $this->extra); and
+	 * the empty-datetime fallback (the zero date - the nullable DEFAULT NULL case is
+	 * handled by get_default_sql()'s allow_null guard). Timestamp carries no default
+	 * fragment.
+	 *
+	 * @since 3.1.0
+	 * @return string
+	 */
+	private function get_datetime_default_sql(): string {
 
+		// CURRENT_TIMESTAMP is a SQL function, emitted unquoted.
+		if ( $this->is_current_timestamp_default() ) {
+			return 'default CURRENT_TIMESTAMP';
+		}
+
+		// An explicit ( real ) datetime default is a quoted literal, ON UPDATE or not.
+		if ( ! empty( $this->default ) ) {
+			return "default '{$this->default}'";
+		}
+
+		/*
+		 * ON UPDATE CURRENT_TIMESTAMP with no default emits no DEFAULT fragment:
+		 * get_create_string() appends the ON UPDATE clause once from $this->extra,
+		 * so returning it here too would duplicate it.
+		 */
+		if ( $this->is_extra( 'ON UPDATE CURRENT_TIMESTAMP' ) ) {
 			return '';
 		}
 
-		// All other types (strings, binary, etc.).
-		return "default ''";
+		// Datetime falls back to the empty-datetime value; timestamp has none.
+		if ( $this->is_type( 'datetime' ) ) {
+			return "default '{$this->get_empty_datetime()}'";
+		}
+
+		return '';
 	}
 
 	/**

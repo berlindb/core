@@ -631,6 +631,108 @@ class ColumnTest extends TestCase {
 		$this->assertSame( array(), $column->get_active_presets() );
 	}
 
+	/**
+	 * Map a column's active presets to their keys.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param Column $column The column.
+	 * @return array<int,string>
+	 */
+	private function preset_keys( Column $column ): array {
+		return array_map(
+			static function ( $preset ) {
+				return $preset->key();
+			},
+			$column->get_active_presets()
+		);
+	}
+
+	/**
+	 * Test that a DEFAULT CURRENT_TIMESTAMP datetime activates the datetime preset.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_get_presets_includes_datetime_for_current_timestamp_default() {
+		$column = new Column(
+			array(
+				'name'    => 'created',
+				'type'    => 'datetime',
+				'default' => 'CURRENT_TIMESTAMP',
+			)
+		);
+
+		$this->assertContains( 'datetime', $this->preset_keys( $column ) );
+	}
+
+	/**
+	 * Test that an ON UPDATE CURRENT_TIMESTAMP datetime activates the datetime preset.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_get_presets_includes_datetime_for_on_update() {
+		$column = new Column(
+			array(
+				'name'  => 'changed',
+				'type'  => 'datetime',
+				'extra' => 'ON UPDATE CURRENT_TIMESTAMP',
+			)
+		);
+
+		$this->assertContains( 'datetime', $this->preset_keys( $column ) );
+	}
+
+	/**
+	 * Test that a plain datetime (no CURRENT_TIMESTAMP) activates no datetime preset.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_get_presets_excludes_datetime_for_plain_datetime() {
+		$column = new Column(
+			array(
+				'name' => 'when',
+				'type' => 'datetime',
+			)
+		);
+
+		$this->assertNotContains( 'datetime', $this->preset_keys( $column ) );
+	}
+
+	/**
+	 * Test that a created column does NOT pick up the datetime preset.
+	 *
+	 * Created stamps app-side (gmdate) and declares no CURRENT_TIMESTAMP clause, so
+	 * the DB-managed datetime preset must not also apply - they are separate paths.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_get_presets_excludes_datetime_for_created_column() {
+		$keys = $this->preset_keys( new Column( array( 'created' => true ) ) );
+
+		$this->assertContains( 'created', $keys );
+		$this->assertNotContains( 'datetime', $keys );
+	}
+
+	/**
+	 * Test that multiple presets activate together on one column (multi-preset).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_multiple_presets_activate_together() {
+		$keys = $this->preset_keys(
+			new Column(
+				array(
+					'name'    => 'id',
+					'uuid'    => true,
+					'primary' => true,
+				)
+			)
+		);
+
+		$this->assertContains( 'uuid', $keys );
+		$this->assertContains( 'primary', $keys );
+	}
+
 	// wp_meta_key / wp_meta_value presets.
 
 	/**
@@ -1360,6 +1462,110 @@ class ColumnTest extends TestCase {
 
 		$this->assertStringContainsString( "default '2020-01-02 03:04:05'", $column->get_create_string() );
 		$this->assertSame( '2020-01-02 03:04:05', $column->validate( '' ) );
+	}
+
+	/**
+	 * Test that a CURRENT_TIMESTAMP datetime default is emitted unquoted.
+	 *
+	 * The keyword is a SQL function, not a string literal, so it must not be
+	 * wrapped in quotes ( which would store the literal text ).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_datetime_default_current_timestamp_is_unquoted() {
+		$column = new Column(
+			array(
+				'name'    => 'created',
+				'type'    => 'datetime',
+				'default' => 'CURRENT_TIMESTAMP',
+			)
+		);
+		$sql    = $column->get_create_string();
+
+		$this->assertStringContainsString( 'default CURRENT_TIMESTAMP', $sql );
+		$this->assertStringNotContainsString( "default 'CURRENT_TIMESTAMP'", $sql );
+	}
+
+	/**
+	 * Test that a lowercase current_timestamp default normalizes to the keyword.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_datetime_default_current_timestamp_is_case_insensitive() {
+		$column = new Column(
+			array(
+				'name'    => 'created',
+				'type'    => 'datetime',
+				'default' => 'current_timestamp',
+			)
+		);
+
+		$this->assertStringContainsString( 'default CURRENT_TIMESTAMP', $column->get_create_string() );
+	}
+
+	/**
+	 * Test that DEFAULT and ON UPDATE CURRENT_TIMESTAMP coexist without duplication.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_datetime_default_and_on_update_current_timestamp() {
+		$column = new Column(
+			array(
+				'name'    => 'modified',
+				'type'    => 'datetime',
+				'default' => 'CURRENT_TIMESTAMP',
+				'extra'   => 'ON UPDATE CURRENT_TIMESTAMP',
+			)
+		);
+		$sql    = $column->get_create_string();
+
+		$this->assertStringContainsString( 'default CURRENT_TIMESTAMP', $sql );
+		$this->assertSame( 1, substr_count( $sql, 'ON UPDATE CURRENT_TIMESTAMP' ) );
+	}
+
+	/**
+	 * Test that an explicit datetime default survives alongside an ON UPDATE extra.
+	 *
+	 * The explicit literal default must still be emitted; the ON UPDATE clause is
+	 * appended separately from the extra, exactly once.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_explicit_datetime_default_with_on_update_extra() {
+		$column = new Column(
+			array(
+				'name'    => 'changed',
+				'type'    => 'datetime',
+				'default' => '2020-01-02 03:04:05',
+				'extra'   => 'ON UPDATE CURRENT_TIMESTAMP',
+			)
+		);
+		$sql    = $column->get_create_string();
+
+		$this->assertStringContainsString( "default '2020-01-02 03:04:05'", $sql );
+		$this->assertSame( 1, substr_count( $sql, 'ON UPDATE CURRENT_TIMESTAMP' ) );
+	}
+
+	/**
+	 * Test that CURRENT_TIMESTAMP stays quoted on a non-temporal column.
+	 *
+	 * The unquoting is temporal-only; on a string column the keyword is just a
+	 * literal default value and must keep its quotes.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_current_timestamp_stays_quoted_on_string_column() {
+		$column = new Column(
+			array(
+				'name'     => 'label',
+				'type'     => 'varchar',
+				'length'   => '50',
+				'default'  => 'CURRENT_TIMESTAMP',
+				'validate' => 'strval',
+			)
+		);
+
+		$this->assertStringContainsString( "default 'CURRENT_TIMESTAMP'", $column->get_create_string() );
 	}
 
 	// Cast attribute - auto-detection.

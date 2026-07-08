@@ -20,7 +20,7 @@ defined( 'ABSPATH' ) || exit;
  * Resolves column-preset keys to preset instances.
  *
  * The built-ins (id/primary/serial/uuid/created/modified/version/wp_meta_key/
- * wp_meta_value) are memoized lazily;
+ * wp_meta_value/datetime) are memoized lazily;
  * a registered preset of the same key overrides a built-in. Keys are the extensibility surface,
  * including namespaced keys like 'laravel.timestamps' for a future convention family
  * (no PHP-namespace grouping). Built-ins follow BerlinDB/WordPress conventions.
@@ -48,6 +48,7 @@ final class Registry {
 		Version::class,
 		WpMetaKey::class,
 		WpMetaValue::class,
+		DateTime::class,
 	);
 
 	/**
