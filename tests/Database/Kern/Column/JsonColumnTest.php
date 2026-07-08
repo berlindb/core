@@ -242,6 +242,27 @@ class JsonColumnTest extends TestCase {
 	}
 
 	/**
+	 * A non-empty JSON default emits no literal DEFAULT clause either.
+	 *
+	 * MySQL rejects a literal DEFAULT on JSON columns, so a declared default (even
+	 * valid JSON) must not become a quoted-literal clause - the is_json guard is
+	 * checked before the explicit-default branch.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_create_string_has_no_string_default_for_nonempty_default() {
+		$col    = new Column(
+			array(
+				'name'    => 'payload',
+				'type'    => 'json',
+				'default' => '[]',
+			)
+		);
+		$create = $col->get_create_string();
+		$this->assertStringNotContainsString( "default '", $create );
+	}
+
+	/**
 	 * A nullable JSON column emits DEFAULT NULL.
 	 *
 	 * @since 3.0.0

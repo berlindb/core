@@ -4,6 +4,11 @@ Notable changes to BerlinDB are documented here.
 
 ## 3.1.0 - Unreleased
 
+- Omits the DEFAULT clause for a JSON column with a declared default, instead of emitting an
+  invalid literal (`default '[]'`). MySQL rejects a literal DEFAULT on JSON (and BLOB/TEXT)
+  columns - only a parenthesized expression default is allowed, which BerlinDB does not emit -
+  so the `is_json()` guard now runs before the explicit-default branch in `get_default_sql()`.
+  A nullable JSON column's `DEFAULT NULL` is unaffected.
 - Supports MySQL-managed `CURRENT_TIMESTAMP` datetime/timestamp columns end-to-end. A column
   declared `default => 'CURRENT_TIMESTAMP'` now emits the unquoted SQL function
   `DEFAULT CURRENT_TIMESTAMP` (paired correctly with an `ON UPDATE CURRENT_TIMESTAMP` extra, no

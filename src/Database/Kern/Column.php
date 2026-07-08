@@ -2162,14 +2162,21 @@ class Column {
 			return $this->get_datetime_default_sql();
 		}
 
+		/*
+		 * JSON (like BLOB / TEXT / GEOMETRY) cannot carry a literal DEFAULT: MySQL
+		 * accepts only a parenthesized expression default (e.g.
+		 * DEFAULT (JSON_ARRAY())), which BerlinDB does not emit - so omit the clause.
+		 * A nullable column's DEFAULT NULL is handled by the allow_null guard above.
+		 * Checked before the explicit-default branch so a declared default cannot
+		 * produce invalid DDL.
+		 */
+		if ( $this->is_json() ) {
+			return '';
+		}
+
 		// Explicit default: trust it when not auto-incrementing.
 		if ( ! empty( $this->default ) && ! $this->is_extra( 'AUTO_INCREMENT' ) ) {
 			return "default '{$this->default}'";
-		}
-
-		// JSON columns cannot carry a string-literal default in MySQL DDL.
-		if ( $this->is_json() ) {
-			return '';
 		}
 
 		// Numeric - use 0 unless the column is auto-incrementing.
