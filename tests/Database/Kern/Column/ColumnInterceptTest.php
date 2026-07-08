@@ -82,6 +82,27 @@ class ColumnInterceptTest extends TestCase {
 		$this->assertSame( '2020-06-15 12:00:00', $column->intercept( 'update', '2020-06-15 12:00:00' ) );
 	}
 
+	/**
+	 * A created column stamps when the caller did not provide it, even if a
+	 * (default-seeded) value is present - omission is by key presence, not value.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_created_stamps_on_insert_when_not_provided(): void {
+		$column = new Column(
+			array(
+				'name'    => 'date_created',
+				'type'    => 'datetime',
+				'created' => true,
+			)
+		);
+
+		$result = $column->intercept( 'insert', '2020-06-15 12:00:00', false );
+
+		$this->assertMatchesRegularExpression( self::DATETIME_PATTERN, $result );
+		$this->assertNotSame( '2020-06-15 12:00:00', $result );
+	}
+
 	// -------------------------------------------------------------------------
 	// modified.
 	// -------------------------------------------------------------------------
@@ -118,6 +139,43 @@ class ColumnInterceptTest extends TestCase {
 		);
 
 		$this->assertMatchesRegularExpression( self::DATETIME_PATTERN, $column->intercept( 'insert', '' ) );
+	}
+
+	/**
+	 * A modified column stamps on insert when not provided, even with a value.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_modified_stamps_on_insert_when_not_provided(): void {
+		$column = new Column(
+			array(
+				'name'     => 'date_modified',
+				'type'     => 'datetime',
+				'modified' => true,
+			)
+		);
+
+		$result = $column->intercept( 'insert', '2020-06-15 12:00:00', false );
+
+		$this->assertMatchesRegularExpression( self::DATETIME_PATTERN, $result );
+		$this->assertNotSame( '2020-06-15 12:00:00', $result );
+	}
+
+	/**
+	 * A modified column honors an explicitly-provided value on insert.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_modified_preserves_explicit_value_on_insert(): void {
+		$column = new Column(
+			array(
+				'name'     => 'date_modified',
+				'type'     => 'datetime',
+				'modified' => true,
+			)
+		);
+
+		$this->assertSame( '2020-06-15 12:00:00', $column->intercept( 'insert', '2020-06-15 12:00:00' ) );
 	}
 
 	// -------------------------------------------------------------------------

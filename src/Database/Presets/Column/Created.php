@@ -70,7 +70,11 @@ final class Created extends Base {
 	}
 
 	/**
-	 * Stamp the current UTC time on insert when empty or still the column default.
+	 * Stamp the current UTC time on insert when the caller omits it or supplies empty.
+	 *
+	 * Omission is read from key presence (provided()); an explicit non-empty value
+	 * is honored. This replaces the older, brittle "value equals the column default"
+	 * check, which would overwrite a caller who deliberately passed that default.
 	 *
 	 * @since 3.1.0
 	 *
@@ -79,9 +83,7 @@ final class Created extends Base {
 	 * @return mixed
 	 */
 	public function intercept( $value, Context $context ) {
-		$column = $context->column();
-
-		if ( ( 'insert' === $context->method() ) && ( empty( $value ) || ( $value === $column->default ) ) ) {
+		if ( ( 'insert' === $context->method() ) && ( empty( $value ) || ! $context->provided() ) ) {
 			return gmdate( 'Y-m-d H:i:s' );
 		}
 

@@ -12,7 +12,10 @@ Notable changes to BerlinDB are documented here.
   without changing the signature. `add_item()` captures the caller's column keys before defaults
   are merged in, `update_item()` uses the post-diff keys. First payoff: an explicit `null` on a
   nullable `CURRENT_TIMESTAMP` column now stores SQL `NULL` (it is an explicit value), while an
-  omitted column still defers to the DB DEFAULT.
+  omitted column still defers to the DB DEFAULT. The `created` / `modified` presets also stamp
+  on genuine omission via `provided()` instead of the brittle "value equals the column default"
+  check, so a caller who deliberately passes the default value is now honored rather than
+  overwritten.
 - Omits the DEFAULT clause for a JSON column with a declared default, instead of emitting an
   invalid literal (`default '[]'`). MySQL rejects a literal DEFAULT on JSON (and BLOB/TEXT)
   columns - only a parenthesized expression default is allowed, which BerlinDB does not emit -

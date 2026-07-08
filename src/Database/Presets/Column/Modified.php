@@ -70,7 +70,11 @@ final class Modified extends Base {
 	}
 
 	/**
-	 * Stamp on every update, and on insert when empty or still the column default.
+	 * Stamp on every update, and on insert when the caller omits it or supplies empty.
+	 *
+	 * Insert omission is read from key presence (provided()); an explicit non-empty
+	 * value is honored. This replaces the older, brittle "value equals the column
+	 * default" check. Update always stamps, regardless.
 	 *
 	 * @since 3.1.0
 	 *
@@ -83,9 +87,7 @@ final class Modified extends Base {
 			return gmdate( 'Y-m-d H:i:s' );
 		}
 
-		$column = $context->column();
-
-		if ( ( 'insert' === $context->method() ) && ( empty( $value ) || ( $value === $column->default ) ) ) {
+		if ( ( 'insert' === $context->method() ) && ( empty( $value ) || ! $context->provided() ) ) {
 			return gmdate( 'Y-m-d H:i:s' );
 		}
 
