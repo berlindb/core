@@ -67,6 +67,48 @@ class RelationshipSpyQuery extends Query {
 }
 
 /**
+ * Schema declaring a many_to_many (pivot) relationship via get_relationships().
+ *
+ * The per-column shorthand is single-hop only, so a pivot is declared at the
+ * Schema level (like composite keys).
+ */
+class ManyToManyRelationshipSchema extends Schema {
+	public $columns = array(
+		array(
+			'name' => 'id',
+			'type' => 'bigint',
+		),
+	);
+
+	public function get_relationships() {
+		return array(
+			new Relationship(
+				array(
+					'name'               => 'tags',
+					'columns'            => array( 'id' ),
+					'query'              => 'EDD\\Database\\Queries\\Tag',
+					'references'         => array( 'id' ),
+					'through'            => 'EDD\\Database\\Queries\\PostTag',
+					'through_columns'    => array( 'post_id' ),
+					'through_references' => array( 'tag_id' ),
+				)
+			),
+		);
+	}
+}
+
+/**
+ * Query bound to the many_to_many schema.
+ */
+class ManyToManyRelationshipQuery extends Query {
+	protected $prefix       = 'myapp';
+	protected $table_name   = 'posts';
+	protected $table_alias  = 'p';
+	protected $table_schema = ManyToManyRelationshipSchema::class;
+	protected $cache_group  = 'posts';
+}
+
+/**
  * Tests for Query relationship accessors.
  *
  * @since 3.1.0
@@ -141,5 +183,25 @@ class QueryRelationshipsTest extends TestCase {
 		$this->assertCount( 1, $has_many );
 		$this->assertSame( 'items', $has_many[0]->name );
 		$this->assertSame( 'has_many', $has_many[0]->type );
+	}
+
+	/**
+	 * Test that get_related() on a many_to_many fails closed (empty child set)
+	 * until the two-hop resolution phase lands, rather than falling through to a
+	 * wrong single-hop belongs_to lookup.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_get_related_many_to_many_fails_closed() {
+		$query = new ManyToManyRelationshipQuery();
+
+		// The pivot relationship is declared and typed correctly.
+		$tags = $query->get_relationship( 'tags' );
+		$this->assertInstanceOf( Relationship::class, $tags );
+		$this->assertSame( 'many_to_many', $tags->type );
+
+		// Phase 1: resolution not implemented -> empty array, not a wrong Row.
+		$item = (object) array( 'id' => 5 );
+		$this->assertSame( array(), $query->get_related( $item, 'tags' ) );
 	}
 }

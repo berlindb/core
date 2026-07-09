@@ -86,6 +86,85 @@ class RelationshipTest extends TestCase {
 	}
 
 	/**
+	 * Test that an explicit many_to_many type is preserved (not coerced away).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_many_to_many_type_is_preserved() {
+		$relationship = new Relationship(
+			array(
+				'type'    => 'many_to_many',
+				'through' => 'BerlinDB\\Tests\\PivotQuery',
+			)
+		);
+		$this->assertSame( 'many_to_many', $relationship->type );
+	}
+
+	/**
+	 * Test that a non-empty through class infers the many_to_many type, even
+	 * without an explicit type => 'many_to_many'.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_type_is_inferred_from_through() {
+		$relationship = new Relationship(
+			array(
+				'through' => 'BerlinDB\\Tests\\PivotQuery',
+			)
+		);
+		$this->assertSame( 'many_to_many', $relationship->type );
+	}
+
+	/**
+	 * Test that the pivot column sets are sanitized like columns/references.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_through_columns_are_sanitized() {
+		$relationship = new Relationship(
+			array(
+				'through'            => 'BerlinDB\\Tests\\PivotQuery',
+				'through_columns'    => array( 'post-id', 123, 'site_id' ),
+				'through_references' => array( 'tag-id' ),
+			)
+		);
+		$this->assertSame( array( 'post_id', 'site_id' ), $relationship->through_columns );
+		$this->assertSame( array( 'tag_id' ), $relationship->through_references );
+	}
+
+	/**
+	 * Test that an invalid pivot (through) class name is rejected to '', which
+	 * also means the type is NOT inferred as many_to_many.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_invalid_through_class_is_rejected() {
+		$relationship = new Relationship(
+			array(
+				'through' => 'BerlinDB\\Tests\\Pivot; DROP TABLE',
+			)
+		);
+		$this->assertSame( '', $relationship->through );
+		$this->assertSame( 'belongs_to', $relationship->type );
+	}
+
+	/**
+	 * Test that a present through wins over an explicit contradictory type: the
+	 * shape is authoritative, so belongs_to + through infers many_to_many.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_through_overrides_contradictory_explicit_type() {
+		$relationship = new Relationship(
+			array(
+				'type'    => 'belongs_to',
+				'through' => 'BerlinDB\\Tests\\PivotQuery',
+			)
+		);
+		$this->assertSame( 'many_to_many', $relationship->type );
+	}
+
+	/**
 	 * Test that a clean fully-qualified Query class name is accepted unchanged.
 	 *
 	 * @since 3.1.0

@@ -47,10 +47,13 @@ defined( 'ABSPATH' ) || exit;
  *     @type string       $name       Optional accessor handle for this relationship
  *                                    (used by get_related() and relation filters).
  *                                    Derived from the local column when omitted.
- *     @type string       $type       Relationship type: 'belongs_to' or 'has_many'.
+ *     @type string       $type       Relationship type: 'belongs_to', 'has_many', or 'many_to_many'.
  *     @type list<string> $columns    Local column names that hold the relationship.
- *     @type string       $query      FQCN of the remote Query class.
+ *     @type string       $query      FQCN of the remote (target) Query class.
  *     @type list<string> $references Remote column names this relationship maps to.
+ *     @type string       $through            FQCN of the pivot Query class (many_to_many only).
+ *     @type list<string> $through_columns    Pivot columns referencing this table (many_to_many hop 1).
+ *     @type list<string> $through_references Pivot columns referencing the target (many_to_many hop 2).
  *     @type string       $constraint Optional SQL foreign-key constraint name
  *                                    (used only when enforced).
  *     @type string       $on_delete  Referential action: RESTRICT, CASCADE, SET NULL, NO ACTION, SET DEFAULT.
@@ -67,6 +70,9 @@ defined( 'ABSPATH' ) || exit;
  * @property-read list<string> $columns
  * @property-read string       $query
  * @property-read list<string> $references
+ * @property-read string       $through
+ * @property-read list<string> $through_columns
+ * @property-read list<string> $through_references
  * @property-read string       $on_delete
  * @property-read string       $on_update
  * @property-read bool         $enforce
@@ -92,7 +98,7 @@ class Relationship {
 	 * @since 3.1.0
 	 * @var   array<int,string>
 	 */
-	private const TYPES = array( 'belongs_to', 'has_many' );
+	private const TYPES = array( 'belongs_to', 'has_many', 'many_to_many' );
 
 	/**
 	 * Referential actions recognized by MySQL / MariaDB for foreign keys.
@@ -133,6 +139,9 @@ class Relationship {
 	 *   remote row (many-to-one / one-to-one owning side).
 	 * - 'has_many' - the local columns are the referenced key; many remote rows
 	 *   point here (one-to-many inverse side).
+	 * - 'many_to_many' - two hops through a pivot table ($through): this table's
+	 *   $columns match the pivot's $through_columns, whose $through_references
+	 *   match the target's $references. Inferred from a non-empty $through.
 	 *
 	 * @since 3.1.0
 	 * @var   string Default 'belongs_to'.
@@ -167,6 +176,40 @@ class Relationship {
 	 * @var   list<string> Default empty array.
 	 */
 	protected $references = array();
+
+	/**
+	 * FQCN of the pivot (junction) Query class, for a many_to_many relationship.
+	 *
+	 * The intermediate table that carries both foreign keys. A many_to_many is two
+	 * hops: this table -> pivot ($columns = $through_columns) -> target
+	 * ($through_references = $references). Empty for single-hop belongs_to / has_many.
+	 *
+	 * @since 3.1.0
+	 * @var   string Default empty string.
+	 */
+	protected $through = '';
+
+	/**
+	 * Pivot column names that reference this table (hop 1 of a many_to_many).
+	 *
+	 * Positionally paired with $columns: a pivot row matches when each
+	 * through_column equals the local column it pairs with.
+	 *
+	 * @since 3.1.0
+	 * @var   list<string> Default empty array.
+	 */
+	protected $through_columns = array();
+
+	/**
+	 * Pivot column names that reference the target table (hop 2 of a many_to_many).
+	 *
+	 * Positionally paired with $references: a target row matches when each remote
+	 * column equals the through_reference it pairs with.
+	 *
+	 * @since 3.1.0
+	 * @var   list<string> Default empty array.
+	 */
+	protected $through_references = array();
 
 	/**
 	 * Referential action on delete of the referenced row.
@@ -227,15 +270,18 @@ class Relationship {
 	 */
 	protected function get_config_callbacks(): array {
 		return array(
-			'name'       => array( $this, 'sanitize_name' ),
-			'constraint' => array( $this, 'sanitize_index_name' ),
-			'type'       => array( $this, 'sanitize_type' ),
-			'columns'    => array( $this, 'sanitize_columns' ),
-			'query'      => array( $this, 'sanitize_class_name' ),
-			'references' => array( $this, 'sanitize_columns' ),
-			'on_delete'  => array( $this, 'sanitize_referential_action' ),
-			'on_update'  => array( $this, 'sanitize_referential_action' ),
-			'enforce'    => array( $this, 'sanitize_boolean' ),
+			'name'               => array( $this, 'sanitize_name' ),
+			'constraint'         => array( $this, 'sanitize_index_name' ),
+			'type'               => array( $this, 'sanitize_type' ),
+			'columns'            => array( $this, 'sanitize_columns' ),
+			'query'              => array( $this, 'sanitize_class_name' ),
+			'references'         => array( $this, 'sanitize_columns' ),
+			'through'            => array( $this, 'sanitize_class_name' ),
+			'through_columns'    => array( $this, 'sanitize_columns' ),
+			'through_references' => array( $this, 'sanitize_columns' ),
+			'on_delete'          => array( $this, 'sanitize_referential_action' ),
+			'on_update'          => array( $this, 'sanitize_referential_action' ),
+			'enforce'            => array( $this, 'sanitize_boolean' ),
 		);
 	}
 
@@ -248,6 +294,15 @@ class Relationship {
 	 * @since 3.1.0
 	 */
 	protected function init(): void {
+
+		/*
+		 * A pivot (through) class is exclusive to many_to_many, so its presence
+		 * settles the type - the shape is enough, no need to also state
+		 * type => 'many_to_many'. An explicit type still works.
+		 */
+		if ( '' !== $this->through ) {
+			$this->type = 'many_to_many';
+		}
 
 		// Derive the accessor from the first local column when unnamed.
 		if ( ( '' === $this->name ) && ! empty( $this->columns ) ) {
@@ -337,15 +392,77 @@ class Relationship {
 		}
 
 		/*
-		 * Local and remote columns pair up positionally, so a composite
-		 * relationship must list the same number of columns on each side.
+		 * Local and remote columns pair up positionally, so a single-hop
+		 * relationship must list the same number of columns on each side. A
+		 * many_to_many is excluded: its arities are per-hop (columns pair with
+		 * through_columns, through_references with references), checked in
+		 * get_many_to_many_errors() - columns and references need not match.
 		 */
 		if (
-			! empty( $this->columns )
+			( 'many_to_many' !== $this->type )
+			&& ! empty( $this->columns )
 			&& ! empty( $this->references )
 			&& ( count( $this->columns ) !== count( $this->references ) )
 		) {
 			$errors[] = "Relationship {$label} has mismatched local and remote column counts.";
+		}
+
+		// A many_to_many adds a second hop through a pivot table; validate it.
+		if ( 'many_to_many' === $this->type ) {
+			$errors = array_merge( $errors, $this->get_many_to_many_errors( $label ) );
+		}
+
+		return $errors;
+	}
+
+	/**
+	 * Return validation errors specific to a many_to_many relationship's pivot hop.
+	 *
+	 * A many_to_many is two hops - this table -> pivot -> target - so beyond the
+	 * base checks (local columns, target query, references) it must also declare the
+	 * pivot query and the two pivot column sets, each pairing positionally with the
+	 * hop it belongs to: through_columns with local columns (hop 1), through_references
+	 * with remote references (hop 2).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $label Stable message label (the accessor name or placeholder).
+	 * @return string[] Array of human-readable error strings. Empty if valid.
+	 */
+	private function get_many_to_many_errors( string $label ): array {
+		$errors = array();
+
+		// Must target a pivot (through) query class.
+		if ( '' === $this->through ) {
+			$errors[] = "Relationship {$label} is a many_to_many but is missing a pivot (through) query class.";
+		}
+
+		// Must map the pivot columns that reference this table (hop 1).
+		if ( empty( $this->through_columns ) ) {
+			$errors[] = "Relationship {$label} is a many_to_many but declares no through_columns.";
+		}
+
+		// Must map the pivot columns that reference the target table (hop 2).
+		if ( empty( $this->through_references ) ) {
+			$errors[] = "Relationship {$label} is a many_to_many but declares no through_references.";
+		}
+
+		// Hop 1: local columns pair positionally with the pivot's local-referencing columns.
+		if (
+			! empty( $this->columns )
+			&& ! empty( $this->through_columns )
+			&& ( count( $this->columns ) !== count( $this->through_columns ) )
+		) {
+			$errors[] = "Relationship {$label} has mismatched local and through_columns counts.";
+		}
+
+		// Hop 2: the pivot's target-referencing columns pair positionally with the remote columns.
+		if (
+			! empty( $this->through_references )
+			&& ! empty( $this->references )
+			&& ( count( $this->through_references ) !== count( $this->references ) )
+		) {
+			$errors[] = "Relationship {$label} has mismatched through_references and remote column counts.";
 		}
 
 		return $errors;
@@ -435,7 +552,7 @@ class Relationship {
 	 * @since 3.1.0
 	 *
 	 * @param string $type Relationship type.
-	 * @return string 'belongs_to' or 'has_many'. Defaults to 'belongs_to'.
+	 * @return string 'belongs_to', 'has_many', or 'many_to_many'. Defaults to 'belongs_to'.
 	 */
 	private function sanitize_type( $type = '' ): string {
 		return in_array( $type, self::TYPES, true )

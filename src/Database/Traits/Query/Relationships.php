@@ -262,6 +262,17 @@ trait Relationships {
 			return null;
 		}
 
+		/*
+		 * many_to_many is a two-hop pivot relationship; its resolution lands in a
+		 * later phase (#211 Lever D). Until then a pivot accessor fails closed to an
+		 * empty child set rather than falling through to the single-hop belongs_to
+		 * logic below (which would pair columns with references across two hops and
+		 * return a wrong lookup). It is a to-many, so the empty shape is array().
+		 */
+		if ( 'many_to_many' === $relationship->type ) {
+			return array();
+		}
+
 		// belongs_to or has_many, single- or multi-column ( composite ) key.
 		$columns    = $relationship->columns;
 		$references = $relationship->references;
