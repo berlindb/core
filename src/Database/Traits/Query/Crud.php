@@ -35,8 +35,12 @@ trait Crud {
 	/**
 	 * Get a single database row by any column and value, skipping cache.
 	 *
+	 * The singular front door to get_items_raw(): a prepared "{column} = {value}"
+	 * predicate with LIMIT 1, returning the one matching raw row (or false).
+	 *
 	 * @since 1.0.0
 	 * @since 3.0.0 Uses is_valid_column()
+	 * @since 3.1.0 Reads through the shared get_items_raw() reader.
 	 *
 	 * @param string $column_name  Name of database column.
 	 * @param mixed  $column_value Value to query for.
@@ -57,22 +61,58 @@ trait Crud {
 			return false;
 		}
 
-		// Get query parts.
-		$table       = $this->get_table_name();
-		$pattern_str = $this->get_column_field( array( 'name' => $column_name ), 'pattern', '%s' );
+		// Prepare the "{column} = {value}" predicate for this column.
+		$pattern = $this->get_column_field( array( 'name' => $column_name ), 'pattern', '%s' );
+		$where   = $this->db()->prepare( "{$column_name} = {$pattern}", $column_value );
 
-		// Query database.
-		$query  = "SELECT * FROM {$table} WHERE {$column_name} = {$pattern_str} LIMIT 1";
-		$select = $this->db()->prepare( $query, $column_value );
-		$result = $this->db()->get_row( $select );
-
-		// Bail on failure.
-		if ( ! $this->is_success( $result ) || ! is_object( $result ) ) {
+		// Bail if the value could not be prepared.
+		if ( null === $where ) {
 			return false;
 		}
 
-		// Return row.
-		return $result;
+		// Read the one matching raw (uncached) row via the shared reader.
+		$rows = $this->get_items_raw( "{$where} LIMIT 1" );
+
+		// Bail if no row matched.
+		return isset( $rows[0] ) && is_object( $rows[0] )
+			? $rows[0]
+			: false;
+	}
+
+	/**
+	 * Read the raw (unshaped, uncached) rows matching a WHERE fragment.
+	 *
+	 * The plural, by-WHERE counterpart to get_item_raw(): raw stdClass rows straight
+	 * from the connection, before item_shape() turns them into Row objects and with no
+	 * cache side effect - "raw" in both senses. It is the one SELECT * reader shared by
+	 * get_item_raw() (a LIMIT 1 lookup), prime_item_caches() (primary IN), prime_has_many()
+	 * (foreign key IN), and composite tuple priming (OR-of-ANDs). The caller builds and
+	 * escapes the whole fragment - so it may carry a trailing LIMIT / ORDER BY - and, like
+	 * get_item_by() does after get_item_raw(), owns any cache priming afterward.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $where Prepared SQL after "WHERE" (predicate plus any LIMIT / ORDER BY).
+	 * @return list<object> The matching raw rows (empty when $where is '').
+	 */
+	protected function get_items_raw( string $where ): array {
+
+		// Nothing to read without a WHERE.
+		if ( '' === $where ) {
+			return array();
+		}
+
+		// One bulk read of every matching row.
+		$table   = $this->get_table_name();
+		$results = $this->db()->get_results( "SELECT * FROM {$table} WHERE {$where}" );
+
+		// Bail if nothing came back.
+		if ( empty( $results ) || ! is_array( $results ) ) {
+			return array();
+		}
+
+		/** @var list<object> $results */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
+		return $results;
 	}
 
 	/**

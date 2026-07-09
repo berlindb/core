@@ -45,6 +45,20 @@ trait Cache {
 	abstract protected function get_results_invariant_vars(): array;
 
 	/**
+	 * Read raw (unshaped, uncached) rows by a WHERE fragment.
+	 *
+	 * Provided by the Crud trait; the prime_* methods below read through it and
+	 * then warm the caches themselves. Declared here so the contract is visible
+	 * from this trait's scope.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $where Prepared SQL after "WHERE" (predicate plus any LIMIT / ORDER BY).
+	 * @return list<object>
+	 */
+	abstract protected function get_items_raw( string $where ): array;
+
+	/**
 	 * Get cache key from $query_vars and $query_var_defaults.
 	 *
 	 * Performs the following operations to create a consistent cache-key:
@@ -245,18 +259,13 @@ trait Cache {
 			// Proceed if non-cached IDs exist.
 			if ( ! empty( $ids ) ) {
 
-				// Get query parts.
-				$table   = $this->get_table_name();
+				// One raw read of the non-cached IDs.
 				$primary = $this->get_primary_column_name();
-				$ids     = $this->get_in_sql( $primary, $ids );
-
-				// Query database.
-				$query   = "SELECT * FROM {$table} WHERE {$primary} IN {$ids}";
-				$results = $this->db()->get_results( $query );
+				$in      = $this->get_in_sql( $primary, $ids );
+				$results = $this->get_items_raw( "{$primary} IN {$in}" );
 
 				// Update item cache(s) - read path, do not bump last_changed.
-				if ( ! empty( $results ) && is_array( $results ) ) {
-					/** @var list<object> $results */
+				if ( ! empty( $results ) ) {
 					$this->update_item_cache( $results, false );
 				}
 			}
@@ -631,10 +640,10 @@ trait Cache {
 	 * Bulk-read the remote rows matching a set of composite key tuples.
 	 *
 	 * One SELECT for every tuple (the composite analog of prime_has_many()'s single
-	 * IN read), warming the by-id item cache so later hydration is free. Like the
-	 * single-column path, this assumes priming runs over the current page of items,
-	 * so the OR-ed group count stays bounded. Returns the fetched rows for the
-	 * caller to group and seed per-tuple result caches.
+	 * IN read). Like the single-column path, this assumes priming runs over the
+	 * current page of items, so the OR-ed group count stays bounded. A raw, uncached
+	 * read (via get_items_raw()); the caller (prime_relationship_tuples()) groups the
+	 * rows, primes the by-id cache, and seeds the per-tuple result caches.
 	 *
 	 * @since 3.1.0
 	 *
@@ -649,29 +658,10 @@ trait Cache {
 			return array();
 		}
 
-		// Build the OR-of-ANDs match; a bad column or no tuples yields no WHERE.
-		$where = $this->get_relationship_tuple_where( $reference_columns, $tuples );
-
-		if ( '' === $where ) {
-			return array();
-		}
-
-		// One bulk read of every matching row.
-		$table   = $this->get_table_name();
-		$results = $this->db()->get_results( "SELECT * FROM {$table} WHERE {$where}" );
-
-		// Normalize to an array of rows.
-		$rows = ( ! empty( $results ) && is_array( $results ) )
-			? $results
-			: array();
-
-		// Warm the by-id item cache for every fetched row.
-		if ( ! empty( $rows ) ) {
-			/** @var list<object> $rows */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
-			$this->update_item_cache( $rows, false );
-		}
-
-		return $rows;
+		// One bulk read of every row matching any requested tuple.
+		return $this->get_items_raw(
+			$this->get_relationship_tuple_where( $reference_columns, $tuples )
+		);
 	}
 
 	/**
@@ -709,8 +699,12 @@ trait Cache {
 			return;
 		}
 
-		// One bulk read of every matching row (also warms the by-id cache).
+		// One bulk read of every matching row, then warm the by-id item cache.
 		$rows = $this->get_relationship_tuple_rows( $reference_columns, $tuples );
+
+		if ( ! empty( $rows ) ) {
+			$this->update_item_cache( $rows, false );
+		}
 
 		// Group each fetched row's primary ID by its reference-column tuple hash.
 		$primary = $this->get_primary_column_name();
@@ -804,18 +798,10 @@ trait Cache {
 			return;
 		}
 
-		// One bulk read of every related row.
-		$table   = $this->get_table_name();
-		$results = $this->db()->get_results( "SELECT * FROM {$table} WHERE {$fk_column} IN {$in}" );
+		// One bulk read of every related row, then warm the by-id item cache.
+		$rows = $this->get_items_raw( "{$fk_column} IN {$in}" );
 
-		// Normalize to an array of rows.
-		$rows = ( ! empty( $results ) && is_array( $results ) )
-			? $results
-			: array();
-
-		// Warm the by-id item cache for every related row.
 		if ( ! empty( $rows ) ) {
-			/** @var list<object> $rows */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
 			$this->update_item_cache( $rows, false );
 		}
 
