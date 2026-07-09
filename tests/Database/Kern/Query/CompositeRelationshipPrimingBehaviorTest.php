@@ -490,4 +490,117 @@ class CompositeRelationshipPrimingBehaviorTest extends TestCase {
 		$this->assertSame( (int) $owner_id, (int) $owner->id );
 		$this->assertSame( 42, (int) $owner->code );
 	}
+
+	// -------------------------------------------------------------------------
+	// Phase 5: invalidation - a primed relationship reflects later writes.
+	// -------------------------------------------------------------------------
+
+	/**
+	 * The ( region, account ) => ( 5, 7 ) key pair reused across these tests.
+	 *
+	 * @since 3.1.0
+	 * @return array<string,int>
+	 */
+	private function pair_5_7(): array {
+		return array(
+			'region'  => 5,
+			'account' => 7,
+		);
+	}
+
+	/**
+	 * A primed composite has_many reflects a child inserted afterwards.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_composite_has_many_priming_reflects_a_later_insert() {
+		self::$parents->add_item( $this->pair_5_7() );
+		self::$children->add_item( $this->pair_5_7() );
+
+		$results = self::$parents->query( array( 'with' => array( 'children' ) ) );
+		$parent  = reset( $results );
+
+		// Primed: the first lookup is a zero-SQL hit.
+		global $wpdb;
+		$before = $wpdb->num_queries;
+		$this->assertCount( 1, self::$parents->get_related( $parent, 'children' ) );
+		$this->assertSame( $before, $wpdb->num_queries );
+
+		// Inserting a matching child rotates last_changed, invalidating the prime.
+		self::$children->add_item( $this->pair_5_7() );
+		$this->assertCount( 2, self::$parents->get_related( $parent, 'children' ) );
+	}
+
+	/**
+	 * A primed composite has_many reflects a child deleted afterwards.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_composite_has_many_priming_reflects_a_later_delete() {
+		self::$parents->add_item( $this->pair_5_7() );
+		$child_id = self::$children->add_item( $this->pair_5_7() );
+		self::$children->add_item( $this->pair_5_7() );
+
+		$results = self::$parents->query( array( 'with' => array( 'children' ) ) );
+		$parent  = reset( $results );
+
+		// Primed: the first lookup is a zero-SQL hit.
+		global $wpdb;
+		$before = $wpdb->num_queries;
+		$this->assertCount( 2, self::$parents->get_related( $parent, 'children' ) );
+		$this->assertSame( $before, $wpdb->num_queries );
+
+		self::$children->delete_item( $child_id );
+		$this->assertCount( 1, self::$parents->get_related( $parent, 'children' ) );
+	}
+
+	/**
+	 * A primed composite belongs_to MISS reflects a parent inserted afterwards.
+	 *
+	 * The negative-cached "no relation" must not stick once the parent exists.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_composite_belongs_to_negative_prime_reflects_a_later_insert() {
+		self::$children->add_item( $this->pair_5_7() );
+
+		$results = self::$children->query( array( 'with' => array( 'parent' ) ) );
+		$child   = reset( $results );
+
+		// Primed negative: the "no relation" lookup is itself a zero-SQL hit.
+		global $wpdb;
+		$before = $wpdb->num_queries;
+		$this->assertNull( self::$children->get_related( $child, 'parent' ) );
+		$this->assertSame( $before, $wpdb->num_queries );
+
+		// Inserting the matching parent invalidates the negative cache.
+		$parent_id = self::$parents->add_item( $this->pair_5_7() );
+		$parent    = self::$children->get_related( $child, 'parent' );
+
+		$this->assertNotNull( $parent );
+		$this->assertSame( (int) $parent_id, (int) $parent->id );
+	}
+
+	/**
+	 * A primed composite belongs_to HIT reflects a parent key change afterwards.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_composite_belongs_to_priming_reflects_a_parent_update() {
+		$parent_id = self::$parents->add_item( $this->pair_5_7() );
+		self::$children->add_item( $this->pair_5_7() );
+
+		$results = self::$children->query( array( 'with' => array( 'parent' ) ) );
+		$child   = reset( $results );
+
+		// Primed: the first lookup is a zero-SQL hit.
+		global $wpdb;
+		$before = $wpdb->num_queries;
+		$this->assertSame( (int) $parent_id, (int) self::$children->get_related( $child, 'parent' )->id );
+		$this->assertSame( $before, $wpdb->num_queries );
+
+		// Move the parent's key so it no longer matches the child.
+		self::$parents->update_item( $parent_id, array( 'account' => 99 ) );
+		$this->assertNull( self::$children->get_related( $child, 'parent' ) );
+	}
 }
