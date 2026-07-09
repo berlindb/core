@@ -369,11 +369,12 @@ trait Cache {
 		}
 
 		/*
-		 * Composite key: seed the remote result cache for each key tuple - belongs_to
-		 * takes the first match ( number => 1 ). Unlike the single-column PK path
-		 * below, this does not require the reference to be the remote primary key.
+		 * Seed the remote result cache for each key tuple whenever get_related()
+		 * resolves via query() rather than the by-id fast path: any composite key,
+		 * or a single-column key that does NOT reference the remote primary column.
+		 * belongs_to takes the first match ( number => 1 ).
 		 */
-		if ( ( count( $columns ) !== 1 ) || ( count( $references ) !== 1 ) ) {
+		if ( ( count( $columns ) !== 1 ) || ( count( $references ) !== 1 ) || ( $references[0] !== $remote->get_primary_column_name() ) ) {
 			$tuples = $this->get_local_relationship_key_tuples( $items, $columns );
 
 			if ( ! empty( $tuples ) ) {
@@ -384,15 +385,9 @@ trait Cache {
 		}
 
 		/*
-		 * Single-column belongs_to: priming warms the remote primary-key cache, so
-		 * the reference must be the remote primary column (get_related()'s get_item()
-		 * fast path).
+		 * Single-column belongs_to referencing the remote primary key: warm the by-id
+		 * cache so get_related()'s get_item() fast path is a hit.
 		 */
-		if ( $references[0] !== $remote->get_primary_column_name() ) {
-			return;
-		}
-
-		// Warm the remote primary-key cache from this side's foreign-key values.
 		$values = $this->get_local_relationship_key_values( $items, $columns[0] );
 
 		if ( ! empty( $values ) ) {

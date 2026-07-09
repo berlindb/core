@@ -161,8 +161,118 @@ class PrimeChildTable extends Table {
 	protected $version = '202607090';
 }
 
+/** Owner: identified by a non-primary 'code' column. */
+class ScOwnerSchema extends Schema {
+	public $columns = array(
+		array(
+			'name'      => 'id',
+			'type'      => 'bigint',
+			'length'    => '20',
+			'unsigned'  => true,
+			'extra'     => 'auto_increment',
+			'cache_key' => true,
+		),
+		array(
+			'name'     => 'code',
+			'type'     => 'bigint',
+			'length'   => '20',
+			'unsigned' => true,
+			'default'  => 0,
+		),
+	);
+	public $indexes = array(
+		array(
+			'type'    => 'primary',
+			'columns' => array( 'id' ),
+		),
+	);
+}
+
+/** Doc: owner_code belongs_to the owner's non-primary 'code' (single-column, non-PK). */
+class ScDocSchema extends Schema {
+	public $columns = array(
+		array(
+			'name'      => 'id',
+			'type'      => 'bigint',
+			'length'    => '20',
+			'unsigned'  => true,
+			'extra'     => 'auto_increment',
+			'cache_key' => true,
+		),
+		array(
+			'name'     => 'owner_code',
+			'type'     => 'bigint',
+			'length'   => '20',
+			'unsigned' => true,
+			'default'  => 0,
+		),
+	);
+	public $indexes = array(
+		array(
+			'type'    => 'primary',
+			'columns' => array( 'id' ),
+		),
+	);
+
+	public function get_relationships() {
+		return array(
+			new Relationship(
+				array(
+					'name'       => 'owner',
+					'query'      => ScOwnerQuery::class,
+					'type'       => 'belongs_to',
+					'columns'    => array( 'owner_code' ),
+					'references' => array( 'code' ),
+				)
+			),
+		);
+	}
+}
+
+class ScOwnerRow extends Row {
+	public $id   = 0;
+	public $code = 0;
+}
+class ScDocRow extends Row {
+	public $id         = 0;
+	public $owner_code = 0;
+}
+
+class ScOwnerQuery extends Query {
+	protected $prefix           = 'berlindb';
+	protected $table_name       = 'sc_owner_test';
+	protected $table_alias      = 'sco';
+	protected $table_schema     = ScOwnerSchema::class;
+	protected $item_name        = 'sc_owner';
+	protected $item_name_plural = 'sc_owners';
+	protected $item_shape       = ScOwnerRow::class;
+	protected $cache_group      = 'berlindb-sc-owner';
+}
+class ScDocQuery extends Query {
+	protected $prefix           = 'berlindb';
+	protected $table_name       = 'sc_doc_test';
+	protected $table_alias      = 'scd';
+	protected $table_schema     = ScDocSchema::class;
+	protected $item_name        = 'sc_doc';
+	protected $item_name_plural = 'sc_docs';
+	protected $item_shape       = ScDocRow::class;
+	protected $cache_group      = 'berlindb-sc-doc';
+}
+
+class ScOwnerTable extends Table {
+	protected $schema  = ScOwnerSchema::class;
+	protected $name    = 'berlindb_sc_owner_test';
+	protected $version = '202607090';
+}
+class ScDocTable extends Table {
+	protected $schema  = ScDocSchema::class;
+	protected $name    = 'berlindb_sc_doc_test';
+	protected $version = '202607090';
+}
+
 /**
- * End-to-end composite relationship priming behavior.
+ * End-to-end relationship priming behavior: composite keys, and a single-column
+ * NON-primary belongs_to - both routed through the tuple-priming machinery.
  *
  * @since 3.1.0
  */
@@ -180,8 +290,20 @@ class CompositeRelationshipPrimingBehaviorTest extends TestCase {
 	/** @var PrimeChildQuery */
 	private static $children;
 
+	/** @var ScOwnerTable */
+	private static $owner_table;
+
+	/** @var ScDocTable */
+	private static $doc_table;
+
+	/** @var ScOwnerQuery */
+	private static $owners;
+
+	/** @var ScDocQuery */
+	private static $docs;
+
 	/**
-	 * Install both tables.
+	 * Install the tables.
 	 *
 	 * @since 3.1.0
 	 */
@@ -196,9 +318,19 @@ class CompositeRelationshipPrimingBehaviorTest extends TestCase {
 		if ( ! self::$child_table->exists() ) {
 			self::$child_table->install();
 		}
+		self::$owner_table = new ScOwnerTable();
+		if ( ! self::$owner_table->exists() ) {
+			self::$owner_table->install();
+		}
+		self::$doc_table = new ScDocTable();
+		if ( ! self::$doc_table->exists() ) {
+			self::$doc_table->install();
+		}
 
 		self::$parents  = new PrimeParentQuery();
 		self::$children = new PrimeChildQuery();
+		self::$owners   = new ScOwnerQuery();
+		self::$docs     = new ScDocQuery();
 	}
 
 	/**
@@ -211,6 +343,8 @@ class CompositeRelationshipPrimingBehaviorTest extends TestCase {
 
 		self::$child_table->delete_all();
 		self::$parent_table->delete_all();
+		self::$doc_table->delete_all();
+		self::$owner_table->delete_all();
 		wp_cache_flush();
 	}
 
@@ -222,6 +356,8 @@ class CompositeRelationshipPrimingBehaviorTest extends TestCase {
 	public static function tearDownAfterClass(): void {
 		self::$child_table->uninstall();
 		self::$parent_table->uninstall();
+		self::$doc_table->uninstall();
+		self::$owner_table->uninstall();
 		parent::tearDownAfterClass();
 	}
 
@@ -326,5 +462,32 @@ class CompositeRelationshipPrimingBehaviorTest extends TestCase {
 		$parent  = reset( $results );
 
 		$this->assertCount( 101, self::$parents->get_related( $parent, 'children' ) );
+	}
+
+	/**
+	 * A primed single-column NON-primary belongs_to resolves with zero SQL.
+	 *
+	 * The reference is a non-primary column, so get_related() resolves via query()
+	 * (not the by-id fast path) - which the tuple-priming path now warms.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_single_column_non_primary_belongs_to_priming_is_a_cache_hit() {
+		global $wpdb;
+
+		$owner_id = self::$owners->add_item( array( 'code' => 42 ) );
+		self::$docs->add_item( array( 'owner_code' => 42 ) );
+
+		// Query the docs, priming the (non-primary) owner relationship in bulk.
+		$results = self::$docs->query( array( 'with' => array( 'owner' ) ) );
+		$doc     = reset( $results );
+
+		$before = $wpdb->num_queries;
+		$owner  = self::$docs->get_related( $doc, 'owner' );
+		$this->assertSame( $before, $wpdb->num_queries );
+
+		$this->assertNotNull( $owner );
+		$this->assertSame( (int) $owner_id, (int) $owner->id );
+		$this->assertSame( 42, (int) $owner->code );
 	}
 }
