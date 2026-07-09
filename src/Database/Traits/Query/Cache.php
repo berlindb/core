@@ -16,6 +16,7 @@ namespace BerlinDB\Database\Traits\Query;
 // Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
 
+use BerlinDB\Database\Clauses\BooleanGroup;
 use BerlinDB\Database\Kern\Relationship;
 
 /**
@@ -539,6 +540,114 @@ trait Cache {
 		}
 
 		return implode( '|', $parts );
+	}
+
+	/**
+	 * Build the WHERE fragment matching any of a set of composite key tuples.
+	 *
+	 * Emits portable OR-ed AND groups - ( ref_a = x AND ref_b = y ) OR ( ... ) -
+	 * rather than a row-value IN ( (a,b) IN ( (x,y), ... ) ), which adds a MySQL
+	 * 5.7 / MariaDB 10.2 floor and can skip the composite index on older engines.
+	 * Every reference column is validated (injection guard), and each value is
+	 * bound through the column's own pattern via db()->prepare().
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param list<string>              $reference_columns Remote key columns, in order.
+	 * @param list<array<string,mixed>> $tuples            Key tuples to match.
+	 * @return string The WHERE fragment, or '' when nothing can be matched.
+	 */
+	private function get_relationship_tuple_where( array $reference_columns, array $tuples ): string {
+
+		// Validate every reference column before it reaches SQL.
+		foreach ( $reference_columns as $column ) {
+			if ( ! $this->is_valid_column( $column ) ) {
+				return '';
+			}
+		}
+
+		$groups = array();
+
+		foreach ( $tuples as $tuple ) {
+			$values = array_values( $tuple );
+
+			// Skip a tuple whose arity does not match the reference columns.
+			if ( count( $values ) !== count( $reference_columns ) ) {
+				continue;
+			}
+
+			$predicates = array();
+
+			foreach ( $reference_columns as $i => $column ) {
+				$pattern  = $this->get_column_field( array( 'name' => $column ), 'pattern', '%s' );
+				$prepared = $this->db()->prepare( "{$column} = {$pattern}", $values[ $i ] );
+
+				// A null prepare is unexpected; drop this tuple rather than emit bad SQL.
+				if ( null === $prepared ) {
+					continue 2;
+				}
+
+				$predicates[] = $prepared;
+			}
+
+			// ( ref_a = x AND ref_b = y )
+			$groups[] = BooleanGroup::combine( 'AND', $predicates );
+		}
+
+		// Bail if no complete tuple produced a group.
+		if ( empty( $groups ) ) {
+			return '';
+		}
+
+		// ( group ) OR ( group ) OR ...
+		return BooleanGroup::combine( 'OR', $groups );
+	}
+
+	/**
+	 * Bulk-read the remote rows matching a set of composite key tuples.
+	 *
+	 * One SELECT for every tuple (the composite analog of prime_has_many()'s single
+	 * IN read), warming the by-id item cache so later hydration is free. Like the
+	 * single-column path, this assumes priming runs over the current page of items,
+	 * so the OR-ed group count stays bounded. Returns the fetched rows for the
+	 * caller to group and seed per-tuple result caches.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param list<string>              $reference_columns Remote key columns, in order.
+	 * @param list<array<string,mixed>> $tuples            Key tuples to match.
+	 * @return list<object> The fetched rows (empty on no match / invalid column).
+	 */
+	private function get_relationship_tuple_rows( array $reference_columns, array $tuples ): array {
+
+		// Bail without columns or tuples.
+		if ( empty( $reference_columns ) || empty( $tuples ) ) {
+			return array();
+		}
+
+		// Build the OR-of-ANDs match; a bad column or no tuples yields no WHERE.
+		$where = $this->get_relationship_tuple_where( $reference_columns, $tuples );
+
+		if ( '' === $where ) {
+			return array();
+		}
+
+		// One bulk read of every matching row.
+		$table   = $this->get_table_name();
+		$results = $this->db()->get_results( "SELECT * FROM {$table} WHERE {$where}" );
+
+		// Normalize to an array of rows.
+		$rows = ( ! empty( $results ) && is_array( $results ) )
+			? $results
+			: array();
+
+		// Warm the by-id item cache for every fetched row.
+		if ( ! empty( $rows ) ) {
+			/** @var list<object> $rows */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
+			$this->update_item_cache( $rows, false );
+		}
+
+		return $rows;
 	}
 
 	/**
