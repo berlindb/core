@@ -361,24 +361,34 @@ trait Cache {
 		$columns    = $relationship->columns;
 		$references = $relationship->references;
 
-		/*
-		 * Composite keys are not batch-primed - a deliberate fallback: get_related()
-		 * still resolves them correctly ( each call hits the remote result cache, just
-		 * one per item instead of a single bulk warm ). Composite-key priming is a
-		 * follow-up ( #229, touches cache-key infra ).
-		 */
-		if ( ( count( $columns ) !== 1 ) || ( count( $references ) !== 1 ) ) {
-			return;
-		}
-
 		// Resolve the remote query instance (guarded; null when unresolvable).
 		$remote = $this->resolve_remote_query( $relationship );
 
+		if ( null === $remote ) {
+			return;
+		}
+
 		/*
-		 * Priming warms the remote primary-key cache, so the relationship must
-		 * resolve to a sibling Query that references the remote primary column.
+		 * Composite key: seed the remote result cache for each key tuple - belongs_to
+		 * takes the first match ( number => 1 ). Unlike the single-column PK path
+		 * below, this does not require the reference to be the remote primary key.
 		 */
-		if ( ( null === $remote ) || ( $references[0] !== $remote->get_primary_column_name() ) ) {
+		if ( ( count( $columns ) !== 1 ) || ( count( $references ) !== 1 ) ) {
+			$tuples = $this->get_local_relationship_key_tuples( $items, $columns );
+
+			if ( ! empty( $tuples ) ) {
+				$remote->prime_relationship_tuples( $references, $tuples, 1 );
+			}
+
+			return;
+		}
+
+		/*
+		 * Single-column belongs_to: priming warms the remote primary-key cache, so
+		 * the reference must be the remote primary column (get_related()'s get_item()
+		 * fast path).
+		 */
+		if ( $references[0] !== $remote->get_primary_column_name() ) {
 			return;
 		}
 
@@ -407,15 +417,6 @@ trait Cache {
 		$columns    = $relationship->columns;
 		$references = $relationship->references;
 
-		/*
-		 * Composite keys are not batch-primed - a deliberate fallback: get_related()
-		 * still resolves them ( per-item, each cached; just not bulk-warmed ).
-		 * Composite-key priming is a follow-up ( #229 ).
-		 */
-		if ( ( count( $columns ) !== 1 ) || ( count( $references ) !== 1 ) ) {
-			return;
-		}
-
 		// Resolve the remote query instance (guarded; null when unresolvable).
 		$remote = $this->resolve_remote_query( $relationship );
 
@@ -423,7 +424,18 @@ trait Cache {
 			return;
 		}
 
-		// Warm the child collections from this side's key values.
+		// Composite key: seed each key tuple's FULL child set ( number => 0 ).
+		if ( ( count( $columns ) !== 1 ) || ( count( $references ) !== 1 ) ) {
+			$tuples = $this->get_local_relationship_key_tuples( $items, $columns );
+
+			if ( ! empty( $tuples ) ) {
+				$remote->prime_relationship_tuples( $references, $tuples, 0 );
+			}
+
+			return;
+		}
+
+		// Single-column has_many: warm the child collections from this side's values.
 		$values = $this->get_local_relationship_key_values( $items, $columns[0] );
 
 		if ( ! empty( $values ) ) {
