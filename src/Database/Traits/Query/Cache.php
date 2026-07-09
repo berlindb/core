@@ -466,6 +466,82 @@ trait Cache {
 	}
 
 	/**
+	 * Return the distinct, all-parts-present local relationship-key TUPLES from items.
+	 *
+	 * The composite (multi-column) analog of get_local_relationship_key_values():
+	 * reads every $column off each item, keeps only items that expose ALL parts with
+	 * none empty (is_empty_relationship_key(), matching get_related()'s all-parts-
+	 * present rule), and de-duplicates complete tuples by a stable hash.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<int|string,mixed> $items   Shaped result items to read keys from.
+	 * @param list<string>            $columns The local relationship key columns, in order.
+	 * @return list<array<string,mixed>> Distinct ordered tuples ( [ column => value ] ).
+	 */
+	private function get_local_relationship_key_tuples( array $items, array $columns ): array {
+		$tuples = array();
+
+		foreach ( $items as $item ) {
+
+			// Skip non-objects.
+			if ( ! is_object( $item ) ) {
+				continue;
+			}
+
+			$tuple    = array();
+			$complete = true;
+
+			/*
+			 * A composite key needs EVERY part present and non-empty; a partial key
+			 * is no relation, exactly as get_related() treats it.
+			 */
+			foreach ( $columns as $column ) {
+				if ( ! isset( $item->{$column} ) || $this->is_empty_relationship_key( $item->{$column} ) ) {
+					$complete = false;
+					break;
+				}
+
+				$tuple[ $column ] = $item->{$column};
+			}
+
+			// De-duplicate complete tuples by a stable hash.
+			if ( true === $complete ) {
+				$tuples[ $this->get_relationship_tuple_hash( $tuple ) ] = $tuple;
+			}
+		}
+
+		return array_values( $tuples );
+	}
+
+	/**
+	 * Return a stable de-duplication hash for a relationship-key tuple.
+	 *
+	 * Length-prefixes each part ("{len}:{value}") so distinct tuples never collide,
+	 * even if a value itself contains the separator (e.g. [ '5|1', '7' ] vs
+	 * [ '5', '1|7' ]) - a collision would serve the wrong cached relation. Values are
+	 * string-cast (not serialized), so 1 and '1' hash alike, matching the (string)
+	 * de-dup the single-column get_local_relationship_key_values() uses. The SAME
+	 * hash keys both the requested tuples and the fetched rows, so a bulk-primed
+	 * result groups back to the exact tuple that requested it.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string,mixed> $tuple Ordered [ column => value ] tuple.
+	 * @return string
+	 */
+	private function get_relationship_tuple_hash( array $tuple ): string {
+		$parts = array();
+
+		foreach ( array_values( $tuple ) as $value ) {
+			$value   = (string) $value;
+			$parts[] = strlen( $value ) . ':' . $value;
+		}
+
+		return implode( '|', $parts );
+	}
+
+	/**
 	 * Prime this query's native result cache for a set of foreign-key values.
 	 *
 	 * Public entry point used by has_many relationship priming. Performs one
