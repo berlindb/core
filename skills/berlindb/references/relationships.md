@@ -57,9 +57,12 @@ public function get_relationships() {
   of `Row`s (the **full** child set - pagination is a direct `query()`, not an accessor).
   A composite key must have **all** parts present, or it resolves to no relation.
 - `with => array( 'order', 'items' )` on a `query()` **primes** the named accessors' caches
-  in bulk (quiet by default). Single-column keys are batch-warmed in one query; **composite
-  keys are not batch-primed** - `get_related()` still resolves them per item (each cached,
-  just not bulk-warmed). Composite-key priming is tracked in #229.
+  in bulk (quiet by default), so the per-item `get_related()` lookups then fire no SQL. Both
+  single-column AND composite keys are batch-warmed (#229): one bulk read - a portable
+  OR-of-ANDs match `( a = ? AND b = ? ) OR ( ... )` for a composite key - seeds the result
+  caches the accessor reads, including empty tuples (a no-match / childless lookup is a hit
+  too). A single-column `belongs_to` to a non-primary column is primed the same way. Standard
+  `last_changed` invalidation applies, so a later write is reflected.
 
 ## Filtering
 
@@ -106,8 +109,6 @@ Only enable enforcement if you control the storage engine - real foreign keys ne
 
 ## Limitations / follow-ups
 
-- **Composite-key priming** - not yet batch-primed; `with` on a composite relationship
-  resolves per item (#229).
 - **`in` strategy** - single-column only; composite uses `join`.
 - **Two-hop / m2m** - a relationship `where` names remote *columns*, not nested
   *relationships*; many-to-many via a pivot table is not modeled (tracked under #211 Lever D).

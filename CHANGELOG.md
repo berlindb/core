@@ -4,6 +4,16 @@ Notable changes to BerlinDB are documented here.
 
 ## 3.1.0 - Unreleased
 
+- Batch-primes composite (multi-column) relationships via `with`, killing the per-item N+1
+  (#229). A `with => [ name ]` on a composite `belongs_to` / `has_many` now does ONE bulk read
+  - a portable OR-of-ANDs match `( a = ? AND b = ? ) OR ( ... )`, not a row-value `IN` (which
+  would add a MySQL 5.7 / MariaDB 10.2 floor) - and seeds the exact result caches each per-item
+  `get_related()` reads (empty tuples included, so a no-match / childless lookup is a hit too),
+  so the accessor lookups fire zero SQL. Because it seeds the normal result cache, `last_changed`
+  rotation invalidates it for free on any write - no bespoke composite cache group. The reusable
+  primitive is `Cache::prime_relationship_tuples()`. Also primes a single-column `belongs_to`
+  that references a NON-primary column (previously never batch-primed); a single-column
+  primary-key `belongs_to` keeps its by-id `prime_items()` fast path.
 - Save-time interception can now tell an omitted column from an explicit value (key presence),
   so a preset acts on genuine omission (#233). A preset's `intercept()` now receives
   `( $value, Presets\Column\Context $context )` - a value object carrying the method, the
@@ -56,8 +66,8 @@ Notable changes to BerlinDB are documented here.
   pairs) and **fetch** (`get_related()` matches all key columns), and their opt-in
   `FOREIGN KEY` DDL (`FOREIGN KEY ( a, b ) REFERENCES ... ( a, b )`) is emitted when enforced.
   Composite keys default to the `join` strategy (the `in` materialize strategy is
-  single-column only) and are resolved per item rather than batch-primed (composite-key
-  cache priming is a follow-up). Single-column relationship SQL is unchanged.
+  single-column only) and are batch-primed by `with` (#229). Single-column relationship SQL
+  is unchanged.
 - Unifies the WP-core-meta engine's `meta_key` comparisons onto the operator path (#212).
   The bespoke `switch ( $meta_compare_key )` in `Parsers\Meta` that hand-built key SQL is
   gone; each key comparison now uses the same `cast_reference()` + `operator->get_sql_compare()`

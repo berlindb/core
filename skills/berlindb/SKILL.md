@@ -141,10 +141,10 @@ public function get_relationships() {
 
   Composite relationships **filter** (`relation` join/EXISTS correlates on every key
   column) and **fetch** (`get_related()` matches all key columns; a missing part means no
-  relation). They default to the `'join'` strategy (the `'in'` materialize strategy is
-  single-column only) and resolve per item rather than being batch-primed by `with`
-  (composite-key priming is a follow-up). Enforced composite relationships emit a real
-  multi-column `FOREIGN KEY ( a, b ) REFERENCES ... ( a, b )`.
+  relation), and are **batch-primed** by `with` like single-column keys - one bulk read warms
+  the caches so per-item `get_related()` fires no SQL (#229). They default to the `'join'`
+  strategy (the `'in'` materialize strategy is single-column only). Enforced composite
+  relationships emit a real multi-column `FOREIGN KEY ( a, b ) REFERENCES ... ( a, b )`.
 
 - **Prime caches** with `with` (quiet by default — pass accessor names to warm):
   `$q->query( array( 'status' => 'active', 'with' => array( 'order' ) ) );`

@@ -689,6 +689,12 @@ trait Cache {
 	 * unique (one remote row); a non-unique key's "first match" is arbitrary here,
 	 * exactly as it already is for an unprimed get_related() with number => 1.
 	 *
+	 * This is the reusable one-hop primitive - "given remote key columns and many
+	 * tuples, warm the exact per-tuple result caches." A future many-to-many / pivot
+	 * relationship (#211 Lever D) chains two hops over it (source tuples -> pivot
+	 * rows -> target tuples -> target rows); it needs this, not a composite
+	 * get_item_by().
+	 *
 	 * @since 3.1.0
 	 *
 	 * @param list<string>              $reference_columns Remote key columns, in order.
