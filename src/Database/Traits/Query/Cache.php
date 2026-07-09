@@ -668,6 +668,94 @@ trait Cache {
 	}
 
 	/**
+	 * Warm the native result cache for a set of composite relationship key tuples.
+	 *
+	 * The composite analog of prime_has_many(): one bulk read (which also warms the
+	 * by-id cache), then seeds the result cache for EVERY requested tuple - including
+	 * tuples that matched no rows, so a childless / no-match lookup is a cache hit
+	 * too. $number must equal the limit get_related() queries with - 0 (the full
+	 * child set) for has_many, 1 (the first match) for belongs_to - so the seeded key
+	 * equals the key that lookup later computes.
+	 *
+	 * Like prime_has_many(), the bulk read is unordered, so a primed result matches
+	 * the query's row SET, not necessarily its orderby. A belongs_to key should be
+	 * unique (one remote row); a non-unique key's "first match" is arbitrary here,
+	 * exactly as it already is for an unprimed get_related() with number => 1.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param list<string>              $reference_columns Remote key columns, in order.
+	 * @param list<array<string,mixed>> $tuples            Key tuples to prime.
+	 * @param int                       $number            get_related()'s limit (0 or 1).
+	 * @return void
+	 */
+	protected function prime_relationship_tuples( array $reference_columns, array $tuples, int $number ): void {
+
+		// Bail without columns or tuples.
+		if ( empty( $reference_columns ) || empty( $tuples ) ) {
+			return;
+		}
+
+		// One bulk read of every matching row (also warms the by-id cache).
+		$rows = $this->get_relationship_tuple_rows( $reference_columns, $tuples );
+
+		// Group each fetched row's primary ID by its reference-column tuple hash.
+		$primary = $this->get_primary_column_name();
+		$grouped = array();
+
+		foreach ( $rows as $row ) {
+			if ( ! is_object( $row ) || ! isset( $row->{$primary} ) ) {
+				continue;
+			}
+
+			$row_tuple = array();
+			$complete  = true;
+
+			foreach ( $reference_columns as $column ) {
+				if ( ! isset( $row->{$column} ) ) {
+					$complete = false;
+					break;
+				}
+
+				$row_tuple[ $column ] = $row->{$column};
+			}
+
+			if ( true === $complete ) {
+				$grouped[ $this->get_relationship_tuple_hash( $row_tuple ) ][] = $row->{$primary};
+			}
+		}
+
+		// Seed the native result cache for every requested tuple (empties included).
+		foreach ( $tuples as $tuple ) {
+			$values = array_values( $tuple );
+
+			// Skip a tuple whose arity does not match the reference columns.
+			if ( count( $values ) !== count( $reference_columns ) ) {
+				continue;
+			}
+
+			// The IDs this tuple resolves to (belongs_to keeps at most the first).
+			$ids = $grouped[ $this->get_relationship_tuple_hash( $tuple ) ] ?? array();
+
+			if ( 1 === $number ) {
+				$ids = array_slice( $ids, 0, 1 );
+			}
+
+			/*
+			 * Seed under the EXACT vars get_related() computes for this tuple:
+			 * array_merge so the reserved 'number' always wins over a reference
+			 * column that happened to be named 'number' (mirrors get_related()).
+			 */
+			$query_vars = array_merge(
+				array_combine( $reference_columns, $values ),
+				array( 'number' => $number )
+			);
+
+			$this->prime_query( $query_vars, $ids );
+		}
+	}
+
+	/**
 	 * Prime this query's native result cache for a set of foreign-key values.
 	 *
 	 * Public entry point used by has_many relationship priming. Performs one

@@ -446,4 +446,135 @@ class CompositeRelationshipPrimingTest extends TestCase {
 			$this->invoke( 'get_relationship_tuple_rows', array( array( 'region', 'account' ), array() ) )
 		);
 	}
+
+	// -------------------------------------------------------------------------
+	// Phase 3: seed per-tuple result caches.
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Test that has_many priming seeds the full set and negative-caches a no-match.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_seeds_has_many_result_cache_including_negatives() {
+		global $wpdb;
+
+		$a = (int) self::$query->add_item(
+			array(
+				'region'  => 5,
+				'account' => 7,
+			)
+		);
+		$b = (int) self::$query->add_item(
+			array(
+				'region'  => 5,
+				'account' => 7,
+			)
+		);
+		self::$query->add_item(
+			array(
+				'region'  => 9,
+				'account' => 9,
+			)
+		); // decoy
+
+		// Only priming should warm the tuple caches.
+		wp_cache_flush();
+
+		$this->invoke(
+			'prime_relationship_tuples',
+			array(
+				array( 'region', 'account' ),
+				array(
+					array(
+						'region'  => 5,
+						'account' => 7,
+					),
+					array(
+						'region'  => 1,
+						'account' => 1,
+					), // no match
+				),
+				0,
+			)
+		);
+
+		// (5,7) -> both IDs, with zero SQL.
+		$before = $wpdb->num_queries;
+		$rows   = self::$query->query(
+			array(
+				'region'  => 5,
+				'account' => 7,
+				'number'  => 0,
+			)
+		);
+		$this->assertSame( $before, $wpdb->num_queries );
+
+		$ids = array_map( static fn( $r ) => (int) $r->id, $rows );
+		sort( $ids );
+		$this->assertSame( array( $a, $b ), $ids );
+
+		// (1,1) no match -> empty, zero SQL (negative cache).
+		$before = $wpdb->num_queries;
+		$empty  = self::$query->query(
+			array(
+				'region'  => 1,
+				'account' => 1,
+				'number'  => 0,
+			)
+		);
+		$this->assertSame( $before, $wpdb->num_queries );
+		$this->assertSame( array(), $empty );
+	}
+
+	/**
+	 * Test that belongs_to priming seeds a single row for a unique key.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_seeds_belongs_to_result_cache() {
+		global $wpdb;
+
+		$a = (int) self::$query->add_item(
+			array(
+				'region'  => 5,
+				'account' => 7,
+			)
+		);
+		self::$query->add_item(
+			array(
+				'region'  => 8,
+				'account' => 3,
+			)
+		); // other
+
+		wp_cache_flush();
+
+		$this->invoke(
+			'prime_relationship_tuples',
+			array(
+				array( 'region', 'account' ),
+				array(
+					array(
+						'region'  => 5,
+						'account' => 7,
+					),
+				),
+				1,
+			)
+		);
+
+		$before = $wpdb->num_queries;
+		$rows   = self::$query->query(
+			array(
+				'region'  => 5,
+				'account' => 7,
+				'number'  => 1,
+			)
+		);
+		$this->assertSame( $before, $wpdb->num_queries );
+
+		$this->assertCount( 1, $rows );
+		$this->assertSame( $a, (int) reset( $rows )->id );
+	}
 }
