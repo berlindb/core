@@ -240,6 +240,23 @@ class CompositeRelationshipPrimingTest extends TestCase {
 	}
 
 	/**
+	 * Test that empty items or empty key columns collect no tuples.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_empty_inputs_collect_no_tuples() {
+		$items = array(
+			(object) array(
+				'region'  => 5,
+				'account' => 7,
+			),
+		);
+
+		$this->assertSame( array(), $this->invoke( 'get_local_relationship_key_tuples', array( $items, array() ) ) );
+		$this->assertSame( array(), $this->invoke( 'get_local_relationship_key_tuples', array( array(), array( 'region' ) ) ) );
+	}
+
+	/**
 	 * Test that the tuple hash separates boundary values that would otherwise merge.
 	 *
 	 * @since 3.1.0

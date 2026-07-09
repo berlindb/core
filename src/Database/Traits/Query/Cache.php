@@ -481,6 +481,15 @@ trait Cache {
 	 * @return list<array<string,mixed>> Distinct ordered tuples ( [ column => value ] ).
 	 */
 	private function get_local_relationship_key_tuples( array $items, array $columns ): array {
+
+		/*
+		 * No items or no key columns means no tuples (empty columns would otherwise
+		 * collect a zero-part tuple per item).
+		 */
+		if ( empty( $items ) || empty( $columns ) ) {
+			return array();
+		}
+
 		$tuples = array();
 
 		foreach ( $items as $item ) {
@@ -558,6 +567,14 @@ trait Cache {
 	 * @return string The WHERE fragment, or '' when nothing can be matched.
 	 */
 	private function get_relationship_tuple_where( array $reference_columns, array $tuples ): string {
+
+		/*
+		 * Nothing to build without columns or tuples (empty columns would otherwise
+		 * reach an empty AND-combine).
+		 */
+		if ( empty( $reference_columns ) || empty( $tuples ) ) {
+			return '';
+		}
 
 		// Validate every reference column before it reaches SQL.
 		foreach ( $reference_columns as $column ) {
