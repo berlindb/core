@@ -76,4 +76,4 @@ cleanup() {
 trap cleanup EXIT
 
 docker compose -f docker-compose-phpunit.yml build php
-docker compose -f docker-compose-phpunit.yml run --rm php
+docker compose -f docker-compose-phpunit.yml run --rm -e PHPUNIT_ARGS php
