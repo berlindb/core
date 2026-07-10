@@ -388,4 +388,66 @@ class ManyToManyResolutionTest extends TestCase {
 
 		$this->assertSame( array( (int) $tag_a ), $this->ids( $tags ) );
 	}
+
+	/**
+	 * After a query that primes the relationship via `with`, get_related() resolves
+	 * both hops with ZERO SQL - the pivot and target caches are already warm.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_priming_makes_get_related_a_cache_hit() {
+		global $wpdb;
+
+		$post_id = self::$posts->add_item( array( 'slug' => 'hello' ) );
+		$tag_a   = self::$tags->add_item( array( 'name' => 'alpha' ) );
+		$tag_b   = self::$tags->add_item( array( 'name' => 'beta' ) );
+
+		self::$pivots->add_item(
+			array(
+				'post_id' => $post_id,
+				'tag_id'  => $tag_a,
+			)
+		);
+		self::$pivots->add_item(
+			array(
+				'post_id' => $post_id,
+				'tag_id'  => $tag_b,
+			)
+		);
+
+		// Query the posts, priming the tags relationship in bulk.
+		$results = self::$posts->query( array( 'with' => array( 'tags' ) ) );
+		$post    = reset( $results );
+
+		$before = $wpdb->num_queries;
+		$tags   = self::$posts->get_related( $post, 'tags' );
+		$this->assertSame( $before, $wpdb->num_queries );
+
+		$this->assertSame(
+			array( (int) $tag_a, (int) $tag_b ),
+			$this->ids( $tags )
+		);
+	}
+
+	/**
+	 * A primed post with no tags resolves to an empty set with ZERO SQL - the pivot
+	 * hop is seeded even for a no-match key (negative caching).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_priming_childless_post_is_a_cache_hit() {
+		global $wpdb;
+
+		$post_id = self::$posts->add_item( array( 'slug' => 'lonely' ) );
+		self::$tags->add_item( array( 'name' => 'alpha' ) ); // exists but unlinked
+
+		$results = self::$posts->query( array( 'with' => array( 'tags' ) ) );
+		$post    = reset( $results );
+
+		$before = $wpdb->num_queries;
+		$tags   = self::$posts->get_related( $post, 'tags' );
+		$this->assertSame( $before, $wpdb->num_queries );
+
+		$this->assertSame( array(), $tags );
+	}
 }

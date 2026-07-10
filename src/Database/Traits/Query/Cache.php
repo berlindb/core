@@ -17,6 +17,7 @@ namespace BerlinDB\Database\Traits\Query;
 defined( 'ABSPATH' ) || exit;
 
 use BerlinDB\Database\Clauses\BooleanGroup;
+use BerlinDB\Database\Kern\Query;
 use BerlinDB\Database\Kern\Relationship;
 
 /**
@@ -355,6 +356,13 @@ trait Cache {
 				$this->prime_has_many_relationship( $relationship, $items );
 			}
 		}
+
+		// Prime each named many_to_many relationship (warm both hops through the pivot).
+		foreach ( $this->get_many_to_many_relationships() as $relationship ) {
+			if ( in_array( $relationship->name, $with, true ) ) {
+				$this->prime_many_to_many_relationship( $relationship, $items );
+			}
+		}
 	}
 
 	/**
@@ -444,6 +452,117 @@ trait Cache {
 
 		if ( ! empty( $values ) ) {
 			$remote->prime_has_many( $references[0], $values );
+		}
+	}
+
+	/**
+	 * Warm both hops of a single many_to_many relationship, through its pivot.
+	 *
+	 * Chains prime_relationship_tuples() twice - the point of that primitive. Hop 1
+	 * primes the pivot's caches for this result set's local keys and hands back the
+	 * pivot rows; hop 2 reads the target keys off them and primes the target - by-id
+	 * when the target key is the remote primary (get_related()'s get_item() path),
+	 * else the per-tuple result cache. After this, a later get_related() for the
+	 * accessor is a cache hit at both hops.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param Relationship             $relationship The many_to_many relationship to prime.
+	 * @param array<int|string,mixed> $items        Shaped result items to read local keys from.
+	 */
+	private function prime_many_to_many_relationship( Relationship $relationship, array $items ): void {
+
+		$columns            = $relationship->columns;
+		$through_columns    = $relationship->through_columns;
+		$through_references = $relationship->through_references;
+		$references         = $relationship->references;
+
+		// Bail unless both hops pair up positionally (mirrors get_related_many_to_many).
+		if (
+			empty( $columns ) || empty( $through_columns )
+			|| empty( $through_references ) || empty( $references )
+			|| ( count( $columns ) !== count( $through_columns ) )
+			|| ( count( $through_references ) !== count( $references ) )
+		) {
+			return;
+		}
+
+		// Resolve the pivot and target queries; bail if either is unresolvable.
+		$pivot = $this->instantiate_class( $relationship->through );
+
+		if ( ! ( $pivot instanceof Query ) ) {
+			return;
+		}
+
+		$target = $this->resolve_remote_query( $relationship );
+
+		if ( null === $target ) {
+			return;
+		}
+
+		// This result set's local key tuples (hop 1's source side).
+		$source_tuples = $this->get_local_relationship_key_tuples( $items, $columns );
+
+		if ( empty( $source_tuples ) ) {
+			return;
+		}
+
+		/*
+		 * Hop 1: prime the pivot's caches for the source keys and take back the pivot
+		 * rows, so hop 2's keys come off them with no extra read. number => 0 matches
+		 * get_related()'s pivot query (the full set of pivot rows per source key).
+		 */
+		$pivot_rows = $pivot->prime_relationship_tuples( $through_columns, $source_tuples, 0 );
+
+		if ( empty( $pivot_rows ) ) {
+			return;
+		}
+
+		// Collect the distinct target-key tuples the pivot rows point at (hop 2).
+		$target_tuples = array();
+
+		foreach ( $pivot_rows as $pivot_row ) {
+			if ( ! is_object( $pivot_row ) ) {
+				continue;
+			}
+
+			$tuple    = array();
+			$complete = true;
+
+			foreach ( $through_references as $j => $through_ref ) {
+				if ( ! isset( $pivot_row->{$through_ref} ) || $this->is_empty_relationship_key( $pivot_row->{$through_ref} ) ) {
+					$complete = false;
+					break;
+				}
+
+				$tuple[ $references[ $j ] ] = $pivot_row->{$through_ref};
+			}
+
+			if ( true === $complete ) {
+				$target_tuples[ $this->get_relationship_tuple_hash( $tuple ) ] = $tuple;
+			}
+		}
+
+		if ( empty( $target_tuples ) ) {
+			return;
+		}
+
+		/*
+		 * Hop 2: prime the target rows. A single-column key referencing the remote
+		 * primary warms the by-id cache (get_related()'s get_item() path); any other
+		 * key warms the per-tuple result cache get_related() reads.
+		 */
+		if ( ( 1 === count( $references ) ) && ( $references[0] === $target->get_primary_column_name() ) ) {
+			$ids = array();
+
+			foreach ( $target_tuples as $tuple ) {
+				$ids[] = reset( $tuple );
+			}
+
+			$target->prime_items( $ids );
+
+		} else {
+			$target->prime_relationship_tuples( $references, array_values( $target_tuples ), 0 );
 		}
 	}
 
@@ -680,23 +799,23 @@ trait Cache {
 	 * exactly as it already is for an unprimed get_related() with number => 1.
 	 *
 	 * This is the reusable one-hop primitive - "given remote key columns and many
-	 * tuples, warm the exact per-tuple result caches." A future many-to-many / pivot
+	 * tuples, warm the exact per-tuple result caches." A many-to-many / pivot
 	 * relationship (#211 Lever D) chains two hops over it (source tuples -> pivot
-	 * rows -> target tuples -> target rows); it needs this, not a composite
-	 * get_item_by().
+	 * rows -> target tuples -> target rows), which is why it RETURNS the rows it
+	 * read: the caller takes the next hop's keys off them without a second query.
 	 *
 	 * @since 3.1.0
 	 *
 	 * @param list<string>              $reference_columns Remote key columns, in order.
 	 * @param list<array<string,mixed>> $tuples            Key tuples to prime.
 	 * @param int                       $number            get_related()'s limit (0 or 1).
-	 * @return void
+	 * @return list<object> The fetched remote rows (raw), for chaining a second hop.
 	 */
-	protected function prime_relationship_tuples( array $reference_columns, array $tuples, int $number ): void {
+	protected function prime_relationship_tuples( array $reference_columns, array $tuples, int $number ): array {
 
 		// Bail without columns or tuples.
 		if ( empty( $reference_columns ) || empty( $tuples ) ) {
-			return;
+			return array();
 		}
 
 		// One bulk read of every matching row, then warm the by-id item cache.
@@ -760,6 +879,9 @@ trait Cache {
 
 			$this->prime_query( $query_vars, $ids );
 		}
+
+		// Hand the rows back so a caller can chain the next hop (many_to_many).
+		return $rows;
 	}
 
 	/**

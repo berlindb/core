@@ -235,6 +235,17 @@ trait Relationships {
 	}
 
 	/**
+	 * Get the relationships that resolve through a pivot table (two hops).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return Relationship[]
+	 */
+	public function get_many_to_many_relationships() {
+		return $this->get_relationships_by_type( 'many_to_many' );
+	}
+
+	/**
 	 * Filter this query's relationships by type.
 	 *
 	 * @since 3.1.0
