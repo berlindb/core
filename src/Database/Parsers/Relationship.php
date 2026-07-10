@@ -205,13 +205,30 @@ class Relationship extends Base {
 				? strtolower( $clause_args[ 'strategy' ] )
 				: '';
 
-			if ( ( 'join' === $explicit ) || ( 'in' === $explicit ) ) {
-				$strategy = $explicit;
+			/*
+			 * A nested `relation` (an array clause/list, not the AND/OR boolean) filters
+			 * two or more hops out, expressible only as a correlated EXISTS - so it
+			 * forces the 'join' strategy, and an explicit 'in' with one fails closed.
+			 */
+			$has_nested = isset( $clause_args[ 'relation' ] ) && is_array( $clause_args[ 'relation' ] );
+
+			if ( 'in' === $explicit ) {
+				if ( true === $has_nested ) {
+					$query_vars = $this->short_circuit( $query_vars, 'relation strategy "in" cannot express a nested relation' );
+					break;
+				}
+
+				$strategy = 'in';
+			} elseif ( 'join' === $explicit ) {
+				$strategy = 'join';
 			} else {
 				$relationship = $caller->get_relationship( (string) $clause_args[ 'name' ] );
 				$strategy     = (
-					( $relationship instanceof RelationshipObject )
-					&& ( ( 'many_to_many' === $relationship->type ) || ( count( $relationship->columns ) > 1 ) )
+					( true === $has_nested )
+					|| (
+						( $relationship instanceof RelationshipObject )
+						&& ( ( 'many_to_many' === $relationship->type ) || ( count( $relationship->columns ) > 1 ) )
+					)
 				)
 					? 'join'
 					: 'in';
@@ -541,6 +558,28 @@ class Relationship extends Base {
 			return $this->build_many_to_many_clause( $relationship, $clause_args, (string) $alias_suffix );
 		}
 
+		/*
+		 * A clause carrying a nested `relation` (an array, not the AND/OR boolean
+		 * string) filters two or more hops out. Every hop must be a correlated
+		 * EXISTS (a JOIN cannot correlate inside a subquery), so the whole chain
+		 * takes the recursive EXISTS path from this query down.
+		 */
+		if ( isset( $clause_args[ 'relation' ] ) && is_array( $clause_args[ 'relation' ] ) ) {
+			if ( ! ( $this->caller instanceof Query ) ) {
+				return false;
+			}
+
+			$alias_counter = 0;
+			$exists        = $this->build_relationship_exists( $this->caller, $this->caller->get_table_alias(), $clause_args, $alias_counter );
+
+			return ( false === $exists )
+				? false
+				: array(
+					'join'  => '',
+					'where' => array( $exists ),
+				);
+		}
+
 		// belongs_to or has_many, single- or multi-column ( composite ) key.
 		$columns    = $relationship->columns;
 		$references = $relationship->references;
@@ -810,6 +849,168 @@ class Relationship extends Base {
 			'join'  => '',
 			'where' => array( $exists ),
 		);
+	}
+
+	/**
+	 * Build a correlated EXISTS for one relationship hop, recursing into any nested.
+	 *
+	 * The engine of nested-relationship filtering (order.customer.region...). Given a
+	 * base query and the SQL alias its rows are exposed under, this resolves the named
+	 * relationship, emits `EXISTS ( SELECT 1 FROM {remote} AS {alias} WHERE {remote.ref
+	 * = base.col} AND {where} [AND {nested EXISTS}] )`, and - when the clause carries a
+	 * nested `relation` (an array clause/list, never the AND/OR boolean string) -
+	 * recurses with the remote as the new base, one hop deeper. Every hop is an EXISTS
+	 * (never a JOIN): a JOIN cannot correlate inside a subquery. `exists => false`
+	 * negates THIS hop to NOT EXISTS. $alias_counter is shared across the whole tree so
+	 * every subquery alias is unique regardless of depth or repeated relationship names.
+	 *
+	 * Nested chains are belongs_to / has_many only; a many_to_many hop in a chain fails
+	 * closed (its pivot indirection is a separate builder). Any unknown relationship,
+	 * column, or unresolvable remote at any depth returns false, failing the whole
+	 * clause closed (1 = 0) rather than widening.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param Query               $base_query   The query this hop correlates back to.
+	 * @param string              $base_alias   The SQL alias the base rows are exposed under.
+	 * @param array<string,mixed> $clause_args  The relation clause (name, where, exists, relation).
+	 * @param int                 $alias_counter Shared, by-reference alias uniquifier.
+	 * @return string|false The EXISTS fragment, or false on any failure (fail closed).
+	 */
+	private function build_relationship_exists( Query $base_query, string $base_alias, array $clause_args, int &$alias_counter ): string|false {
+
+		$name = ( isset( $clause_args[ 'name' ] ) && is_string( $clause_args[ 'name' ] ) )
+			? $clause_args[ 'name' ]
+			: '';
+
+		if ( '' === $name ) {
+			return false;
+		}
+
+		// Resolve the relationship on the CURRENT base query (not the top caller).
+		$relationship = $base_query->get_relationship( $name );
+
+		if ( ! ( $relationship instanceof RelationshipObject ) ) {
+			return false;
+		}
+
+		// Nested chains carry single-hop belongs_to / has_many only.
+		$columns    = $relationship->columns;
+		$references = $relationship->references;
+
+		if (
+			! in_array( $relationship->type, array( 'belongs_to', 'has_many' ), true )
+			|| empty( $columns )
+			|| ( count( $columns ) !== count( $references ) )
+		) {
+			return false;
+		}
+
+		// Resolve the remote query for this hop; bail if unresolvable.
+		$remote = $this->resolve_remote_query( $relationship );
+
+		if ( null === $remote ) {
+			return false;
+		}
+
+		// A unique alias for this hop's subquery, shared across the whole tree.
+		++$alias_counter;
+		$remote_alias     = 'bdb_nrel_' . (string) $alias_counter;
+		$remote_alias_sql = $this->quote_identifier( $remote_alias );
+
+		/*
+		 * Correlate this hop to the base: remote.reference = base.column, one per
+		 * positional pair (a composite key ANDs them). Both sides are validated
+		 * against their schemas, so an unknown column fails the clause closed.
+		 */
+		$corr_pairs = array();
+
+		foreach ( $columns as $i => $base_col ) {
+			$base_sql = $this->quote_relationship_column( $base_query, $base_alias, $base_col );
+
+			if ( false === $base_sql ) {
+				return false;
+			}
+
+			if ( empty( $remote->get_columns( array( 'name' => $references[ $i ] ) ) ) ) {
+				return false;
+			}
+
+			$corr_pairs[] = $remote_alias_sql . '.' . $this->quote_identifier( $references[ $i ] ) . ' = ' . $base_sql;
+		}
+
+		// Operator-driven conditions on this hop's remote columns (the clause `where`).
+		$conds = ( isset( $clause_args[ 'where' ] ) && is_array( $clause_args[ 'where' ] ) )
+			? $clause_args[ 'where' ]
+			: array();
+
+		$conditions = $this->build_conditions( $remote, $remote_alias, $conds );
+
+		if ( false === $conditions ) {
+			return false;
+		}
+
+		$sub_where = ( '' === $conditions )
+			? $corr_pairs
+			: array_merge( $corr_pairs, array( $conditions ) );
+
+		/*
+		 * Recurse one hop deeper for a nested `relation` (array clause or list). The
+		 * remote becomes the new base; each nested EXISTS is AND-ed into this WHERE.
+		 */
+		if ( isset( $clause_args[ 'relation' ] ) && is_array( $clause_args[ 'relation' ] ) ) {
+			$nested_clauses = isset( $clause_args[ 'relation' ][ 'name' ] )
+				? array( $clause_args[ 'relation' ] )
+				: $clause_args[ 'relation' ];
+
+			foreach ( $nested_clauses as $nested_clause ) {
+				if ( ! is_array( $nested_clause ) ) {
+					return false;
+				}
+
+				$nested = $this->build_relationship_exists( $remote, $remote_alias, $nested_clause, $alias_counter );
+
+				if ( false === $nested ) {
+					return false;
+				}
+
+				$sub_where[] = $nested;
+			}
+		}
+
+		// EXISTS (default) or NOT EXISTS (exists => false) at THIS hop.
+		$exists_positive = ! array_key_exists( 'exists', $clause_args ) || (bool) $clause_args[ 'exists' ];
+		$keyword         = ( true === $exists_positive )
+			? 'EXISTS'
+			: 'NOT EXISTS';
+
+		return $keyword . ' ( SELECT 1 FROM ' . $this->quote_identifier( $remote->get_table_name() ) . ' AS ' . $remote_alias_sql
+			. ' WHERE ' . \BerlinDB\Database\Clauses\BooleanGroup::combine( 'AND', $sub_where ) . ' )';
+	}
+
+	/**
+	 * Validate a column on a base query and return it quoted with an explicit alias.
+	 *
+	 * Unlike get_quoted_column_name_aliased() (which uses the query's OWN table alias
+	 * and quotes unknown identifiers rather than failing), this pairs an arbitrary
+	 * subquery alias with a column and fails closed on an unknown one - the recursion
+	 * gives each hop a synthetic alias, and unknown columns must match no rows.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param Query  $base_query The query whose schema owns the column.
+	 * @param string $base_alias The SQL alias to prefix.
+	 * @param string $column     The column name to validate and quote.
+	 * @return string|false `{alias}`.`{column}`, or false when the column is unknown.
+	 */
+	private function quote_relationship_column( Query $base_query, string $base_alias, string $column ): string|false {
+
+		// Bail on a column the base schema does not declare (fail closed).
+		if ( empty( $base_query->get_columns( array( 'name' => $column ) ) ) ) {
+			return false;
+		}
+
+		return $this->quote_identifier( $base_alias ) . '.' . $this->quote_identifier( $column );
 	}
 
 	/**

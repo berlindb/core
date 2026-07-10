@@ -442,7 +442,21 @@ trait Parser {
 				continue;
 			}
 
-			// Set the query.
+			/*
+			 * A nested relationship clause reuses the 'relation' key with an ARRAY
+			 * value (the deeper hop), where meta/date queries only ever use the
+			 * AND/OR boolean STRING. That array belongs to the clause that declared
+			 * it: inheriting it into a child would make sanitize_query recurse into
+			 * it, whose child would re-inherit it, ad infinitum. Only a STRING
+			 * 'relation' is a group directive safe to inherit.
+			 */
+			if ( ( 'relation' === $dkey ) && isset( $parent_query[ $dkey ] ) && ! is_string( $parent_query[ $dkey ] ) ) {
+				$queries[ $dkey ] = $dvalue;
+
+				continue;
+			}
+
+			// Set the query, inheriting from the parent when possible.
 			$queries[ $dkey ] = isset( $parent_query[ $dkey ] )
 				? $parent_query[ $dkey ]
 				: $dvalue;
@@ -459,8 +473,13 @@ trait Parser {
 		// Add queries to return array.
 		foreach ( $queries as $key => $query ) {
 
-			// Set relation.
-			if ( 'relation' === $key ) {
+			/*
+			 * Set the boolean relation. Only a STRING 'relation' is the AND/OR
+			 * directive; a non-string (e.g. a nested relationship clause array, which
+			 * reuses the 'relation' key one hop deeper) is left to recurse below,
+			 * matching the is_string guard get_clause_relation() already applies.
+			 */
+			if ( ( 'relation' === $key ) && is_string( $query ) ) {
 				$relation = strtoupper( $query );
 			}
 

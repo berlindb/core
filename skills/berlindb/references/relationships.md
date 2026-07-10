@@ -88,6 +88,40 @@ multi-column key). The JOIN `ON` clause and the `EXISTS` correlation match on **
 column, AND-ed together: `ON ( a.fk1 = b.ref1 AND a.fk2 = b.ref2 )`. A malformed or
 unresolvable `relation` clause **fails closed** (matches no rows, never all).
 
+### Nested (multi-hop) filtering
+
+A clause's `relation` key can itself hold **another relationship clause** (an array, not the
+`AND`/`OR` boolean string), filtering two or more hops out. Each hop becomes a correlated
+`EXISTS`; the chain nests arbitrarily deep (`order -> customer -> region -> country`):
+
+```php
+$orders->query( array(
+    'relation' => array(
+        'name'     => 'customer',
+        'where'    => array( 'status' => 'active' ), // condition at this hop (optional)
+        'relation' => array(
+            'name'  => 'region',
+            'relation' => array(
+                'name'  => 'country',
+                'where' => array( 'code' => 'EUR' ), // condition at the far hop
+            ),
+        ),
+    ),
+) );
+// EXISTS ( SELECT 1 FROM customer ... WHERE ... AND EXISTS ( SELECT 1 FROM region ...
+//   WHERE ... AND EXISTS ( SELECT 1 FROM country ... WHERE country.code = 'EUR' ) ) )
+```
+
+- A nested `relation` **forces the `join` strategy** (a correlated subquery, never a real
+  JOIN - a JOIN cannot correlate inside a subquery); an explicit `strategy => 'in'` with a
+  nested `relation` fails closed.
+- `where` applies **at every hop**; `exists => false` negates the hop it sits on (`NOT
+  EXISTS`), so you can express "orders whose customer's region is **not** EU".
+- Nested chains are **`belongs_to` / `has_many` only**; a `many_to_many` hop inside a chain
+  fails closed (its pivot indirection is a separate builder).
+- Any unknown relationship, column, or unresolvable remote at **any** depth fails the whole
+  clause closed (`1 = 0`), never widening.
+
 ## Enforced foreign keys (opt-in DDL)
 
 By default a relationship emits **no** DDL. Set `enforce => true` on a `belongs_to` to emit
@@ -110,5 +144,5 @@ Only enable enforcement if you control the storage engine - real foreign keys ne
 ## Limitations / follow-ups
 
 - **`in` strategy** - single-column only; composite uses `join`.
-- **Two-hop / m2m** - a relationship `where` names remote *columns*, not nested
-  *relationships*; many-to-many via a pivot table is not modeled (tracked under #211 Lever D).
+- **Nested chains are `belongs_to` / `has_many`** - a `many_to_many` hop *inside* a nested
+  `relation` chain fails closed (a top-level m2m filter is fine; only mid-chain is excluded).

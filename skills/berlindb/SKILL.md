@@ -46,8 +46,9 @@ Read only the reference needed for the task:
   (query/by-id/secondary) with `last_changed` salt invalidation.
 - `references/relationships.md`: relationships (`belongs_to`/`has_many`),
   single- and composite- (multi-column) key declaration, `get_related` /
-  `with` priming, `relation` filtering (`in` vs `join` strategies), and opt-in
-  enforced `FOREIGN KEY` DDL (deferred `add_foreign_keys()` / `inline`).
+  `with` priming, `relation` filtering (`in` vs `join` strategies, plus nested
+  multi-hop chains via a nested `relation`), and opt-in enforced `FOREIGN KEY`
+  DDL (deferred `add_foreign_keys()` / `inline`).
 - `references/debugging.md`: silent save failures, table upgrade issues,
   wrong primary key usage, malformed query vars, and logging.
 - `references/migration-2-to-3.md`: updating older BerlinDB 2.x patterns to

@@ -4,6 +4,17 @@ Notable changes to BerlinDB are documented here.
 
 ## 3.1.0 - Unreleased
 
+- Filters two or more relationship hops out via a nested `relation` clause (#211 Lever D). A
+  `relation` clause whose own `relation` key holds another clause (an ARRAY, not the `AND`/`OR`
+  boolean string) filters down the chain (`order -> customer -> region -> country`), each hop
+  emitting a correlated `EXISTS` that nests arbitrarily deep. A nested `relation` forces the
+  `join` strategy (a JOIN cannot correlate inside a subquery); `where` applies at every hop and
+  `exists => false` negates the hop it sits on (`NOT EXISTS`); nested chains are `belongs_to` /
+  `has_many` only; any unknown/unresolvable hop at any depth fails the whole clause closed
+  (`1 = 0`), never widening. Fixes an unbounded recursion this exposed in the shared parser:
+  `sanitize_query()` treated `relation` as an always-string group directive and had children
+  INHERIT it, so an array-valued nested `relation` propagated into every child and recursed
+  without end - it now never inherits a non-string `relation` into a child clause.
 - Batch-primes composite (multi-column) relationships via `with`, killing the per-item N+1
   (#229). A `with => [ name ]` on a composite `belongs_to` / `has_many` now does ONE bulk read
   - a portable OR-of-ANDs match `( a = ? AND b = ? ) OR ( ... )`, not a row-value `IN` (which
