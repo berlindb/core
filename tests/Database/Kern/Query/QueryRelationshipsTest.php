@@ -187,12 +187,12 @@ class QueryRelationshipsTest extends TestCase {
 
 	/**
 	 * Test that get_related() on a many_to_many fails closed (empty child set)
-	 * until the two-hop resolution phase lands, rather than falling through to a
-	 * wrong single-hop belongs_to lookup.
+	 * when the pivot class is unresolvable, rather than a wrong single-hop lookup.
+	 * (The pivot here names a class that does not exist.)
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_get_related_many_to_many_fails_closed() {
+	public function test_get_related_many_to_many_fails_closed_on_unresolvable_pivot() {
 		$query = new ManyToManyRelationshipQuery();
 
 		// The pivot relationship is declared and typed correctly.
@@ -200,7 +200,7 @@ class QueryRelationshipsTest extends TestCase {
 		$this->assertInstanceOf( Relationship::class, $tags );
 		$this->assertSame( 'many_to_many', $tags->type );
 
-		// Phase 1: resolution not implemented -> empty array, not a wrong Row.
+		// Unresolvable pivot -> empty array, never a wrong Row.
 		$item = (object) array( 'id' => 5 );
 		$this->assertSame( array(), $query->get_related( $item, 'tags' ) );
 	}

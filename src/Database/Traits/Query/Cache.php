@@ -556,7 +556,7 @@ trait Cache {
 	 * @param array<string,mixed> $tuple Ordered [ column => value ] tuple.
 	 * @return string
 	 */
-	private function get_relationship_tuple_hash( array $tuple ): string {
+	protected function get_relationship_tuple_hash( array $tuple ): string {
 		$parts = array();
 
 		foreach ( array_values( $tuple ) as $value ) {
