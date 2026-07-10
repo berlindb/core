@@ -68,7 +68,10 @@ export PHPUNIT_ARGS="${PHPUNIT_ARGS[*]}"
 cd "$REPO_DIR"
 
 cleanup() {
-	docker compose -f docker-compose-phpunit.yml down --volumes --remove-orphans 2>/dev/null || true
+	# --rmi local also removes the image built for this run's unique project name,
+	# which the random COMPOSE_PROJECT_NAME (above) would otherwise leak one of per
+	# run. down() removes containers/volumes/networks but not images without it.
+	docker compose -f docker-compose-phpunit.yml down --volumes --remove-orphans --rmi local 2>/dev/null || true
 }
 trap cleanup EXIT
 
