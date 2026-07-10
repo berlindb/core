@@ -963,6 +963,15 @@ class Relationship extends Base {
 				? array( $clause_args[ 'relation' ] )
 				: $clause_args[ 'relation' ];
 
+			/*
+			 * An explicit but empty nested `relation` (e.g. `'relation' => array()`) is
+			 * malformed: fail closed rather than silently dropping the deeper hop, which
+			 * would widen the filter to "this hop alone" instead of matching no rows.
+			 */
+			if ( empty( $nested_clauses ) ) {
+				return false;
+			}
+
 			foreach ( $nested_clauses as $nested_clause ) {
 				if ( ! is_array( $nested_clause ) ) {
 					return false;

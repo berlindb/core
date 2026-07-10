@@ -566,4 +566,28 @@ class NestedRelationFilterTest extends TestCase {
 		// EUR country AND active customer: only the eu_active order.
 		$this->assertSame( array( $o['eu_active'] ), array_map( 'intval', $ids ) );
 	}
+
+	/**
+	 * An explicit but EMPTY nested `relation` is malformed and fails closed.
+	 *
+	 * `'relation' => array()` names a deeper hop with no clause; dropping it would
+	 * widen the filter to "has any customer" (every order). It must match no rows.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_empty_nested_relation_fails_closed() {
+		$this->seed();
+
+		$ids = self::$orders->query(
+			array(
+				'relation' => array(
+					'name'     => 'customer',
+					'relation' => array(),
+				),
+				'fields'   => 'ids',
+			)
+		);
+
+		$this->assertSame( array(), $ids );
+	}
 }
