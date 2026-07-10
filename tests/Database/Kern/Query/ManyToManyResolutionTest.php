@@ -450,4 +450,119 @@ class ManyToManyResolutionTest extends TestCase {
 
 		$this->assertSame( array(), $tags );
 	}
+
+	/**
+	 * Seed a fixed scenario: post A (alpha, beta), post B (gamma), post C (none).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return array{a:int,b:int,c:int} The three post ids.
+	 */
+	private function seed_filter_scenario(): array {
+		$post_a = self::$posts->add_item( array( 'slug' => 'a' ) );
+		$post_b = self::$posts->add_item( array( 'slug' => 'b' ) );
+		$post_c = self::$posts->add_item( array( 'slug' => 'c' ) );
+
+		$alpha = self::$tags->add_item( array( 'name' => 'alpha' ) );
+		$beta  = self::$tags->add_item( array( 'name' => 'beta' ) );
+		$gamma = self::$tags->add_item( array( 'name' => 'gamma' ) );
+
+		self::$pivots->add_item(
+			array(
+				'post_id' => $post_a,
+				'tag_id'  => $alpha,
+			)
+		);
+		self::$pivots->add_item(
+			array(
+				'post_id' => $post_a,
+				'tag_id'  => $beta,
+			)
+		);
+		self::$pivots->add_item(
+			array(
+				'post_id' => $post_b,
+				'tag_id'  => $gamma,
+			)
+		);
+
+		return array(
+			'a' => (int) $post_a,
+			'b' => (int) $post_b,
+			'c' => (int) $post_c,
+		);
+	}
+
+	/**
+	 * A `relation` filter with a condition on the target returns only the rows whose
+	 * pivot points at a matching target (nested EXISTS).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_filter_by_target_condition() {
+		$p = $this->seed_filter_scenario();
+
+		$ids = self::$posts->query(
+			array(
+				'relation' => array(
+					'name'  => 'tags',
+					'where' => array( 'name' => 'alpha' ),
+				),
+				'fields'   => 'ids',
+				'orderby'  => 'id',
+				'order'    => 'ASC',
+			)
+		);
+
+		// Only post A has a tag named 'alpha'.
+		$this->assertSame( array( $p['a'] ), array_map( 'intval', $ids ) );
+	}
+
+	/**
+	 * `exists => false` negates the filter (NOT EXISTS): rows WITHOUT a matching
+	 * related target, including rows with no pivot rows at all.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_filter_anti_excludes_matching() {
+		$p = $this->seed_filter_scenario();
+
+		$ids = self::$posts->query(
+			array(
+				'relation' => array(
+					'name'   => 'tags',
+					'where'  => array( 'name' => 'alpha' ),
+					'exists' => false,
+				),
+				'fields'   => 'ids',
+				'orderby'  => 'id',
+				'order'    => 'ASC',
+			)
+		);
+
+		// B (only gamma) and C (no tags) lack an 'alpha' tag; A is excluded.
+		$this->assertSame( array( $p['b'], $p['c'] ), array_map( 'intval', $ids ) );
+	}
+
+	/**
+	 * A `relation` filter with no conditions matches rows that have ANY related
+	 * target (has-a-tag), excluding rows with none.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_filter_has_any_related() {
+		$p = $this->seed_filter_scenario();
+
+		$ids = self::$posts->query(
+			array(
+				'relation' => array( 'name' => 'tags' ),
+				'fields'   => 'ids',
+				'orderby'  => 'id',
+				'order'    => 'ASC',
+			)
+		);
+
+		// A and B have tags; C has none.
+		$this->assertSame( array( $p['a'], $p['b'] ), array_map( 'intval', $ids ) );
+	}
 }

@@ -196,10 +196,10 @@ class Relationship extends Base {
 
 			/*
 			 * Resolve the strategy. An explicit 'join' / 'in' is honored. With no
-			 * explicit strategy, a COMPOSITE ( multi-column ) key defaults to 'join':
-			 * the 'in' materialize strategy is single-column only, so a composite
-			 * relationship would otherwise default to 'in' and fail closed. Single-
-			 * column keys keep the 'in' default.
+			 * explicit strategy, a COMPOSITE ( multi-column ) key or a many_to_many
+			 * defaults to 'join': the 'in' materialize strategy is single-column
+			 * belongs_to only, so those would otherwise default to 'in' and fail
+			 * closed. Single-column belongs_to / has_many keep the 'in' default.
 			 */
 			$explicit = ( isset( $clause_args[ 'strategy' ] ) && is_string( $clause_args[ 'strategy' ] ) )
 				? strtolower( $clause_args[ 'strategy' ] )
@@ -209,7 +209,10 @@ class Relationship extends Base {
 				$strategy = $explicit;
 			} else {
 				$relationship = $caller->get_relationship( (string) $clause_args[ 'name' ] );
-				$strategy     = ( ( $relationship instanceof RelationshipObject ) && ( count( $relationship->columns ) > 1 ) )
+				$strategy     = (
+					( $relationship instanceof RelationshipObject )
+					&& ( ( 'many_to_many' === $relationship->type ) || ( count( $relationship->columns ) > 1 ) )
+				)
 					? 'join'
 					: 'in';
 			}
@@ -533,6 +536,11 @@ class Relationship extends Base {
 			return false;
 		}
 
+		// A many_to_many filters through a pivot table (two hops); see the helper.
+		if ( 'many_to_many' === $relationship->type ) {
+			return $this->build_many_to_many_clause( $relationship, $clause_args, (string) $alias_suffix );
+		}
+
 		// belongs_to or has_many, single- or multi-column ( composite ) key.
 		$columns    = $relationship->columns;
 		$references = $relationship->references;
@@ -655,6 +663,148 @@ class Relationship extends Base {
 
 		$exists = $keyword . ' ( SELECT 1 FROM ' . $remote_sql . ' AS ' . $alias_sql
 			. ' WHERE ' . $correlation . ' )';
+
+		return array(
+			'join'  => '',
+			'where' => array( $exists ),
+		);
+	}
+
+	/**
+	 * Build the WHERE fragment filtering this query's rows by a many_to_many.
+	 *
+	 * A pivot relationship is two hops, so it emits a NESTED correlated EXISTS: the
+	 * outer subquery finds pivot rows pointing at this row (pivot.through_columns =
+	 * local.columns), and its inner EXISTS finds a target row the pivot points at
+	 * (target.references = pivot.through_references) that satisfies the clause's
+	 * `where` conditions. `exists => false` negates the OUTER as NOT EXISTS (anti):
+	 * rows with no matching related target. Composite keys AND their pairs. Any
+	 * unresolvable pivot / target, unknown column, or shape mismatch fails closed
+	 * (false), so the caller matches no rows rather than widening to all.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param RelationshipObject $relationship The many_to_many relationship.
+	 * @param array<string,mixed> $clause_args The relation clause (name, where, exists).
+	 * @param string             $alias_suffix Uniquifier when a name repeats across clauses.
+	 * @return array{join:string,where:list<string>}|false
+	 */
+	private function build_many_to_many_clause( RelationshipObject $relationship, array $clause_args, string $alias_suffix = '' ): array|false {
+
+		$name  = (string) $clause_args[ 'name' ];
+		$conds = ( isset( $clause_args[ 'where' ] ) && is_array( $clause_args[ 'where' ] ) )
+			? $clause_args[ 'where' ]
+			: array();
+
+		// The caller Query is needed to quote this row's local columns; fail closed without it.
+		$caller = $this->caller;
+
+		if ( ! ( $caller instanceof Query ) ) {
+			return false;
+		}
+
+		$columns            = $relationship->columns;
+		$through_columns    = $relationship->through_columns;
+		$through_references = $relationship->through_references;
+		$references         = $relationship->references;
+
+		// Bail unless both hops pair up positionally.
+		if (
+			empty( $columns ) || empty( $through_columns )
+			|| empty( $through_references ) || empty( $references )
+			|| ( count( $columns ) !== count( $through_columns ) )
+			|| ( count( $through_references ) !== count( $references ) )
+		) {
+			return false;
+		}
+
+		// Resolve the pivot and target queries; bail if either is unresolvable.
+		$pivot = $this->instantiate_class( $relationship->through );
+
+		if ( ! ( $pivot instanceof Query ) ) {
+			return false;
+		}
+
+		$target = $this->resolve_remote_query( $relationship );
+
+		if ( null === $target ) {
+			return false;
+		}
+
+		/*
+		 * Every local column named must exist on this query's schema (fail closed:
+		 * get_quoted_column_name_aliased() would otherwise quote an unknown column).
+		 */
+		foreach ( $columns as $local_col ) {
+			if ( empty( $caller->get_columns( array( 'name' => $local_col ) ) ) ) {
+				return false;
+			}
+		}
+
+		// Every pivot / target column named must exist on its schema (closes injection).
+		foreach ( array_merge( $through_columns, $through_references ) as $pivot_col ) {
+			if ( empty( $pivot->get_columns( array( 'name' => $pivot_col ) ) ) ) {
+				return false;
+			}
+		}
+
+		foreach ( $references as $remote_ref ) {
+			if ( empty( $target->get_columns( array( 'name' => $remote_ref ) ) ) ) {
+				return false;
+			}
+		}
+
+		// Deterministic, sanitized aliases for the pivot and target tables.
+		$base         = 'bdb_rel_' . (string) $this->sanitize_table_alias( $name );
+		$pivot_alias  = $base . '_pv' . $alias_suffix;
+		$target_alias = $base . '_tg' . $alias_suffix;
+
+		// Operator-driven conditions on the target columns (the clause's `where`).
+		$conditions = $this->build_conditions( $target, $target_alias, $conds );
+
+		if ( false === $conditions ) {
+			return false;
+		}
+
+		// Pre-quote the shared identifiers.
+		$pivot_alias_sql  = $this->quote_identifier( $pivot_alias );
+		$target_alias_sql = $this->quote_identifier( $target_alias );
+		$pivot_table_sql  = $this->quote_identifier( $pivot->get_table_name() );
+		$target_table_sql = $this->quote_identifier( $target->get_table_name() );
+
+		// Hop 1 correlation: pivot.through_columns = this row's local columns.
+		$hop1_pairs = array();
+
+		foreach ( $columns as $i => $local_col ) {
+			$hop1_pairs[] = $pivot_alias_sql . '.' . $this->quote_identifier( $through_columns[ $i ] )
+				. ' = ' . $caller->get_quoted_column_name_aliased( $local_col );
+		}
+
+		// Hop 2 correlation: target.references = pivot.through_references.
+		$hop2_pairs = array();
+
+		foreach ( $references as $i => $ref_col ) {
+			$hop2_pairs[] = $target_alias_sql . '.' . $this->quote_identifier( $ref_col )
+				. ' = ' . $pivot_alias_sql . '.' . $this->quote_identifier( $through_references[ $i ] );
+		}
+
+		// Inner EXISTS: a target row the pivot points at, satisfying the conditions.
+		$inner_where = ( '' === $conditions )
+			? $hop2_pairs
+			: array_merge( $hop2_pairs, array( $conditions ) );
+
+		$inner = 'EXISTS ( SELECT 1 FROM ' . $target_table_sql . ' AS ' . $target_alias_sql
+			. ' WHERE ' . \BerlinDB\Database\Clauses\BooleanGroup::combine( 'AND', $inner_where ) . ' )';
+
+		// Outer (NOT) EXISTS: a pivot row for this row whose target satisfies the inner.
+		$outer_where     = array_merge( $hop1_pairs, array( $inner ) );
+		$exists_positive = ! array_key_exists( 'exists', $clause_args ) || (bool) $clause_args[ 'exists' ];
+		$keyword         = ( true === $exists_positive )
+			? 'EXISTS'
+			: 'NOT EXISTS';
+
+		$exists = $keyword . ' ( SELECT 1 FROM ' . $pivot_table_sql . ' AS ' . $pivot_alias_sql
+			. ' WHERE ' . \BerlinDB\Database\Clauses\BooleanGroup::combine( 'AND', $outer_where ) . ' )';
 
 		return array(
 			'join'  => '',
