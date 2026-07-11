@@ -18,7 +18,6 @@ services:
       DB_PASS: "wordpress"
       WP_VERSION: "${WP_VERSION:-6.7}"
       SKIP_DB_CREATE: "${SKIP_DB_CREATE:-false}"
-      PHPUNIT_ARGS: "${PHPUNIT_ARGS:-}"
       WP_CORE_DIR: "/app/.cache/wp-core"
       WP_TESTS_DIR: "/app/.cache/wordpress-tests-lib"
       HTTP_PROXY: "${HTTP_PROXY:-}"

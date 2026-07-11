@@ -10,6 +10,10 @@ Notable changes to BerlinDB are documented here.
   subgroup meant as `( a AND b )` under an `OR` parent wrongly rendered `( a OR b )`. A
   relation-less subgroup now defaults to a neutral AND, matching WP_Meta_Query semantics
   (pre-existing since 3.0); a subgroup that declares its own relation still keeps it.
+  UPGRADE NOTE: a plugin that passes a nested `meta_query` / `date_query` subgroup without an
+  explicit `relation` will see its generated SQL change from `OR` to `AND` for that subgroup -
+  the corrected, WP-consistent behavior. Add an explicit `'relation' => 'OR'` to any subgroup
+  that genuinely relied on the old (incorrect) OR combining.
 - Filters two or more relationship hops out via a nested `relation` clause (#211 Lever D). A
   `relation` clause whose own `relation` key holds another clause (an ARRAY, not the `AND`/`OR`
   boolean string) filters down the chain (`order -> customer -> region -> country`), each hop

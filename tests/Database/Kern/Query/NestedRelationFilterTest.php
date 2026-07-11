@@ -113,7 +113,48 @@ class NrfCustomerSchema extends Schema {
 			),
 		),
 		array(
+			'name'          => 'tier_id',
+			'type'          => 'bigint',
+			'length'        => '20',
+			'unsigned'      => true,
+			'default'       => 0,
+			'relationships' => array(
+				array(
+					'name'   => 'tier',
+					'query'  => NrfTierQuery::class,
+					'column' => 'id',
+					'type'   => 'belongs_to',
+				),
+			),
+		),
+		array(
 			'name'    => 'status',
+			'type'    => 'varchar',
+			'length'  => '20',
+			'default' => '',
+		),
+	);
+	public $indexes = array(
+		array(
+			'type'    => 'primary',
+			'columns' => array( 'id' ),
+		),
+	);
+}
+
+/** Tier: a SECOND belongs_to on customer, so a nested `relation` LIST (region AND tier) has data. */
+class NrfTierSchema extends Schema {
+	public $columns = array(
+		array(
+			'name'      => 'id',
+			'type'      => 'bigint',
+			'length'    => '20',
+			'unsigned'  => true,
+			'extra'     => 'auto_increment',
+			'cache_key' => true,
+		),
+		array(
+			'name'    => 'code',
 			'type'    => 'varchar',
 			'length'  => '20',
 			'default' => '',
@@ -166,6 +207,10 @@ class NrfCountryRow extends Row {
 	public $id   = 0;
 	public $code = '';
 }
+class NrfTierRow extends Row {
+	public $id   = 0;
+	public $code = '';
+}
 class NrfRegionRow extends Row {
 	public $id         = 0;
 	public $code       = '';
@@ -174,6 +219,7 @@ class NrfRegionRow extends Row {
 class NrfCustomerRow extends Row {
 	public $id        = 0;
 	public $region_id = 0;
+	public $tier_id   = 0;
 	public $status    = '';
 }
 class NrfOrderRow extends Row {
@@ -190,6 +236,16 @@ class NrfCountryQuery extends Query {
 	protected $item_name_plural = 'nrf_countries';
 	protected $item_shape       = NrfCountryRow::class;
 	protected $cache_group      = 'berlindb-nrf-country';
+}
+class NrfTierQuery extends Query {
+	protected $prefix           = 'berlindb';
+	protected $table_name       = 'nrf_tier_test';
+	protected $table_alias      = 'nrft';
+	protected $table_schema     = NrfTierSchema::class;
+	protected $item_name        = 'nrf_tier';
+	protected $item_name_plural = 'nrf_tiers';
+	protected $item_shape       = NrfTierRow::class;
+	protected $cache_group      = 'berlindb-nrf-tier';
 }
 class NrfRegionQuery extends Query {
 	protected $prefix           = 'berlindb';
@@ -227,6 +283,11 @@ class NrfCountryTable extends Table {
 	protected $name    = 'berlindb_nrf_country_test';
 	protected $version = '202607090';
 }
+class NrfTierTable extends Table {
+	protected $schema  = NrfTierSchema::class;
+	protected $name    = 'berlindb_nrf_tier_test';
+	protected $version = '202607090';
+}
 class NrfRegionTable extends Table {
 	protected $schema  = NrfRegionSchema::class;
 	protected $name    = 'berlindb_nrf_region_test';
@@ -253,6 +314,9 @@ class NestedRelationFilterTest extends TestCase {
 	/** @var NrfCountryTable */
 	private static $country_table;
 
+	/** @var NrfTierTable */
+	private static $tier_table;
+
 	/** @var NrfRegionTable */
 	private static $region_table;
 
@@ -265,6 +329,9 @@ class NestedRelationFilterTest extends TestCase {
 	/** @var NrfCountryQuery */
 	private static $countries;
 
+	/** @var NrfTierQuery */
+	private static $tiers;
+
 	/** @var NrfRegionQuery */
 	private static $regions;
 
@@ -275,7 +342,7 @@ class NestedRelationFilterTest extends TestCase {
 	private static $orders;
 
 	/**
-	 * Install the four tables.
+	 * Install the five tables.
 	 *
 	 * @since 3.1.0
 	 */
@@ -285,6 +352,10 @@ class NestedRelationFilterTest extends TestCase {
 		self::$country_table = new NrfCountryTable();
 		if ( ! self::$country_table->exists() ) {
 			self::$country_table->install();
+		}
+		self::$tier_table = new NrfTierTable();
+		if ( ! self::$tier_table->exists() ) {
+			self::$tier_table->install();
 		}
 		self::$region_table = new NrfRegionTable();
 		if ( ! self::$region_table->exists() ) {
@@ -300,6 +371,7 @@ class NestedRelationFilterTest extends TestCase {
 		}
 
 		self::$countries = new NrfCountryQuery();
+		self::$tiers     = new NrfTierQuery();
 		self::$regions   = new NrfRegionQuery();
 		self::$customers = new NrfCustomerQuery();
 		self::$orders    = new NrfOrderQuery();
@@ -317,6 +389,7 @@ class NestedRelationFilterTest extends TestCase {
 		self::$customer_table->delete_all();
 		self::$region_table->delete_all();
 		self::$country_table->delete_all();
+		self::$tier_table->delete_all();
 		wp_cache_flush();
 	}
 
@@ -330,6 +403,7 @@ class NestedRelationFilterTest extends TestCase {
 		self::$customer_table->uninstall();
 		self::$region_table->uninstall();
 		self::$country_table->uninstall();
+		self::$tier_table->uninstall();
 		parent::tearDownAfterClass();
 	}
 
@@ -337,6 +411,9 @@ class NestedRelationFilterTest extends TestCase {
 	 * Seed: EU/active customer, US/active customer, EU/inactive customer, each with
 	 * one order. Each region belongs_to a country (EU -> EUR, US -> USA) so the
 	 * three-hop chain (order -> customer -> region -> country) has data to match.
+	 * Each customer also belongs_to a tier (gold/silver) - a SECOND relationship, so
+	 * a nested `relation` LIST (region AND tier) has something to distinguish:
+	 * eu_active is EU+gold, us_active is US+gold, eu_inactive is EU+silver.
 	 * Returns the three order ids keyed by their customer's shape.
 	 *
 	 * @since 3.1.0
@@ -346,6 +423,9 @@ class NestedRelationFilterTest extends TestCase {
 	private function seed(): array {
 		$eur = self::$countries->add_item( array( 'code' => 'EUR' ) );
 		$usa = self::$countries->add_item( array( 'code' => 'USA' ) );
+
+		$gold   = self::$tiers->add_item( array( 'code' => 'gold' ) );
+		$silver = self::$tiers->add_item( array( 'code' => 'silver' ) );
 
 		$eu = self::$regions->add_item(
 			array(
@@ -363,18 +443,21 @@ class NestedRelationFilterTest extends TestCase {
 		$cust_eu_active   = self::$customers->add_item(
 			array(
 				'region_id' => $eu,
+				'tier_id'   => $gold,
 				'status'    => 'active',
 			)
 		);
 		$cust_us_active   = self::$customers->add_item(
 			array(
 				'region_id' => $us,
+				'tier_id'   => $gold,
 				'status'    => 'active',
 			)
 		);
 		$cust_eu_inactive = self::$customers->add_item(
 			array(
 				'region_id' => $eu,
+				'tier_id'   => $silver,
 				'status'    => 'inactive',
 			)
 		);
@@ -589,5 +672,48 @@ class NestedRelationFilterTest extends TestCase {
 		);
 
 		$this->assertSame( array(), $ids );
+	}
+
+	/**
+	 * A nested `relation` that is a LIST of sibling clauses AND-s every hop: the
+	 * customer must satisfy BOTH the region hop AND the tier hop. This exercises the
+	 * list branch of build_relationship_exists (a `relation` array with no top-level
+	 * 'name' is a clause list, each an EXISTS AND-ed into the parent hop).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_nested_relation_list_ands_siblings() {
+		$o = $this->seed();
+
+		$ids = self::$orders->query(
+			array(
+				'relation' => array(
+					'name'     => 'customer',
+					'relation' => array(
+						/*
+						 * A LIST (no 'name' here) of sibling nested relationships: the
+						 * customer must be in the EU region AND the gold tier.
+						 */
+						array(
+							'name'  => 'region',
+							'where' => array( 'code' => 'EU' ),
+						),
+						array(
+							'name'  => 'tier',
+							'where' => array( 'code' => 'gold' ),
+						),
+					),
+				),
+				'fields'   => 'ids',
+				'orderby'  => 'id',
+				'order'    => 'ASC',
+			)
+		);
+
+		/*
+		 * Only the EU + gold customer's order: eu_inactive is EU + silver (fails tier),
+		 * us_active is US + gold (fails region).
+		 */
+		$this->assertSame( array( $o['eu_active'] ), array_map( 'intval', $ids ) );
 	}
 }

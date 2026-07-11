@@ -1272,4 +1272,48 @@ class DateParserTest extends TestCase {
 		$this->assertCount( 1, $results );
 		$this->assertSame( 'Beta Widget', $results[0]->name );
 	}
+
+	/**
+	 * A nested date_query subgroup with no explicit relation defaults to AND, even
+	 * under an OR parent - it does NOT inherit the parent's relation. Same shared
+	 * sanitize_query fix as the meta_query subgroup case, exercised on date_query.
+	 *
+	 * Rows: Alpha 2020-01-15, Beta 2021-06-01, Gamma 2022-03-10, Delta 2023-08-20,
+	 * Epsilon 2024-12-31. The subgroup ( after 2023-01-01 AND before 2024-01-01 )
+	 * matches only Delta; the OR parent also admits Alpha via ( before 2020-06-01 ).
+	 * If the subgroup wrongly inherited OR, it would match all five rows.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_nested_subgroup_defaults_to_and_not_parent_relation() {
+		$results = self::$query->query(
+			array(
+				'date_query' => array(
+					'relation' => 'OR',
+					array(
+						'column' => 'date_created',
+						'before' => '2020-06-01',
+					),
+					array(
+						// Nested subgroup, NO explicit relation: must join with AND.
+						array(
+							'column' => 'date_created',
+							'after'  => '2023-01-01',
+						),
+						array(
+							'column' => 'date_created',
+							'before' => '2024-01-01',
+						),
+					),
+				),
+			)
+		);
+
+		$this->assertCount( 2, $results );
+
+		$names = wp_list_pluck( $results, 'name' );
+		$this->assertContains( 'Alpha Widget', $names );
+		$this->assertContains( 'Delta Gadget', $names );
+		$this->assertNotContains( 'Beta Widget', $names );
+	}
 }
