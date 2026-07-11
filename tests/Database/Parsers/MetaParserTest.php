@@ -1047,6 +1047,52 @@ class MetaParserTest extends TestCase {
 	}
 
 	/**
+	 * A nested subgroup with no explicit relation defaults to AND, even under an OR
+	 * parent - it does NOT inherit the parent's relation (WP_Meta_Query semantics).
+	 *
+	 * Regression: sanitize_query() defaulted a relation-less subgroup to the query's
+	 * TOP-LEVEL relation, so `( blue AND score )` wrongly rendered `( blue OR score )`.
+	 * Both by SQL structure and by result: Beta has blue + score=20 (not 10), so the
+	 * subgroup must exclude it (AND), while the OR still admits Alpha via color=red.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_nested_subgroup_defaults_to_and_not_parent_relation() {
+		global $wpdb;
+
+		self::$query->query(
+			array(
+				'meta_query' => array(
+					'relation' => 'OR',
+					array(
+						'key'   => 'berlindb_test_color',
+						'value' => 'red',
+					),
+					array(
+						// Nested subgroup, NO explicit relation: must join with AND.
+						array(
+							'key'   => 'berlindb_test_color',
+							'value' => 'blue',
+						),
+						array(
+							'key'   => 'berlindb_test_score',
+							'value' => '10',
+						),
+					),
+				),
+				'number'     => 5,
+			)
+		);
+
+		// Collapse whitespace so the boolean structure is assertable.
+		$sql = (string) preg_replace( '/\s+/', ' ', $wpdb->remove_placeholder_escape( self::$query->get_request() ) );
+
+		// The two subgroup members join with AND (not the parent's OR).
+		$this->assertStringContainsString( "'blue' ) AND (", $sql );
+		$this->assertStringNotContainsString( "'blue' ) OR (", $sql );
+	}
+
+	/**
 	 * Test that meta_query with count mode returns the correct count.
 	 *
 	 * @since 3.0.0

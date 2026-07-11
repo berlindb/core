@@ -443,15 +443,19 @@ trait Parser {
 			}
 
 			/*
-			 * A nested relationship clause reuses the 'relation' key with an ARRAY
-			 * value (the deeper hop), where meta/date queries only ever use the
-			 * AND/OR boolean STRING. That array belongs to the clause that declared
-			 * it: inheriting it into a child would make sanitize_query recurse into
-			 * it, whose child would re-inherit it, ad infinitum. Only a STRING
-			 * 'relation' is a group directive safe to inherit.
+			 * 'relation' is a PER-GROUP directive that must NOT be inherited: a
+			 * subgroup with no explicit relation defaults to a neutral AND
+			 * (WP_Meta_Query semantics), so `( a AND b )` under an OR parent does not
+			 * become `( a OR b )`. Both inheritance sources are wrong here - the
+			 * parent group's relation, AND the default ($dvalue), which is
+			 * $this->relation (the TOP-LEVEL query's relation, e.g. 'OR'). Forcing a
+			 * literal AND also stops a nested relationship clause's ARRAY 'relation'
+			 * (the deeper hop) from propagating into every child and recursing without
+			 * end. A subgroup that declares its own relation keeps it (the isset skip
+			 * above), so only relation-less subgroups are defaulted here.
 			 */
-			if ( ( 'relation' === $dkey ) && isset( $parent_query[ $dkey ] ) && ! is_string( $parent_query[ $dkey ] ) ) {
-				$queries[ $dkey ] = $dvalue;
+			if ( 'relation' === $dkey ) {
+				$queries[ $dkey ] = 'AND';
 
 				continue;
 			}

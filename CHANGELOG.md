@@ -4,6 +4,12 @@ Notable changes to BerlinDB are documented here.
 
 ## 3.1.0 - Unreleased
 
+- Fixes a nested clause subgroup with no explicit `relation` defaulting to the query's
+  TOP-LEVEL relation instead of AND. `sanitize_query()` seeded a relation-less subgroup's
+  default from `$this->relation` (the top-level AND/OR), so a `meta_query` / `date_query`
+  subgroup meant as `( a AND b )` under an `OR` parent wrongly rendered `( a OR b )`. A
+  relation-less subgroup now defaults to a neutral AND, matching WP_Meta_Query semantics
+  (pre-existing since 3.0); a subgroup that declares its own relation still keeps it.
 - Filters two or more relationship hops out via a nested `relation` clause (#211 Lever D). A
   `relation` clause whose own `relation` key holds another clause (an ARRAY, not the `AND`/`OR`
   boolean string) filters down the chain (`order -> customer -> region -> country`), each hop
