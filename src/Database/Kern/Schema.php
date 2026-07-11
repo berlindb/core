@@ -1893,6 +1893,41 @@ class Schema {
 			}
 
 			/*
+			 * An enforced ON DELETE / ON UPDATE SET NULL needs the local column(s) to be
+			 * nullable, or MySQL rejects the emitted FOREIGN KEY (see #205 for the opt-in
+			 * FK DDL rollout). The Relationship value object holds only column NAMES, so
+			 * this check - which needs each Column's allow_null - lives here in schema
+			 * context. Remote-column existence is validated separately in Query context
+			 * (Query::get_relationship_errors()), which can resolve the remote schema.
+			 */
+			if (
+				$relationship->is_foreign_key()
+				&& ( ( 'SET NULL' === $relationship->on_delete ) || ( 'SET NULL' === $relationship->on_update ) )
+			) {
+				/*
+				 * A primary-key column is implicitly NOT NULL to MySQL regardless of its
+				 * allow_null (via the primary flag OR a PRIMARY index), so SET NULL is
+				 * rejected on it too - fold both primary-key sources into the check.
+				 */
+				$pk_columns = array_merge(
+					array_map( array( $this, 'sanitize_index_name' ), $primary_columns ),
+					$primary_index_columns
+				);
+
+				foreach ( $relationship->columns as $local_column ) {
+					$column_object = $this->get_column( $local_column );
+
+					$is_nullable = ( $column_object instanceof Column )
+						&& ( true === $column_object->allow_null )
+						&& ! in_array( $this->sanitize_index_name( $local_column ), $pk_columns, true );
+
+					if ( true !== $is_nullable ) {
+						$errors[] = "Relationship {$relationship_name} uses SET NULL but local column {$local_column} is not nullable.";
+					}
+				}
+			}
+
+			/*
 			 * A named remote query class must at least exist. Whether it is truly
 			 * a Query is checked in Query::get_relationship_errors() (which can
 			 * instantiate it); the empty-class case is covered by the shape check.

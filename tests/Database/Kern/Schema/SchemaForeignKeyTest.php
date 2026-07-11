@@ -182,4 +182,108 @@ class SchemaForeignKeyTest extends TestCase {
 		$this->assertSame( array(), $schema->get_foreign_key_strings() );
 		$this->assertStringNotContainsString( 'FOREIGN KEY', $schema->get_create_table_string() );
 	}
+
+	/**
+	 * Build a schema whose enforced belongs_to uses ON DELETE SET NULL, with the local
+	 * (foreign-key) column's nullability controlled - to exercise the "SET NULL needs a
+	 * nullable local column" validation (see #205 for the opt-in FK DDL rollout).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param bool $nullable Whether the local column allows null.
+	 * @return Schema
+	 */
+	private function schema_with_set_null( bool $nullable ): Schema {
+		return new Schema(
+			array(
+				'columns' => array(
+					array(
+						'name'    => 'id',
+						'type'    => 'bigint',
+						'primary' => true,
+					),
+					array(
+						'name'          => 'widget_id',
+						'type'          => 'bigint',
+						'allow_null'    => $nullable,
+						'relationships' => array(
+							array(
+								'type'      => 'belongs_to',
+								'query'     => TestQuery::class,
+								'column'    => 'id',
+								'enforce'   => true,
+								'on_delete' => 'SET NULL',
+							),
+						),
+					),
+				),
+			)
+		);
+	}
+
+	/**
+	 * An enforced ON DELETE SET NULL on a NON-nullable local column is a validation
+	 * error - MySQL would reject the emitted FOREIGN KEY (#205).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_set_null_on_non_nullable_local_column_is_a_validation_error() {
+		$errors = implode( ' | ', $this->schema_with_set_null( false )->get_validation_errors() );
+
+		$this->assertStringContainsString( 'SET NULL', $errors );
+		$this->assertStringContainsString( 'widget_id', $errors );
+	}
+
+	/**
+	 * The same SET NULL on a NULLABLE, non-primary local column is fully valid.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_set_null_on_nullable_local_column_is_valid() {
+		$this->assertSame(
+			array(),
+			$this->schema_with_set_null( true )->get_validation_errors()
+		);
+	}
+
+	/**
+	 * A local column in the PRIMARY KEY is implicitly NOT NULL to MySQL even when it
+	 * declares allow_null => true, so an enforced SET NULL on it is still a validation
+	 * error (#205). Guards the primary-key false negative.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_set_null_on_primary_key_local_column_is_a_validation_error() {
+		$schema = new Schema(
+			array(
+				'columns' => array(
+					array(
+						'name'          => 'widget_id',
+						'type'          => 'bigint',
+						'allow_null'    => true,
+						'relationships' => array(
+							array(
+								'type'      => 'belongs_to',
+								'query'     => TestQuery::class,
+								'column'    => 'id',
+								'enforce'   => true,
+								'on_delete' => 'SET NULL',
+							),
+						),
+					),
+				),
+				'indexes' => array(
+					array(
+						'type'    => 'primary',
+						'columns' => array( 'widget_id' ),
+					),
+				),
+			)
+		);
+
+		$errors = implode( ' | ', $schema->get_validation_errors() );
+
+		$this->assertStringContainsString( 'SET NULL', $errors );
+		$this->assertStringContainsString( 'widget_id', $errors );
+	}
 }
