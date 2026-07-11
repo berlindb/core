@@ -446,13 +446,11 @@ trait Parser {
 			 * 'relation' is a PER-GROUP directive that must NOT be inherited: a
 			 * subgroup with no explicit relation defaults to a neutral AND
 			 * (WP_Meta_Query semantics), so `( a AND b )` under an OR parent does not
-			 * become `( a OR b )`. Both inheritance sources are wrong here - the
-			 * parent group's relation, AND the default ($dvalue), which is
-			 * $this->relation (the TOP-LEVEL query's relation, e.g. 'OR'). Forcing a
-			 * literal AND also stops a nested relationship clause's ARRAY 'relation'
-			 * (the deeper hop) from propagating into every child and recursing without
-			 * end. A subgroup that declares its own relation keeps it (the isset skip
-			 * above), so only relation-less subgroups are defaulted here.
+			 * become `( a OR b )`. Both inheritance sources are wrong here - the parent
+			 * group's relation, AND the default ($dvalue), which is $this->relation (the
+			 * TOP-LEVEL query's relation, e.g. 'OR'). A subgroup that declares its own
+			 * relation keeps it (the isset skip above), so only relation-less subgroups
+			 * are defaulted here.
 			 */
 			if ( 'relation' === $dkey ) {
 				$queries[ $dkey ] = 'AND';
@@ -478,10 +476,12 @@ trait Parser {
 		foreach ( $queries as $key => $query ) {
 
 			/*
-			 * Set the boolean relation. Only a STRING 'relation' is the AND/OR
-			 * directive; a non-string (e.g. a nested relationship clause array, which
-			 * reuses the 'relation' key one hop deeper) is left to recurse below,
-			 * matching the is_string guard get_clause_relation() already applies.
+			 * Set the boolean relation. Only a STRING 'relation' is the AND/OR/XOR
+			 * directive. The is_string guard is defensive: the Relationship parser owns
+			 * nested `relation` ARRAYS through its own builder and never routes them
+			 * here, so this sanitizer only meets string relations - but a malformed or
+			 * misconfigured caller could still pass a non-string, which is ignored
+			 * rather than handed to strtoupper().
 			 */
 			if ( ( 'relation' === $key ) && is_string( $query ) ) {
 				$relation = strtoupper( $query );
@@ -529,14 +529,6 @@ trait Parser {
 			// XOR joins clauses exclusively ( never treated as an OR combine ).
 		} elseif ( 'XOR' === $relation ) {
 			$retval[ 'relation' ] = 'XOR';
-
-			/*
-			* If there is only a single clause, call the relation 'OR'.
-			* This value will not actually be used to join clauses, but it
-			* simplifies the logic around combining key-only queries.
-			*/
-		} elseif ( 1 === count( $retval ) ) {
-			$retval[ 'relation' ] = 'OR';
 
 			// Default to AND.
 		} else {

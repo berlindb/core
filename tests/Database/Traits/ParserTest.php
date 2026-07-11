@@ -89,4 +89,32 @@ class ParserTest extends TestCase {
 		$this->assertSame( 'status', $result[1]['key'] );
 		$this->assertSame( 'active', $result[1]['value'] );
 	}
+
+	/**
+	 * A single first-order clause with no explicit relation sanitizes to relation
+	 * 'AND', not 'OR'.
+	 *
+	 * Characterizes the removal of the old "1 === count( $retval ) => OR" branch: it
+	 * could never fire because the injected defaults (now/column/compare/relation/
+	 * start_of_week) push $retval past one entry, so the else (AND) always won. This
+	 * locks that a lone clause keeps AND before and after that dead branch is dropped.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_sanitize_query_single_clause_defaults_to_and_not_or() {
+		$parser = new ParserTestSubject();
+		$parser->expose_set_first_keys( array( 'key', 'value' ) );
+
+		$result = $parser->expose_sanitize_query(
+			array(
+				array(
+					'key'   => 'status',
+					'value' => 'active',
+				),
+			)
+		);
+
+		$this->assertSame( 'AND', $result[ 'relation' ] );
+		$this->assertFalse( $parser->has_or_relation() );
+	}
 }

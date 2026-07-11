@@ -139,6 +139,28 @@ class Relationship extends Base {
 	}
 
 	/**
+	 * This parser does not use the generic sanitized-queries bag.
+	 *
+	 * A relationship filter is built directly from the raw relation_query clause tree
+	 * (get_join_where_clauses() -> build_clause_group() -> the correlated EXISTS
+	 * builder), never through the shared get_sql_for_query() pipeline that reads
+	 * $this->queries. So the base sanitize_query() would only spend work recursing into
+	 * a nested `relation` array (the deeper hop) to produce a bag nothing reads - and
+	 * force the generic sanitizer to understand that array shape at all. Skipping it
+	 * keeps nested-relationship handling wholly owned by this parser and lets the
+	 * generic sanitize_query() concern itself only with AND/OR/XOR string relations.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string|int,mixed> $queries      Unused - this parser builds from relation_query.
+	 * @param array<string|int,mixed> $parent_query Unused.
+	 * @return array<string|int,mixed> Always empty.
+	 */
+	protected function sanitize_query( $queries = array(), $parent_query = array() ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter
+		return array();
+	}
+
+	/**
 	 * Translate the high-level 'relation' directive into canonical query vars.
 	 *
 	 * The early, all-vars normalizer (run before parsing). Reads the 'relation'

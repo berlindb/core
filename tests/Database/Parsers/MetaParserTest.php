@@ -1110,8 +1110,14 @@ class MetaParserTest extends TestCase {
 			array(
 				'meta_query' => array(
 					'relation' => 'OR',
-					array( 'key' => 'berlindb_test_color', 'value' => 'red' ),
-					array( 'key' => 'berlindb_test_color', 'value' => 'blue' ),
+					array(
+						'key'   => 'berlindb_test_color',
+						'value' => 'red',
+					),
+					array(
+						'key'   => 'berlindb_test_color',
+						'value' => 'blue',
+					),
 				),
 			)
 		);
@@ -1141,8 +1147,14 @@ class MetaParserTest extends TestCase {
 			array(
 				'meta_query'    => array(
 					'relation' => 'OR',
-					array( 'key' => 'berlindb_test_color', 'value' => 'red' ),
-					array( 'key' => 'berlindb_test_color', 'value' => 'blue' ),
+					array(
+						'key'   => 'berlindb_test_color',
+						'value' => 'red',
+					),
+					array(
+						'key'   => 'berlindb_test_color',
+						'value' => 'blue',
+					),
 				),
 				'number'        => 1,
 				'no_found_rows' => false,
@@ -1167,8 +1179,14 @@ class MetaParserTest extends TestCase {
 			array(
 				'meta_query' => array(
 					'relation' => 'OR',
-					array( 'key' => 'berlindb_test_color', 'value' => 'red' ),
-					array( 'key' => 'berlindb_test_color', 'value' => 'blue' ),
+					array(
+						'key'   => 'berlindb_test_color',
+						'value' => 'red',
+					),
+					array(
+						'key'   => 'berlindb_test_color',
+						'value' => 'blue',
+					),
 				),
 				'count'      => true,
 			)
