@@ -59,19 +59,22 @@ trait Clauses {
 		$join_where = $this->parse_join_where( $r );
 
 		/*
-		 * An OR relation across JOIN-emitting clauses (e.g. an OR meta_query) can match
-		 * one base row through more than one joined row and DUPLICATE it. When the query
-		 * vars carry an OR relation anywhere AND a JOIN was emitted - and the caller
-		 * asked for no grouping of its own - group by the primary key to dedupe,
-		 * mirroring WP_Query's meta_query->has_or_relation() handling. The decision is
-		 * stored so the count paths dedupe the total the same way (COUNT(DISTINCT
-		 * primary)) instead of over-counting the fanned-out rows. A date-only OR never
-		 * joins, so it never trips this. WP's wpdb drops ONLY_FULL_GROUP_BY, so GROUP BY
-		 * primary is safe alongside any ORDER BY (unlike SELECT DISTINCT).
+		 * A boolean OR/XOR relation across JOIN-emitting clauses (e.g. an OR meta_query)
+		 * can DUPLICATE a base row: each clause gets its own JOIN alias, and OR/XOR let
+		 * different clauses match on different joined rows for the SAME base row. AND does
+		 * not fan out that way (every clause must match), so this targets exactly the case
+		 * WP_Query's meta_query->has_or_relation() dedupes - not the separate, unusual case
+		 * of one clause matching several identical joined rows. When the query vars carry
+		 * such a relation anywhere AND a JOIN was emitted - and the caller asked for no
+		 * grouping of its own - group by the primary key to dedupe. The decision is stored
+		 * so the count paths dedupe the total the same way (COUNT(DISTINCT primary))
+		 * instead of over-counting the fanned-out rows. A date-only OR never joins, so it
+		 * never trips this. WP's wpdb drops ONLY_FULL_GROUP_BY, so GROUP BY primary is safe
+		 * alongside any ORDER BY (unlike SELECT DISTINCT).
 		 */
 		$dedupe_or_join = empty( $r[ 'groupby' ] )
 			&& ! empty( $join_where[ 'join' ] )
-			&& $this->query_vars_have_or_relation( $r );
+			&& $this->query_vars_have_dupe_relation( $r );
 		$this->set_current( 'dedupe_or_join', $dedupe_or_join );
 
 		// In row mode, the dedupe groups by the primary key; count mode uses COUNT(DISTINCT).
@@ -99,27 +102,33 @@ trait Clauses {
 	}
 
 	/**
-	 * Whether the query vars carry an OR relation anywhere in their clause tree.
+	 * Whether the query vars carry a duplicating boolean relation (OR or XOR) anywhere.
 	 *
-	 * A pure recursive scan of the (multidimensional) vars for a `'relation' => 'OR'`
-	 * leaf at any depth - meta_query, date_query, compare_query, a nested subgroup, a
-	 * relation_query group. Case-insensitive to match the sanitizer. Used with
-	 * "a JOIN was emitted" to decide primary-key dedupe grouping (see
-	 * parse_query_vars()). Iterating leaves lets it stop at the first OR.
+	 * A pure recursive scan of the (multidimensional) vars for a `'relation' => 'OR'` or
+	 * `'relation' => 'XOR'` leaf at any depth - meta_query, date_query, compare_query, a
+	 * nested subgroup, a relation_query group. Both OR and XOR combine JOIN-fanned
+	 * clauses, so a base row can match through more than one joined row (AND cannot).
+	 * Case-insensitive to match the sanitizer. Used with "a JOIN was emitted" to decide
+	 * primary-key dedupe grouping (see parse_query_vars()). Iterating leaves lets it stop
+	 * at the first hit.
 	 *
 	 * @since 3.1.0
 	 *
 	 * @param array<string|int,mixed> $query_vars The parsed query vars to scan.
 	 * @return bool
 	 */
-	private function query_vars_have_or_relation( array $query_vars ): bool {
+	private function query_vars_have_dupe_relation( array $query_vars ): bool {
 		$leaves = new \RecursiveIteratorIterator(
 			new \RecursiveArrayIterator( $query_vars )
 		);
 
 		foreach ( $leaves as $key => $value ) {
-			if ( ( 'relation' === $key ) && is_string( $value ) && ( 'OR' === strtoupper( $value ) ) ) {
-				return true;
+			if ( ( 'relation' === $key ) && is_string( $value ) ) {
+				$relation = strtoupper( $value );
+
+				if ( ( 'OR' === $relation ) || ( 'XOR' === $relation ) ) {
+					return true;
+				}
 			}
 		}
 

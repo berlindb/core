@@ -1196,6 +1196,43 @@ class MetaParserTest extends TestCase {
 	}
 
 	/**
+	 * An XOR meta_query must not return a base row more than once either - XOR, like
+	 * OR, combines JOIN-fanned clauses, so a row matching through several joined rows
+	 * would otherwise repeat (Alpha x4, Beta x2 before the dedupe covered XOR).
+	 *
+	 * This asserts the no-duplicate-rows invariant only. The exact XOR-of-existence
+	 * semantics over a fanned JOIN are separately fuzzy (a row with BOTH values still
+	 * matches some join combinations) and match WP_Meta_Query - not something dedupe
+	 * changes.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_xor_meta_query_does_not_duplicate_rows() {
+		add_metadata( 'post', $this->ids[0], 'berlindb_test_color', 'blue' );
+		wp_cache_flush();
+
+		$results = self::$query->query(
+			array(
+				'meta_query' => array(
+					'relation' => 'XOR',
+					array(
+						'key'   => 'berlindb_test_color',
+						'value' => 'red',
+					),
+					array(
+						'key'   => 'berlindb_test_color',
+						'value' => 'blue',
+					),
+				),
+			)
+		);
+
+		// No base row appears more than once.
+		$names = wp_list_pluck( $results, 'name' );
+		$this->assertSame( array_values( array_unique( $names ) ), array_values( $names ) );
+	}
+
+	/**
 	 * Test that meta_query with count mode returns the correct count.
 	 *
 	 * @since 3.0.0
