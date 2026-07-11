@@ -298,7 +298,10 @@ class Relationship {
 		/*
 		 * A pivot (through) class is exclusive to many_to_many, so its presence
 		 * settles the type - the shape is enough, no need to also state
-		 * type => 'many_to_many'. An explicit type still works.
+		 * type => 'many_to_many'. An explicit type still works, and this shape
+		 * signal is authoritative: it also overrides a present-but-rejected type
+		 * (sanitize_type()'s ''), so a valid pivot is an unambiguous many_to_many
+		 * with no unknown-type error - the type string is redundant here.
 		 */
 		if ( '' !== $this->through ) {
 			$this->type = 'many_to_many';
@@ -359,6 +362,7 @@ class Relationship {
 	 * Schema, so local-column existence is validated by
 	 * Schema::get_validation_errors(), and remote resolution / remote-column
 	 * existence by Query::get_relationship_errors(). Checks here:
+	 * - Declares an unknown type (a present value sanitize_type() rejected to '').
 	 * - Declares no local columns.
 	 * - Missing remote query class.
 	 * - Declares no remote columns (references).
@@ -375,6 +379,11 @@ class Relationship {
 		$label = ( '' !== $this->name )
 			? $this->name
 			: '(unnamed)';
+
+		// A present but unrecognized type was rejected to '' by sanitize_type().
+		if ( ! in_array( $this->type, self::TYPES, true ) ) {
+			$errors[] = "Relationship {$label} declares an unknown type.";
+		}
 
 		// Must declare at least one local column.
 		if ( empty( $this->columns ) ) {
@@ -552,12 +561,21 @@ class Relationship {
 	 * @since 3.1.0
 	 *
 	 * @param string $type Relationship type.
-	 * @return string 'belongs_to', 'has_many', or 'many_to_many'. Defaults to 'belongs_to'.
+	 * @return string A recognized type, or '' when a present value is unrecognized.
 	 */
 	private function sanitize_type( $type = '' ): string {
+
+		/*
+		 * Reject-not-mutate, to match Column::sanitize_relationships(): a present
+		 * but unrecognized type resolves to '' (flagged by get_validation_errors())
+		 * rather than being silently coerced to belongs_to (#206). An OMITTED type
+		 * never reaches here - validate_args() only runs this callback for a supplied
+		 * key, so the property default ('belongs_to') stands - and a set $through
+		 * still infers many_to_many in init(), which runs after this.
+		 */
 		return in_array( $type, self::TYPES, true )
 			? (string) $type
-			: 'belongs_to';
+			: '';
 	}
 
 	/**

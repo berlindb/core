@@ -92,11 +92,21 @@ owning schema):
   columns exist. On demand by design — call it from your tests or dev tooling.
 
 Malformed shorthand declarations are dropped by `Column::sanitize_relationships()`
-(fail-closed) and logged inline with stable codes (`relationship_invalid_query_class`,
-`relationship_invalid_type`, …) at the point of rejection. Such diagnostics survive
-construction because `configure()` excludes the reserved construction-machinery vars
-(`get_reserved_vars()` — the log store among them) from the property snapshot it
-merges over, so `set_vars()` cannot reset the log a sanitizer just wrote to.
+(fail-closed, **reject-not-mutate** — a typo'd `type`/`query`/`column` drops the whole
+declaration rather than coercing it to something real) and logged inline with stable
+codes (`relationship_invalid_query_class`, `relationship_invalid_type`, …) at the point
+of rejection. Such diagnostics survive construction because `configure()` excludes the
+reserved construction-machinery vars (`get_reserved_vars()` — the log store among them)
+from the property snapshot it merges over, so `set_vars()` cannot reset the log a
+sanitizer just wrote to. `Schema::get_validation_errors()` also **reads those drop
+warnings back** (`Column {name}: …`), so a dropped declaration surfaces in the
+validation errors — not only the log — and `is_valid()` catches the typo.
+
+The `Relationship` value object matches that reject-not-mutate stance: a directly-passed
+unrecognized `type` (`new Relationship( array( 'type' => 'nonsense' ) )`) resolves to `''`
+and is flagged by `Relationship::get_validation_errors()`, rather than silently coercing
+to `belongs_to`. An **omitted** type still defaults to `belongs_to`, and a set `through`
+still infers `many_to_many`.
 
 ## Presets
 

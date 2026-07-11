@@ -4,6 +4,16 @@ Notable changes to BerlinDB are documented here.
 
 ## 3.1.0 - Unreleased
 
+- Surfaces DROPPED relationship declarations in `Schema::get_validation_errors()` (#206). A
+  shorthand declaration the `Column` sanitizer rejects (unknown `type`, missing `query`/`column`,
+  invalid class) is dropped fail-closed and was only visible in the structured log; the schema
+  validation surface now reads those `relationship_`-coded warnings back (`Column {name}: …`), so
+  `is_valid()` catches a typo'd declaration instead of it vanishing silently. Also aligns the
+  `Relationship` value object with the same reject-not-mutate stance: a directly-passed unrecognized
+  `type` now resolves to `''` and is flagged by `Relationship::get_validation_errors()` rather than
+  silently coercing to `belongs_to` (an omitted `type` still defaults to `belongs_to`; a set
+  `through` still infers `many_to_many`). Deep remote validation (`Query::get_relationship_errors()`,
+  resolving the remote Query and its columns) was already in place.
 - Fixes an `OR` `meta_query` returning DUPLICATE rows when a base row matches more than one OR
   branch through multiple meta rows. The per-clause INNER JOINs fan the row out; the Query now
   groups by the primary key to dedupe in row mode (mirroring WP_Query's

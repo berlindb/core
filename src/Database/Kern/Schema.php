@@ -1858,6 +1858,22 @@ class Schema {
 		 * resolution (the class is truly a sibling Query, the remote columns
 		 * exist) needs Query context and lives in Query::get_relationship_errors().
 		 */
+		/*
+		 * Surface relationship declarations the Column sanitizer DROPPED (#206). A
+		 * typo'd shorthand (unknown type, missing query/column, invalid class) is
+		 * dropped reject-not-mutate at Column construction and never becomes a
+		 * Relationship, so it is invisible to the loop below. The drop is recorded
+		 * as a 'relationship_'-coded warning on the Column; read those back so
+		 * is_valid() reports the typo instead of it silently vanishing.
+		 */
+		foreach ( $this->get_columns() as $column ) {
+			foreach ( $column->get_logs( array( 'level' => 'warning' ) ) as $entry ) {
+				if ( str_starts_with( $entry['code'], 'relationship_' ) ) {
+					$errors[] = "Column {$column->name}: {$entry['message']}";
+				}
+			}
+		}
+
 		$relationship_names = array();
 
 		foreach ( $this->get_relationships() as $relationship ) {

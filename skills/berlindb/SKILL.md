@@ -198,8 +198,10 @@ Notes:
   composite, a named-but-missing remote query class); `$query->get_relationship_errors()`
   catches the remote side on demand (the class exists but isn't a `Query`, an unknown
   remote column) — call it from your tests or dev tooling. Malformed shorthand
-  declarations are dropped (fail-closed) and logged with a stable code (e.g.
-  `relationship_invalid_type`).
+  declarations are dropped (fail-closed, reject-not-mutate) and logged with a stable
+  code (e.g. `relationship_invalid_type`); `get_validation_errors()` also reads those
+  drop warnings back, so a typo'd declaration shows up there (not only in the log) and
+  `is_valid()` catches it.
 - Runtime relationship features (`get_related`, priming, `relation` filtering)
   are **single-column only** for now — one local key referencing one remote key.
 - Relationship filters **fail closed**: a misconfigured or empty-matching filter

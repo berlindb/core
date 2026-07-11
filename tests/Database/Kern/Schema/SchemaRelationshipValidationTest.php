@@ -71,6 +71,48 @@ class SchemaValGoodSchema extends Schema {
 	);
 }
 
+/** A column whose relationship shorthand names an unknown type; Column drops it. */
+class SchemaValDroppedTypeSchema extends Schema {
+	public $columns = array(
+		array(
+			'name'    => 'id',
+			'type'    => 'bigint',
+			'primary' => true,
+		),
+		array(
+			'name'          => 'remote_id',
+			'type'          => 'bigint',
+			'relationships' => array(
+				array(
+					'query'  => SchemaValRemoteQuery::class,
+					'column' => 'id',
+					'type'   => 'nonsense',
+				),
+			),
+		),
+	);
+}
+
+/** A column whose relationship shorthand omits the required 'query'; Column drops it. */
+class SchemaValDroppedMissingKeySchema extends Schema {
+	public $columns = array(
+		array(
+			'name'    => 'id',
+			'type'    => 'bigint',
+			'primary' => true,
+		),
+		array(
+			'name'          => 'remote_id',
+			'type'          => 'bigint',
+			'relationships' => array(
+				array(
+					'column' => 'id',
+				),
+			),
+		),
+	);
+}
+
 /** Two relationships sharing the same accessor name. */
 class SchemaValDuplicateSchema extends Schema {
 	public $columns = array(
@@ -267,5 +309,34 @@ class SchemaRelationshipValidationTest extends TestCase {
 		$schema = new SchemaValSelfShapeSchema();
 
 		$this->assertStringContainsString( 'missing a remote query class', implode( ' ', $schema->get_validation_errors() ) );
+	}
+
+	/**
+	 * A relationship shorthand the Column sanitizer dropped for an unknown type is
+	 * surfaced in the schema's validation errors, not silently swallowed (#206).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_dropped_invalid_type_declaration_is_surfaced() {
+		$schema = new SchemaValDroppedTypeSchema();
+		$errors = implode( ' ', $schema->get_validation_errors() );
+
+		$this->assertStringContainsString( 'Column remote_id', $errors );
+		$this->assertStringContainsString( 'unknown "type"', $errors );
+		$this->assertFalse( $schema->is_valid() );
+	}
+
+	/**
+	 * A relationship shorthand dropped for a missing required key is surfaced too.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_dropped_missing_key_declaration_is_surfaced() {
+		$schema = new SchemaValDroppedMissingKeySchema();
+		$errors = implode( ' ', $schema->get_validation_errors() );
+
+		$this->assertStringContainsString( 'Column remote_id', $errors );
+		$this->assertStringContainsString( 'missing a required', $errors );
+		$this->assertFalse( $schema->is_valid() );
 	}
 }

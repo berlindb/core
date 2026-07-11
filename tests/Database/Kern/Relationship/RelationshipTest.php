@@ -76,13 +76,21 @@ class RelationshipTest extends TestCase {
 	}
 
 	/**
-	 * Test that an unrecognized type falls back to belongs_to.
+	 * Test that a present but unrecognized type is REJECTED (reject-not-mutate):
+	 * it resolves to '' and is flagged by get_validation_errors(), rather than
+	 * being silently coerced to belongs_to (#206) - matching the Column shorthand,
+	 * which drops such a declaration outright.
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_invalid_type_falls_back_to_belongs_to() {
+	public function test_invalid_type_is_rejected() {
 		$relationship = new Relationship( array( 'type' => 'nonsense' ) );
-		$this->assertSame( 'belongs_to', $relationship->type );
+
+		$this->assertSame( '', $relationship->type );
+		$this->assertStringContainsString(
+			'unknown type',
+			implode( ' ', $relationship->get_validation_errors() )
+		);
 	}
 
 	/**
@@ -113,6 +121,28 @@ class RelationshipTest extends TestCase {
 			)
 		);
 		$this->assertSame( 'many_to_many', $relationship->type );
+	}
+
+	/**
+	 * A set `through` settles the type as many_to_many and takes precedence even
+	 * over a present-but-rejected type string: the pivot shape is authoritative, so
+	 * such a declaration is a valid many_to_many with no unknown-type error (#206).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_through_infers_many_to_many_over_a_rejected_type() {
+		$relationship = new Relationship(
+			array(
+				'type'    => 'nonsense',
+				'through' => 'BerlinDB\\Tests\\PivotQuery',
+			)
+		);
+
+		$this->assertSame( 'many_to_many', $relationship->type );
+		$this->assertStringNotContainsString(
+			'unknown type',
+			implode( ' ', $relationship->get_validation_errors() )
+		);
 	}
 
 	/**
