@@ -1093,6 +1093,91 @@ class MetaParserTest extends TestCase {
 	}
 
 	/**
+	 * An OR meta_query must NOT return a base row more than once when that row
+	 * matches more than one OR branch through multiple meta rows. The JOIN fans the
+	 * row out; the Query groups by the primary key to dedupe (like WP_Query).
+	 *
+	 * Alpha has color=red (setUp) plus color=blue added here, so it matches BOTH
+	 * OR branches; Beta matches via blue. The distinct result is { Alpha, Beta }.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_or_meta_query_does_not_duplicate_rows() {
+		add_metadata( 'post', $this->ids[0], 'berlindb_test_color', 'blue' );
+		wp_cache_flush();
+
+		$results = self::$query->query(
+			array(
+				'meta_query' => array(
+					'relation' => 'OR',
+					array( 'key' => 'berlindb_test_color', 'value' => 'red' ),
+					array( 'key' => 'berlindb_test_color', 'value' => 'blue' ),
+				),
+			)
+		);
+
+		$names = wp_list_pluck( $results, 'name' );
+
+		$this->assertCount( 2, $results );
+		$this->assertContains( 'Alpha Widget', $names );
+		$this->assertContains( 'Beta Widget', $names );
+
+		// Alpha exactly once (it matched both OR branches via two meta rows).
+		$this->assertSame( 1, count( array_keys( $names, 'Alpha Widget', true ) ) );
+	}
+
+	/**
+	 * The paginated found-rows total for a duplicating OR meta_query counts DISTINCT
+	 * base rows, not the fanned-out JOIN rows. With number=1 the max page count
+	 * equals the distinct total (2), not the inflated 3.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_or_meta_query_found_rows_is_deduped() {
+		add_metadata( 'post', $this->ids[0], 'berlindb_test_color', 'blue' );
+		wp_cache_flush();
+
+		self::$query->query(
+			array(
+				'meta_query'    => array(
+					'relation' => 'OR',
+					array( 'key' => 'berlindb_test_color', 'value' => 'red' ),
+					array( 'key' => 'berlindb_test_color', 'value' => 'blue' ),
+				),
+				'number'        => 1,
+				'no_found_rows' => false,
+			)
+		);
+
+		// 2 distinct rows at 1 per page = 2 pages (was 3 before the dedupe fix).
+		$this->assertSame( 2, (int) self::$query->get_max_num_pages() );
+	}
+
+	/**
+	 * A direct count of a duplicating OR meta_query returns the DISTINCT base-row
+	 * total (2), not the inflated JOIN-row count (3).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_or_meta_query_count_is_deduped() {
+		add_metadata( 'post', $this->ids[0], 'berlindb_test_color', 'blue' );
+		wp_cache_flush();
+
+		$count = self::$query->query(
+			array(
+				'meta_query' => array(
+					'relation' => 'OR',
+					array( 'key' => 'berlindb_test_color', 'value' => 'red' ),
+					array( 'key' => 'berlindb_test_color', 'value' => 'blue' ),
+				),
+				'count'      => true,
+			)
+		);
+
+		$this->assertSame( 2, (int) $count );
+	}
+
+	/**
 	 * Test that meta_query with count mode returns the correct count.
 	 *
 	 * @since 3.0.0

@@ -846,6 +846,23 @@ trait Parser {
 	}
 
 	/**
+	 * Whether this parser produced an OR relation anywhere in its clause tree.
+	 *
+	 * An OR across JOIN-emitting clauses (e.g. a meta_query) can match a base row
+	 * through more than one joined row and duplicate it. The consuming Query reads
+	 * this - together with whether the parser emitted a JOIN - to group by the
+	 * primary key and dedupe (mirroring WP_Query's meta_query->has_or_relation()).
+	 *
+	 * @since 3.1.0
+	 * @internal Query/Parser collaborator API.
+	 *
+	 * @return bool
+	 */
+	public function has_or_relation(): bool {
+		return $this->has_or_relation;
+	}
+
+	/**
 	 * Determines and validates what the current UNIX timestamp is.
 	 *
 	 * Use now if passed, or time().

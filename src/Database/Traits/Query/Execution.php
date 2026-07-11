@@ -553,15 +553,24 @@ trait Execution {
 		}
 
 		// Reuse the request clauses, overriding a few to make it a clean COUNT.
-		$r = $this->parse_args(
-			array(
-				'fields'   => $this->parse_count( true ),
-				'limits'   => '',
-				'orderby'  => '',
-				'distinct' => '',
-			),
-			$this->get_current_array( 'request_clauses' )
+		$overrides = array(
+			'fields'   => $this->parse_count( true ),
+			'limits'   => '',
+			'orderby'  => '',
+			'distinct' => '',
 		);
+
+		/*
+		 * When the row request applied the implicit primary-key dedupe grouping (an OR
+		 * relation across JOINs - see parse_query_vars()), parse_count() above already
+		 * switched to COUNT(DISTINCT primary). Drop the leftover GROUP BY too, or the
+		 * COUNT becomes per-group and get_var() reads only the first group's total.
+		 */
+		if ( $this->get_current( 'dedupe_or_join', false ) ) {
+			$overrides[ 'groupby' ] = '';
+		}
+
+		$r = $this->parse_args( $overrides, $this->get_current_array( 'request_clauses' ) );
 
 		// Build and filter the found-items query.
 		$query = $this->filter_found_items_query( $this->parse_request_clauses( $r ) );

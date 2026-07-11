@@ -58,6 +58,27 @@ trait Clauses {
 		// Parse $query_vars.
 		$join_where = $this->parse_join_where( $r );
 
+		/*
+		 * An OR relation across JOIN-emitting clauses (e.g. an OR meta_query) can match
+		 * one base row through more than one joined row and DUPLICATE it. When a parser
+		 * reported an OR relation AND a JOIN was emitted - and the caller asked for no
+		 * grouping of its own - group by the primary key to dedupe, mirroring
+		 * WP_Query's meta_query->has_or_relation() handling. The flag is stored so the
+		 * count paths dedupe the total the same way (COUNT(DISTINCT primary)) instead of
+		 * over-counting the fanned-out rows. A date-only OR never joins, so it never
+		 * trips this. WP's wpdb drops ONLY_FULL_GROUP_BY, so GROUP BY primary is safe
+		 * alongside any ORDER BY (unlike SELECT DISTINCT).
+		 */
+		$dedupe_or_join = empty( $r[ 'groupby' ] )
+			&& ! empty( $join_where[ 'join' ] )
+			&& $this->parsers_have_or_relation();
+		$this->set_current( 'dedupe_or_join', $dedupe_or_join );
+
+		// In row mode, the dedupe groups by the primary key; count mode uses COUNT(DISTINCT).
+		$groupby = ( $dedupe_or_join && empty( $r[ 'count' ] ) )
+			? $this->get_primary_column_name()
+			: $r[ 'groupby' ];
+
 		// Parse all clauses.
 		$clauses = array(
 			'explain'     => $this->parse_explain( $r[ 'explain' ] ),
@@ -68,13 +89,33 @@ trait Clauses {
 			'index_hints' => $this->parse_index_hints( $r[ 'index_hints' ] ),
 			'join'        => $this->parse_join_clause( $join_where[ 'join' ] ),
 			'where'       => $this->parse_where_clause( $join_where[ 'where' ] ),
-			'groupby'     => $this->parse_groupby( $r[ 'groupby' ], 'GROUP BY' ),
+			'groupby'     => $this->parse_groupby( $groupby, 'GROUP BY' ),
 			'orderby'     => $this->parse_orderby( $r[ 'orderby' ], $r[ 'order' ], 'ORDER BY' ),
 			'limits'      => $this->parse_limits( $r[ 'number' ], $r[ 'offset' ] ),
 		);
 
 		// Return clauses.
 		return $this->filter_query_clauses( $clauses );
+	}
+
+	/**
+	 * Whether any parser this run reported an OR relation (see parse_query_vars()).
+	 *
+	 * Read from the completed parser instances that parse_join_where_parsers() stored
+	 * in the current run state. Used to decide primary-key dedupe grouping.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return bool
+	 */
+	private function parsers_have_or_relation(): bool {
+		foreach ( (array) $this->get_current_array( 'parsers' ) as $parser ) {
+			if ( is_object( $parser ) && method_exists( $parser, 'has_or_relation' ) && $parser->has_or_relation() ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/**
@@ -414,6 +455,16 @@ trait Clauses {
 		// Maybe fallback to $query_vars.
 		if ( empty( $distinct ) ) {
 			$distinct = $this->get_query_var( 'distinct' );
+		}
+
+		/*
+		 * An OR relation across JOINs (e.g. an OR meta_query) fans a base row into
+		 * several joined rows; the row query groups by primary to dedupe, so the total
+		 * must count DISTINCT primary IDs too, or a bare COUNT(*) over-reports. See
+		 * parse_query_vars().
+		 */
+		if ( empty( $distinct ) && $this->get_current( 'dedupe_or_join', false ) ) {
+			$distinct = true;
 		}
 
 		/*

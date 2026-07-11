@@ -4,6 +4,13 @@ Notable changes to BerlinDB are documented here.
 
 ## 3.1.0 - Unreleased
 
+- Fixes an `OR` `meta_query` returning DUPLICATE rows when a base row matches more than one OR
+  branch through multiple meta rows. The per-clause INNER JOINs fan the row out; the Query now
+  groups by the primary key to dedupe in row mode (mirroring WP_Query's
+  `meta_query->has_or_relation()`), and the paginated found-rows total and direct `count => true`
+  switch to `COUNT(DISTINCT primary)` so they report distinct base rows, not fanned-out JOIN rows.
+  An explicit `groupby` or `distinct` still takes precedence. Pre-existing since 3.0 (the parser's
+  `has_or_relation` flag was set but never consumed); exposed by the parser audit.
 - Fixes a nested clause subgroup with no explicit `relation` defaulting to the query's
   TOP-LEVEL relation instead of AND. `sanitize_query()` seeded a relation-less subgroup's
   default from `$this->relation` (the top-level AND/OR), so a `meta_query` / `date_query`
