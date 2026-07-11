@@ -150,13 +150,6 @@ trait Parser {
 		'XOR',
 	);
 
-	/**
-	 * Whether the query contains any OR relations.
-	 *
-	 * @since 3.0.0
-	 * @var   bool
-	 */
-	protected $has_or_relation = false;
 
 	/**
 	 * Constructor.
@@ -523,8 +516,7 @@ trait Parser {
 
 		// Sanitize the 'relation' key provided in the query.
 		if ( 'OR' === $relation ) {
-			$retval[ 'relation' ]  = 'OR';
-			$this->has_or_relation = true;
+			$retval[ 'relation' ] = 'OR';
 
 			// XOR joins clauses exclusively ( never treated as an OR combine ).
 		} elseif ( 'XOR' === $relation ) {
@@ -835,23 +827,6 @@ trait Parser {
 		return ! empty( $query[ 'relation' ] ) && in_array( $query[ 'relation' ], $this->relation_keys, true )
 			? strtoupper( $query[ 'relation' ] )
 			: $this->relation;
-	}
-
-	/**
-	 * Whether this parser produced an OR relation anywhere in its clause tree.
-	 *
-	 * An OR across JOIN-emitting clauses (e.g. a meta_query) can match a base row
-	 * through more than one joined row and duplicate it. The consuming Query reads
-	 * this - together with whether the parser emitted a JOIN - to group by the
-	 * primary key and dedupe (mirroring WP_Query's meta_query->has_or_relation()).
-	 *
-	 * @since 3.1.0
-	 * @internal Query/Parser collaborator API.
-	 *
-	 * @return bool
-	 */
-	public function has_or_relation(): bool {
-		return $this->has_or_relation;
 	}
 
 	/**

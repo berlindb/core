@@ -21,17 +21,6 @@ use PHPUnit\Framework\TestCase;
 class ParserTestSubject extends ParserBase {
 
 	/**
-	 * Expose the protected OR-relation flag.
-	 *
-	 * @since 3.0.0
-	 *
-	 * @return bool
-	 */
-	public function has_or_relation(): bool {
-		return $this->has_or_relation;
-	}
-
-	/**
 	 * Configure first-order keys for tests.
 	 *
 	 * @since 3.0.0
@@ -64,11 +53,12 @@ class ParserTestSubject extends ParserBase {
 class ParserTest extends TestCase {
 
 	/**
-	 * sanitize_query() removes invalid numeric children and tracks OR relations.
+	 * sanitize_query() removes invalid numeric children and preserves an explicit
+	 * OR relation on the group.
 	 *
 	 * @since 3.0.0
 	 */
-	public function test_sanitize_query_removes_invalid_numeric_children_and_tracks_or_relation() {
+	public function test_sanitize_query_removes_invalid_numeric_children_and_keeps_or_relation() {
 		$parser = new ParserTestSubject();
 		$parser->expose_set_first_keys( array( 'key', 'value' ) );
 
@@ -85,7 +75,6 @@ class ParserTest extends TestCase {
 
 		$this->assertArrayNotHasKey( 0, $result );
 		$this->assertSame( 'OR', $result['relation'] );
-		$this->assertTrue( $parser->has_or_relation() );
 		$this->assertSame( 'status', $result[1]['key'] );
 		$this->assertSame( 'active', $result[1]['value'] );
 	}
@@ -115,6 +104,5 @@ class ParserTest extends TestCase {
 		);
 
 		$this->assertSame( 'AND', $result[ 'relation' ] );
-		$this->assertFalse( $parser->has_or_relation() );
 	}
 }
