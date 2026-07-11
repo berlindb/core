@@ -61,9 +61,14 @@ trait Crud {
 			return false;
 		}
 
-		// Prepare the "{column} = {value}" predicate for this column.
-		$pattern = $this->get_column_field( array( 'name' => $column_name ), 'pattern', '%s' );
-		$where   = $this->db()->prepare( "{$column_name} = {$pattern}", $column_value );
+		/*
+		 * Prepare the "{column} = {value}" predicate for this column. The column is
+		 * quoted (it is already schema-validated above) so a legal but RESERVED name
+		 * (e.g. `order`, `key`) produces valid SQL rather than a syntax error.
+		 */
+		$pattern    = $this->get_column_field( array( 'name' => $column_name ), 'pattern', '%s' );
+		$column_sql = $this->get_quoted_column_name_aliased( $column_name, false );
+		$where      = $this->db()->prepare( "{$column_sql} = {$pattern}", $column_value );
 
 		// Bail if the value could not be prepared.
 		if ( null === $where ) {
@@ -431,6 +436,17 @@ trait Crud {
 			return false;
 		}
 
+		/*
+		 * A single ID cannot safely address one row of a composite-key table, so fail
+		 * closed rather than write every row sharing the first primary column's value.
+		 * update_items() funnels through here too, so composite-key writes are simply
+		 * unsupported by the current CRUD surface (see #205 follow-ups).
+		 */
+		if ( $this->has_composite_primary_key() ) {
+			$this->log( 'warning', 'crud', 'update_item() does not support a composite primary key: a single ID cannot address one composite-keyed row.' );
+			return false;
+		}
+
 		// Get the primary column name.
 		$primary = $this->get_primary_column_name();
 
@@ -495,8 +511,15 @@ trait Crud {
 			$retval       = $this->db()->update( $table, $save, $where, $save_format, $where_format );
 		}
 
-		// Bail on failure.
-		if ( ! $this->is_success( $retval ) ) {
+		/*
+		 * Only a real DB error fails the update. A 0-row result means the row matched
+		 * but no column value changed (e.g. an invalid value that validated back to the
+		 * stored one) - NOT a failure: any meta saved above still needs its caches
+		 * rotated and transitions fired, so fall through instead of returning false.
+		 * is_success() treats 0 as a failure for the insert/delete paths and is left
+		 * unchanged; this local check is update-specific.
+		 */
+		if ( false === $retval ) {
 			return false;
 		}
 
@@ -514,8 +537,8 @@ trait Crud {
 		// Transition item data.
 		$this->transition_item( $item_id, $save, $item );
 
-		// Return.
-		return (bool) $retval;
+		// The row matched and any writes applied (a 0-row column no-op is not failure).
+		return true;
 	}
 
 	/**
@@ -533,6 +556,17 @@ trait Crud {
 
 		// Bail if no item ID.
 		if ( empty( $item_id ) ) {
+			return false;
+		}
+
+		/*
+		 * A single ID cannot safely address one row of a composite-key table, so fail
+		 * closed rather than delete every row sharing the first primary column's value.
+		 * delete_items() funnels through here too, so composite-key deletes are simply
+		 * unsupported by the current CRUD surface (see #205 follow-ups).
+		 */
+		if ( $this->has_composite_primary_key() ) {
+			$this->log( 'warning', 'crud', 'delete_item() does not support a composite primary key: a single ID cannot address one composite-keyed row.' );
 			return false;
 		}
 
@@ -674,6 +708,23 @@ trait Crud {
 	 */
 	public function add_items( $rows = array() ): array {
 		return ( new \BerlinDB\Database\Operations\Add( $this ) )->add( (array) $rows );
+	}
+
+	/**
+	 * Whether this query's table has a COMPOSITE primary key (>1 primary column).
+	 *
+	 * By-id CRUD (update_item/delete_item) addresses a row by a single scalar primary
+	 * value, so it cannot safely target one row of a composite-key table: a single
+	 * value under-constrains the WHERE to only the first primary column and would
+	 * write/delete EVERY row sharing that value. Callers with a composite key use the
+	 * query-var form (update_items()/delete_items()) with the full key instead.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return bool
+	 */
+	private function has_composite_primary_key(): bool {
+		return count( (array) $this->get_columns( array( 'primary' => true ) ) ) > 1;
 	}
 
 	/**
@@ -887,12 +938,36 @@ trait Crud {
 		$new  = array_intersect_key( $new_data, $keys );
 		$old  = array_intersect_key( $old_data, $keys );
 
-		// Filter to scalar values to allow safe array_diff.
-		$new_scalars = array_filter( $new, 'is_scalar' );
-		$old_scalars = array_filter( $old, 'is_scalar' );
+		/*
+		 * Diff each transition column KEY-WISE. Non-null values compare by string form
+		 * (so 5 and '5' are equal, as the old array_diff did), but null is kept distinct
+		 * from '' so a change TO or FROM null still fires its transition - the old
+		 * is_scalar() filter dropped null and missed those.
+		 */
+		$diff = array();
 
-		// Get the difference.
-		$diff = array_diff( $new_scalars, $old_scalars );
+		foreach ( $new as $key => $value ) {
+
+			// Only a scalar or null column value can transition.
+			if ( ! is_scalar( $value ) && ( null !== $value ) ) {
+				continue;
+			}
+
+			$old_value = array_key_exists( $key, $old )
+				? $old[ $key ]
+				: null;
+
+			$new_norm = ( null === $value )
+				? null
+				: (string) $value;
+			$old_norm = is_scalar( $old_value )
+				? (string) $old_value
+				: null;
+
+			if ( $new_norm !== $old_norm ) {
+				$diff[ $key ] = $value;
+			}
+		}
 
 		// Bail if nothing is changing.
 		if ( empty( $diff ) ) {
