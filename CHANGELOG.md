@@ -4,6 +4,22 @@ Notable changes to BerlinDB are documented here.
 
 ## 3.1.0 - Unreleased
 
+- Adds a Connection-owned platform descriptor (#232), the first step toward engine
+  awareness (#220). `Adapters\Platform` names the underlying product (MySQL / MariaDB /
+  SQLite), its version, and answers named capability questions (`has_storage_engines()`) -
+  the platform owns the vocabulary, so call sites read as domain questions rather than a
+  generic `supports( 'flag' )`. A Connection MAY implement the new opt-in
+  `Interfaces\PlatformProvider` (the `Wpdb` adapter does); one that does not yields
+  `Platform::unknown()`, whose questions all answer permissively - BerlinDB's existing
+  MySQL-family assumption - so nothing changes for existing setups. A construct degrades
+  only where the engine is KNOWN to lack it. First consumer: `Table::engine()` and the
+  `ENGINE=` clause in CREATE TABLE are skipped on a platform with no storage engines (e.g.
+  SQLite). SQLite is detected by WordPress Playground's SQLite
+  Database Integration drop-in (its `db_version()` reports a fake MySQL '8.0', so the wpdb
+  subclass identity is used, not the version); a `berlindb_platform` filter overrides
+  detection. Constructs that plugin's translator already rewrites at runtime (AUTO_INCREMENT,
+  REGEXP, SHOW/DESCRIBE) are deliberately left supported so BerlinDB does not fight it. No SQL
+  rewriting yet - that per-engine rendering seam is the 4.0 effort #220 scopes.
 - Surfaces DROPPED relationship declarations in `Schema::get_validation_errors()` (#206). A
   shorthand declaration the `Column` sanitizer rejects (unknown `type`, missing `query`/`column`,
   invalid class) is dropped fail-closed and was only visible in the structured log; the schema

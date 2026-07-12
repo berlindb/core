@@ -276,3 +276,38 @@ $aliased = (string) $this->caller?->get_quoted_column_name_aliased( $name );
 ```
 
 Treat anything outside this list as internal and subject to change.
+
+## Database platform (engine awareness)
+
+BerlinDB emits MySQL/MariaDB-flavored SQL. To let it detect the engine and degrade
+constructs another engine cannot run, a `Connection` MAY implement the opt-in
+`Interfaces\PlatformProvider` and return an `Adapters\Platform`:
+
+```php
+public function platform(): Platform {
+    return new Platform( Platform::SQLITE, '3.45.0' );
+}
+```
+
+`Platform` is a read-only descriptor - product (`mysql` / `mariadb` / `sqlite`),
+`version()`, and **named capability questions** like `has_storage_engines()` - **not** a
+SQL renderer (that seam is the 4.0 effort, #220). BerlinDB asks the platform a domain
+question (`$this->platform()->has_storage_engines()`), so the platform owns the vocabulary
+and call sites stay readable - there is no generic `supports( 'flag' )` for a caller to
+memorize. Each question answers **permissively** for an `unknown` platform (a `Connection`
+that does not implement `PlatformProvider` yields `Platform::unknown()`) and for the MySQL
+family, so nothing changes for existing adapters; only a recognized engine that genuinely
+lacks a construct answers false (e.g. `Table::engine()` and the `ENGINE=` clause are skipped
+on SQLite, which has no storage engines). Add the next question when a feature actually
+gates on it, not before.
+
+The bundled `Wpdb` adapter already implements this: it detects MySQL vs MariaDB from
+`db_server_info()`, and SQLite from the WordPress Playground drop-in's wpdb subclass
+(its `db_version()` reports a fake `8.0`, so the class identity is used instead). A
+`berlindb_platform` filter (receives the detected `Platform` and the wpdb handle, must
+return a `Platform`) is the escape hatch for a driver those signals miss.
+
+Constructs the Playground SQLite translator already rewrites at runtime
+(`AUTO_INCREMENT`, `REGEXP`, `SHOW`/`DESCRIBE`) are deliberately left **supported** so
+BerlinDB does not fight it - only add a feature to a product's deny-list when the engine
+truly cannot run it and no translator papers over it.

@@ -1226,6 +1226,15 @@ class Table {
 	 */
 	public function engine( string $engine ): bool {
 
+		/*
+		 * Bail on a platform with no storage engines (e.g. SQLite); ENGINE= is a
+		 * MySQL/MariaDB concept, so there is nothing to switch.
+		 */
+		if ( ! $this->platform()->has_storage_engines() ) {
+			$this->log( 'warning', 'ddl', 'engine() is unsupported on this platform: storage engines are a MySQL/MariaDB concept.' );
+			return false;
+		}
+
 		// Sanitize and validate the engine name.
 		$engine = $this->sanitize_engine( $engine );
 
@@ -1275,8 +1284,8 @@ class Table {
 			"( {$create_table_string} )",
 		);
 
-		// Storage engine.
-		if ( ! empty( $this->engine ) ) {
+		// Storage engine (omit on a platform that has none, e.g. SQLite).
+		if ( ! empty( $this->engine ) && $this->platform()->has_storage_engines() ) {
 			$sql[] = 'ENGINE=' . $this->engine;
 		}
 

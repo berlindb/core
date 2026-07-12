@@ -13,6 +13,7 @@ declare( strict_types = 1 );
 namespace BerlinDB\Database\Adapters;
 
 use BerlinDB\Database\Interfaces\Connection;
+use BerlinDB\Database\Interfaces\PlatformProvider;
 
 // Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
@@ -25,9 +26,12 @@ defined( 'ABSPATH' ) || exit;
  * collate, dynamic table names) is surfaced as typed methods so callers only
  * depend on the Connection interface.
  *
+ * Also implements PlatformProvider (#232): it can identify the underlying product
+ * (MySQL / MariaDB / SQLite) so BerlinDB can degrade unsupported constructs.
+ *
  * @since 3.0.0
  */
-class Wpdb implements Connection {
+class Wpdb implements Connection, PlatformProvider {
 
 	/**
 	 * The underlying WordPress database object.
@@ -154,6 +158,72 @@ class Wpdb implements Connection {
 	 */
 	public function get_collation(): string {
 		return (string) $this->db->collate;
+	}
+
+	/** Platform **************************************************************/
+
+	/**
+	 * @inheritDoc
+	 *
+	 * Detected fresh each call (not memoized): the adapter is cached and shared by
+	 * Environment::get_db_global(), so a stale memo would let a runtime override
+	 * (the 'berlindb_platform' filter) leak across callers. Detection is cheap - a
+	 * class check plus db_server_info() (no query) - so re-running it is fine.
+	 */
+	public function platform(): Platform {
+		return $this->detect_platform();
+	}
+
+	/**
+	 * Identify the underlying database product and version.
+	 *
+	 * SQLite (WordPress Playground's SQLite Database Integration) is detected by
+	 * its wpdb subclass, WP_SQLite_DB, because that subclass deliberately reports
+	 * a FAKE MySQL version from db_version() ('8.0') to satisfy WP core - so the
+	 * version cannot tell it apart, but the class identity can. MariaDB vs MySQL
+	 * then splits on db_server_info(), which carries 'MariaDB' on MariaDB. The
+	 * 'berlindb_platform' filter is the escape hatch for any driver these signals
+	 * miss (it must return a Platform to take effect).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return Platform
+	 */
+	private function detect_platform(): Platform {
+
+		// Default return value: unknown (permissive - assumes MySQL-family).
+		$platform = Platform::unknown();
+
+		/*
+		 * Read the server string up front, while $this->db is still typed \wpdb -
+		 * both real MySQL/MariaDB and the SQLite drop-in expose it (a wpdb method
+		 * since 4.2). Doing it here, not inside the is_a() branch, keeps the call
+		 * off the narrowed subclass.
+		 */
+		$server = (string) $this->db->db_server_info();
+
+		// SQLite: identified by the drop-in wpdb subclass, not the (faked) version.
+		if ( is_a( $this->db, 'WP_SQLite_DB' ) ) {
+			$platform = new Platform( Platform::SQLITE, $server );
+
+			// MySQL family: split MariaDB from MySQL on the server-info string.
+		} elseif ( '' !== $server ) {
+			$product  = ( false !== stripos( $server, 'mariadb' ) )
+				? Platform::MARIADB
+				: Platform::MYSQL;
+			$platform = new Platform( $product, (string) $this->db->db_version() );
+		}
+
+		// Let a host override detection for a driver the signals above miss.
+		if ( function_exists( 'apply_filters' ) ) {
+			$filtered = apply_filters( 'berlindb_platform', $platform, $this->db );
+
+			if ( $filtered instanceof Platform ) {
+				$platform = $filtered;
+			}
+		}
+
+		return $platform;
 	}
 
 	/** Table Registry ********************************************************/

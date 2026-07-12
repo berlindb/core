@@ -14,8 +14,10 @@ declare( strict_types = 1 );
 namespace BerlinDB\Database\Traits;
 
 use BerlinDB\Database\Adapters\NullConnection;
+use BerlinDB\Database\Adapters\Platform;
 use BerlinDB\Database\Adapters\Wpdb;
 use BerlinDB\Database\Interfaces\Connection;
+use BerlinDB\Database\Interfaces\PlatformProvider;
 
 // Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
@@ -112,6 +114,27 @@ trait Environment {
 	 */
 	protected function get_db(): Connection {
 		return $this->db();
+	}
+
+	/**
+	 * Return the descriptor for the underlying database platform (#232).
+	 *
+	 * A Connection MAY implement PlatformProvider to identify its product
+	 * (MySQL / MariaDB / SQLite) and SQL feature support; one that does not
+	 * yields Platform::unknown(), which supports every construct (BerlinDB's
+	 * MySQL-family default). Use platform()->supports( Platform::FEATURE ) to
+	 * degrade a construct only where the engine is known to lack it.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return Platform
+	 */
+	protected function platform(): Platform {
+		$db = $this->db();
+
+		return ( $db instanceof PlatformProvider )
+			? $db->platform()
+			: Platform::unknown();
 	}
 
 	/**
