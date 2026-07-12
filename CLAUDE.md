@@ -115,10 +115,26 @@ bin/run-tests.sh -p 8.2 -w 6.7 -- --group default
 - `src/Database/Presets/` — recipe base classes (e.g. `Presets\Meta\Query`), one
   directory per recipe. Plain classes a plugin extends with thin stubs; Kern
   classes never reference presets.
-- `src/Database/Adapters/` + `Interfaces/` — `Connection` + `Wpdb` /
-  `NullConnection`.
+- `src/Database/Adapters/` + `Interfaces/` — the database boundary: `Connection`
+  (+ `Wpdb` / `NullConnection`), `MetaStore`, and the `Platform` descriptor
+  (product/version/`has_storage_engines()`-style questions) behind the opt-in
+  `PlatformProvider` interface (#232).
 - `tests/` — PHPUnit, mirrors `src/` layout. Tests use the aliased
   `BerlinDB\Database\*` paths (the 2.x compatibility aliases).
+
+**Where a new object lands: declare vs discover.** `Kern/` holds the nouns a
+developer *authors* to define and query tables (`Schema`, `Table`, `Column`,
+`Index`, `Relationship`, `Query`, `Row`) — they ingest messy developer config, so
+they earn the `Boot` lifecycle, strict config, sanitizers, and logging. Things
+BerlinDB *discovers* about its environment (`Connection`, `Platform`) are the
+opposite: detected, not declared, with no author input to validate — so they live
+in `Adapters/` + `Interfaces/` as plain value objects / contracts, **not** Kern
+(giving a 2-field runtime descriptor Boot ceremony is over-abstraction). Things
+BerlinDB *builds* internally (`Clauses`, `Operators`, `Operands`, `Parsers`,
+`Operations`, `Diff`) are machinery `Query` composes, also not Kern. Rule of thumb:
+if a plugin author would write it to define/query a table, it's Kern; if BerlinDB
+detects it or assembles it, it isn't. (A future `View` would be Kern — you declare
+it; a per-engine SQL renderer would not — it's discovered/strategy. See #235/#236.)
 
 ## Construction Lifecycle (the `Boot` contract)
 
