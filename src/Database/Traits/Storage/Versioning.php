@@ -110,7 +110,7 @@ trait Versioning {
 	 *
 	 * @since 3.1.0
 	 */
-	protected function set_db_version_key(): void {
+	private function set_db_version_key(): void {
 
 		// Bail if a version key was explicitly set.
 		if ( ! empty( $this->db_version_key ) ) {
@@ -134,7 +134,7 @@ trait Versioning {
 	 *
 	 * @param string $version Database version to set when upgrading/creating.
 	 */
-	protected function set_db_version( $version = '' ): void {
+	private function set_db_version( $version = '' ): void {
 
 		/*
 		 * A relation that does not persist a version never stores one: it would
@@ -167,7 +167,7 @@ trait Versioning {
 	 *
 	 * @since 1.0.0
 	 */
-	protected function get_db_version(): void {
+	private function get_db_version(): void {
 
 		// Get the DB version.
 		$db_version = $this->is_global()
@@ -183,7 +183,7 @@ trait Versioning {
 	 *
 	 * @since 1.0.0
 	 */
-	protected function delete_db_version(): void {
+	private function delete_db_version(): void {
 		$this->is_global()
 			? delete_network_option( get_main_network_id(), $this->db_version_key )
 			: delete_option( $this->db_version_key );

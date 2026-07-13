@@ -63,7 +63,7 @@ trait Multisite {
 	 *
 	 * @return bool
 	 */
-	protected function is_global(): bool {
+	private function is_global(): bool {
 		return $this->global;
 	}
 }

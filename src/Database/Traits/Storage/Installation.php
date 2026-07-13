@@ -192,7 +192,7 @@ trait Installation {
 	 *
 	 * @return bool True if the lock was created, false if a lock already exists.
 	 */
-	protected function lock_upgrades(): bool {
+	private function lock_upgrades(): bool {
 
 		// Generate a unique lock key for this relation.
 		$lock_key = $this->db_version_key . '_upgrade_lock';
@@ -226,7 +226,7 @@ trait Installation {
 	 *
 	 * @return bool True if the lock was released, false otherwise.
 	 */
-	protected function unlock_upgrades(): bool {
+	private function unlock_upgrades(): bool {
 
 		// Generate the same lock key used in lock_upgrades().
 		$lock_key = $this->db_version_key . '_upgrade_lock';
@@ -250,7 +250,7 @@ trait Installation {
 	 *
 	 * @return bool
 	 */
-	protected function is_uninstalled(): bool {
+	private function is_uninstalled(): bool {
 		$value = $this->is_global()
 			? get_network_option( get_main_network_id(), $this->db_version_key . '_uninstalled', false )
 			: get_option( $this->db_version_key . '_uninstalled', false );
@@ -263,7 +263,7 @@ trait Installation {
 	 *
 	 * @since 3.1.0
 	 */
-	protected function set_uninstalled(): void {
+	private function set_uninstalled(): void {
 
 		/*
 		 * A non-persistent relation never auto-installs, so a tombstone would be a
@@ -283,7 +283,7 @@ trait Installation {
 	 *
 	 * @since 3.1.0
 	 */
-	protected function delete_uninstalled(): void {
+	private function delete_uninstalled(): void {
 		$this->is_global()
 			? delete_network_option( get_main_network_id(), $this->db_version_key . '_uninstalled' )
 			: delete_option( $this->db_version_key . '_uninstalled' );
@@ -299,7 +299,7 @@ trait Installation {
 	 *
 	 * @return callable|false Resolved callable, or false if not callable.
 	 */
-	protected function get_callable( $callback = '' ): callable|false {
+	private function get_callable( $callback = '' ): callable|false {
 
 		// Default return value.
 		$callable = $callback;

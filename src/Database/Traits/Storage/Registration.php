@@ -87,7 +87,7 @@ trait Registration {
 	 *
 	 * @since 3.1.0
 	 */
-	protected function set_table_name(): void {
+	private function set_table_name(): void {
 		$sanitized = $this->sanitize_table_name( $this->name );
 
 		$this->name = ( false !== $sanitized )
@@ -100,7 +100,7 @@ trait Registration {
 	 *
 	 * @since 3.1.0
 	 */
-	protected function set_prefixed_name(): void {
+	private function set_prefixed_name(): void {
 		$this->prefixed_name = $this->apply_prefix( $this->name, '_' );
 	}
 
@@ -112,7 +112,7 @@ trait Registration {
 	 *
 	 * @since 1.0.0
 	 */
-	protected function set_db_interface(): void {
+	private function set_db_interface(): void {
 
 		// Set variables for global tables.
 		if ( $this->is_global() ) {

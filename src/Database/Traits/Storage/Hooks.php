@@ -59,7 +59,7 @@ trait Hooks {
 	 *
 	 * @since 3.1.0
 	 */
-	protected function add_hooks(): void {
+	private function add_hooks(): void {
 
 		// Multisite site-switching always applies.
 		add_action( 'switch_blog', array( $this, 'switch_blog' ) );
