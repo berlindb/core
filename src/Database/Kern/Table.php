@@ -20,6 +20,7 @@ use BerlinDB\Database\Diff\Grammar;
 use BerlinDB\Database\Diff\Patch;
 use BerlinDB\Database\Diff\Result;
 use BerlinDB\Database\Diff\Snapshot;
+use BerlinDB\Database\Interfaces\Installable;
 
 /**
  * A base database table class, which facilitates the creation of (and schema
@@ -38,7 +39,7 @@ use BerlinDB\Database\Diff\Snapshot;
  *
  * @since 1.0.0
  */
-class Table {
+class Table implements Installable {
 
 	/**
 	 * Use these traits.
@@ -49,6 +50,7 @@ class Table {
 	use \BerlinDB\Database\Traits\Boot;
 	use \BerlinDB\Database\Traits\Storage\Registration;
 	use \BerlinDB\Database\Traits\Storage\Versioning;
+	use \BerlinDB\Database\Traits\Storage\Installation;
 
 	/** Constants *************************************************************/
 
@@ -464,110 +466,12 @@ class Table {
 
 	/** Public Helpers ********************************************************/
 
-	/**
-	 * Maybe upgrade this database table.
-	 *
-	 * Handles locking, creation, and schema changes.
-	 *
-	 * Hooked to the `admin_init` action.
-	 *
-	 * @since 1.0.0
+	/*
+	 * The install/upgrade/uninstall lifecycle (install, uninstall, maybe_upgrade,
+	 * needs_upgrade, is_upgradeable, lock/unlock, tombstone, get_callable) lives in
+	 * the Traits\Storage\Installation trait, driving this class's create()/drop()/
+	 * exists()/upgrade() through the Interfaces\Installable contract (#237).
 	 */
-	public function maybe_upgrade(): void {
-
-		/*
-		 * A temporary table is (re)created fresh within a session at the current
-		 * schema, never migrated across sessions - so it has no version to compare
-		 * and nothing to upgrade. Bailing also keeps it off the version-persisting
-		 * path below (set_db_version() no-ops for it too, as defense in depth).
-		 */
-		if ( $this->temporary ) {
-			return;
-		}
-
-		// Bail if not upgradeable.
-		if ( ! $this->is_upgradeable() ) {
-			return;
-		}
-
-		// Bail if upgrade not needed.
-		if ( ! $this->needs_upgrade() ) {
-			return;
-		}
-
-		// Bail if locked.
-		if ( ! $this->lock_upgrades() ) {
-			return;
-		}
-
-		// Upgrade or install, always release the lock afterward.
-		try {
-
-			// Upgrade.
-			if ( $this->exists() ) {
-				$this->upgrade();
-
-				// Install.
-			} else {
-				$this->install();
-			}
-		} finally {
-
-			// Always release the lock, even if an exception occurred.
-			$this->unlock_upgrades();
-		}
-	}
-
-	/**
-	 * Return whether this table needs an upgrade.
-	 *
-	 * @since 1.0.0
-	 *
-	 * @param string $version Database version to check if upgrade is needed.
-	 *
-	 * @return bool True if table needs upgrading. False if not.
-	 */
-	public function needs_upgrade( $version = '' ) {
-
-		// Use the current table version if none was passed.
-		if ( empty( $version ) ) {
-			$version = $this->version;
-		}
-
-		// Get the current database version.
-		$this->get_db_version();
-
-		// Is this database table up to date?
-		$is_current = version_compare( (string) $this->db_version, (string) $version, '>=' );
-
-		// Return false if current, true if out of date.
-		return ( true === $is_current )
-			? false
-			: true;
-	}
-
-	/**
-	 * Return whether this table can be upgraded.
-	 *
-	 * @since 1.0.0
-	 *
-	 * @return bool True if table can be upgraded. False if not.
-	 */
-	public function is_upgradeable() {
-
-		// Bail if global and upgrading global tables is not allowed.
-		if ( $this->is_global() && ! wp_should_upgrade_global_tables() ) {
-			return false;
-		}
-
-		// Bail if the table was intentionally uninstalled.
-		if ( $this->is_uninstalled() ) {
-			return false;
-		}
-
-		// Kinda weird, but assume it is.
-		return true;
-	}
 
 	/**
 	 * Return whether this is a session-scoped TEMPORARY table.
@@ -578,57 +482,6 @@ class Table {
 	 */
 	public function is_temporary(): bool {
 		return ( true === $this->temporary );
-	}
-
-	/**
-	 * Install a database table
-	 *
-	 * Create table and set the version if successful.
-	 *
-	 * Clears any uninstall tombstone so that automatic upgrades resume normally.
-	 *
-	 * @since 1.0.0
-	 */
-	public function install(): void {
-
-		// Try to create the table.
-		$created = $this->create();
-
-		/*
-		 * Set the DB version if create was successful (a temporary table persists
-		 * no version - set_db_version() no-ops for it).
-		 */
-		if ( true === $created ) {
-			$this->set_db_version();
-			$this->delete_uninstalled();
-		}
-	}
-
-	/**
-	 * Uninstall a database table
-	 *
-	 * Drops table and deletes the version information if successful.
-	 *
-	 * If the table does not exist, the version will still be deleted.
-	 *
-	 * Writes an uninstall tombstone so that maybe_upgrade() does not
-	 * automatically recreate the table on the next admin page load.
-	 *
-	 * @since 1.0.0
-	 */
-	public function uninstall(): void {
-
-		// Try to drop the table.
-		$dropped = $this->drop();
-
-		/*
-		 * Delete the DB version if drop was successful or table does not exist (a
-		 * temporary table persisted nothing - these no-op for it).
-		 */
-		if ( ( true === $dropped ) || ! $this->exists() ) {
-			$this->delete_db_version();
-			$this->set_uninstalled();
-		}
 	}
 
 	/** Public Management *****************************************************/
@@ -1805,114 +1658,6 @@ class Table {
 	}
 
 	/**
-	 * Lock upgrades.
-	 *
-	 * Prevents multiple upgrade processes from running simultaneously on the
-	 * same table. Uses a transient with a 15-minute expiration to ensure the
-	 * lock is automatically released even if the upgrade process fails.
-	 *
-	 * @since 3.0.0
-	 *
-	 * @return bool True if the lock was created, false if a lock already exists.
-	 */
-	private function lock_upgrades(): bool {
-
-		// Generate a unique lock key for this table.
-		$lock_key = $this->db_version_key . '_upgrade_lock';
-
-		// Check if a lock already exists.
-		$lock_exists = $this->is_global()
-			? get_site_transient( $lock_key )
-			: get_transient( $lock_key );
-
-		// If a lock already exists, return false.
-		if ( false !== $lock_exists ) {
-			return false;
-		}
-
-		// Create the lock transient.
-		$lock_set = $this->is_global()
-			? set_site_transient( $lock_key, time(), 900 )
-			: set_transient( $lock_key, time(), 900 );
-
-		// Return whether the lock was successfully created.
-		return (bool) $lock_set;
-	}
-
-	/**
-	 * Unlock upgrades.
-	 *
-	 * Removes the transient that was set by lock_upgrades(), allowing other
-	 * upgrade processes to proceed.
-	 *
-	 * @since 3.0.0
-	 *
-	 * @return bool True if the lock was released, false otherwise.
-	 */
-	private function unlock_upgrades(): bool {
-
-		// Generate the same lock key used in lock_upgrades().
-		$lock_key = $this->db_version_key . '_upgrade_lock';
-
-		// Delete the lock transient.
-		$deleted = $this->is_global()
-			? delete_site_transient( $lock_key )
-			: delete_transient( $lock_key );
-
-		// Return whether the lock was successfully released.
-		return (bool) $deleted;
-	}
-
-	/**
-	 * Return whether this table was intentionally uninstalled.
-	 *
-	 * Reads the uninstall tombstone from persistent storage. When true,
-	 * maybe_upgrade() will not automatically recreate the table.
-	 *
-	 * @since 3.1.0
-	 *
-	 * @return bool
-	 */
-	private function is_uninstalled(): bool {
-		$value = $this->is_global()
-			? get_network_option( get_main_network_id(), $this->db_version_key . '_uninstalled', false )
-			: get_option( $this->db_version_key . '_uninstalled', false );
-
-		return ! empty( $value );
-	}
-
-	/**
-	 * Write the uninstall tombstone to persistent storage.
-	 *
-	 * @since 3.1.0
-	 */
-	private function set_uninstalled(): void {
-
-		/*
-		 * A temporary table never auto-installs, so a tombstone would be a
-		 * meaningless orphan option; it persists nothing to gate.
-		 */
-		if ( $this->temporary ) {
-			return;
-		}
-
-		$this->is_global()
-			? update_network_option( get_main_network_id(), $this->db_version_key . '_uninstalled', '1' )
-			: update_option( $this->db_version_key . '_uninstalled', '1', true );
-	}
-
-	/**
-	 * Remove the uninstall tombstone from persistent storage.
-	 *
-	 * @since 3.1.0
-	 */
-	private function delete_uninstalled(): void {
-		$this->is_global()
-			? delete_network_option( get_main_network_id(), $this->db_version_key . '_uninstalled' )
-			: delete_option( $this->db_version_key . '_uninstalled' );
-	}
-
-	/**
 	 * Setup the Schema object.
 	 *
 	 * @since 3.0.0
@@ -1984,39 +1729,5 @@ class Table {
 	 */
 	private function is_global(): bool {
 		return $this->global;
-	}
-
-	/**
-	 * Try to get a callable upgrade, with some magic to avoid needing to
-	 * do this dance repeatedly inside subclasses.
-	 *
-	 * @since 1.0.0
-	 *
-	 * @param string $callback Callback function name or callable.
-	 *
-	 * @return callable|false Resolved callable, or false if not callable.
-	 */
-	private function get_callable( $callback = '' ): callable|false {
-
-		// Default return value.
-		$callable = $callback;
-
-		// Look for global function.
-		if ( ! is_callable( $callable ) ) {
-
-			// Fallback to local class method.
-			$callable = array( $this, $callback );
-			if ( ! is_callable( $callable ) ) {
-
-				// Fallback to class method prefixed with "__".
-				$callable = array( $this, "__{$callback}" );
-				if ( ! is_callable( $callable ) ) {
-					$callable = false;
-				}
-			}
-		}
-
-		// Return callable string, or false if not callable.
-		return $callable;
 	}
 }
