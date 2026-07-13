@@ -62,7 +62,7 @@ protected function get_config_callbacks(): array {
     return array(
         'table_name'  => array( $this, 'sanitize_table_name' ),
         'cache_group' => array( $this, 'sanitize_key' ),
-        'table_schema' => '', // accepted, validated later by set_schema()
+        'table_schema' => '', // accepted, validated later by resolve_schema()
     );
 }
 ```

@@ -46,6 +46,7 @@ class Table implements Installable {
 	 */
 	use \BerlinDB\Database\Traits\Base;
 	use \BerlinDB\Database\Traits\Boot;
+	use \BerlinDB\Database\Traits\SchemaAware;
 	use \BerlinDB\Database\Traits\Storage\Hooks;
 	use \BerlinDB\Database\Traits\Storage\Installation;
 	use \BerlinDB\Database\Traits\Storage\Multisite;
@@ -208,14 +209,6 @@ class Table implements Installable {
 	protected $foreign_keys = 'deferred';
 
 	/**
-	 * Instantiated schema object, populated by set_schema() during boot.
-	 *
-	 * @since 3.0.0
-	 * @var   Schema|null|object
-	 */
-	private $schema_object = null;
-
-	/**
 	 * Called after initialization.
 	 *
 	 * @since 3.0.0
@@ -244,8 +237,8 @@ class Table implements Installable {
 		// Build the table's charset/collation clause (table-specific, needs the connection).
 		$this->set_charset_collation();
 
-		// Add the database schema.
-		$this->set_schema();
+		// Add the database schema (Table needs a create-table string builder).
+		$this->resolve_schema( $this->schema, 'get_create_table_string', 'error', 'table_schema_unavailable', 'Table schema could not be loaded.' );
 
 		// Add hooks.
 		$this->add_hooks();
@@ -658,48 +651,6 @@ class Table implements Installable {
 	 */
 	protected function persists_relation_version(): bool {
 		return ! $this->temporary;
-	}
-
-	/**
-	 * Setup the Schema object.
-	 *
-	 * @since 3.0.0
-	 */
-	private function set_schema(): void {
-
-		// Accept a Schema object passed directly via constructor or property assignment.
-		if ( $this->schema instanceof Schema ) {
-			$this->schema_object = $this->schema;
-			return;
-		}
-
-		// Default log context.
-		$log_error = true;
-		$context   = array(
-			'schema' => $this->schema,
-		);
-
-		// Maybe invoke a new table schema class (instances were returned above).
-		if ( is_string( $this->schema ) && ! empty( $this->schema ) ) {
-			try {
-				$this->schema_object = $this->instantiate_class( $this->schema );
-				$log_error           = ( null === $this->schema_object );
-			} catch ( \Throwable $exception ) {
-				$context['exception']         = get_class( $exception );
-				$context['exception_message'] = $exception->getMessage();
-			}
-		}
-
-		// A schema without get_create_table_string() is not usable by Table.
-		if ( ( false === $log_error ) && ! is_callable( array( $this->schema_object, 'get_create_table_string' ) ) ) {
-			$log_error         = true;
-			$context['method'] = 'get_create_table_string';
-		}
-
-		// Maybe log schema setup failure.
-		if ( true === $log_error ) {
-			$this->log( 'error', 'table_schema_unavailable', 'Table schema could not be loaded.', $context );
-		}
 	}
 
 	/**

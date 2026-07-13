@@ -4,7 +4,7 @@
  * Query) defined purely from config arrays, with NO subclasses.
  *
  * Boot::__construct() -> configure()/set_vars() hydrates any kern class from an
- * array (the path `new Column([...])` uses), set_schema() accepts a Schema
+ * array (the path `new Column([...])` uses), resolve_schema() accepts a Schema
  * instance, and the 2nd constructor arg ($config) lets a Query receive its
  * identity before init() (with empty query vars, so no query fires). This is
  * the foundation a registry/factory for presets (MetaTable, #204) builds on -

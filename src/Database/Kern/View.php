@@ -43,6 +43,7 @@ class View implements Installable {
 	 */
 	use \BerlinDB\Database\Traits\Base;
 	use \BerlinDB\Database\Traits\Boot;
+	use \BerlinDB\Database\Traits\SchemaAware;
 	use \BerlinDB\Database\Traits\Storage\Hooks;
 	use \BerlinDB\Database\Traits\Storage\Installation;
 	use \BerlinDB\Database\Traits\Storage\Multisite;
@@ -77,14 +78,6 @@ class View implements Installable {
 	 * @var   class-string<Schema>|Schema|''
 	 */
 	protected $schema = '';
-
-	/**
-	 * Instantiated schema object, populated by set_schema() during boot.
-	 *
-	 * @since 3.1.0
-	 * @var   Schema|null
-	 */
-	private $schema_object = null;
 
 	/*
 	 * $auto_install and add_hooks() live in the Traits\Storage\Hooks trait (#237).
@@ -149,8 +142,8 @@ class View implements Installable {
 		// Register the relation with the database interface (Storage\Registration).
 		$this->set_db_interface();
 
-		// Load the reading schema.
-		$this->set_schema();
+		// Load the reading schema (a view needs only a Schema; it warns, not errors).
+		$this->resolve_schema( $this->schema, null, 'warning', 'view_schema_unavailable', 'View reading schema could not be loaded.' );
 
 		// Add hooks.
 		$this->add_hooks();
@@ -296,44 +289,5 @@ class View implements Installable {
 		return ( $this->schema_object instanceof Schema )
 			? $this->schema_object
 			: null;
-	}
-
-	/** Private ***************************************************************/
-
-	/**
-	 * Load the view's reading Schema object.
-	 *
-	 * @since 3.1.0
-	 */
-	private function set_schema(): void {
-
-		// Accept a Schema object passed directly.
-		if ( $this->schema instanceof Schema ) {
-			$this->schema_object = $this->schema;
-			return;
-		}
-
-		// Instantiate a Schema class name.
-		if ( is_string( $this->schema ) && ! empty( $this->schema ) ) {
-			$object = $this->instantiate_class( $this->schema );
-
-			if ( $object instanceof Schema ) {
-				$this->schema_object = $object;
-			}
-		}
-
-		// Log a load failure (a view is still creatable without a reading schema).
-		if ( ! ( $this->schema_object instanceof Schema ) ) {
-			$this->log(
-				'warning',
-				'view_schema_unavailable',
-				'View reading schema could not be loaded.',
-				array(
-					'schema' => is_string( $this->schema )
-						? $this->schema
-						: '',
-				)
-			);
-		}
 	}
 }

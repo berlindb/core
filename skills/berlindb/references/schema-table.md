@@ -129,7 +129,7 @@ Notes:
   `'202605280'` with a trailing digit for same-day releases.
 - `$schema` may be a Schema class name or Schema instance.
 - BerlinDB 3.x builds the table schema from the Schema object.
-- Do not override private internals such as `set_schema()`.
+- Do not override schema-resolution internals such as `resolve_schema()` (the SchemaAware trait).
 - For multisite global tables (shared across all sites), add
   `protected $global = true;`. Per-site tables omit this property.
 

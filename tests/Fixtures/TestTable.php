@@ -15,7 +15,7 @@ use BerlinDB\Database\Kern\Table;
 /**
  * Concrete Table implementation for test_widgets table.
  *
- * Using a raw SQL string in set_schema() is the standard convention for Table.
+ * Using a raw SQL string in resolve_schema() is the standard convention for Table.
  * The Schema object is used by the Query, not the Table.
  *
  * The $upgrades array registers a v2 upgrade callback that adds a

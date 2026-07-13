@@ -64,6 +64,7 @@ class Query {
 	 */
 	use \BerlinDB\Database\Traits\Base;
 	use \BerlinDB\Database\Traits\Boot;
+	use \BerlinDB\Database\Traits\SchemaAware;
 	use \BerlinDB\Database\Traits\Query\Aggregates;
 	use \BerlinDB\Database\Traits\Query\Cache;
 	use \BerlinDB\Database\Traits\Query\Clauses;
@@ -191,19 +192,6 @@ class Query {
 	 */
 	protected $cache_group = '';
 
-	/** Schema *************************************************************/
-
-	/**
-	 * Schema object.
-	 *
-	 * A collection of Column and Index objects. Set to private so that it is
-	 * not touched directly until this can be vetted and opened up.
-	 *
-	 * @since 3.0.0
-	 * @var   Schema|null|object
-	 */
-	private $schema_object = null;
-
 	/** Query Variables *******************************************************/
 
 	/**
@@ -292,7 +280,7 @@ class Query {
 		$this->set_table_alias();
 		$this->set_cache_group();
 		$this->set_prefixes();
-		$this->set_schema();
+		$this->resolve_schema( $this->table_schema, 'get_columns', 'error', 'query_schema_unavailable', 'Query schema could not be loaded.' );
 		$this->set_item_shape();
 		$this->set_query_var_parsers();
 		$this->set_query_var_defaults();
@@ -318,7 +306,7 @@ class Query {
 	 *   mirror with a literal `table_schema` column). Stays query vars.
 	 * - The value is NOT a Schema, and the class has no schema of its own (still
 	 *   the base default) - broken config: routed to the definition path so
-	 *   set_schema() reports the bad class instead of silently misrouting a typo
+	 *   resolve_schema() reports the bad class instead of silently misrouting a typo
 	 *   onto the query-var path.
 	 *
 	 * @since 3.1.0
@@ -370,7 +358,7 @@ class Query {
 		return array(
 			'table_name'       => array( $this, 'sanitize_table_name' ),
 			'table_alias'      => array( $this, 'sanitize_table_alias' ),
-			'table_schema'     => '',                                      // Schema instance/class; set_schema() validates
+			'table_schema'     => '',                                      // Schema instance/class; resolve_schema() validates
 			'item_name'        => array( $this, 'sanitize_key' ),
 			'item_name_plural' => array( $this, 'sanitize_key' ),
 			'item_shape'       => array( $this, 'sanitize_class_name' ),
@@ -549,48 +537,6 @@ class Query {
 		$this->table_name  = $this->apply_prefix( $this->table_name );
 		$this->table_alias = $this->apply_prefix( $this->table_alias );
 		$this->cache_group = $this->apply_prefix( $this->cache_group, '-' );
-	}
-
-	/**
-	 * Set up the Schema object.
-	 *
-	 * @since 3.0.0
-	 */
-	private function set_schema(): void {
-
-		// Accept a Schema object passed directly via constructor or property assignment.
-		if ( $this->table_schema instanceof Schema ) {
-			$this->schema_object = $this->table_schema;
-			return;
-		}
-
-		// Default log context.
-		$log_error = true;
-		$context   = array(
-			'schema' => $this->table_schema,
-		);
-
-		// Maybe invoke a new table schema class (instances were returned above).
-		if ( is_string( $this->table_schema ) && ! empty( $this->table_schema ) ) {
-			try {
-				$this->schema_object = $this->instantiate_class( $this->table_schema );
-				$log_error           = ( null === $this->schema_object );
-			} catch ( \Throwable $exception ) {
-				$context['exception']         = get_class( $exception );
-				$context['exception_message'] = $exception->getMessage();
-			}
-		}
-
-		// A schema without get_columns() is not usable by Query.
-		if ( ( false === $log_error ) && ! is_callable( array( $this->schema_object, 'get_columns' ) ) ) {
-			$log_error         = true;
-			$context['method'] = 'get_columns';
-		}
-
-		// Maybe log schema setup failure.
-		if ( true === $log_error ) {
-			$this->log( 'error', 'query_schema_unavailable', 'Query schema could not be loaded.', $context );
-		}
 	}
 
 	/**
