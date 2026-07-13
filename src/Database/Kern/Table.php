@@ -312,6 +312,21 @@ class Table {
 	protected $auto_install = true;
 
 	/**
+	 * Whether this is a session-scoped TEMPORARY table.
+	 *
+	 * A temporary table lives only for the current database connection: it emits
+	 * CREATE/DROP TEMPORARY TABLE, is auto-dropped when the session ends, and is
+	 * NOT visible to SHOW TABLES (so exists() probes it directly). Because it does
+	 * not persist, it skips the version option, the uninstall tombstone, and the
+	 * admin_init auto-install hook - create it on demand within the session that
+	 * uses it, not once via maybe_upgrade().
+	 *
+	 * @since 3.1.0
+	 * @var   bool
+	 */
+	protected $temporary = false;
+
+	/**
 	 * Instantiated schema object, populated by set_schema() during boot.
 	 *
 	 * @since 3.0.0
@@ -409,6 +424,7 @@ class Table {
 			'reconcile'         => '',
 			'foreign_keys'      => '',
 			'auto_install'      => array( $this, 'sanitize_boolean' ),
+			'temporary'         => array( $this, 'sanitize_boolean' ),
 		);
 	}
 
@@ -499,6 +515,16 @@ class Table {
 	 * @since 1.0.0
 	 */
 	public function maybe_upgrade(): void {
+
+		/*
+		 * A temporary table is (re)created fresh within a session at the current
+		 * schema, never migrated across sessions - so it has no version to compare
+		 * and nothing to upgrade. Bailing also keeps it off the version-persisting
+		 * path below (set_db_version() no-ops for it too, as defense in depth).
+		 */
+		if ( $this->temporary ) {
+			return;
+		}
 
 		// Bail if not upgradeable.
 		if ( ! $this->is_upgradeable() ) {
@@ -619,6 +645,17 @@ class Table {
 	}
 
 	/**
+	 * Return whether this is a session-scoped TEMPORARY table.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return bool
+	 */
+	public function is_temporary(): bool {
+		return ( true === $this->temporary );
+	}
+
+	/**
 	 * Install a database table
 	 *
 	 * Create table and set the version if successful.
@@ -632,7 +669,10 @@ class Table {
 		// Try to create the table.
 		$created = $this->create();
 
-		// Set the DB version if create was successful.
+		/*
+		 * Set the DB version if create was successful (a temporary table persists
+		 * no version - set_db_version() no-ops for it).
+		 */
 		if ( true === $created ) {
 			$this->set_db_version();
 			$this->delete_uninstalled();
@@ -656,7 +696,10 @@ class Table {
 		// Try to drop the table.
 		$dropped = $this->drop();
 
-		// Delete the DB version if drop was successful or table does not exist.
+		/*
+		 * Delete the DB version if drop was successful or table does not exist (a
+		 * temporary table persisted nothing - these no-op for it).
+		 */
 		if ( ( true === $dropped ) || ! $this->exists() ) {
 			$this->delete_db_version();
 			$this->set_uninstalled();
@@ -673,6 +716,20 @@ class Table {
 	 * @return bool
 	 */
 	public function exists() {
+
+		/*
+		 * A TEMPORARY table is NOT listed by SHOW TABLES, so probe it directly:
+		 * a LIMIT 0 read succeeds when the session table exists and errors when it
+		 * does not. Errors are suppressed so a missing table is a clean false, not
+		 * a logged warning.
+		 */
+		if ( $this->temporary ) {
+			$suppress = $this->db()->suppress_errors( true );
+			$result   = $this->db()->query( "SELECT 1 FROM {$this->table_name} LIMIT 0" );
+			$this->db()->suppress_errors( $suppress );
+
+			return ( false !== $result );
+		}
 
 		// Query statement.
 		$sql      = 'SHOW TABLES LIKE %s';
@@ -1277,9 +1334,11 @@ class Table {
 			return false;
 		}
 
-		// Required parts.
+		// Required parts (TEMPORARY when this is a session-scoped table).
 		$sql = array(
-			'CREATE TABLE',
+			$this->temporary
+				? 'CREATE TEMPORARY TABLE'
+				: 'CREATE TABLE',
 			$this->table_name,
 			"( {$create_table_string} )",
 		);
@@ -1324,9 +1383,15 @@ class Table {
 	 */
 	public function drop() {
 
-		// Query statement.
-		$sql    = "DROP TABLE {$this->table_name}";
-		$result = $this->db()->query( $sql );
+		/*
+		 * Query statement (TEMPORARY targets only the session table, never a
+		 * permanent table of the same name).
+		 */
+		$keyword = $this->temporary
+			? 'DROP TEMPORARY TABLE'
+			: 'DROP TABLE';
+		$sql     = "{$keyword} {$this->table_name}";
+		$result  = $this->db()->query( $sql );
 
 		// Did the table get dropped?
 		return $this->is_success( $result );
@@ -1894,6 +1959,16 @@ class Table {
 	 */
 	private function set_db_version( $version = '' ): void {
 
+		/*
+		 * A temporary table does not survive the session, so it never stores a
+		 * version: a persisted version would outlive the gone table and mislead
+		 * maybe_upgrade() into thinking it is installed. Enforced here so EVERY
+		 * caller (install, upgrade, upgrade_to) is covered, not just install().
+		 */
+		if ( $this->temporary ) {
+			return;
+		}
+
 		// If no version is passed during an upgrade, use the current version.
 		if ( empty( $version ) ) {
 			$version = $this->version;
@@ -2023,6 +2098,15 @@ class Table {
 	 * @since 3.1.0
 	 */
 	private function set_uninstalled(): void {
+
+		/*
+		 * A temporary table never auto-installs, so a tombstone would be a
+		 * meaningless orphan option; it persists nothing to gate.
+		 */
+		if ( $this->temporary ) {
+			return;
+		}
+
 		$this->is_global()
 			? update_network_option( get_main_network_id(), $this->db_version_key . '_uninstalled', '1' )
 			: update_option( $this->db_version_key . '_uninstalled', '1', true );
@@ -2091,8 +2175,13 @@ class Table {
 		// Multisite site-switching always applies.
 		add_action( 'switch_blog', array( $this, 'switch_blog' ) );
 
-		// Only auto-install on admin_init when the subclass opts in (default: true).
-		if ( $this->auto_install ) {
+		/*
+		 * Only auto-install on admin_init when the subclass opts in (default: true)
+		 * AND the table persists. A temporary table cannot auto-install: it would
+		 * be created in the admin_init request's session and vanish immediately -
+		 * create it on demand within the session that uses it instead.
+		 */
+		if ( $this->auto_install && ! $this->temporary ) {
 			add_action( 'admin_init', array( $this, 'maybe_upgrade' ) );
 		}
 	}

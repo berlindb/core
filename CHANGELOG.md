@@ -4,6 +4,17 @@ Notable changes to BerlinDB are documented here.
 
 ## 3.1.0 - Unreleased
 
+- Adds a `temporary` Table mode for session-scoped tables. A `Table` declared
+  `temporary => true` (or `protected $temporary = true`) emits `CREATE TEMPORARY TABLE`
+  / `DROP TEMPORARY TABLE`, so the table lives only for the current database connection
+  and is auto-dropped when it ends. Because a temporary table does not persist, it skips
+  the stored version option, the uninstall tombstone, and the `admin_init` auto-install
+  hook (create it on demand within the session that uses it, not once via
+  `maybe_upgrade()`); a stored version would otherwise outlive the gone table and mislead
+  upgrades. `exists()` probes the table directly (a `LIMIT 0` read) rather than via
+  `SHOW TABLES`, which does not list temporary tables. `is_temporary()` reports the mode.
+  This is a scope/lifecycle mode over the SAME table shape - distinct from a VIEW (#235),
+  whose shape is a `SELECT`, not a column list.
 - Adds a Connection-owned platform descriptor (#232), the first step toward engine
   awareness (#220). `Adapters\Platform` names the underlying product (MySQL / MariaDB /
   SQLite), its version, and answers named capability questions (`has_storage_engines()`) -
