@@ -594,6 +594,24 @@ class Query {
 	}
 
 	/**
+	 * Return whether this query may write (add / update / delete items).
+	 *
+	 * Derived from the schema: a Query configured with a read-only schema (e.g. a
+	 * View's schema) refuses writes, so the caller never has to know it is querying
+	 * a view - it is automatic. The Crud write methods gate on this.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return bool
+	 */
+	public function can_write(): bool {
+		return ! (
+			( $this->schema_object instanceof Schema )
+			&& $this->schema_object->is_read_only()
+		);
+	}
+
+	/**
 	 * Set the default item shape if none exists.
 	 *
 	 * @since 1.0.0

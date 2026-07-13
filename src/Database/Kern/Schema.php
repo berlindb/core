@@ -113,6 +113,18 @@ class Schema {
 	 */
 	protected $indexes = array();
 
+	/**
+	 * Whether the relation this schema describes is READ-ONLY.
+	 *
+	 * A view's schema sets this true; a Query configured with a read-only schema
+	 * refuses writes (Query::can_write()), so the relation's read-only-ness is
+	 * DERIVED from the declaration rather than set per-query. Default false.
+	 *
+	 * @since 3.1.0
+	 * @var   bool
+	 */
+	protected $read_only = false;
+
 	/** Factories *************************************************************/
 
 	/**
@@ -308,8 +320,9 @@ class Schema {
 	 */
 	protected function get_config_callbacks(): array {
 		return array(
-			'columns' => array( $this, 'sanitize_definition_list' ),
-			'indexes' => array( $this, 'sanitize_definition_list' ),
+			'columns'   => array( $this, 'sanitize_definition_list' ),
+			'indexes'   => array( $this, 'sanitize_definition_list' ),
+			'read_only' => array( $this, 'sanitize_boolean' ),
 		);
 	}
 
@@ -1965,6 +1978,21 @@ class Schema {
 	 */
 	public function is_valid() {
 		return empty( $this->get_validation_errors() );
+	}
+
+	/**
+	 * Return whether the relation this schema describes is read-only.
+	 *
+	 * A Query configured with a read-only schema refuses writes, so a view's
+	 * schema (or any reference table) declares read_only => true once here rather
+	 * than every caller flagging it.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return bool
+	 */
+	public function is_read_only(): bool {
+		return ( true === $this->read_only );
 	}
 
 	/**

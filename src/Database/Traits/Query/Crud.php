@@ -252,6 +252,12 @@ trait Crud {
 	 */
 	public function add_item( $data = array() ) {
 
+		// Bail if this query is read-only (e.g. a view); writes are refused.
+		if ( ! $this->can_write() ) {
+			$this->log( 'warning', 'read_only', 'add_item() refused: this query is read-only.' );
+			return false;
+		}
+
 		// Get the primary column name.
 		$primary = $this->get_primary_column_name();
 
@@ -370,6 +376,12 @@ trait Crud {
 	 */
 	public function copy_item( $item_id = 0, $data = array() ) {
 
+		// Bail if this query is read-only (e.g. a view); writes are refused.
+		if ( ! $this->can_write() ) {
+			$this->log( 'warning', 'read_only', 'copy_item() refused: this query is read-only.' );
+			return false;
+		}
+
 		// Get the primary column name.
 		$primary = $this->get_primary_column_name();
 
@@ -422,6 +434,12 @@ trait Crud {
 	 * @return bool
 	 */
 	public function update_item( $item_id = 0, $data = array() ) {
+
+		// Bail if this query is read-only (e.g. a view); writes are refused.
+		if ( ! $this->can_write() ) {
+			$this->log( 'warning', 'read_only', 'update_item() refused: this query is read-only.' );
+			return false;
+		}
 
 		// Bail early if no data to update.
 		if ( empty( $data ) ) {
@@ -551,6 +569,12 @@ trait Crud {
 	 */
 	public function delete_item( $item_id = 0 ) {
 
+		// Bail if this query is read-only (e.g. a view); writes are refused.
+		if ( ! $this->can_write() ) {
+			$this->log( 'warning', 'read_only', 'delete_item() refused: this query is read-only.' );
+			return false;
+		}
+
 		// Shape the item ID.
 		$item_id = $this->shape_item_id( $item_id );
 
@@ -655,6 +679,13 @@ trait Crud {
 	 * @return int|false Number of items deleted, or false when there was nothing to delete.
 	 */
 	public function delete_items( $query_vars = array() ) {
+
+		// Bail if this query is read-only (e.g. a view); writes are refused.
+		if ( ! $this->can_write() ) {
+			$this->log( 'warning', 'read_only', 'delete_items() refused: this query is read-only.' );
+			return false;
+		}
+
 		return ( new \BerlinDB\Database\Operations\Delete( $this ) )->delete( $query_vars );
 	}
 
@@ -680,6 +711,13 @@ trait Crud {
 	 * @return int|false Number of items updated, or false when there was nothing to update.
 	 */
 	public function update_items( $query_vars = array(), $data = array() ) {
+
+		// Bail if this query is read-only (e.g. a view); writes are refused.
+		if ( ! $this->can_write() ) {
+			$this->log( 'warning', 'read_only', 'update_items() refused: this query is read-only.' );
+			return false;
+		}
+
 		return ( new \BerlinDB\Database\Operations\Update( $this ) )->update( $query_vars, $data );
 	}
 
@@ -707,6 +745,13 @@ trait Crud {
 	 * @return array<int,int|string|false> New item IDs in input order; false in any slot whose insert failed.
 	 */
 	public function add_items( $rows = array() ): array {
+
+		// Bail if this query is read-only (e.g. a view); writes are refused.
+		if ( ! $this->can_write() ) {
+			$this->log( 'warning', 'read_only', 'add_items() refused: this query is read-only.' );
+			return array();
+		}
+
 		return ( new \BerlinDB\Database\Operations\Add( $this ) )->add( (array) $rows );
 	}
 
