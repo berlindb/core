@@ -95,6 +95,16 @@ bin/run-tests.sh -p 8.2 -w 6.7 -- --group default
   an `Operands\*` value object — it lives on `Query` because resolution needs the
   schema, alias, and connection a Query already unifies (a parser resolves via
   `$this->caller->resolve_operand()`).
+- `src/Database/Traits/Storage/` — installable-relation concerns, split by who can
+  share them (#237). **`Storage/*.php` are shared by every storage relation** —
+  `Table` **and** `Kern\View` both compose `Registration`, `Versioning`,
+  `Installation`, `Multisite`, `Hooks` (name/registration, stored version,
+  install/upgrade/uninstall, multisite, the auto-install hook). **`Storage/Table/*.php`
+  are Table-only** — `Alter` (ALTER TABLE verbs), `Reconciliation` (schema diff/apply),
+  `Introspection` (SHOW TABLE STATUS / CREATE / INDEXES), `Maintenance` (truncate/copy/
+  rename/analyze/…); a View cannot alter columns, reconcile drift, or be truncated, and
+  its `get_create_sql()` is `SHOW CREATE VIEW`. A future `Storage/View/*` would hold the
+  View-only equivalents. Rule: shareable → `Storage/`; relation-specific → `Storage/<Relation>/`.
 - `src/Database/Parsers/` + `Operators/` + `Operands/` — reusable SQL clause
   builders, each a class hierarchy in its own directory. **Operators are grouped by
   KIND into subdirectories**: `Operators\Comparisons\` (predicate operators — `=`,
