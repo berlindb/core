@@ -133,8 +133,15 @@ in `Adapters/` + `Interfaces/` as plain value objects / contracts, **not** Kern
 BerlinDB *builds* internally (`Clauses`, `Operators`, `Operands`, `Parsers`,
 `Operations`, `Diff`) are machinery `Query` composes, also not Kern. Rule of thumb:
 if a plugin author would write it to define/query a table, it's Kern; if BerlinDB
-detects it or assembles it, it isn't. (A future `View` would be Kern — you declare
-it; a per-engine SQL renderer would not — it's discovered/strategy. See #235/#236.)
+detects it or assembles it, it isn't. A future `View` would be Kern — you declare
+it; a per-engine SQL renderer would not (discovered/strategy). Watch for things that
+*look* like DDL nouns but are really **expressions**: a SQL `CHECK` constraint appears
+in `CREATE TABLE`, but its body is a boolean predicate — the `Clauses`/`Operators` build
+axis, not a Kern noun. And BerlinDB enforces value integrity in **PHP** (`Column`
+`validate_*` callbacks), not DB `CHECK` — WordPress uses no CHECK constraints, and MySQL
+silently *ignored* CHECK before 8.0.16, so it is non-portable and redundant with the
+PHP-layer validation. See #235 (View → Kern) / #236 (CHECK → not Kern, revisit only if
+a write path bypasses BerlinDB).
 
 ## Construction Lifecycle (the `Boot` contract)
 
