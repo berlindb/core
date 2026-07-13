@@ -102,8 +102,9 @@ bin/run-tests.sh -p 8.2 -w 6.7 -- --group default
   install/upgrade/uninstall, multisite, the auto-install hook). **`Storage/Table/*.php`
   are Table-only** — `Alter` (ALTER TABLE verbs), `Reconciliation` (schema diff/apply),
   `Introspection` (SHOW TABLE STATUS / CREATE / INDEXES), `Maintenance` (truncate/copy/
-  rename/analyze/…); a View cannot alter columns, reconcile drift, or be truncated, and
-  its `get_create_sql()` is `SHOW CREATE VIEW`. A future `Storage/View/*` would hold the
+  rename/analyze/…), `Temporary` (the `$temporary` flag + `is_temporary()`); a View
+  cannot alter columns, reconcile drift, be truncated, or be TEMPORARY, and its
+  `get_create_sql()` is `SHOW CREATE VIEW`. A future `Storage/View/*` would hold the
   View-only equivalents. Rule: shareable → `Storage/`; relation-specific → `Storage/<Relation>/`.
 - `src/Database/Parsers/` + `Operators/` + `Operands/` — reusable SQL clause
   builders, each a class hierarchy in its own directory. **Operators are grouped by

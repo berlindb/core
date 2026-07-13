@@ -53,6 +53,7 @@ class Table implements Installable {
 	use \BerlinDB\Database\Traits\Storage\Table\Reconciliation;
 	use \BerlinDB\Database\Traits\Storage\Table\Introspection;
 	use \BerlinDB\Database\Traits\Storage\Table\Maintenance;
+	use \BerlinDB\Database\Traits\Storage\Table\Temporary;
 
 	/** Constants *************************************************************/
 
@@ -225,21 +226,6 @@ class Table implements Installable {
 	 */
 
 	/**
-	 * Whether this is a session-scoped TEMPORARY table.
-	 *
-	 * A temporary table lives only for the current database connection: it emits
-	 * CREATE/DROP TEMPORARY TABLE, is auto-dropped when the session ends, and is
-	 * NOT visible to SHOW TABLES (so exists() probes it directly). Because it does
-	 * not persist, it skips the version option, the uninstall tombstone, and the
-	 * admin_init auto-install hook - create it on demand within the session that
-	 * uses it, not once via maybe_upgrade().
-	 *
-	 * @since 3.1.0
-	 * @var   bool
-	 */
-	protected $temporary = false;
-
-	/**
 	 * Instantiated schema object, populated by set_schema() during boot.
 	 *
 	 * @since 3.0.0
@@ -253,9 +239,12 @@ class Table implements Installable {
 	 * ALTER verbs and their $grammar in Table\Alter; the schema-reconciliation surface
 	 * (diff/diverged/snapshot/reconcile) and $reconcile opt-in in Table\Reconciliation;
 	 * the read-only introspection surface (status/get_create_sql/columns/indexes/count/
-	 * column_exists/index_exists) in Table\Introspection; and the maintenance verbs
+	 * column_exists/index_exists) in Table\Introspection; the maintenance verbs
 	 * (truncate/delete_all/duplicate/copy/rename/analyze/check/checksum/optimize/repair)
-	 * in Table\Maintenance (#237).
+	 * in Table\Maintenance; and the TEMPORARY-table mode ($temporary/is_temporary) in
+	 * Table\Temporary. The create()/drop()/exists() DDL and the persists_relation_
+	 * version()/should_auto_install() hook overrides below read $temporary but stay
+	 * here, at the seam where the mode meets the shared lifecycle (#237).
 	 */
 
 	/**
@@ -403,22 +392,13 @@ class Table implements Installable {
 	/** Public Helpers ********************************************************/
 
 	/*
-	 * The install/upgrade/uninstall lifecycle (install, uninstall, maybe_upgrade,
-	 * needs_upgrade, is_upgradeable, lock/unlock, tombstone, get_callable) lives in
-	 * the Traits\Storage\Installation trait, driving this class's create()/drop()/
-	 * exists()/upgrade() through the Interfaces\Installable contract (#237).
+	 * The public helper surface lives in composed traits: the install/upgrade/
+	 * uninstall lifecycle (install, uninstall, maybe_upgrade, needs_upgrade,
+	 * is_upgradeable, lock/unlock, tombstone, get_callable) in Traits\Storage\
+	 * Installation, driving this class's create()/drop()/exists()/upgrade() through
+	 * the Interfaces\Installable contract; is_temporary() and the $temporary flag in
+	 * Traits\Storage\Table\Temporary (#237).
 	 */
-
-	/**
-	 * Return whether this is a session-scoped TEMPORARY table.
-	 *
-	 * @since 3.1.0
-	 *
-	 * @return bool
-	 */
-	public function is_temporary(): bool {
-		return ( true === $this->temporary );
-	}
 
 	/** Public Management *****************************************************/
 
