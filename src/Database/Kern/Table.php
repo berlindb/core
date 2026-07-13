@@ -52,6 +52,7 @@ class Table implements Installable {
 	use \BerlinDB\Database\Traits\Storage\Versioning;
 	use \BerlinDB\Database\Traits\Storage\Installation;
 	use \BerlinDB\Database\Traits\Storage\Multisite;
+	use \BerlinDB\Database\Traits\Storage\Hooks;
 
 	/** Constants *************************************************************/
 
@@ -256,16 +257,10 @@ class Table implements Installable {
 	 */
 	protected $foreign_keys = 'deferred';
 
-	/**
-	 * Whether to hook maybe_upgrade() to admin_init for automatic installation.
-	 *
-	 * Set to false in a subclass to disable auto-install and require explicit
-	 * calls to install() or maybe_upgrade() instead.
-	 *
-	 * @since 3.1.0
-	 * @var   bool
+	/*
+	 * $auto_install and add_hooks() live in the Traits\Storage\Hooks trait (#237);
+	 * should_auto_install() is overridden below to exclude temporary tables.
 	 */
-	protected $auto_install = true;
 
 	/**
 	 * Whether this is a session-scoped TEMPORARY table.
@@ -1676,24 +1671,17 @@ class Table implements Installable {
 	}
 
 	/**
-	 * Add class hooks to the parent application actions.
+	 * A temporary table cannot auto-install (Storage\Hooks hook).
 	 *
-	 * @since 1.0.0
+	 * It would be created in the admin_init request's session and vanish
+	 * immediately, so it is excluded from the admin_init auto-install hook -
+	 * create it on demand within the session that uses it instead.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return bool
 	 */
-	private function add_hooks(): void {
-
-		// Multisite site-switching always applies.
-		add_action( 'switch_blog', array( $this, 'switch_blog' ) );
-
-		/*
-		 * Only auto-install on admin_init when the subclass opts in (default: true)
-		 * AND the table persists. A temporary table cannot auto-install: it would
-		 * be created in the admin_init request's session and vanish immediately -
-		 * create it on demand within the session that uses it instead.
-		 */
-		if ( $this->auto_install && ! $this->temporary ) {
-			add_action( 'admin_init', array( $this, 'maybe_upgrade' ) );
-		}
+	protected function should_auto_install(): bool {
+		return $this->auto_install && ! $this->temporary;
 	}
-
 }

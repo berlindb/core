@@ -47,6 +47,7 @@ class View implements Installable {
 	use \BerlinDB\Database\Traits\Storage\Versioning;
 	use \BerlinDB\Database\Traits\Storage\Installation;
 	use \BerlinDB\Database\Traits\Storage\Multisite;
+	use \BerlinDB\Database\Traits\Storage\Hooks;
 
 	/** Attributes ************************************************************/
 
@@ -85,13 +86,9 @@ class View implements Installable {
 	 */
 	private $schema_object = null;
 
-	/**
-	 * Whether to hook maybe_upgrade() to admin_init for automatic installation.
-	 *
-	 * @since 3.1.0
-	 * @var   bool
+	/*
+	 * $auto_install and add_hooks() live in the Traits\Storage\Hooks trait (#237).
 	 */
-	protected $auto_install = true;
 
 	/** Construction **********************************************************/
 
@@ -337,22 +334,6 @@ class View implements Installable {
 						: '',
 				)
 			);
-		}
-	}
-
-	/**
-	 * Add class hooks to the parent application actions.
-	 *
-	 * @since 3.1.0
-	 */
-	private function add_hooks(): void {
-
-		// Multisite site-switching always applies.
-		add_action( 'switch_blog', array( $this, 'switch_blog' ) );
-
-		// Only auto-install on admin_init when the subclass opts in (default: true).
-		if ( $this->auto_install ) {
-			add_action( 'admin_init', array( $this, 'maybe_upgrade' ) );
 		}
 	}
 }
