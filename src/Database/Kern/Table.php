@@ -48,6 +48,7 @@ class Table {
 	use \BerlinDB\Database\Traits\Base;
 	use \BerlinDB\Database\Traits\Boot;
 	use \BerlinDB\Database\Traits\Storage\Registration;
+	use \BerlinDB\Database\Traits\Storage\Versioning;
 
 	/** Constants *************************************************************/
 
@@ -111,13 +112,10 @@ class Table {
 	 */
 	protected $prefix = '';
 
-	/**
-	 * Database version.
-	 *
-	 * @since 1.0.0
-	 * @var   string
+	/*
+	 * The version identity ($version, $db_version_key, $db_version) and its
+	 * accessors live in the Traits\Storage\Versioning trait (#237).
 	 */
-	protected $version = '';
 
 	/**
 	 * Is this table for a site, or global.
@@ -126,22 +124,6 @@ class Table {
 	 * @var   bool
 	 */
 	protected $global = false;
-
-	/**
-	 * Database version key (saved in _options or _sitemeta)
-	 *
-	 * @since 1.0.0
-	 * @var   string
-	 */
-	protected $db_version_key = '';
-
-	/**
-	 * Current database version.
-	 *
-	 * @since 1.0.0
-	 * @var   string
-	 */
-	protected $db_version = '';
 
 	/**
 	 * Schema class name or Schema object used to configure columns and indexes.
@@ -585,40 +567,6 @@ class Table {
 
 		// Kinda weird, but assume it is.
 		return true;
-	}
-
-	/**
-	 * Return the current table version from the database.
-	 *
-	 * This is a public method for accessing a protected variable so that it
-	 * cannot be externally modified.
-	 *
-	 * @since 1.0.0
-	 *
-	 * @return string
-	 */
-	public function get_version(): string {
-		$this->get_db_version();
-
-		return (string) $this->db_version;
-	}
-
-	/**
-	 * Return whether this table has been installed.
-	 *
-	 * Checks for a stored database version, which is written by install() and
-	 * cleared by uninstall(). This is always a cache hit - the version option
-	 * is autoloaded and served from WordPress's in-memory options cache.
-	 *
-	 * Compares against the empty string rather than using empty(), so a table
-	 * whose version is the string '0' is still correctly reported as installed.
-	 *
-	 * @since 3.1.0
-	 *
-	 * @return bool True if a version is stored, false if not.
-	 */
-	public function is_installed(): bool {
-		return ( $this->get_version() !== '' );
 	}
 
 	/**
@@ -1819,28 +1767,6 @@ class Table {
 	/** Private ***************************************************************/
 
 	/**
-	 * Build the database version key, unless one was already provided.
-	 *
-	 * @since 3.1.0
-	 */
-	private function set_db_version_key(): void {
-
-		// Bail if a version key was explicitly set.
-		if ( ! empty( $this->db_version_key ) ) {
-			return;
-		}
-
-		$this->db_version_key = implode(
-			'_',
-			array(
-				$this->sanitize_key( $this->db_global ),
-				$this->prefixed_name,
-				'version',
-			)
-		);
-	}
-
-	/**
 	 * Build the table's DEFAULT CHARACTER SET / COLLATE clause from the connection.
 	 *
 	 * Table-specific: a view has no charset. Runs in init() right after the shared
@@ -1864,68 +1790,18 @@ class Table {
 	}
 
 	/**
-	 * Set table version in the database.
+	 * A temporary table does not persist a version (Storage\Versioning hook).
 	 *
-	 * @since 1.0.0
+	 * A stored version would outlive the session-scoped table and mislead
+	 * maybe_upgrade() into treating a vanished table as installed, so
+	 * set_db_version() no-ops for it.
 	 *
-	 * @param string $version Database version to set when upgrading/creating.
+	 * @since 3.1.0
+	 *
+	 * @return bool
 	 */
-	private function set_db_version( $version = '' ): void {
-
-		/*
-		 * A temporary table does not survive the session, so it never stores a
-		 * version: a persisted version would outlive the gone table and mislead
-		 * maybe_upgrade() into thinking it is installed. Enforced here so EVERY
-		 * caller (install, upgrade, upgrade_to) is covered, not just install().
-		 */
-		if ( $this->temporary ) {
-			return;
-		}
-
-		// If no version is passed during an upgrade, use the current version.
-		if ( empty( $version ) ) {
-			$version = $this->version;
-		}
-
-		/*
-		 * Update the DB version. Autoload is explicit so the option is always
-		 * served from WordPress's in-memory options cache rather than a live query.
-		 */
-		$this->is_global()
-			? update_network_option( get_main_network_id(), $this->db_version_key, $version )
-			: update_option( $this->db_version_key, $version, true );
-
-		// Set the DB version.
-		$this->db_version = $version;
-	}
-
-	/**
-	 * Get table version from the database.
-	 *
-	 * @since 1.0.0
-	 */
-	private function get_db_version(): void {
-
-		// Get the DB version.
-		$db_version = $this->is_global()
-			? get_network_option( get_main_network_id(), $this->db_version_key, '' )
-			: get_option( $this->db_version_key, '' );
-
-		// Set the DB version.
-		$this->db_version = (string) $db_version;
-	}
-
-	/**
-	 * Delete table version from the database.
-	 *
-	 * @since 1.0.0
-	 */
-	private function delete_db_version(): void {
-		$this->is_global()
-			? delete_network_option( get_main_network_id(), $this->db_version_key )
-			: delete_option( $this->db_version_key );
-
-		$this->db_version = '';
+	protected function persists_relation_version(): bool {
+		return ! $this->temporary;
 	}
 
 	/**
