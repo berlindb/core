@@ -51,6 +51,7 @@ class Table implements Installable {
 	use \BerlinDB\Database\Traits\Storage\Registration;
 	use \BerlinDB\Database\Traits\Storage\Versioning;
 	use \BerlinDB\Database\Traits\Storage\Installation;
+	use \BerlinDB\Database\Traits\Storage\Multisite;
 
 	/** Constants *************************************************************/
 
@@ -119,13 +120,10 @@ class Table implements Installable {
 	 * accessors live in the Traits\Storage\Versioning trait (#237).
 	 */
 
-	/**
-	 * Is this table for a site, or global.
-	 *
-	 * @since 1.0.0
-	 * @var   bool
+	/*
+	 * Multisite state ($global) and switch_blog()/is_global() live in the
+	 * Traits\Storage\Multisite trait (#237).
 	 */
-	protected $global = false;
 
 	/**
 	 * Schema class name or Schema object used to configure columns and indexes.
@@ -440,28 +438,6 @@ class Table implements Installable {
 	 */
 	private function sanitize_table_comment( $v ): string {
 		return $this->sanitize_comment( (string) $v, 2048 );
-	}
-
-	/** Multisite *************************************************************/
-
-	/**
-	 * Update table version & references.
-	 *
-	 * Hooked to the "switch_blog" action.
-	 *
-	 * @since 1.0.0
-	 *
-	 * @param int $site_id The site being switched to.
-	 */
-	public function switch_blog( $site_id = 0 ): void {
-
-		// Update DB version based on the current site.
-		if ( ! $this->is_global() ) {
-			$this->db_version = (string) get_blog_option( $site_id, $this->db_version_key, '' );
-		}
-
-		// Update interface for switched site.
-		$this->set_db_interface();
 	}
 
 	/** Public Helpers ********************************************************/
@@ -1720,14 +1696,4 @@ class Table implements Installable {
 		}
 	}
 
-	/**
-	 * Check if table is global.
-	 *
-	 * @since 1.0.0
-	 *
-	 * @return bool
-	 */
-	private function is_global(): bool {
-		return $this->global;
-	}
 }
