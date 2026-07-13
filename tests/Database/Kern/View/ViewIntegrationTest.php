@@ -19,7 +19,8 @@ use BerlinDB\Tests\Fixtures\TestTable;
 use Yoast\WPTestUtils\WPIntegration\TestCase;
 
 /**
- * A read-only schema over the view's projection (SELECT * from the source).
+ * The view's read-only schema, shared by the view and its reading query - declare
+ * read_only once on the schema and both derive it.
  *
  * @since 3.1.0
  */
@@ -41,8 +42,8 @@ class ViewIntegrationView extends View {
 }
 
 /**
- * A read-only Query pointed at the view (matching prefix + table_name resolve to
- * the same registered relation the view created).
+ * A Query pointed at the view with the SAME read-only schema (matching prefix +
+ * table_name resolve to the relation the view registered).
  *
  * @since 3.1.0
  */
@@ -59,8 +60,8 @@ class ViewIntegrationQuery extends Query {
 
 /**
  * End-to-end: a View creates the view over a real source table; a Query pointed at
- * the view READS its rows; and because the view's schema is read-only, that Query
- * REFUSES writes - all without the caller flagging anything.
+ * the view READS its rows; and - because they share a read-only schema - that Query
+ * REFUSES writes. The developer declares read_only once, on the shared schema.
  *
  * @since 3.1.0
  */

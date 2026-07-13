@@ -115,6 +115,11 @@ trait Meta {
 	 */
 	protected function add_item_meta( $item_id = 0, $meta_key = '', $meta_value = '', $unique = false ) {
 
+		// Bail if this query is read-only (e.g. a view); meta writes are refused too.
+		if ( ! $this->can_write() ) {
+			return false;
+		}
+
 		// Shape the item ID.
 		$item_id = $this->shape_item_id( $item_id );
 
@@ -207,6 +212,11 @@ trait Meta {
 	 */
 	protected function update_item_meta( $item_id = 0, $meta_key = '', $meta_value = '', $prev_value = '' ) {
 
+		// Bail if this query is read-only (e.g. a view); meta writes are refused too.
+		if ( ! $this->can_write() ) {
+			return false;
+		}
+
 		// Shape the item ID.
 		$item_id = $this->shape_item_id( $item_id );
 
@@ -251,6 +261,11 @@ trait Meta {
 	 * @return bool True on successful delete, false on failure.
 	 */
 	protected function delete_item_meta( $item_id = 0, $meta_key = '', $meta_value = '', $delete_all = false ) {
+
+		// Bail if this query is read-only (e.g. a view); meta writes are refused too.
+		if ( ! $this->can_write() ) {
+			return false;
+		}
 
 		// Shape the item ID.
 		$item_id = $this->shape_item_id( $item_id );

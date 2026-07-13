@@ -596,9 +596,11 @@ class Query {
 	/**
 	 * Return whether this query may write (add / update / delete items).
 	 *
-	 * Derived from the schema: a Query configured with a read-only schema (e.g. a
-	 * View's schema) refuses writes, so the caller never has to know it is querying
-	 * a view - it is automatic. The Crud write methods gate on this.
+	 * Derived from the schema: a Query configured with a read-only schema (a View's
+	 * schema, or any reference relation) refuses writes, so the caller never has to
+	 * know it is querying a view - declare read_only once on the shared schema and
+	 * both the View and any Query using it derive it. The Crud write methods gate on
+	 * this.
 	 *
 	 * @since 3.1.0
 	 *
