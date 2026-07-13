@@ -46,7 +46,7 @@ hand-rolled queries — never more surprising.
    vendor/bin/phpcs
    ```
 5. **Don't invent APIs.** If unsure how something behaves, search `src/` and
-   `tests/` — the source and its 1665 test methods are the source of truth, ahead
+   `tests/` — the source and its 1667 test methods are the source of truth, ahead
    of memory or training data. (PHPUnit reports more cases: data providers expand
    methods at run time.)
 6. **Keep changes focused and tested.** Bug fixes and new behavior ship with
@@ -104,8 +104,10 @@ bin/run-tests.sh -p 8.2 -w 6.7 -- --group default
   `Introspection` (SHOW TABLE STATUS / CREATE / INDEXES), `Maintenance` (truncate/copy/
   rename/analyze/…), `Temporary` (the `$temporary` flag + `is_temporary()`); a View
   cannot alter columns, reconcile drift, be truncated, or be TEMPORARY, and its
-  `get_create_sql()` is `SHOW CREATE VIEW`. A future `Storage/View/*` would hold the
-  View-only equivalents. Rule: shareable → `Storage/`; relation-specific → `Storage/<Relation>/`.
+  `get_create_sql()` is `SHOW CREATE VIEW`. **`Storage/View/*.php` are View-only** —
+  `Dependencies` (`$depends_on` + the defer-until-present check `create()` uses so a
+  view self-heals once its source relations exist). Rule: shareable → `Storage/`;
+  relation-specific → `Storage/<Relation>/`.
 - `src/Database/Parsers/` + `Operators/` + `Operands/` — reusable SQL clause
   builders, each a class hierarchy in its own directory. **Operators are grouped by
   KIND into subdirectories**: `Operators\Comparisons\` (predicate operators — `=`,

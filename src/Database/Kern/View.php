@@ -32,6 +32,13 @@ defined( 'ABSPATH' ) || exit;
  * arrays-to-SELECT builder is a follow-up (#235); it must NOT reuse Query's
  * ephemeral request string.
  *
+ * Because a view can only be created after the relations it selects from exist -
+ * and BerlinDB installs relations in no guaranteed order - a view declares those
+ * siblings in $depends_on. create() then defers (without advancing the version)
+ * until they exist, so auto-install on admin_init retries and the view self-heals
+ * once its sources land. This is the view counterpart to Table's deferred foreign
+ * keys: install order is never assumed, only the order-dependent step waits (#235).
+ *
  * @since 3.1.0
  */
 class View implements Installable {
@@ -49,6 +56,7 @@ class View implements Installable {
 	use \BerlinDB\Database\Traits\Storage\Multisite;
 	use \BerlinDB\Database\Traits\Storage\Registration;
 	use \BerlinDB\Database\Traits\Storage\Versioning;
+	use \BerlinDB\Database\Traits\Storage\View\Dependencies;
 
 	/** Attributes ************************************************************/
 
@@ -78,10 +86,6 @@ class View implements Installable {
 	 * @var   class-string<Schema>|Schema|''
 	 */
 	protected $schema = '';
-
-	/*
-	 * $auto_install and add_hooks() live in the Traits\Storage\Hooks trait (#237).
-	 */
 
 	/** Construction **********************************************************/
 
@@ -113,6 +117,7 @@ class View implements Installable {
 			// Multisite & install.
 			'global'         => array( $this, 'sanitize_boolean' ),
 			'auto_install'   => array( $this, 'sanitize_boolean' ),
+			'depends_on'     => array( $this, 'sanitize_depends_on' ),
 		);
 	}
 
@@ -170,6 +175,17 @@ class View implements Installable {
 
 		// Bail if there is no definition to create the view from.
 		if ( empty( $this->definition ) ) {
+			return false;
+		}
+
+		/*
+		 * Defer if any declared dependency does not exist yet. create() does nothing
+		 * and does not advance the version, so needs_upgrade() stays true and the next
+		 * maybe_upgrade() on admin_init retries - the view self-heals once sources land.
+		 */
+		$missing = $this->missing_dependencies();
+		if ( ! empty( $missing ) ) {
+			$this->log( 'info', 'view_dependencies_missing', 'View creation deferred: declared dependencies do not exist yet.', array( 'missing' => $missing ) );
 			return false;
 		}
 
