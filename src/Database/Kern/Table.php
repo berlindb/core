@@ -47,6 +47,7 @@ class Table {
 	 */
 	use \BerlinDB\Database\Traits\Base;
 	use \BerlinDB\Database\Traits\Boot;
+	use \BerlinDB\Database\Traits\Storage\Registration;
 
 	/** Constants *************************************************************/
 
@@ -74,13 +75,10 @@ class Table {
 
 	/** Attributes ************************************************************/
 
-	/**
-	 * Table name, without the global table prefix.
-	 *
-	 * @since 1.0.0
-	 * @var   string
+	/*
+	 * The relation identity ($name, $prefixed_name, $table_name, $table_prefix)
+	 * and its registration live in the Traits\Storage\Registration trait (#237).
 	 */
-	protected $name = '';
 
 	/**
 	 * Optional description.
@@ -144,30 +142,6 @@ class Table {
 	 * @var   string
 	 */
 	protected $db_version = '';
-
-	/**
-	 * Table prefix, including the site prefix.
-	 *
-	 * @since 1.0.0
-	 * @var   string
-	 */
-	protected $table_prefix = '';
-
-	/**
-	 * Table name.
-	 *
-	 * @since 1.0.0
-	 * @var   string
-	 */
-	protected $table_name = '';
-
-	/**
-	 * Table name, prefixed from the base.
-	 *
-	 * @since 1.0.0
-	 * @var   string
-	 */
-	protected $prefixed_name = '';
 
 	/**
 	 * Schema class name or Schema object used to configure columns and indexes.
@@ -365,8 +339,11 @@ class Table {
 			return;
 		}
 
-		// Add table to the database interface.
+		// Register the relation with the database interface (Storage\Registration).
 		$this->set_db_interface();
+
+		// Build the table's charset/collation clause (table-specific, needs the connection).
+		$this->set_charset_collation();
 
 		// Add the database schema.
 		$this->set_schema();
@@ -822,21 +799,6 @@ class Table {
 		return ( $this->is_success( $result ) && is_array( $result ) )
 			? array_values( $result )
 			: false;
-	}
-
-	/**
-	 * Return this table's full, prefixed SQL name.
-	 *
-	 * The name is already built with both the WordPress table prefix and the
-	 * BerlinDB plugin prefix during construction, so it is ready to drop straight
-	 * into a statement (as add_index() and friends already do internally).
-	 *
-	 * @since 3.1.0
-	 *
-	 * @return string
-	 */
-	public function get_table_name(): string {
-		return $this->table_name;
 	}
 
 	/**
@@ -1857,31 +1819,6 @@ class Table {
 	/** Private ***************************************************************/
 
 	/**
-	 * Sanitize and set this table's name.
-	 *
-	 * Rejects (does not keep) an unsanitizable name by setting it empty, so
-	 * init() can bail before deriving anything from it.
-	 *
-	 * @since 3.1.0
-	 */
-	private function set_table_name(): void {
-		$sanitized = $this->sanitize_table_name( $this->name );
-
-		$this->name = ( false !== $sanitized )
-			? $sanitized
-			: '';
-	}
-
-	/**
-	 * Build the prefixed table name from the (sanitized) name.
-	 *
-	 * @since 3.1.0
-	 */
-	private function set_prefixed_name(): void {
-		$this->prefixed_name = $this->apply_prefix( $this->name, '_' );
-	}
-
-	/**
 	 * Build the database version key, unless one was already provided.
 	 *
 	 * @since 3.1.0
@@ -1904,38 +1841,14 @@ class Table {
 	}
 
 	/**
-	 * Set this table up in the database interface.
+	 * Build the table's DEFAULT CHARACTER SET / COLLATE clause from the connection.
 	 *
-	 * This must be done directly because the database interface does not
-	 * have a common mechanism for manipulating them safely.
+	 * Table-specific: a view has no charset. Runs in init() right after the shared
+	 * Registration trait registers the relation (Traits\Storage\Registration).
 	 *
 	 * @since 1.0.0
 	 */
-	private function set_db_interface(): void {
-
-		// Set variables for global tables.
-		if ( $this->is_global() ) {
-			$site_id = 0;
-			$tables  = 'ms_global_tables';
-
-			// Set variables for per-site tables.
-		} else {
-			$site_id = null;
-			$tables  = 'tables';
-		}
-
-		// Set table prefix and prefix table name.
-		$this->table_prefix = $this->db()->get_blog_prefix( $site_id );
-
-		// Get the prefixed table name.
-		$prefixed_table_name = "{$this->table_prefix}{$this->prefixed_name}";
-
-		// Set the table name and register it in the database interface.
-		$this->table_name = $prefixed_table_name;
-		$this->db()->set_table_prefix( $this->prefixed_name, $prefixed_table_name );
-
-		// Add table to the global table array.
-		$this->db()->register_table( $tables, $this->prefixed_name );
+	private function set_charset_collation(): void {
 
 		// Charset.
 		$charset = $this->db()->get_charset();
