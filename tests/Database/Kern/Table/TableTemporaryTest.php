@@ -73,8 +73,9 @@ class TableTemporaryTest extends TestCase {
 	private function drop_temp_table(): void {
 		global $wpdb;
 
+		$name     = $this->table->get_table_name();
 		$suppress = $wpdb->suppress_errors( true );
-		$wpdb->query( 'DROP TEMPORARY TABLE IF EXISTS ' . $this->table->get_table_name() );
+		$wpdb->query( 'DROP TEMPORARY TABLE IF EXISTS `' . esc_sql( $name ) . '`' );
 		$wpdb->suppress_errors( $suppress );
 	}
 

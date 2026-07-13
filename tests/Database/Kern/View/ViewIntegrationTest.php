@@ -114,8 +114,9 @@ class ViewIntegrationTest extends TestCase {
 	private function drop_view(): void {
 		global $wpdb;
 
+		$name     = $this->view->get_table_name();
 		$suppress = $wpdb->suppress_errors( true );
-		$wpdb->query( 'DROP VIEW IF EXISTS ' . $this->view->get_table_name() );
+		$wpdb->query( 'DROP VIEW IF EXISTS `' . esc_sql( $name ) . '`' );
 		$wpdb->suppress_errors( $suppress );
 	}
 
