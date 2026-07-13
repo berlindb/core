@@ -38,21 +38,23 @@ use BerlinDB\Database\Interfaces\Installable;
 class Table implements Installable {
 
 	/**
-	 * Use these traits.
+	 * Composed behavior. The storage traits split by reach: Traits\Storage\* are
+	 * shared by every relation (Table and View), while Traits\Storage\Table\* are
+	 * Table-only. Each trait documents itself.
 	 *
 	 * @since 3.0.0
 	 */
 	use \BerlinDB\Database\Traits\Base;
 	use \BerlinDB\Database\Traits\Boot;
-	use \BerlinDB\Database\Traits\Storage\Registration;
-	use \BerlinDB\Database\Traits\Storage\Versioning;
+	use \BerlinDB\Database\Traits\Storage\Hooks;
 	use \BerlinDB\Database\Traits\Storage\Installation;
 	use \BerlinDB\Database\Traits\Storage\Multisite;
-	use \BerlinDB\Database\Traits\Storage\Hooks;
+	use \BerlinDB\Database\Traits\Storage\Registration;
+	use \BerlinDB\Database\Traits\Storage\Versioning;
 	use \BerlinDB\Database\Traits\Storage\Table\Alter;
-	use \BerlinDB\Database\Traits\Storage\Table\Reconciliation;
 	use \BerlinDB\Database\Traits\Storage\Table\Introspection;
 	use \BerlinDB\Database\Traits\Storage\Table\Maintenance;
+	use \BerlinDB\Database\Traits\Storage\Table\Reconciliation;
 	use \BerlinDB\Database\Traits\Storage\Table\Temporary;
 
 	/** Constants *************************************************************/
@@ -80,11 +82,6 @@ class Table implements Installable {
 	private const ROW_FORMATS = array( 'DEFAULT', 'DYNAMIC', 'FIXED', 'COMPACT', 'COMPRESSED', 'REDUNDANT' );
 
 	/** Attributes ************************************************************/
-
-	/*
-	 * The relation identity ($name, $prefixed_name, $table_name, $table_prefix)
-	 * and its registration live in the Traits\Storage\Registration trait (#237).
-	 */
 
 	/**
 	 * Optional description.
@@ -116,16 +113,6 @@ class Table implements Installable {
 	 * @var   string
 	 */
 	protected $prefix = '';
-
-	/*
-	 * The version identity ($version, $db_version_key, $db_version) and its
-	 * accessors live in the Traits\Storage\Versioning trait (#237).
-	 */
-
-	/*
-	 * Multisite state ($global) and switch_blog()/is_global() live in the
-	 * Traits\Storage\Multisite trait (#237).
-	 */
 
 	/**
 	 * Schema class name or Schema object used to configure columns and indexes.
@@ -220,11 +207,6 @@ class Table implements Installable {
 	 */
 	protected $foreign_keys = 'deferred';
 
-	/*
-	 * $auto_install and add_hooks() live in the Traits\Storage\Hooks trait (#237);
-	 * should_auto_install() is overridden below to exclude temporary tables.
-	 */
-
 	/**
 	 * Instantiated schema object, populated by set_schema() during boot.
 	 *
@@ -232,20 +214,6 @@ class Table implements Installable {
 	 * @var   Schema|null|object
 	 */
 	private $schema_object = null;
-
-	/*
-	 * Table-only storage concerns live in the Traits\Storage\Table\* traits (as
-	 * opposed to the shared Traits\Storage\* traits every relation composes): the
-	 * ALTER verbs and their $grammar in Table\Alter; the schema-reconciliation surface
-	 * (diff/diverged/snapshot/reconcile) and $reconcile opt-in in Table\Reconciliation;
-	 * the read-only introspection surface (status/get_create_sql/columns/indexes/count/
-	 * column_exists/index_exists) in Table\Introspection; the maintenance verbs
-	 * (truncate/delete_all/duplicate/copy/rename/analyze/check/checksum/optimize/repair)
-	 * in Table\Maintenance; and the TEMPORARY-table mode ($temporary/is_temporary) in
-	 * Table\Temporary. The create()/drop()/exists() DDL and the persists_relation_
-	 * version()/should_auto_install() hook overrides below read $temporary but stay
-	 * here, at the seam where the mode meets the shared lifecycle (#237).
-	 */
 
 	/**
 	 * Called after initialization.
@@ -388,17 +356,6 @@ class Table implements Installable {
 	private function sanitize_table_comment( $v ): string {
 		return $this->sanitize_comment( (string) $v, 2048 );
 	}
-
-	/** Public Helpers ********************************************************/
-
-	/*
-	 * The public helper surface lives in composed traits: the install/upgrade/
-	 * uninstall lifecycle (install, uninstall, maybe_upgrade, needs_upgrade,
-	 * is_upgradeable, lock/unlock, tombstone, get_callable) in Traits\Storage\
-	 * Installation, driving this class's create()/drop()/exists()/upgrade() through
-	 * the Interfaces\Installable contract; is_temporary() and the $temporary flag in
-	 * Traits\Storage\Table\Temporary (#237).
-	 */
 
 	/** Public Management *****************************************************/
 

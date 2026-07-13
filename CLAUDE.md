@@ -309,6 +309,15 @@ the spec** — `meta type`, `object_id`, `prepare()`, `register_meta()`,
   only when that still collides. Order `use` statements **alphabetically by full
   path** — which also clusters each namespace together, so that's the only rule
   needed. (Not machine-enforced; hold new code to it.)
+- **Order in-class trait-composition `use` alphabetically within tier.** For the
+  `use \…\Traits\…;` lines inside a class/trait body (distinct from the top-of-file
+  imports above), group by namespace — kernel `Traits\*` (`Base`, `Boot`, …) first,
+  then each sub-namespace as its own block, shallower before deeper (`Query\*`,
+  `Storage\*`, then `Storage\Table\*`) — and alphabetize by leaf name within each
+  block. Keeping the blocks intact (rather than one global path-sort) preserves the
+  meaningful grouping, e.g. `Storage\*` (shared by Table and View) stays together
+  above `Storage\Table\*` (Table-only). Composition order has no runtime effect
+  absent a trait collision (itself a fatal that needs explicit `insteadof`/`as`).
 
 ## Auditing (vs. verifying a change)
 

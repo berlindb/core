@@ -53,8 +53,8 @@ trait Boot {
 	 *
 	 * @since 3.0.0
 	 */
-	use Lifecycle;
 	use Configuration;
+	use Lifecycle;
 
 	/**
 	 * Whether construction has completed (the lifecycle is sealed).

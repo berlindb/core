@@ -33,13 +33,13 @@ trait Base {
 	 *
 	 * @since 3.0.0
 	 */
+	use Arguments;
 	use Environment;
 	use Error;
 	use Generator;
 	use Instantiator;
 	use Log;
 	use Magic;
-	use Arguments;
 	use Prefix;
 	use Sanitizer;
 }

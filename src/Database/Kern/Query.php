@@ -64,18 +64,18 @@ class Query {
 	 */
 	use \BerlinDB\Database\Traits\Base;
 	use \BerlinDB\Database\Traits\Boot;
-	use \BerlinDB\Database\Traits\Query\Cache;
-	use \BerlinDB\Database\Traits\Query\Meta;
-	use \BerlinDB\Database\Traits\Query\Hydration;
-	use \BerlinDB\Database\Traits\Query\Relationships;
-	use \BerlinDB\Database\Traits\Query\Columns;
-	use \BerlinDB\Database\Traits\Query\Filters;
-	use \BerlinDB\Database\Traits\Query\Clauses;
-	use \BerlinDB\Database\Traits\Query\Execution;
 	use \BerlinDB\Database\Traits\Query\Aggregates;
+	use \BerlinDB\Database\Traits\Query\Cache;
+	use \BerlinDB\Database\Traits\Query\Clauses;
+	use \BerlinDB\Database\Traits\Query\Columns;
 	use \BerlinDB\Database\Traits\Query\Crud;
-	use \BerlinDB\Database\Traits\Query\Variables;
+	use \BerlinDB\Database\Traits\Query\Execution;
+	use \BerlinDB\Database\Traits\Query\Filters;
+	use \BerlinDB\Database\Traits\Query\Hydration;
+	use \BerlinDB\Database\Traits\Query\Meta;
 	use \BerlinDB\Database\Traits\Query\Operands;
+	use \BerlinDB\Database\Traits\Query\Relationships;
+	use \BerlinDB\Database\Traits\Query\Variables;
 
 	/** Constants *************************************************************/
 

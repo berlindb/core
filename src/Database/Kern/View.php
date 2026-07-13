@@ -43,11 +43,11 @@ class View implements Installable {
 	 */
 	use \BerlinDB\Database\Traits\Base;
 	use \BerlinDB\Database\Traits\Boot;
-	use \BerlinDB\Database\Traits\Storage\Registration;
-	use \BerlinDB\Database\Traits\Storage\Versioning;
+	use \BerlinDB\Database\Traits\Storage\Hooks;
 	use \BerlinDB\Database\Traits\Storage\Installation;
 	use \BerlinDB\Database\Traits\Storage\Multisite;
-	use \BerlinDB\Database\Traits\Storage\Hooks;
+	use \BerlinDB\Database\Traits\Storage\Registration;
+	use \BerlinDB\Database\Traits\Storage\Versioning;
 
 	/** Attributes ************************************************************/
 
