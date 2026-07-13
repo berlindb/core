@@ -120,6 +120,17 @@ class Schema {
 	 * refuses writes (Query::can_write()), so the relation's read-only-ness is
 	 * DERIVED from the declaration rather than set per-query. Default false.
 	 *
+	 * NOTE: this is the first and only relation-level policy to live on Schema
+	 * (beside the columns/indexes structure), and it is PROVISIONAL - not a pattern
+	 * to replicate. Do not accrete more scalar relation policies here by habit, and
+	 * never as a generic $settings/$properties bag. Any future one must earn its
+	 * place independently: it must be cross-consumer AND about WHAT the relation is,
+	 * not HOW it is stored (engine/charset/row_format stay on Table), and be a named,
+	 * typed, sanitized property with an accessor, exactly like this one. The intent
+	 * is to eventually remove the NEED for read_only (design it away); the direction
+	 * is undecided - deriving it from the registered relation was explored in #239
+	 * and deferred as disproportionate.
+	 *
 	 * @since 3.1.0
 	 * @var   bool
 	 */
