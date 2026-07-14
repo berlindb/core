@@ -1,0 +1,25 @@
+# Downstream canary: every push to core master runs the berlindb/wp-core-tables
+# test suite against this exact commit, so a core change that breaks a real BerlinDB
+# consumer turns red here (the kind of friction behind the hook-prefix #242 and
+# meta-type #243 issues).
+#
+# Requires a repository secret CANARY_DISPATCH_TOKEN on this repo (berlindb/core):
+# a PAT that can dispatch a repository_dispatch event to berlindb/wp-core-tables.
+
+name: Downstream canary (wp-core-tables)
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger wp-core-tables tests against this core commit
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.CANARY_DISPATCH_TOKEN }}
+          repository: berlindb/wp-core-tables
+          event-type: core-updated
+          client-payload: '{"sha": "${{ github.sha }}"}'
