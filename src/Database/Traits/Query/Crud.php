@@ -85,6 +85,135 @@ trait Crud {
 	}
 
 	/**
+	 * Read a single raw (uncached) row by a full primary-key WHERE map.
+	 *
+	 * The multi-column counterpart to get_item_raw(): builds a prepared
+	 * "{col} = {val} AND ..." predicate over the column => value map and reads the one
+	 * matching row. Used to load a row addressed by a composite primary key; for a
+	 * single-column key it is equivalent to get_item_raw().
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string,mixed> $where Column => value map (the full primary key).
+	 * @return object|false The matching raw row, or false when none matched.
+	 */
+	private function get_item_raw_by_where( array $where ): object|false {
+
+		// Nothing to match without a WHERE map.
+		if ( empty( $where ) ) {
+			return false;
+		}
+
+		$predicates = array();
+
+		// Build one prepared predicate per key column.
+		foreach ( $where as $column_name => $column_value ) {
+
+			// Bail on an invalid column or a non-usable value.
+			if ( ! $this->is_valid_column( $column_name ) || ! is_scalar( $column_value ) ) {
+				return false;
+			}
+
+			$pattern    = $this->get_column_field( array( 'name' => $column_name ), 'pattern', '%s' );
+			$column_sql = $this->get_quoted_column_name_aliased( $column_name, false );
+			$prepared   = $this->db()->prepare( "{$column_sql} = {$pattern}", $column_value );
+
+			// Bail if the value could not be prepared.
+			if ( null === $prepared ) {
+				return false;
+			}
+
+			$predicates[] = $prepared;
+		}
+
+		// Read the one matching raw row via the shared reader.
+		$rows = $this->get_items_raw( implode( ' AND ', $predicates ) . ' LIMIT 1' );
+
+		// Bail if no row matched.
+		return isset( $rows[0] ) && is_object( $rows[0] )
+			? $rows[0]
+			: false;
+	}
+
+	/**
+	 * Resolve an item id into the primary-key WHERE map that addresses one row.
+	 *
+	 * Accepts a scalar id (single-column primary keys) or the FULL composite key as
+	 * an associative array ( array( 'account_id' => 1, 'user_id' => 2 ) ), and returns
+	 * the column => value map for the primary key. Returns false when the id cannot
+	 * address exactly one row: a scalar id against a composite key (under-constrained),
+	 * or a partial / non-scalar composite key. update_item()/delete_item() fail closed
+	 * on false, so a composite-key table is written only with its full key.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param int|string|array<string,mixed> $item_id Scalar id or full composite key.
+	 * @return array<string,mixed>|false The primary-key WHERE map, or false.
+	 */
+	private function get_primary_where( $item_id ): array|false {
+
+		// The primary key column name(s), in schema order.
+		$names = $this->get_column_names( array( 'primary' => true ) );
+
+		/*
+		 * Fall back to the single designated primary when no column carries the
+		 * primary flag (a schema may name its primary via get_primary_column_name()
+		 * instead), matching how the rest of CRUD resolves the key.
+		 */
+		if ( empty( $names ) ) {
+			$primary = $this->get_primary_column_name();
+			$names   = ( '' !== $primary )
+				? array( $primary )
+				: array();
+		}
+
+		// Nothing addressable without a primary key.
+		if ( empty( $names ) ) {
+			return false;
+		}
+
+		// A full composite key supplied as an associative array.
+		if ( is_array( $item_id ) ) {
+
+			$where = array();
+
+			/*
+			 * Every primary column must be present with a usable value. Reject false
+			 * and the empty string (but allow 0 / '0') the same way get_item_raw()
+			 * does, so a bogus value never becomes a formatted "= 0" that mutates the
+			 * id-0 row.
+			 */
+			foreach ( $names as $name ) {
+				if ( ! array_key_exists( $name, $item_id ) ) {
+					return false;
+				}
+
+				$value = $item_id[ $name ];
+
+				if ( ! is_scalar( $value ) || ( false === $value ) || ( '' === $value ) ) {
+					return false;
+				}
+
+				$where[ $name ] = $value;
+			}
+
+			return $where;
+		}
+
+		// A scalar id cannot address a composite (multi-column) primary key.
+		if ( count( $names ) > 1 ) {
+			return false;
+		}
+
+		// Shape and require a non-empty single id.
+		$id = $this->shape_item_id( $item_id );
+
+		return empty( $id )
+			? false
+			: array( $names[0] => $id );
+	}
+
+	/**
 	 * Read the raw (unshaped, uncached) rows matching a WHERE fragment.
 	 *
 	 * The plural, by-WHERE counterpart to get_item_raw(): raw stdClass rows straight
@@ -428,9 +557,12 @@ trait Crud {
 	 * Update an item in the database.
 	 *
 	 * @since 1.0.0
+	 * @since 3.1.0 Accepts the full composite primary key as an associative array.
 	 *
-	 * @param int|string          $item_id Item ID.
-	 * @param array<string,mixed> $data Item data.
+	 * @param int|string|array<string,mixed> $item_id Item ID (scalar), or the full
+	 *                                                composite primary key as a
+	 *                                                column => value array.
+	 * @param array<string,mixed>            $data    Item data.
 	 * @return bool
 	 */
 	public function update_item( $item_id = 0, $data = array() ) {
@@ -446,44 +578,42 @@ trait Crud {
 			return false;
 		}
 
-		// Shape the item ID.
-		$item_id = $this->shape_item_id( $item_id );
-
-		// Bail if no item ID.
-		if ( empty( $item_id ) ) {
-			return false;
-		}
-
 		/*
-		 * A single ID cannot safely address one row of a composite-key table, so fail
-		 * closed rather than write every row sharing the first primary column's value.
-		 * update_items() funnels through here too, so composite-key writes are simply
-		 * unsupported by the current CRUD surface (see #205 follow-ups).
+		 * Resolve the primary-key WHERE (a scalar id, or a full composite key array).
+		 * A scalar id against a composite key, or a partial key, fails closed here
+		 * rather than writing every row sharing the first primary column's value.
 		 */
-		if ( $this->has_composite_primary_key() ) {
-			$this->log( 'warning', 'crud', 'update_item() does not support a composite primary key: a single ID cannot address one composite-keyed row.' );
+		$where = $this->get_primary_where( $item_id );
+
+		if ( false === $where ) {
+			$this->log( 'warning', 'crud', 'update_item() could not address a single row: supply a scalar id, or the full composite primary key as an associative array.' );
 			return false;
 		}
 
-		// Get the primary column name.
-		$primary = $this->get_primary_column_name();
+		// First primary value (the scalar id for a single-column key); is this composite?
+		$is_composite = ( count( $where ) > 1 );
+		$object_id    = reset( $where );
 
-		// Get item to update (from database, not cache).
-		$item = $this->get_item_raw( $primary, $item_id );
+		// The identity passed to hooks: the full key for a composite row, else the id.
+		$hook_id = $is_composite
+			? $where
+			: $object_id;
+
+		// Get item to update (from database, not cache), by its full primary key.
+		$item_object = $this->get_item_raw_by_where( $where );
 
 		// Bail if item does not exist to update.
-		if ( empty( $item ) ) {
+		if ( empty( $item_object ) ) {
 			return false;
 		}
 
 		// Cast as an array for easier manipulation.
-		$item = (array) $item;
+		$item = (array) $item_object;
 
-		// Unset the primary key from item & data.
-		unset(
-			$data[ $primary ],
-			$item[ $primary ]
-		);
+		// Unset every primary column from item & data (a key column is not updated).
+		foreach ( array_keys( $where ) as $primary_name ) {
+			unset( $data[ $primary_name ], $item[ $primary_name ] );
+		}
 
 		// Slice data that has columns, and cut out non-keys for meta.
 		$columns = array_flip( $this->get_column_names() );
@@ -501,10 +631,21 @@ trait Crud {
 		$meta = array_diff_key( $data, $columns );
 		$save = array_intersect_key( $data, $columns );
 
-		// Maybe save meta keys.
-		$meta_saved = ! empty( $meta )
-			? $this->save_extra_item_meta( $item_id, $meta )
-			: false;
+		/*
+		 * Save meta keys - single-key rows only. Item meta is addressed by a single
+		 * object id, which a composite key does not have; attaching it under the first
+		 * primary column would collide across sibling rows, so meta is not supported
+		 * for a composite key (the keys are ignored, with a warning).
+		 */
+		$meta_saved = false;
+
+		if ( ! empty( $meta ) ) {
+			if ( $is_composite ) {
+				$this->log( 'warning', 'crud', 'update_item() ignored meta for a composite-key row: item meta requires a single object id.' );
+			} else {
+				$meta_saved = $this->save_extra_item_meta( $object_id, $meta );
+			}
+		}
 
 		// Bail if no columns to save - but report a successful meta-only save.
 		if ( empty( $save ) ) {
@@ -519,13 +660,12 @@ trait Crud {
 		// Default return value.
 		$retval = false;
 
-		// Try to update.
+		// Try to update (the WHERE map already covers every primary column).
 		if ( ! empty( $save ) ) {
 			$table        = $this->get_table_name();
-			$where        = array( $primary => $item_id );
 			$names        = array_keys( $save );
 			$save_format  = $this->get_columns_field_by( 'name', $names, 'pattern', '%s' );
-			$where_format = $this->get_columns_field_by( 'name', $primary, 'pattern', '%s' );
+			$where_format = $this->get_columns_field_by( 'name', array_keys( $where ), 'pattern', '%s' );
 			$retval       = $this->db()->update( $table, $save, $where, $save_format, $where_format );
 		}
 
@@ -541,8 +681,17 @@ trait Crud {
 			return false;
 		}
 
-		// Refresh the primary by-id cache and rotate the Query group's salt.
-		$this->update_item_cache( $item_id );
+		/*
+		 * Refresh caches. A composite row is read via query caches, not the by-id
+		 * object cache (whose key is a single column), so clean_item_cache() both
+		 * evicts any stale by-id entry left under the first primary value AND bumps
+		 * the group generation; a single-column key warms its own by-id cache.
+		 */
+		if ( $is_composite ) {
+			$this->clean_item_cache( $item_object );
+		} else {
+			$this->update_item_cache( $object_id );
+		}
 
 		/*
 		 * Rotate the secondary lookup groups for the columns that changed. The
@@ -552,8 +701,8 @@ trait Crud {
 		 */
 		$this->update_secondary_last_changed_caches( array_keys( $save ) );
 
-		// Transition item data.
-		$this->transition_item( $item_id, $save, $item );
+		// Transition item data (identified by the full key for a composite row).
+		$this->transition_item( $hook_id, $save, $item );
 
 		// The row matched and any writes applied (a 0-row column no-op is not failure).
 		return true;
@@ -563,8 +712,11 @@ trait Crud {
 	 * Delete an item from the database.
 	 *
 	 * @since 1.0.0
+	 * @since 3.1.0 Accepts the full composite primary key as an associative array.
 	 *
-	 * @param int|string $item_id Item ID.
+	 * @param int|string|array<string,mixed> $item_id Item ID (scalar), or the full
+	 *                                                composite primary key as a
+	 *                                                column => value array.
 	 * @return bool
 	 */
 	public function delete_item( $item_id = 0 ) {
@@ -575,30 +727,29 @@ trait Crud {
 			return false;
 		}
 
-		// Shape the item ID.
-		$item_id = $this->shape_item_id( $item_id );
-
-		// Bail if no item ID.
-		if ( empty( $item_id ) ) {
-			return false;
-		}
-
 		/*
-		 * A single ID cannot safely address one row of a composite-key table, so fail
-		 * closed rather than delete every row sharing the first primary column's value.
-		 * delete_items() funnels through here too, so composite-key deletes are simply
-		 * unsupported by the current CRUD surface (see #205 follow-ups).
+		 * Resolve the primary-key WHERE (a scalar id, or a full composite key array).
+		 * A scalar id against a composite key, or a partial key, fails closed here
+		 * rather than deleting every row sharing the first primary column's value.
 		 */
-		if ( $this->has_composite_primary_key() ) {
-			$this->log( 'warning', 'crud', 'delete_item() does not support a composite primary key: a single ID cannot address one composite-keyed row.' );
+		$where = $this->get_primary_where( $item_id );
+
+		if ( false === $where ) {
+			$this->log( 'warning', 'crud', 'delete_item() could not address a single row: supply a scalar id, or the full composite primary key as an associative array.' );
 			return false;
 		}
 
-		// Get the primary column name.
-		$primary = $this->get_primary_column_name();
+		// First primary value (the scalar id for a single-column key); is this composite?
+		$is_composite = ( count( $where ) > 1 );
+		$object_id    = reset( $where );
 
-		// Get item by ID (from database, not cache).
-		$item = $this->get_item_raw( $primary, $item_id );
+		// The identity passed to the {item}_deleted action: full key for composite.
+		$hook_id = $is_composite
+			? $where
+			: $object_id;
+
+		// Get item to delete (from database, not cache), by its full primary key.
+		$item = $this->get_item_raw_by_where( $where );
 
 		// Bail if item does not exist to delete.
 		if ( empty( $item ) ) {
@@ -616,10 +767,9 @@ trait Crud {
 			return false;
 		}
 
-		// Try to delete.
+		// Try to delete (the WHERE map already covers every primary column).
 		$table        = $this->get_table_name();
-		$where        = array( $primary => $item_id );
-		$where_format = $this->get_columns_field_by( 'name', $primary, 'pattern', '%s' );
+		$where_format = $this->get_columns_field_by( 'name', array_keys( $where ), 'pattern', '%s' );
 		$retval       = $this->db()->delete( $table, $where, $where_format );
 
 		// Bail on failure.
@@ -628,10 +778,17 @@ trait Crud {
 		}
 
 		/*
-		 * Clean caches on successful delete. The removed row's value-to-ID
-		 * mappings are now gone, so rotate every secondary lookup group.
+		 * Clean caches on successful delete. clean_item_cache() evicts the by-id entry
+		 * and bumps the group generation (which is how a composite row, read via query
+		 * caches, is invalidated); the caller rotates the secondary lookup groups. A
+		 * composite key's meta is NOT cleaned here - it has no single object id, so
+		 * cleaning by the first primary column would wipe sibling rows' meta; item meta
+		 * is a single-key feature.
 		 */
-		$this->delete_all_item_meta( $item_id );
+		if ( ! $is_composite ) {
+			$this->delete_all_item_meta( $object_id );
+		}
+
 		$this->clean_item_cache( $item );
 		$this->update_secondary_last_changed_caches();
 
@@ -643,13 +800,15 @@ trait Crud {
 		 *
 		 * @since 1.0.0
 		 *
-		 * @param int|string $item_id The ID of the item that was deleted.
-		 * @param bool       $result  Whether the item was successfully deleted.
+		 * @param int|string|array<string,mixed> $item_id The id of the item that was
+		 *                                               deleted (the full composite key
+		 *                                               array for a composite-key row).
+		 * @param bool                           $result  Whether the item was deleted.
 		 */
 		if ( '' !== $action_name ) {
 			do_action(
 				$action_name,
-				$item_id,
+				$hook_id,
 				(bool) $retval
 			);
 		}
@@ -753,23 +912,6 @@ trait Crud {
 		}
 
 		return ( new \BerlinDB\Database\Operations\Add( $this ) )->add( (array) $rows );
-	}
-
-	/**
-	 * Whether this query's table has a COMPOSITE primary key (>1 primary column).
-	 *
-	 * By-id CRUD (update_item/delete_item) addresses a row by a single scalar primary
-	 * value, so it cannot safely target one row of a composite-key table: a single
-	 * value under-constrains the WHERE to only the first primary column and would
-	 * write/delete EVERY row sharing that value. Callers with a composite key use the
-	 * query-var form (update_items()/delete_items()) with the full key instead.
-	 *
-	 * @since 3.1.0
-	 *
-	 * @return bool
-	 */
-	private function has_composite_primary_key(): bool {
-		return count( (array) $this->get_columns( array( 'primary' => true ) ) ) > 1;
 	}
 
 	/**
@@ -945,9 +1087,9 @@ trait Crud {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param int|string           $item_id Item ID.
-	 * @param array<string,mixed> $new_data New item data.
-	 * @param array<string,mixed> $old_data Old item data.
+	 * @param int|string|array<string,mixed> $item_id  Item id, or the full composite key.
+	 * @param array<string,mixed>            $new_data New item data.
+	 * @param array<string,mixed>            $old_data Old item data.
 	 */
 	private function transition_item( $item_id = 0, $new_data = array(), $old_data = array() ): void {
 
@@ -959,8 +1101,10 @@ trait Crud {
 			return;
 		}
 
-		// Shape the item ID.
-		$item_id = $this->shape_item_id( $item_id );
+		// Shape the item ID (a full composite key array passes through unchanged).
+		$item_id = is_array( $item_id )
+			? $item_id
+			: $this->shape_item_id( $item_id );
 
 		// Bail if no item ID.
 		if ( empty( $item_id ) ) {
