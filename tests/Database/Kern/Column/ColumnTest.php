@@ -2470,6 +2470,56 @@ class ColumnTest extends TestCase {
 	}
 
 	/**
+	 * default => false means "no DEFAULT clause" for any type (a NOT NULL column the
+	 * application must always supply), rather than the type's coerced empty value.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_create_string_no_default_when_default_is_false() {
+		$varchar = new Column(
+			array(
+				'name'    => 'c',
+				'type'    => 'varchar',
+				'length'  => 20,
+				'default' => false,
+			)
+		);
+		$this->assertStringContainsString( 'varchar(20) not null', $varchar->get_create_string() );
+		$this->assertStringNotContainsString( "default '", $varchar->get_create_string() );
+
+		// A numeric column would otherwise fall through to default '0'.
+		$bigint = new Column(
+			array(
+				'name'    => 'c',
+				'type'    => 'bigint',
+				'length'  => 20,
+				'default' => false,
+			)
+		);
+		$this->assertStringNotContainsString( "default '", $bigint->get_create_string() );
+	}
+
+	/**
+	 * default => false is preserved even when a custom validator is set (it would
+	 * previously have been coerced to '' by the validator before reaching the DDL).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_default_false_survives_a_custom_validator() {
+		$column = new Column(
+			array(
+				'name'     => 'c',
+				'type'     => 'varchar',
+				'length'   => 20,
+				'validate' => 'strval',
+				'default'  => false,
+			)
+		);
+		$this->assertFalse( $column->default );
+		$this->assertStringNotContainsString( "default '", $column->get_create_string() );
+	}
+
+	/**
 	 * A decimal column renders its precision and scale: decimal(precision,scale).
 	 *
 	 * @since 3.1.0

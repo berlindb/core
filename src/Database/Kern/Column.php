@@ -277,6 +277,10 @@ class Column {
 	 *
 	 * Can be literal null if $allow_null is truthy.
 	 *
+	 * Can be literal false to mean the column has NO default: the CREATE TABLE DDL
+	 * omits the DEFAULT clause (see get_default_sql()). This affects the DDL only - at
+	 * insert time default_item() still fills an omitted column from this value.
+	 *
 	 * Invalid values will be dropped.
 	 *
 	 * Used by Query::default_item() to create an array full of default values.
@@ -1554,12 +1558,29 @@ class Column {
 	/**
 	 * Sanitize the default value.
 	 *
+	 * A literal `false` is preserved to mean "no DEFAULT clause": get_default_sql()
+	 * honors it via its `false === $default` guard and emits no DEFAULT for the column.
+	 * Without this, validate() would coerce false to the type's empty value (0 or '')
+	 * and the guard - and the intent - would be unreachable through config. This affects
+	 * the DDL only; at insert time an omitted column is still filled from its default
+	 * (where false validates to the type's empty value), so declaring `false` does not
+	 * by itself make the value required.
+	 *
 	 * @since 1.0.0
 	 * @since 3.0.0 Uses validate()
+	 * @since 3.1.0 Preserves a literal false as "no default": $default stays false and
+	 *              the DDL omits the clause. Previously false was coerced to the type's
+	 *              empty value ('' / 0) - most visibly when a custom validator was set.
 	 * @param mixed $value Default value for the column.
 	 * @return mixed
 	 */
 	private function sanitize_default( $value = '' ) {
+
+		// Preserve "no default" (see method docblock).
+		if ( false === $value ) {
+			return false;
+		}
+
 		return $this->validate( $value, $value );
 	}
 
@@ -2258,11 +2279,10 @@ class Column {
 	 */
 	private function get_default_sql(): string {
 		/*
-		 * Literal false: suppress the default clause entirely.
-		 *
-		 * Not reachable via the constructor (sanitize_default() converts false
-		 * to ''), but honored when $default is assigned directly by a subclass
-		 * or plugin.
+		 * Literal false: the column has no default, so suppress the clause entirely.
+		 * Reachable through config - sanitize_default() preserves a declared false (a
+		 * NOT NULL column with no DEFAULT) - and honored when $default is assigned
+		 * directly by a subclass or plugin.
 		 */
 		if ( false === $this->default ) {
 			return '';
