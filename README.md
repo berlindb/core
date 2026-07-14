@@ -5,14 +5,10 @@
 [![PHP Version](https://img.shields.io/packagist/dependency-v/berlindb/core/php.svg)](https://packagist.org/packages/berlindb/core)
 [![License](https://img.shields.io/packagist/l/berlindb/core.svg)](LICENSE)
 
-**Reunification readiness** &mdash; how faithfully shared BerlinDB can express real plugins' database layers, measured by [berlindb/readiness](https://github.com/berlindb/readiness):
-
 [![EDD](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/berlindb/edd-core-tables/master/.readiness/edd.json&label=EDD)](https://github.com/berlindb/edd-core-tables)
 [![Sugar Calendar](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/berlindb/sc-core-tables/master/.readiness/sugar-calendar.json&label=Sugar%20Calendar)](https://github.com/berlindb/sc-core-tables)
 [![WordPress](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/berlindb/wp-core-tables/master/.readiness/wordpress.json&label=WordPress)](https://github.com/berlindb/wp-core-tables)
 [![WooCommerce](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/berlindb/wc-core-tables/master/.readiness/woocommerce.json&label=WooCommerce)](https://github.com/berlindb/wc-core-tables)
-
-<sub>EDD and Sugar Calendar score their own first-generation forks (an independent yardstick); WordPress and WooCommerce are core-native parity plugins, so their 100% is by construction. Behavioral flags only, for now.</sub>
 
 BerlinDB provides an ORM-like interface for custom database tables in
 WordPress.
