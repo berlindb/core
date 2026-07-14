@@ -530,4 +530,48 @@ class ColumnFromMysqlTest extends TestCase {
 		$this->assertEmpty( $col->length );
 		$this->assertSame( 'LONGTEXT', $col->type );
 	}
+
+	/**
+	 * A decimal column maps both the precision (length) and the scale.
+	 *
+	 * decimal(18,9) - as EDD uses for monetary amounts - must round-trip both parts;
+	 * previously only the precision survived introspection.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_decimal_maps_length_and_scale() {
+		$col = Column::from_mysql(
+			array(
+				'Field'   => 'total',
+				'Type'    => 'decimal(18,9)',
+				'Null'    => 'NO',
+				'Key'     => '',
+				'Default' => '0.000000000',
+				'Extra'   => '',
+			)
+		);
+
+		$this->assertSame( 18, $col->length );
+		$this->assertSame( 9, $col->scale );
+	}
+
+	/**
+	 * A decimal reconstructed from MySQL renders its scale back into the CREATE DDL.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_decimal_round_trips_scale_into_create_string() {
+		$col = Column::from_mysql(
+			array(
+				'Field'   => 'total',
+				'Type'    => 'decimal(18,9)',
+				'Null'    => 'NO',
+				'Key'     => '',
+				'Default' => '0.000000000',
+				'Extra'   => '',
+			)
+		);
+
+		$this->assertStringContainsString( 'decimal(18,9)', $col->get_create_string() );
+	}
 }

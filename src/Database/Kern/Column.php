@@ -182,12 +182,30 @@ class Column {
 	 * - varchar: 255 - for hashes, user-agents, or URLs
 	 * - varchar: 191 - utf8mb4 safe length (for $cache_key usages)
 	 *
+	 * For a decimal, $length does double duty as the PRECISION (the total number of
+	 * digits) - there is no separate $precision property. Pair it with $scale for the
+	 * fractional digits: length 18, scale 9 renders decimal(18,9).
+	 *
 	 * See: https://dev.mysql.com/doc/refman/8.0/en/storage-requirements.html
 	 *
 	 * @since 1.0.0
 	 * @var   bool|int Default false. Int to set length.
 	 */
 	public $length = false;
+
+	/**
+	 * Decimal scale: the number of digits after the decimal point.
+	 *
+	 * Only meaningful for decimal / numeric types, where $length is the precision and
+	 * $scale is the fractional digit count - together they render decimal(precision,
+	 * scale). For example a currency column is length 18, scale 9 -> decimal(18,9).
+	 *
+	 * See: https://dev.mysql.com/doc/refman/8.0/en/fixed-point-types.html
+	 *
+	 * @since 3.1.0
+	 * @var   bool|int Default false. Int to set the scale.
+	 */
+	public $scale = false;
 
 	/**
 	 * If integer type, is it unsigned?
@@ -646,18 +664,26 @@ class Column {
 		$type_raw  = $row['Type'] ?? '';
 		$base_type = '';
 		$length    = false;
+		$scale     = false;
 		$unsigned  = false;
 		$zerofill  = false;
 
 		if ( preg_match( '/^(\w+)(?:\(([^)]+)\))?\s*(unsigned)?\s*(zerofill)?/i', $type_raw, $m ) ) {
 			$base_type = $m[1];
 
-			// Decimal/enum types include a comma; take only the precision part.
+			/*
+			 * A decimal's parenthesized part is "precision,scale"; keep both. Other
+			 * types (int, varchar, ...) carry only a length.
+			 */
 			if ( ! empty( $m[2] ) ) {
 				$comma_pos = strpos( $m[2], ',' );
-				$length    = ( false !== $comma_pos )
-					? (int) substr( $m[2], 0, $comma_pos )
-					: (int) $m[2];
+
+				if ( false !== $comma_pos ) {
+					$length = (int) substr( $m[2], 0, $comma_pos );
+					$scale  = (int) substr( $m[2], $comma_pos + 1 );
+				} else {
+					$length = (int) $m[2];
+				}
 			}
 
 			$unsigned = ! empty( $m[3] );
@@ -682,6 +708,7 @@ class Column {
 				'name'       => $row['Field'] ?? '',
 				'type'       => $base_type,
 				'length'     => $length,
+				'scale'      => $scale,
 				'unsigned'   => $unsigned,
 				'zerofill'   => $zerofill,
 				'allow_null' => $allow_null,
@@ -738,6 +765,7 @@ class Column {
 			'name'          => array( $this, 'sanitize_column_name' ),
 			'type'          => 'strtoupper',
 			'length'        => 'intval',
+			'scale'         => 'intval',
 			'unsigned'      => array( $this, 'sanitize_boolean' ),
 			'zerofill'      => array( $this, 'sanitize_boolean' ),
 			'binary'        => array( $this, 'sanitize_boolean' ),
@@ -1130,6 +1158,79 @@ class Column {
 				'varchar',
 				'binary',
 				'varbinary',
+			),
+			$type
+		);
+	}
+
+	/**
+	 * Return if a column type is a spatial (geometry) type.
+	 *
+	 * MySQL's spatial types are the GEOMETRY supertype and its subtypes: POINT,
+	 * LINESTRING, POLYGON, and the MULTI* / collection variants. They store geometric
+	 * values (coordinates, shapes) and, like BLOB / TEXT / JSON, cannot carry a literal
+	 * DEFAULT. BerlinDB does not use them itself; the predicate exists so is_lob() (and
+	 * any future spatial handling) has one source of truth for the family.
+	 *
+	 * See: https://dev.mysql.com/doc/refman/8.0/en/spatial-type-overview.html
+	 *
+	 * @since 3.1.0
+	 * @param string $type Optional type string to test. Defaults to $this->type.
+	 * @return bool True for a spatial type.
+	 */
+	public function is_spatial( $type = '' ) {
+		return $this->is_type(
+			array(
+				'geometry',
+				'point',
+				'linestring',
+				'polygon',
+				'multipoint',
+				'multilinestring',
+				'multipolygon',
+				'geometrycollection',
+			),
+			$type
+		);
+	}
+
+	/**
+	 * Return if a column type is a large object that cannot carry a literal DEFAULT.
+	 *
+	 * MySQL forbids a literal DEFAULT on BLOB, TEXT, JSON, and spatial columns (only a
+	 * parenthesized expression default is allowed, which BerlinDB does not emit). This is
+	 * the unbounded subset of is_text() / is_binary() - the bounded char/varchar/binary/
+	 * varbinary types (is_bounded_string()) DO allow a default - plus JSON and the
+	 * spatial types (is_spatial()).
+	 *
+	 * @since 3.1.0
+	 * @param string $type Optional type string to test. Defaults to $this->type.
+	 * @return bool True for text/blob/json/spatial types.
+	 */
+	public function is_lob( $type = '' ) {
+
+		// Spatial types are large objects that also cannot carry a literal default.
+		if ( $this->is_spatial( $type ) ) {
+			return true;
+		}
+
+		return $this->is_type(
+			array(
+
+				// Text.
+				'tinytext',
+				'text',
+				'mediumtext',
+				'longtext',
+
+				// Blob.
+				'tinyblob',
+				'blob',
+				'mediumblob',
+				'longblob',
+
+				// JSON.
+				'json',
 			),
 			$type
 		);
@@ -2060,10 +2161,19 @@ class Column {
 			return $lower;
 		}
 
-		// Type with optional length.
-		$parts[] = ! empty( $this->length ) && is_numeric( $this->length )
-			? "{$lower}({$this->length})"
-			: $lower;
+		/*
+		 * Type with optional length. A decimal also carries a scale, rendered as a
+		 * second argument: decimal(precision,scale).
+		 */
+		if ( ! empty( $this->length ) && is_numeric( $this->length ) ) {
+			$size = ( $this->is_decimal() && ! empty( $this->scale ) && is_numeric( $this->scale ) )
+				? "{$this->length},{$this->scale}"
+				: (string) $this->length;
+
+			$parts[] = "{$lower}({$size})";
+		} else {
+			$parts[] = $lower;
+		}
 
 		// Binary column types use fixed charset/collation.
 		if ( $this->is_binary() ) {
@@ -2169,14 +2279,14 @@ class Column {
 		}
 
 		/*
-		 * JSON (like BLOB / TEXT / GEOMETRY) cannot carry a literal DEFAULT: MySQL
-		 * accepts only a parenthesized expression default (e.g.
+		 * Large objects (BLOB / TEXT / JSON / GEOMETRY) cannot carry a literal DEFAULT:
+		 * MySQL accepts only a parenthesized expression default (e.g.
 		 * DEFAULT (JSON_ARRAY())), which BerlinDB does not emit - so omit the clause.
 		 * A nullable column's DEFAULT NULL is handled by the allow_null guard above.
 		 * Checked before the explicit-default branch so a declared default cannot
 		 * produce invalid DDL.
 		 */
-		if ( $this->is_json() ) {
+		if ( $this->is_lob() ) {
 			return '';
 		}
 

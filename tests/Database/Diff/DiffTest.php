@@ -362,6 +362,54 @@ class DiffTest extends TestCase {
 	}
 
 	/**
+	 * A DECIMAL scale change IS a modification (from_mysql now captures the scale).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_detects_modified_decimal_scale() {
+		$from = $this->schema(
+			array(
+				array(
+					'name'   => 'amount',
+					'type'   => 'decimal',
+					'length' => '18',
+					'scale'  => '2',
+				),
+			)
+		);
+		$to   = $this->schema(
+			array(
+				array(
+					'name'   => 'amount',
+					'type'   => 'decimal',
+					'length' => '18',
+					'scale'  => '9',
+				),
+			)
+		);
+
+		$this->assertCount( 1, $from->diff( $to )->modified_columns() );
+	}
+
+	/**
+	 * Identical DECIMAL scale does not phantom-diff.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_identical_decimal_scale_is_not_a_modification() {
+		$cols = array(
+			array(
+				'name'   => 'amount',
+				'type'   => 'decimal',
+				'length' => '18',
+				'scale'  => '9',
+			),
+		);
+
+		$this->assertCount( 0, $this->schema( $cols )->diff( $this->schema( $cols ) )->modified_columns() );
+	}
+
+	/**
 	 * Type synonyms fold to their canonical name, so they do not phantom-diff.
 	 *
 	 * MySQL stores 'integer' as 'int' etc., so a declared synonym must compare

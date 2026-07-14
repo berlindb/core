@@ -34,6 +34,8 @@ use BerlinDB\Database\Kern\Column;
  *    is cosmetic and dropped by MySQL 8, so comparing it phantom-diffs. Length is
  *    still compared for strings/binary (significant) and for DECIMAL/FLOAT/BIT
  *    (precision is significant)
+ *  - a DECIMAL column's SCALE (the digits after the point; from_mysql() now captures
+ *    it, so decimal(18,2) vs decimal(18,9) is a real, reportable change)
  *  - nullability
  *  - unsigned / zerofill, but only for numeric types (they are meaningless and
  *    inconsistently defaulted elsewhere)
@@ -46,8 +48,6 @@ use BerlinDB\Database\Kern\Column;
  *  - the `extra` clause (MySQL 8 prefixes ON UPDATE with DEFAULT_GENERATED and
  *    varies AUTO_INCREMENT casing)
  *  - the comment
- *  - a DECIMAL/NUMERIC column's SCALE (Column::from_mysql captures only the
- *    precision, so comparing scale would phantom-diff)
  *  - an ENUM/SET value list (introspection does not preserve it as a length, so it
  *    cannot be compared here)
  *
@@ -112,6 +112,7 @@ class ColumnNormalizer {
 		return array(
 			'type'     => $canonical,
 			'length'   => $column->is_int( $canonical ) ? 0 : (int) $column->length,
+			'scale'    => $column->is_decimal( $canonical ) ? (int) $column->scale : 0,
 			'nullable' => ! empty( $column->allow_null ),
 			'unsigned' => $is_numeric && ! empty( $column->unsigned ),
 			'zerofill' => $is_numeric && ! empty( $column->zerofill ),

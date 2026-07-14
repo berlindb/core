@@ -1211,12 +1211,15 @@ class ColumnTest extends TestCase {
 	}
 
 	/**
-	 * Test that a text column without an explicit default outputs an empty string default.
+	 * Test that a text column without an explicit default emits no DEFAULT clause.
+	 *
+	 * MySQL rejects a literal DEFAULT on TEXT/BLOB columns, so a NOT NULL text column
+	 * with no declared default must not gain one.
 	 *
 	 * @since 3.0.0
+	 * @since 3.1.0 No longer emits an (invalid) DEFAULT ''; emits no default clause.
 	 */
-	public function test_get_create_string_text_column_without_default_outputs_empty_default() {
-		// Text columns with no explicit default (i.e. default = '') produce "default ''".
+	public function test_get_create_string_text_column_without_default_outputs_no_default() {
 		$column = new Column(
 			array(
 				'name' => 'note',
@@ -1224,7 +1227,8 @@ class ColumnTest extends TestCase {
 			)
 		);
 		$sql    = $column->get_create_string();
-		$this->assertStringContainsString( "default ''", $sql );
+		$this->assertStringContainsString( 'text not null', $sql );
+		$this->assertStringNotContainsString( "default '", $sql );
 	}
 
 	/**
@@ -2369,5 +2373,136 @@ class ColumnTest extends TestCase {
 
 		// Invalid cast is sanitized away at this public boundary (no cast).
 		$this->assertSame( '`a`.`total`', $column->get_name_sql( 'a', 'nonsense' ) );
+	}
+
+	/**
+	 * is_lob() returns true for the unbounded text / blob / json / geometry types.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_is_lob_returns_true_for_large_object_types() {
+		foreach ( array( 'longtext', 'mediumtext', 'text', 'longblob', 'blob', 'json', 'geometry', 'point', 'multipolygon' ) as $type ) {
+			$column = new Column(
+				array(
+					'name' => 'c',
+					'type' => $type,
+				)
+			);
+			$this->assertTrue( $column->is_lob(), "{$type} should be a large object" );
+		}
+	}
+
+	/**
+	 * is_spatial() covers the whole geometry family and nothing else.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_is_spatial_covers_geometry_family() {
+		$spatial = array( 'geometry', 'point', 'linestring', 'polygon', 'multipoint', 'multilinestring', 'multipolygon', 'geometrycollection' );
+		foreach ( $spatial as $type ) {
+			$column = new Column(
+				array(
+					'name' => 'g',
+					'type' => $type,
+				)
+			);
+			$this->assertTrue( $column->is_spatial(), "{$type} should be spatial" );
+		}
+
+		$scalar = new Column(
+			array(
+				'name'   => 'g',
+				'type'   => 'varchar',
+				'length' => 10,
+			)
+		);
+		$this->assertFalse( $scalar->is_spatial() );
+	}
+
+	/**
+	 * is_lob() returns false for a bounded string, which DOES allow a default.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_is_lob_returns_false_for_bounded_string() {
+		$column = new Column(
+			array(
+				'name'   => 'c',
+				'type'   => 'varchar',
+				'length' => 100,
+			)
+		);
+		$this->assertFalse( $column->is_lob() );
+	}
+
+	/**
+	 * A NOT NULL text column emits no DEFAULT clause (MySQL rejects DEFAULT on TEXT).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_create_string_no_default_for_not_null_text() {
+		$column = new Column(
+			array(
+				'name' => 'body',
+				'type' => 'mediumtext',
+			)
+		);
+		$create = $column->get_create_string();
+		$this->assertStringContainsString( 'mediumtext not null', $create );
+		$this->assertStringNotContainsString( "default '", $create );
+	}
+
+	/**
+	 * A nullable text column still emits DEFAULT NULL.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_create_string_default_null_for_nullable_text() {
+		$column = new Column(
+			array(
+				'name'       => 'body',
+				'type'       => 'longtext',
+				'allow_null' => true,
+				'default'    => null,
+			)
+		);
+		$this->assertStringContainsString( 'default null', $column->get_create_string() );
+	}
+
+	/**
+	 * A decimal column renders its precision and scale: decimal(precision,scale).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_create_string_decimal_renders_scale() {
+		$column = new Column(
+			array(
+				'name'     => 'total',
+				'type'     => 'decimal',
+				'length'   => 18,
+				'scale'    => 9,
+				'unsigned' => false,
+			)
+		);
+		$this->assertStringContainsString( 'decimal(18,9)', $column->get_create_string() );
+	}
+
+	/**
+	 * A decimal with no scale renders precision only: decimal(precision).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_create_string_decimal_without_scale() {
+		$column = new Column(
+			array(
+				'name'     => 'total',
+				'type'     => 'decimal',
+				'length'   => 10,
+				'unsigned' => false,
+			)
+		);
+		$create = $column->get_create_string();
+		$this->assertStringContainsString( 'decimal(10)', $create );
+		$this->assertStringNotContainsString( 'decimal(10,', $create );
 	}
 }
