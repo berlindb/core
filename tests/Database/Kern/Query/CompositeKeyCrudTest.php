@@ -53,6 +53,35 @@ class CompositeKeySchema extends Schema {
 }
 
 /**
+ * A composite primary key that (invalidly) includes an auto_increment column.
+ *
+ * @since 3.1.0
+ */
+class CompositeAutoIncrementSchema extends Schema {
+	public $columns = array(
+		array(
+			'name'     => 'a',
+			'type'     => 'bigint',
+			'unsigned' => true,
+			'primary'  => true,
+			'extra'    => 'auto_increment',
+		),
+		array(
+			'name'     => 'b',
+			'type'     => 'bigint',
+			'unsigned' => true,
+			'primary'  => true,
+		),
+	);
+	public $indexes = array(
+		array(
+			'type'    => 'primary',
+			'columns' => array( 'a', 'b' ),
+		),
+	);
+}
+
+/**
  * The installable table for the composite schema.
  *
  * @since 3.1.0
@@ -294,15 +323,15 @@ class CompositeKeyCrudTest extends TestCase {
 	}
 
 	/**
-	 * On a composite key, a non-column (meta) key is ignored with a warning - meta
-	 * needs a single object id - while the column write still applies.
+	 * On a composite key, a non-column (meta) key can't be honored (meta needs one
+	 * object id), so the whole update is REJECTED rather than silently partly applied.
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_meta_ignored_on_composite_key() {
+	public function test_meta_rejected_on_composite_key() {
 		$query = new CompositeKeyQuery();
 
-		$this->assertTrue(
+		$this->assertFalse(
 			$query->update_item(
 				array(
 					'account_id' => 1,
@@ -315,9 +344,8 @@ class CompositeKeyCrudTest extends TestCase {
 			)
 		);
 
-		$this->assertSame( 'updated', $this->status_of( 1, 10 ) );
-
-		// The meta-ignored warning was logged.
+		// Nothing was applied (the column write was rejected along with the meta).
+		$this->assertSame( 'active', $this->status_of( 1, 10 ) );
 		$this->assertNotEmpty( $query->get_logs( array( 'code' => 'crud' ) ) );
 	}
 
@@ -355,5 +383,18 @@ class CompositeKeyCrudTest extends TestCase {
 			),
 			$received
 		);
+	}
+
+	/**
+	 * A composite primary key that includes an auto_increment column is invalid at
+	 * the schema (non-portable + contradictory) - fail at declaration, not at write.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_composite_primary_key_with_auto_increment_is_invalid() {
+		$schema = new CompositeAutoIncrementSchema();
+
+		$this->assertFalse( $schema->is_valid() );
+		$this->assertNotEmpty( preg_grep( '/AUTO_INCREMENT/', $schema->get_validation_errors() ) );
 	}
 }

@@ -89,6 +89,57 @@ key is supported end-to-end (3.1.0). Supply the key in `add_item()` (which retur
 it) since the database cannot generate it, and pass it to `get_item()` /
 `update_item()` / `delete_item()` as usual.
 
+## Primary keys: prefer a single column
+
+Default to a **single-column primary key** - a surrogate `bigint auto_increment`
+`id`, or a `varchar`/UUID you supply. BerlinDB's object model (the by-id cache,
+item meta's `object_id`, scalar `{item}_*` hooks, `get_item()`/`copy_item()`) is
+built around one scalar identity, so a single-column key is the path where
+everything just works.
+
+Need uniqueness across several columns? Add a composite **UNIQUE index**, not a
+composite PRIMARY key:
+
+```php
+public $indexes = array(
+    array(
+        'type'    => 'unique',
+        'columns' => array( 'account_id', 'user_id' ),
+    ),
+);
+```
+
+You keep the scalar `id` for CRUD, caching, meta, and hooks, and still get the
+multi-column uniqueness constraint.
+
+### Composite PRIMARY keys (junction tables only)
+
+A true composite primary key - `'primary' => true` on more than one column plus a
+composite `primary` index - fits a **pure junction/pivot table** where the tuple
+*is* the row and a surrogate id would be dead weight. BerlinDB supports it, but
+deliberately as a limited escape hatch (**composite-key targeted writes**), not
+full parity:
+
+- The composite key must NOT include an `auto_increment` column (rejected at schema
+  validation - non-portable and contradictory).
+- **Item meta is unsupported** (it needs one `object_id`): the meta preset refuses a
+  composite primary, and `update_item()` rejects meta keys on a composite row.
+
+| Operation | Composite key |
+| --- | --- |
+| Read via query vars (`get_items()`, `->items`) | yes |
+| `update_item( array( 'a' => 1, 'b' => 2 ), $data )` | yes |
+| `delete_item( array( 'a' => 1, 'b' => 2 ) )` | yes |
+| Relationships (`with` / `get_related`), aggregates | yes |
+| `get_item( scalar )` / `copy_item( scalar )` | no (single-column only) |
+| `add_item()` | inserts, but the returned id / dedup use the first key column |
+| `update_items()` / `delete_items()` (bulk) | no (scalar-only) |
+| Item meta | no |
+
+Address a composite row by passing its **full key** as a `column => value` array to
+`update_item()` / `delete_item()`; a scalar or partial key fails closed. Read
+composite rows with query vars (`new Query( array( 'a' => 1, 'b' => 2 ) )`).
+
 ## Nullable Values
 
 For nullable columns, set both `allow_null` and a null default:

@@ -152,20 +152,8 @@ trait Crud {
 	 */
 	private function get_primary_where( $item_id ): array|false {
 
-		// The primary key column name(s), in schema order.
-		$names = $this->get_column_names( array( 'primary' => true ) );
-
-		/*
-		 * Fall back to the single designated primary when no column carries the
-		 * primary flag (a schema may name its primary via get_primary_column_name()
-		 * instead), matching how the rest of CRUD resolves the key.
-		 */
-		if ( empty( $names ) ) {
-			$primary = $this->get_primary_column_name();
-			$names   = ( '' !== $primary )
-				? array( $primary )
-				: array();
-		}
+		// The primary key column name(s), in schema order (the single authority).
+		$names = $this->get_primary_column_names();
 
 		// Nothing addressable without a primary key.
 		if ( empty( $names ) ) {
@@ -211,6 +199,18 @@ trait Crud {
 		return empty( $id )
 			? false
 			: array( $names[0] => $id );
+	}
+
+	/**
+	 * Return the wpdb format array for a primary-key WHERE map, in the map's order.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string,mixed> $where A primary-key column => value map.
+	 * @return array<int,string> One pattern per column, matching the map's order.
+	 */
+	private function get_primary_where_format( array $where ): array {
+		return $this->get_columns_field_by( 'name', array_keys( $where ), 'pattern', '%s' );
 	}
 
 	/**
@@ -632,20 +632,20 @@ trait Crud {
 		$save = array_intersect_key( $data, $columns );
 
 		/*
-		 * Save meta keys - single-key rows only. Item meta is addressed by a single
-		 * object id, which a composite key does not have; attaching it under the first
-		 * primary column would collide across sibling rows, so meta is not supported
-		 * for a composite key (the keys are ignored, with a warning).
+		 * Reject, rather than silently drop, non-column (meta) keys on a composite
+		 * key: item meta is addressed by a single object id, which a composite key
+		 * does not have. Fail the whole update so the caller sees it, instead of
+		 * partially applying and dropping the rest.
 		 */
-		$meta_saved = false;
-
-		if ( ! empty( $meta ) ) {
-			if ( $is_composite ) {
-				$this->log( 'warning', 'crud', 'update_item() ignored meta for a composite-key row: item meta requires a single object id.' );
-			} else {
-				$meta_saved = $this->save_extra_item_meta( $object_id, $meta );
-			}
+		if ( $is_composite && ! empty( $meta ) ) {
+			$this->log( 'warning', 'crud', 'update_item() rejected: item meta is not supported on a composite-key table (unhandled keys: ' . implode( ', ', array_keys( $meta ) ) . ').' );
+			return false;
 		}
+
+		// Maybe save meta keys (single-column key only).
+		$meta_saved = ! empty( $meta )
+			? $this->save_extra_item_meta( $object_id, $meta )
+			: false;
 
 		// Bail if no columns to save - but report a successful meta-only save.
 		if ( empty( $save ) ) {
@@ -665,7 +665,7 @@ trait Crud {
 			$table        = $this->get_table_name();
 			$names        = array_keys( $save );
 			$save_format  = $this->get_columns_field_by( 'name', $names, 'pattern', '%s' );
-			$where_format = $this->get_columns_field_by( 'name', array_keys( $where ), 'pattern', '%s' );
+			$where_format = $this->get_primary_where_format( $where );
 			$retval       = $this->db()->update( $table, $save, $where, $save_format, $where_format );
 		}
 
@@ -769,7 +769,7 @@ trait Crud {
 
 		// Try to delete (the WHERE map already covers every primary column).
 		$table        = $this->get_table_name();
-		$where_format = $this->get_columns_field_by( 'name', array_keys( $where ), 'pattern', '%s' );
+		$where_format = $this->get_primary_where_format( $where );
 		$retval       = $this->db()->delete( $table, $where, $where_format );
 
 		// Bail on failure.

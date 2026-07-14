@@ -93,6 +93,35 @@ trait Columns {
 	}
 
 	/**
+	 * Return this query's primary key column name(s), in schema order.
+	 *
+	 * The single authority for key discovery: every primary-flagged column, or - when
+	 * no column carries the flag - the schema's designated single primary. One name
+	 * for a normal single-column key; more than one for a composite key. Callers that
+	 * need to address a row derive from here rather than re-resolving the fallback.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return string[] Ordered primary column name(s) (empty only when none resolve).
+	 */
+	public function get_primary_column_names(): array {
+
+		// Prefer the primary-flagged columns, in schema order.
+		$names = $this->get_column_names( array( 'primary' => true ) );
+
+		// Fall back to the single designated primary when no column carries the flag.
+		if ( empty( $names ) ) {
+			$primary = $this->get_primary_column_name();
+
+			if ( '' !== $primary ) {
+				$names[] = $primary;
+			}
+		}
+
+		return $names;
+	}
+
+	/**
 	 * Get a column from an array of arguments.
 	 *
 	 * @since 1.0.0

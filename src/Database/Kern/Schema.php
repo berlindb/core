@@ -1876,6 +1876,27 @@ class Schema {
 		}
 
 		/*
+		 * A composite primary key must not include an AUTO_INCREMENT column. An
+		 * auto-increment column is a single generated scalar identity (MySQL requires
+		 * it to lead a key; SQLite rejects it in a composite key outright), so pairing
+		 * it with a composite key is non-portable and semantically contradictory - use
+		 * a plain composite key, or a surrogate auto-increment id with a UNIQUE index.
+		 */
+		$key_columns = ( 0 < $primary_index_count )
+			? $primary_index_columns
+			: $primary_columns;
+
+		if ( 1 < count( $key_columns ) ) {
+			foreach ( $columns as $column ) {
+				$name = $this->sanitize_index_name( (string) $column->name );
+
+				if ( in_array( $name, $key_columns, true ) && $column->is_auto_increment() ) {
+					$errors[] = "Composite primary key must not include AUTO_INCREMENT column {$name}.";
+				}
+			}
+		}
+
+		/*
 		 * Relationship checks (#193, #206). Accessor names must be unique within
 		 * the schema (they address related data and become Row accessors); the
 		 * rest validate each declaration against this schema's own columns. Remote
