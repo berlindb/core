@@ -22,6 +22,7 @@ jobs:
           - berlindb/wp-core-tables
           - berlindb/edd-core-tables
           - berlindb/sc-core-tables
+          - berlindb/wc-core-tables
     steps:
       - name: Trigger ${{ matrix.repository }} against this core commit
         uses: peter-evans/repository-dispatch@v3
