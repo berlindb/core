@@ -1,12 +1,13 @@
-# Downstream canary: every push to core master runs the berlindb/wp-core-tables
-# test suite against this exact commit, so a core change that breaks a real BerlinDB
-# consumer turns red here (the kind of friction behind the hook-prefix #242 and
-# meta-type #243 issues).
+# Downstream canaries: every push to core master runs each real BerlinDB consumer's
+# test suite against this exact commit, so a core change that breaks a consumer turns
+# red here (the kind of friction behind the hook-prefix #242 and meta-type #243 issues,
+# and the decimal-scale #244 / default-clause #245 gaps EDD surfaced).
 #
-# Requires a repository secret CANARY_DISPATCH_TOKEN on this repo (berlindb/core):
-# a PAT that can dispatch a repository_dispatch event to berlindb/wp-core-tables.
+# Requires a repository secret CANARY_DISPATCH_TOKEN on this repo (berlindb/core): a PAT
+# that can dispatch a repository_dispatch event to BOTH berlindb/wp-core-tables and
+# berlindb/edd-core-tables (fine-grained: grant it access to both).
 
-name: Downstream canary (wp-core-tables)
+name: Downstream canaries
 
 on:
   push:
@@ -15,11 +16,16 @@ on:
 jobs:
   dispatch:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        repository:
+          - berlindb/wp-core-tables
+          - berlindb/edd-core-tables
     steps:
-      - name: Trigger wp-core-tables tests against this core commit
+      - name: Trigger ${{ matrix.repository }} against this core commit
         uses: peter-evans/repository-dispatch@v3
         with:
           token: ${{ secrets.CANARY_DISPATCH_TOKEN }}
-          repository: berlindb/wp-core-tables
+          repository: ${{ matrix.repository }}
           event-type: core-updated
           client-payload: '{"sha": "${{ github.sha }}"}'
