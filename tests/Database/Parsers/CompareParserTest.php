@@ -152,11 +152,243 @@ class CompareParserTest extends TestCase {
 		$this->assertContains( 'compare_query', $compare->get_query_var_keys() );
 
 		/*
+		 * Per-column: Compare reports a {column}_compare shorthand for compare-enabled
+		 * columns ('priority' carries 'compare' => true), and not for others.
+		 */
+		$keys = $compare->get_query_var_keys();
+		$this->assertContains( 'priority_compare', $keys );
+		$this->assertNotContains( 'name_compare', $keys );
+
+		/*
 		 * Per-column parser: In reports a {column}__in shorthand for in-enabled
 		 * columns ('status' carries 'in' => true in the fixture schema).
 		 */
 		$in = new \BerlinDB\Database\Parsers\In( array(), self::$query );
 		$this->assertContains( 'status__in', $in->get_query_var_keys() );
+	}
+
+	/**
+	 * Test that the {column}_compare shorthand applies a greater-than comparison.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_shorthand_greater_than() {
+
+		$results = self::$query->query(
+			array(
+				'priority_compare' => array(
+					'compare' => '>',
+					'value'   => 30,
+				),
+			)
+		);
+
+		$this->assertCount( 2, $results );
+
+		$names = wp_list_pluck( $results, 'name' );
+		$this->assertContains( 'Delta Gadget', $names );
+		$this->assertContains( 'Epsilon Widget', $names );
+	}
+
+	/**
+	 * Test that a shorthand BETWEEN comparison filters to the in-range rows.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_shorthand_between() {
+
+		$results = self::$query->query(
+			array(
+				'priority_compare' => array(
+					'compare' => 'BETWEEN',
+					'value'   => array( 20, 40 ),
+				),
+			)
+		);
+
+		$this->assertCount( 3, $results );
+
+		$names = wp_list_pluck( $results, 'name' );
+		$this->assertContains( 'Beta Widget', $names );
+		$this->assertContains( 'Gamma Gadget', $names );
+		$this->assertContains( 'Delta Gadget', $names );
+	}
+
+	/**
+	 * Test that a bare-list shorthand value defaults to an IN comparison.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_shorthand_bare_list_defaults_to_in() {
+
+		$results = self::$query->query(
+			array(
+				'priority_compare' => array( 10, 30 ),
+			)
+		);
+
+		$this->assertCount( 2, $results );
+
+		$names = wp_list_pluck( $results, 'name' );
+		$this->assertContains( 'Alpha Widget', $names );
+		$this->assertContains( 'Gamma Gadget', $names );
+	}
+
+	/**
+	 * Test that a scalar shorthand value defaults to an equality comparison.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_shorthand_scalar_defaults_to_equals() {
+
+		$results = self::$query->query(
+			array(
+				'priority_compare' => 20,
+			)
+		);
+
+		$this->assertCount( 1, $results );
+		$this->assertSame( 'Beta Widget', $results[ 0 ]->name );
+	}
+
+	/**
+	 * Test that an unknown shorthand operator falls back to equality (container semantics).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_shorthand_invalid_operator_falls_back_to_equals() {
+
+		$results = self::$query->query(
+			array(
+				'priority_compare' => array(
+					'compare' => 'NONSENSE',
+					'value'   => 20,
+				),
+			)
+		);
+
+		$this->assertCount( 1, $results );
+		$this->assertSame( 'Beta Widget', $results[ 0 ]->name );
+	}
+
+	/**
+	 * Test that the shorthand AND-combines with a single-clause compare_query container.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_shorthand_coexists_with_container_clause() {
+
+		$results = self::$query->query(
+			array(
+				'priority_compare' => array(
+					'compare' => '>',
+					'value'   => 20,
+				),
+				'compare_query'    => array(
+					'key'     => 'status',
+					'value'   => 'inactive',
+					'compare' => '=',
+				),
+			)
+		);
+
+		// priority > 20 (Gamma, Delta, Epsilon) AND status = inactive (Gamma, Delta).
+		$this->assertCount( 2, $results );
+
+		$names = wp_list_pluck( $results, 'name' );
+		$this->assertContains( 'Gamma Gadget', $names );
+		$this->assertContains( 'Delta Gadget', $names );
+	}
+
+	/**
+	 * Test that the shorthand preserves an existing OR group's relation (nested, then ANDed).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_shorthand_preserves_existing_or_group() {
+
+		$results = self::$query->query(
+			array(
+				'priority_compare' => array(
+					'compare' => '>=',
+					'value'   => 20,
+				),
+				'compare_query'    => array(
+					'relation' => 'OR',
+					array(
+						'key'     => 'name',
+						'value'   => 'Alpha Widget',
+						'compare' => '=',
+					),
+					array(
+						'key'     => 'name',
+						'value'   => 'Beta Widget',
+						'compare' => '=',
+					),
+				),
+			)
+		);
+
+		// ( Alpha OR Beta ) AND priority >= 20 -> only Beta (priority 20; Alpha is 10).
+		$this->assertCount( 1, $results );
+		$this->assertSame( 'Beta Widget', $results[ 0 ]->name );
+	}
+
+	/**
+	 * Test that the shorthand is exact sugar for the equivalent compare_query container.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_shorthand_equivalent_to_container() {
+
+		$shorthand = self::$query->query(
+			array(
+				'priority_compare' => array(
+					'compare' => '>',
+					'value'   => 30,
+				),
+				'orderby'          => 'priority',
+				'order'            => 'ASC',
+			)
+		);
+
+		$container = self::$query->query(
+			array(
+				'compare_query' => array(
+					'key'     => 'priority',
+					'value'   => 30,
+					'compare' => '>',
+				),
+				'orderby'       => 'priority',
+				'order'         => 'ASC',
+			)
+		);
+
+		$this->assertSame(
+			wp_list_pluck( $shorthand, 'name' ),
+			wp_list_pluck( $container, 'name' )
+		);
+	}
+
+	/**
+	 * Test that a shorthand on a non-compare column is not folded (no filtering).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_non_compare_column_shorthand_ignored() {
+
+		// 'name' carries no 'compare' flag, so 'name_compare' is not a compare var.
+		$results = self::$query->query(
+			array(
+				'name_compare' => array(
+					'compare' => 'LIKE',
+					'value'   => 'Widget',
+				),
+			)
+		);
+
+		// Unrecognized var: no compare filter applied, all rows returned.
+		$this->assertCount( 5, $results );
 	}
 
 	/**

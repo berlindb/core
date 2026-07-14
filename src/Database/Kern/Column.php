@@ -537,6 +537,19 @@ class Column {
 	 */
 	public $not_in = true;
 
+	/**
+	 * Is __compare supported?
+	 *
+	 * Set to true to allow this column to be queried with comparison operators
+	 * (>, >=, <, <=, !=, BETWEEN, ...) via its `{$column}_compare` query var (the
+	 * Compare parser). Opt-in, since most columns are filtered by equality or __in
+	 * rather than compared - typical for numeric, monetary, and date columns.
+	 *
+	 * @since 3.1.0
+	 * @var   bool Default false.
+	 */
+	public $compare = false;
+
 	/** Cache Attributes ******************************************************/
 
 	/**
@@ -798,6 +811,7 @@ class Column {
 			'transition'    => array( $this, 'sanitize_boolean' ),
 			'in'            => array( $this, 'sanitize_boolean' ),
 			'not_in'        => array( $this, 'sanitize_boolean' ),
+			'compare'       => array( $this, 'sanitize_boolean' ),
 			'cache_key'     => array( $this, 'sanitize_boolean' ),
 
 			// Extras.

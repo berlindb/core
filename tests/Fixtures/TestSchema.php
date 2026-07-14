@@ -64,7 +64,7 @@ class TestSchema extends Schema {
 			'not_in'     => true,
 		),
 
-		// Integer with in/not_in support.
+		// Integer with in/not_in and comparison support.
 		array(
 			'name'     => 'priority',
 			'type'     => 'bigint',
@@ -74,6 +74,7 @@ class TestSchema extends Schema {
 			'sortable' => true,
 			'in'       => true,
 			'not_in'   => true,
+			'compare'  => true,
 		),
 
 		// Auto-set creation timestamp.
