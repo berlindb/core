@@ -23,3 +23,5 @@ jobs:
           repository: berlindb/wp-core-tables
           event-type: core-updated
           client-payload: '{"sha": "${{ github.sha }}"}'
+
+# (re-touch to force GitHub Actions to re-index this workflow)
