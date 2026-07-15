@@ -375,6 +375,17 @@ trait Cache {
 	 */
 	private function prime_belongs_to_relationship( Relationship $relationship, array $items ): void {
 
+		/*
+		 * A conditioned relationship is left unprimed in this version: get_related()
+		 * still resolves correctly (its own conditioned query), and because that query's
+		 * cache key includes the condition, an unconditioned primed entry can never be a
+		 * false hit. Threading the discriminator through the prime primitives is a later
+		 * optimization, not a correctness need.
+		 */
+		if ( $relationship->has_condition() ) {
+			return;
+		}
+
 		$columns    = $relationship->columns;
 		$references = $relationship->references;
 
@@ -426,6 +437,11 @@ trait Cache {
 	 */
 	private function prime_has_many_relationship( Relationship $relationship, array $items ): void {
 
+		// Conditioned relationships are left unprimed in this version (see prime_belongs_to_relationship).
+		if ( $relationship->has_condition() ) {
+			return;
+		}
+
 		$columns    = $relationship->columns;
 		$references = $relationship->references;
 
@@ -471,6 +487,11 @@ trait Cache {
 	 * @param array<int|string,mixed> $items        Shaped result items to read local keys from.
 	 */
 	private function prime_many_to_many_relationship( Relationship $relationship, array $items ): void {
+
+		// Conditioned relationships are left unprimed in this version (see prime_belongs_to_relationship).
+		if ( $relationship->has_condition() ) {
+			return;
+		}
 
 		$columns            = $relationship->columns;
 		$through_columns    = $relationship->through_columns;

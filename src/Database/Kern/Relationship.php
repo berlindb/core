@@ -257,6 +257,31 @@ class Relationship {
 	 */
 	protected $constraint = '';
 
+	/**
+	 * A fixed equality predicate that scopes the related rows, as column => value.
+	 *
+	 * Models a polymorphic / discriminated ownership pattern - a remote table with an
+	 * object_id + object_type pair pointing at different parent types - as ONE
+	 * relationship. The condition is appended to every SQL form of the relationship
+	 * (get_related() traversal, priming, and the in / join / EXISTS filters, plus the
+	 * store-meta reuse) as `AND {remote}.{column} = {value}`, so only the matching rows
+	 * are traversed or matched. Example: `array( 'object_type' => 'order' )`.
+	 *
+	 * A conditioned relationship is application-layer only: a SQL FOREIGN KEY cannot
+	 * encode a discriminator, so it is never enforced - init() drops any `enforce`
+	 * (see is_foreign_key()). Supported on belongs_to / has_many (single-hop and nested);
+	 * a condition on a many_to_many is rejected (get_validation_errors()). For the
+	 * query-var forms (get_related() traversal and the `in` filter strategy) a condition
+	 * column must be queryable on the remote (declare `in => true`); the join / EXISTS
+	 * paths render raw SQL and need no flag. An unknown condition column fails closed
+	 * everywhere. Equality-with-scalar-values in this version; richer predicates
+	 * (operators, IN) can extend the shape later without breaking it.
+	 *
+	 * @since 3.1.0
+	 * @var   array<string,scalar> Default empty array.
+	 */
+	protected $condition = array();
+
 	/** Argument validation ***************************************************/
 
 	/**
@@ -282,6 +307,7 @@ class Relationship {
 			'on_delete'          => array( $this, 'sanitize_referential_action' ),
 			'on_update'          => array( $this, 'sanitize_referential_action' ),
 			'enforce'            => array( $this, 'sanitize_boolean' ),
+			'condition'          => array( $this, 'sanitize_condition' ),
 		);
 	}
 
@@ -311,6 +337,16 @@ class Relationship {
 		if ( ( '' === $this->name ) && ! empty( $this->columns ) ) {
 			$this->name = $this->derive_name( $this->columns[0] );
 		}
+
+		/*
+		 * A conditioned relationship models a discriminated (object_id + object_type)
+		 * link that a SQL FOREIGN KEY cannot express, so it is application-layer only:
+		 * drop any enforce, so is_enforced()/is_foreign_key() are false and no invalid
+		 * FK DDL is ever emitted for it.
+		 */
+		if ( ( true === $this->enforce ) && ( array() !== $this->condition ) ) {
+			$this->enforce = false;
+		}
 	}
 
 	/** Public Helpers ********************************************************/
@@ -339,6 +375,28 @@ class Relationship {
 	 */
 	public function is_foreign_key(): bool {
 		return $this->is_enforced() && ( 'belongs_to' === $this->type );
+	}
+
+	/**
+	 * Return whether this relationship carries a fixed condition (scoped / polymorphic).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return bool
+	 */
+	public function has_condition(): bool {
+		return array() !== $this->condition;
+	}
+
+	/**
+	 * Return the fixed equality predicate that scopes the related rows.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return array<string,scalar> Map of column => value (empty when unconditioned).
+	 */
+	public function get_condition(): array {
+		return $this->condition;
 	}
 
 	/**
@@ -419,6 +477,14 @@ class Relationship {
 		// A many_to_many adds a second hop through a pivot table; validate it.
 		if ( 'many_to_many' === $this->type ) {
 			$errors = array_merge( $errors, $this->get_many_to_many_errors( $label ) );
+
+			/*
+			 * A condition on a many_to_many is unsupported in this version (traversal and
+			 * filtering fail closed); surface it rather than let it silently do nothing.
+			 */
+			if ( array() !== $this->condition ) {
+				$errors[] = "Relationship {$label} declares a condition on a many_to_many, which is not supported.";
+			}
 		}
 
 		return $errors;
@@ -656,6 +722,46 @@ class Relationship {
 			// Only include valid column names.
 			if ( is_string( $name ) && ( '' !== $name ) ) {
 				$retval[] = $name;
+			}
+		}
+
+		return $retval;
+	}
+
+	/**
+	 * Sanitize a relationship condition into a clean `column => scalar` equality map.
+	 *
+	 * Each key must sanitize to a valid column name (it renders into SQL as an
+	 * identifier) and each value must be a scalar (it is escaped via prepare() at render
+	 * time). Anything else is dropped, so a malformed entry cannot reach SQL. This
+	 * version accepts equality with scalar values only.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param mixed $condition The raw condition config.
+	 * @return array<string,scalar> Map of column => value.
+	 */
+	private function sanitize_condition( $condition = array() ): array {
+
+		// Bail if not an array.
+		if ( ! is_array( $condition ) ) {
+			return array();
+		}
+
+		// Default return value.
+		$retval = array();
+
+		// Keep only valid column => scalar pairs (a fixed equality predicate).
+		foreach ( $condition as $column => $value ) {
+
+			// A condition column must sanitize to a real column name.
+			$name = is_string( $column )
+				? $this->sanitize_column_name( $column )
+				: '';
+
+			// The value is a fixed scalar; prepare() escapes it at render time.
+			if ( is_string( $name ) && ( '' !== $name ) && is_scalar( $value ) ) {
+				$retval[ $name ] = $value;
 			}
 		}
 

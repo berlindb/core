@@ -249,7 +249,7 @@ class Relationship extends Base {
 					( true === $has_nested )
 					|| (
 						( $relationship instanceof RelationshipObject )
-						&& ( ( 'many_to_many' === $relationship->type ) || ( count( $relationship->columns ) > 1 ) )
+						&& ( ( 'many_to_many' === $relationship->type ) || ( count( $relationship->columns ) > 1 ) || $relationship->has_condition() )
 					)
 				)
 					? 'join'
@@ -307,6 +307,16 @@ class Relationship extends Base {
 
 		if ( ! ( $relationship instanceof RelationshipObject ) ) {
 			return $this->short_circuit( $query_vars, "unknown relationship: {$name}" );
+		}
+
+		/*
+		 * A conditioned relationship must use the 'join' strategy: its fixed discriminator
+		 * is rendered as raw SQL (get_join_where_clauses -> build_clause), which the 'in'
+		 * materialize strategy cannot carry safely. Unconditioned relationships default to
+		 * 'join' already (normalize_query_vars), so this only rejects an explicit 'in'.
+		 */
+		if ( $relationship->has_condition() ) {
+			return $this->short_circuit( $query_vars, "relation strategy 'in' does not support a conditioned relationship; use the 'join' strategy: {$name}" );
 		}
 
 		/*
@@ -577,6 +587,15 @@ class Relationship extends Base {
 
 		// A many_to_many filters through a pivot table (two hops); see the helper.
 		if ( 'many_to_many' === $relationship->type ) {
+
+			/*
+			 * A condition is not applied to many_to_many in this version; fail closed
+			 * rather than emitting an unscoped (widening) filter.
+			 */
+			if ( $relationship->has_condition() ) {
+				return false;
+			}
+
 			return $this->build_many_to_many_clause( $relationship, $clause_args, (string) $alias_suffix );
 		}
 
@@ -655,6 +674,21 @@ class Relationship extends Base {
 			: array( $conditions );
 
 		/*
+		 * A conditioned relationship scopes the remote rows by a fixed discriminator
+		 * (e.g. object_type => 'order'). Render it on the remote alias through the same
+		 * operator path as user conditions - an unknown condition column fails the clause
+		 * closed. It is appended to the key pairs below, so it rides the JOIN ON
+		 * (belongs_to) or the correlated EXISTS WHERE, constraining matches without widening.
+		 */
+		$fixed = $relationship->has_condition()
+			? $this->build_conditions( $remote, $alias, $relationship->get_condition() )
+			: '';
+
+		if ( false === $fixed ) {
+			return false;
+		}
+
+		/*
 		 * Whether to match rows that HAVE a matching relation (default) or, when
 		 * 'exists' is explicitly false, rows that do NOT (anti / NOT EXISTS).
 		 */
@@ -678,6 +712,12 @@ class Relationship extends Base {
 
 			$join_pairs[] = $local_sql . ' = ' . $ref_sql;
 			$corr_pairs[] = $ref_sql . ' = ' . $local_sql;
+		}
+
+		// The fixed condition (when present) scopes both forms: the JOIN ON and the EXISTS.
+		if ( '' !== $fixed ) {
+			$join_pairs[] = $fixed;
+			$corr_pairs[] = $fixed;
 		}
 
 		/*
@@ -972,9 +1012,22 @@ class Relationship extends Base {
 			return false;
 		}
 
+		// A conditioned hop scopes its subquery too (fails closed on an unknown column).
+		$fixed = $relationship->has_condition()
+			? $this->build_conditions( $remote, $remote_alias, $relationship->get_condition() )
+			: '';
+
+		if ( false === $fixed ) {
+			return false;
+		}
+
 		$sub_where = ( '' === $conditions )
 			? $corr_pairs
 			: array_merge( $corr_pairs, array( $conditions ) );
+
+		if ( '' !== $fixed ) {
+			$sub_where[] = $fixed;
+		}
 
 		/*
 		 * Recurse one hop deeper for a nested `relation` (array clause or list). The

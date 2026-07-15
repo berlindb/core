@@ -1537,6 +1537,15 @@ class Column {
 				}
 			}
 
+			/*
+			 * Pass through an optional fixed condition (a scoped / polymorphic
+			 * relationship, e.g. object_type => 'order'); the Relationship object
+			 * sanitizes it to a clean column => scalar map.
+			 */
+			if ( isset( $relationship['condition'] ) ) {
+				$entry['condition'] = $relationship['condition'];
+			}
+
 			// Append the sanitized entry.
 			$retval[] = $entry;
 		}

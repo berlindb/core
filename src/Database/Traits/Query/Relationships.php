@@ -351,6 +351,15 @@ trait Relationships {
 		 * has_many key logic below. It is a to-many, returning an array of Rows.
 		 */
 		if ( 'many_to_many' === $relationship->type ) {
+
+			/*
+			 * A condition is not applied to a many_to_many in this version; fail closed
+			 * (empty) rather than silently returning unscoped rows.
+			 */
+			if ( $relationship->has_condition() ) {
+				return array();
+			}
+
 			return $this->get_related_many_to_many( $item, $relationship );
 		}
 
@@ -385,6 +394,34 @@ trait Relationships {
 		}
 
 		/*
+		 * A conditioned relationship scopes the related rows by a fixed discriminator
+		 * (e.g. object_type => 'order'). It rides the canonical {column}__in var, whose
+		 * suffix means it can never be mistaken for a reserved control var and never
+		 * overwrites the FK correlation key. That path is in-filter based, so fail closed
+		 * on any condition column that is unknown OR not `in => true` - a typo (or a
+		 * missing flag) must not widen to all rows. Priming keys identically, so a primed
+		 * and an unprimed get_related() agree.
+		 */
+		if ( $relationship->has_condition() ) {
+			foreach ( $relationship->get_condition() as $condition_col => $condition_value ) {
+				if ( empty(
+					$remote->get_columns(
+						array(
+							'name' => $condition_col,
+							'in'   => true,
+						)
+					)
+				) ) {
+					return ( 'has_many' === $relationship->type )
+						? array()
+						: null;
+				}
+
+				$key[ "{$condition_col}__in" ] = array( $condition_value );
+			}
+		}
+
+		/*
 		 * has_many: many remote rows point back at this item's key. Resolve via
 		 * the remote query's own result cache, which a prior 'with' prime warms
 		 * in bulk (one query per value, keyed identically to this call).
@@ -411,9 +448,10 @@ trait Relationships {
 		 * belongs_to referencing the remote primary key - cache-friendly get_item().
 		 * Single-column only: get_item() takes one id, so a composite key (even one
 		 * whose first reference matches the primary column name) must use query() with
-		 * the full key.
+		 * the full key. A conditioned relationship also falls through to query(), since
+		 * get_item() cannot carry the extra discriminator filter.
 		 */
-		if ( ( 1 === count( $references ) ) && ( $references[0] === $remote->get_primary_column_name() ) ) {
+		if ( ( 1 === count( $references ) ) && ( $references[0] === $remote->get_primary_column_name() ) && ! $relationship->has_condition() ) {
 			$found = $remote->get_item( reset( $key ) );
 
 			return ! empty( $found )

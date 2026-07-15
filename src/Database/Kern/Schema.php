@@ -1391,7 +1391,7 @@ class Schema {
 				 * derives an accessor name from the local column otherwise, and
 				 * validates the enforced-FK attributes itself.
 				 */
-				foreach ( array( 'name', 'enforce', 'on_delete', 'on_update', 'constraint' ) as $key ) {
+				foreach ( array( 'name', 'enforce', 'on_delete', 'on_update', 'constraint', 'condition' ) as $key ) {
 					if ( isset( $relationship[ $key ] ) ) {
 						$args[ $key ] = $relationship[ $key ];
 					}
