@@ -69,25 +69,21 @@ jobs:
   phpunit:
     name: PHPUnit ${{ matrix.php }} / ${{ matrix.db }}
     runs-on: ubuntu-latest
-    # Only the MariaDB floor (10.2) gates today. The current-release and MySQL legs
-    # run non-gating: they surface tracked cross-engine divergences - JSON column
-    # round-trips (#247) and NO_ZERO_DATE strict mode (#248) on MySQL 8; temporary-
-    # table visibility on MariaDB 11.4 (#249) - rather than block master. Promote a
-    # leg to gating once its divergence is fixed. See #230 / #220.
-    continue-on-error: ${{ matrix.allow_failure || false }}
-
     strategy:
       fail-fast: false
       matrix:
-        # Test both engines at the supported floor and a current release, so
-        # MySQL/MariaDB dialect divergence surfaces in CI (see #230, #220).
+        # Both engines at the supported floor and a current release, all gating, so
+        # MySQL/MariaDB dialect divergence surfaces in CI (see #230, #220). The few
+        # genuinely engine-specific behaviors (JSON key-order #247, temporary-table
+        # visibility #249) are guarded per-engine in the tests via the Wpdb platform
+        # descriptor, so every leg stays green.
         include:
-          # MariaDB floor (10.2): gating.
+          # MariaDB: floor (10.2) + current LTS (11.4).
           - { php: '8.1', db: 'mariadb:10.2' }
-          # Current releases + MySQL: non-gating until their divergences are fixed.
-          - { php: '8.2', db: 'mariadb:11.4', allow_failure: true }
-          - { php: '8.1', db: 'mysql:5.7', allow_failure: true }
-          - { php: '8.2', db: 'mysql:8.4', allow_failure: true }
+          - { php: '8.2', db: 'mariadb:11.4' }
+          # MySQL: floor (5.7) + current LTS (8.4).
+          - { php: '8.1', db: 'mysql:5.7' }
+          - { php: '8.2', db: 'mysql:8.4' }
 
     env:
       TEST_PHP_VERSION: ${{ matrix.php }}

@@ -11,6 +11,7 @@
 namespace BerlinDB\Tests;
 
 use BerlinDB\Database\Kern\Table;
+use BerlinDB\Tests\Fixtures\EngineSkips;
 use BerlinDB\Tests\Fixtures\TestSchema;
 use Yoast\WPTestUtils\WPIntegration\TestCase;
 
@@ -38,6 +39,8 @@ class TempWidgetsTable extends Table {
  * @since 3.1.0
  */
 class TableTemporaryTest extends TestCase {
+
+	use EngineSkips;
 
 	/** @var TempWidgetsTable */
 	private $table;
@@ -110,6 +113,12 @@ class TableTemporaryTest extends TestCase {
 	 */
 	public function test_temporary_table_is_not_listed_by_show_tables() {
 		global $wpdb;
+
+		/*
+		 * MariaDB 11+ lists temporary tables in SHOW TABLES; MySQL and MariaDB 10.x
+		 * hide them (the portable, expected behavior). Tracked in berlindb/core#249.
+		 */
+		$this->skip_on_mariadb_at_least( '11', 'SHOW TABLES lists temporary tables on MariaDB 11+; tracked in berlindb/core#249.' );
 
 		$this->table->create();
 
