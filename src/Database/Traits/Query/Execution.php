@@ -45,7 +45,7 @@ trait Execution {
 	private function pre_get_items(): void {
 
 		// Generate action name based on the plural item name.
-		$action_name = $this->apply_prefix( 'pre_get_' . $this->get_item_name_plural() );
+		$action_name = $this->apply_hook_prefix( 'pre_get_' . $this->get_item_name_plural() );
 
 		// Bail if no action name.
 		if ( '' === $action_name ) {

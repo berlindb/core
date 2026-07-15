@@ -793,7 +793,7 @@ trait Crud {
 		$this->update_secondary_last_changed_caches();
 
 		// Get the action name with prefix and item name.
-		$action_name = $this->apply_prefix( $this->get_item_name() . '_deleted' );
+		$action_name = $this->apply_hook_prefix( $this->get_item_name() . '_deleted' );
 
 		/**
 		 * Fires after an object has been deleted.
@@ -1170,7 +1170,7 @@ trait Crud {
 		foreach ( $diff as $key => $value ) {
 			$old_value  = $old_data[ $key ];
 			$new_value  = $new_data[ $key ];
-			$key_action = $this->apply_prefix( 'transition_' . $item_name . '_' . $key );
+			$key_action = $this->apply_hook_prefix( 'transition_' . $item_name . '_' . $key );
 
 			/**
 			 * Fires after an object value has transitioned.

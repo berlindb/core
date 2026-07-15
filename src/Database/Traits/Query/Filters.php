@@ -42,7 +42,7 @@ trait Filters {
 	protected function filter_item( $item = array() ) {
 
 		// Generate filter name based on the singular item name.
-		$filter_name = $this->apply_prefix( 'filter_' . $this->get_item_name() . '_item' );
+		$filter_name = $this->apply_hook_prefix( 'filter_' . $this->get_item_name() . '_item' );
 
 		if ( '' === $filter_name ) {
 			return $item;
@@ -78,7 +78,7 @@ trait Filters {
 	protected function filter_query_var_parsers( $parsers = array() ) {
 
 		// Generate filter name with a prefix.
-		$filter_name = $this->apply_prefix( 'query_var_parsers' );
+		$filter_name = $this->apply_hook_prefix( 'query_var_parsers' );
 
 		if ( '' === $filter_name ) {
 			return $parsers;
@@ -111,7 +111,7 @@ trait Filters {
 	protected function filter_items( $items = array() ) {
 
 		// Generate filter name based on the plural item name.
-		$filter_name = $this->apply_prefix( 'the_' . $this->get_item_name_plural() );
+		$filter_name = $this->apply_hook_prefix( 'the_' . $this->get_item_name_plural() );
 
 		if ( '' === $filter_name ) {
 			return $items;
@@ -144,7 +144,7 @@ trait Filters {
 	protected function filter_found_items_query( $sql = '' ) {
 
 		// Generate filter name based on the plural item name.
-		$filter_name = $this->apply_prefix( 'found_' . $this->get_item_name_plural() . '_query' );
+		$filter_name = $this->apply_hook_prefix( 'found_' . $this->get_item_name_plural() . '_query' );
 
 		if ( '' === $filter_name ) {
 			return $sql;
@@ -180,7 +180,7 @@ trait Filters {
 	protected function filter_query_clauses( $clauses = array() ) {
 
 		// Generate filter name based on the plural item name.
-		$filter_name = $this->apply_prefix( $this->get_item_name_plural() . '_query_clauses' );
+		$filter_name = $this->apply_hook_prefix( $this->get_item_name_plural() . '_query_clauses' );
 
 		if ( '' === $filter_name ) {
 			return $clauses;

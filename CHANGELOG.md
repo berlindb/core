@@ -4,6 +4,22 @@ Notable changes to BerlinDB are documented here.
 
 ## 3.1.0 - Unreleased
 
+- Documents the supported database floor - **MySQL 5.7+ / MariaDB 10.2+** - and runs the
+  test suite against both engines at that floor and a current release (MySQL 8.4, MariaDB
+  11.4) in CI, so MySQL/MariaDB dialect divergence surfaces in CI rather than at a user's
+  site (#230). No code change; `bin/run-tests.sh` gains a `-i <image>` flag to select the
+  database image for either engine.
+- Adds a `$hook_prefix` Query property so hook/filter NAMES can be namespaced
+  independently of `$prefix` (#242). `$prefix` still drives table, cache-group, and meta
+  resolution; `$hook_prefix`, when set, is applied only where a hook/filter name is built
+  (`the_{plural}`, `pre_get_{plural}`, `parse_{plural}_query`, `found_{plural}_query`,
+  `{plural}_query_clauses`, `filter_{item}_item`, `query_var_parsers`, `{item}_deleted`,
+  `transition_{item}_{column}`). This lets a Query registered over an EXISTING table keep
+  `$prefix` empty (so `posts` resolves to the real `{$wpdb->prefix}posts`) while still
+  namespacing its hooks - firing `acme_the_posts`, never WordPress core's own `the_posts`.
+  `get_hook_prefix()` returns the property when set, else `$prefix`, so unset is fully
+  backward-compatible. The parser-fired `{plural}_search_columns` filter is unchanged (it
+  has never been prefix-namespaced and stays that way for backward compatibility).
 - Adds an explicit `$meta_type` Query property as the first-class source of the WordPress
   meta type (#243). `get_meta_type()` returns it when set, else falls back to the previous
   prefixed-`item_name` derivation - so a Query registered over an existing table whose

@@ -24,12 +24,30 @@ defined( 'ABSPATH' ) || exit;
 trait Prefix {
 
 	/**
-	 * Global prefix used for tables/hooks/cache-groups/etc...
+	 * Global prefix used for tables, cache-groups, and (by default) hooks.
+	 *
+	 * Hook/filter NAMES use $hook_prefix, which falls back to this value - so an
+	 * object over an EXISTING table can keep $prefix empty (real table name) while
+	 * still namespacing its hooks via $hook_prefix. See get_hook_prefix().
 	 *
 	 * @since 1.0.0
 	 * @var   string
 	 */
 	protected $prefix = '';
+
+	/**
+	 * Prefix for the hook/filter NAMES this object generates (e.g. 'the_edd_orders').
+	 *
+	 * Applied ONLY to hook/filter names, never to table/meta/column resolution. When
+	 * empty it falls back to $prefix (backward-compatible). Set it distinctly so a
+	 * Query registered over an EXISTING table can keep $prefix empty (so `posts`
+	 * resolves to the real `{$wpdb->prefix}posts`) yet still namespace its hooks - so
+	 * it fires `the_acme_posts`, never WordPress core's own `the_posts`.
+	 *
+	 * @since 3.1.0
+	 * @var   string
+	 */
+	protected $hook_prefix = '';
 
 	/**
 	 * Prepend the plugin prefix ($this->prefix) to a string.
@@ -47,6 +65,58 @@ trait Prefix {
 	 * @return string The prefixed string, or the original string if $prefix is empty.
 	 */
 	protected function apply_prefix( $value = '', $sep = '_' ) {
+		return $this->prefix_with( $this->prefix, $value, $sep );
+	}
+
+	/**
+	 * Return the prefix applied to hook/filter NAMES.
+	 *
+	 * The $hook_prefix property when set, else $prefix - so existing objects (which
+	 * set only $prefix) are unchanged, while an object over an existing table can set
+	 * $hook_prefix distinctly to namespace its hooks without re-prefixing its table.
+	 *
+	 * Public sibling of get_prefix() so the two-prefix model is discoverable.
+	 *
+	 * @since 3.1.0
+	 * @api
+	 *
+	 * @return string
+	 */
+	public function get_hook_prefix(): string {
+		return ( '' !== $this->hook_prefix )
+			? $this->hook_prefix
+			: $this->prefix;
+	}
+
+	/**
+	 * Prepend the hook prefix ({@see get_hook_prefix()}) to a hook/filter name.
+	 *
+	 * Used wherever a hook/filter NAME is built, so hook namespacing is independent
+	 * of the table prefix. Identical to apply_prefix() when $hook_prefix is unset.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $value The hook/filter name to prefix.
+	 * @param string $sep   Separator placed between prefix and name. Default '_'.
+	 * @return string
+	 */
+	protected function apply_hook_prefix( $value = '', $sep = '_' ) {
+		return $this->prefix_with( $this->get_hook_prefix(), $value, $sep );
+	}
+
+	/**
+	 * Prepend a given prefix to a string (trimmed, empty-safe, no double-prefix).
+	 *
+	 * The shared core of apply_prefix() and apply_hook_prefix().
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $prefix The prefix to prepend (empty returns the value as-is).
+	 * @param string $value  The string to prefix.
+	 * @param string $sep    Separator placed between prefix and string. Default '_'.
+	 * @return string
+	 */
+	private function prefix_with( string $prefix, $value = '', $sep = '_' ): string {
 
 		// Bail if not a string.
 		if ( ! is_string( $value ) ) {
@@ -57,12 +127,12 @@ trait Prefix {
 		$retval = trim( $value );
 
 		// Bail if no prefix.
-		if ( empty( $this->prefix ) ) {
+		if ( empty( $prefix ) ) {
 			return $retval;
 		}
 
 		// Setup new prefix.
-		$new_prefix = $this->prefix . $sep;
+		$new_prefix = $prefix . $sep;
 
 		// Bail if already prefixed.
 		if ( 0 === strpos( $value, $new_prefix ) ) {

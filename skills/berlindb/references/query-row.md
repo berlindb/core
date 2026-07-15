@@ -42,6 +42,16 @@ final class WidgetQuery extends Query {
 Use `::class` constants for `$table_schema` and `$item_shape`. BerlinDB 3.x can
 also accept Schema objects for schema configuration.
 
+`$prefix` namespaces the table name, cache group, and meta type. Hook/filter
+NAMES normally reuse it too (`acme_the_widgets`, `acme_pre_get_widgets`, ...).
+Set `$hook_prefix` to namespace hooks *independently* of the table - the point of
+registering a Query over an EXISTING table: leave `$prefix` empty (so `posts`
+resolves to the real `{$wpdb->prefix}posts`) and set `protected $hook_prefix =
+'acme'` so it fires `acme_the_posts` instead of colliding with WordPress core's
+own `the_posts`. `get_hook_prefix()` returns `$hook_prefix` when set, else
+`$prefix`, so leaving it unset changes nothing. (The parser-fired
+`{plural}_search_columns` filter is not prefix-namespaced.)
+
 ## CRUD Return Values
 
 `add_item( array $data )`:

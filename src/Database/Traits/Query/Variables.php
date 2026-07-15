@@ -174,7 +174,7 @@ trait Variables {
 		$this->query_vars = $this->normalize_query_vars( $this->query_vars );
 
 		// Generate action name based on the plural item name.
-		$action_name = $this->apply_prefix( 'parse_' . $this->get_item_name_plural() . '_query' );
+		$action_name = $this->apply_hook_prefix( 'parse_' . $this->get_item_name_plural() . '_query' );
 
 		/**
 		 * Fires after the item query vars have been parsed.
