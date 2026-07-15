@@ -4,6 +4,15 @@ Notable changes to BerlinDB are documented here.
 
 ## 3.1.0 - Unreleased
 
+- Fixes case-sensitive meta `REGEXP` (`type_key`/`type => BINARY`) on MySQL 8. The old
+  form cast only one operand (`CAST(meta_key AS BINARY) REGEXP '<pattern>'`), which MySQL
+  8's `regexp_like` rejects with *"Character set 'binary' cannot be used in conjunction
+  with 'utf8mb4_...'"*. Both operands are now CAST to `BINARY`
+  (`CAST(... AS BINARY) REGEXP CAST(... AS BINARY)`) - case-sensitive and portable across
+  MySQL 5.7/8.x and MariaDB, and forward-compatible (WordPress core's `REGEXP BINARY %s`
+  uses the `BINARY` operator, which MySQL 8.4 removed). Applies to the bespoke JOIN engine
+  (key and value sides) and the store-backed relationship path; scalar comparisons only
+  (a list/range value is not wrapped).
 - Documents the supported database floor - **MySQL 5.7+ / MariaDB 10.2+** - and runs the
   test suite against both engines at that floor and a current release (MySQL 8.4, MariaDB
   11.4) in CI, so MySQL/MariaDB dialect divergence surfaces in CI rather than at a user's

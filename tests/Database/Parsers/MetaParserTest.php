@@ -534,9 +534,10 @@ class MetaParserTest extends TestCase {
 	 * ( compare_key ) branch of get_sql_for_clause(). #212 unified the key side onto
 	 * the operator path the meta_value side already used ( cast_reference() +
 	 * operator->get_sql_compare() + build_value() ), so the two sides now render the
-	 * same idiom - e.g. `CAST(meta_key AS BINARY) REGEXP` rather than the old inline
-	 * `REGEXP BINARY`. A diff here means the emitted SQL shape moved; update it
-	 * deliberately.
+	 * same idiom. A case-sensitive BINARY match now CASTs BOTH operands - e.g.
+	 * `CAST(meta_key AS BINARY) REGEXP CAST(%s AS BINARY)` - rather than the old inline
+	 * `REGEXP BINARY` (removed in MySQL 8.4) or a single-sided CAST (which errors on
+	 * MySQL 8). A diff here means the emitted SQL shape moved; update it deliberately.
 	 */
 
 	/**
@@ -614,9 +615,12 @@ class MetaParserTest extends TestCase {
 			)
 		);
 
-		// REGEXP + type_key BINARY: now CAST-wrapped ( key side matches the value side ).
+		/*
+		 * REGEXP + type_key BINARY: BOTH operands CAST to BINARY ( MySQL 8 rejects a
+		 * binary column vs a utf8mb4 pattern in regexp_like; casting both is portable ).
+		 */
 		$this->assertStringContainsString(
-			"CAST(`wptests_postmeta`.`meta_key` AS BINARY) REGEXP '^color$'",
+			"CAST(`wptests_postmeta`.`meta_key` AS BINARY) REGEXP CAST('^color$' AS BINARY)",
 			$this->bespoke_sql(
 				array(
 					'key'         => '^color$',
@@ -751,15 +755,16 @@ class MetaParserTest extends TestCase {
 	}
 
 	/**
-	 * Characterize the key-vs-value REGEXP asymmetry: the value side already casts
-	 * ( operator-driven ), the key side inlines BINARY. This is the #212 crux.
+	 * A BINARY value REGEXP casts BOTH operands, so the case-sensitive match runs
+	 * on MySQL 8 (which rejects a binary operand vs a utf8mb4 pattern) as well as
+	 * MariaDB. Mirrors the key side - both now cast both operands.
 	 *
 	 * @since 3.1.0
 	 */
 	public function test_bespoke_sql_value_side_is_operator_driven() {
-		// Value BINARY REGEXP -> CAST( ... AS BINARY ) REGEXP ( operator path ).
+		// Value BINARY REGEXP -> CAST( ... AS BINARY ) REGEXP CAST( pattern AS BINARY ).
 		$this->assertStringContainsString(
-			"CAST(`wptests_postmeta`.`meta_value` AS BINARY) REGEXP 'RED'",
+			"CAST(`wptests_postmeta`.`meta_value` AS BINARY) REGEXP CAST('RED' AS BINARY)",
 			$this->bespoke_sql(
 				array(
 					'key'     => 'color',

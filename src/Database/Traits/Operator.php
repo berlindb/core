@@ -361,6 +361,17 @@ trait Operator {
 			return '';
 		}
 
+		/*
+		 * A BINARY column cast (case-sensitive REGEXP) must also cast the scalar
+		 * value: MySQL 8 rejects a binary operand compared against a utf8mb4 one in
+		 * regexp_like. Numeric casts (SIGNED/UNSIGNED/DECIMAL) are charset-neutral,
+		 * and a list/range value ( IN ( ... ) / BETWEEN ) cannot be wrapped as one
+		 * CAST, so only a scalar BINARY comparison is cast here.
+		 */
+		if ( ( 'BINARY' === $cast ) && ! $this->is_list() && ! $this->is_range() ) {
+			$value_sql = "CAST({$value_sql} AS BINARY)";
+		}
+
 		// Assemble and return the full expression, optionally casting the column.
 		return $col->get_name_sql( $alias, $cast ) . ' ' . $this->get_sql_compare() . ' ' . $value_sql;
 	}

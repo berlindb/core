@@ -780,8 +780,20 @@ class Meta extends Base {
 				 * cast" sentinel (the native string type), so map it to '' for
 				 * cast_reference(); any other type wraps in CAST().
 				 */
-				$value_cast          = ( 'CHAR' === $meta_type ) ? '' : $meta_type;
-				$retval[ 'where' ][] = $this->cast_reference( $qt_value_ref, $value_cast ) . " {$meta_sql_compare} {$where}";
+				$value_cast = ( 'CHAR' === $meta_type ) ? '' : $meta_type;
+				$value_ref  = $this->cast_reference( $qt_value_ref, $value_cast );
+
+				/*
+				 * A BINARY value cast on a scalar comparison ( case-sensitive REGEXP )
+				 * must cast the pattern too - MySQL 8 rejects a binary operand compared
+				 * against a utf8mb4 one in regexp_like. A list/range value ( IN / BETWEEN )
+				 * cannot be wrapped as one CAST, so scope to scalars.
+				 */
+				if ( ( 'BINARY' === $value_cast ) && ( false !== $operator ) && ! $operator->is_list() && ! $operator->is_range() ) {
+					$where = $this->cast_reference( (string) $where, $value_cast );
+				}
+
+				$retval[ 'where' ][] = $value_ref . " {$meta_sql_compare} {$where}";
 			}
 		}
 
@@ -944,6 +956,17 @@ class Meta extends Base {
 		$cast    = $this->get_meta_key_cast( $clause, $compare );
 		$key_ref = $this->cast_reference( "{$qt_alias}.{$qt_column}", $cast );
 
+		/*
+		 * A BINARY (case-sensitive) key match must cast BOTH operands: MySQL 8
+		 * rejects a binary operand compared against a utf8mb4 pattern in
+		 * regexp_like. CAST the pattern too - not the BINARY operator, which MySQL
+		 * 8.4 removed - so the match stays case-sensitive and forward-compatible on
+		 * both engines. (WordPress core emits `REGEXP BINARY %s`, which fatals on 8.4.)
+		 */
+		if ( 'BINARY' === $cast ) {
+			$value_sql = $this->cast_reference( (string) $value_sql, $cast );
+		}
+
 		return $key_ref . ' ' . $operator->get_sql_compare() . ' ' . $value_sql;
 	}
 
@@ -954,9 +977,10 @@ class Meta extends Base {
 	 * comparisons (REGEXP / RLIKE), where it makes the key match case-sensitive;
 	 * LIKE / = / IN never cast the key. Both the bespoke JOIN engine and the
 	 * store-backed relationship path read this one rule so they cannot drift
-	 * (see berlindb/core#210). Each path then applies the returned type in its
-	 * own idiom (the JOIN engine emits `REGEXP BINARY`, the relationship path a
-	 * `CAST(... AS BINARY)` reference) - both case-sensitive.
+	 * (see berlindb/core#210). Both paths render it the same way - CAST *both*
+	 * operands to BINARY (`CAST(key AS BINARY) REGEXP CAST(%s AS BINARY)`) - so the
+	 * match is case-sensitive and runs on MySQL 8 (which rejects a binary operand
+	 * vs a utf8mb4 pattern) as well as MariaDB.
 	 *
 	 * @since 3.1.0
 	 *
