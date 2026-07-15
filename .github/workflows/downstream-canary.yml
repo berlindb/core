@@ -25,7 +25,7 @@ jobs:
           - berlindb/wc-core-tables
     steps:
       - name: Trigger ${{ matrix.repository }} against this core commit
-        uses: peter-evans/repository-dispatch@v3
+        uses: peter-evans/repository-dispatch@v4
         with:
           token: ${{ secrets.CANARY_DISPATCH_TOKEN }}
           repository: ${{ matrix.repository }}
