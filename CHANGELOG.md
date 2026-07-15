@@ -450,7 +450,7 @@ Notable changes to BerlinDB are documented here.
   transition/deleted action hooks, and store-backed item meta all address rows by
   the string key. The legacy WordPress metadata fallback (a primary with no meta
   store) still requires an integer ID, since `{type}meta` tables are int-keyed.
-- Adds the Meta preset (#204, in progress): `Presets\Meta\Query` and
+- Adds the Meta preset (#204): `Presets\Meta\Query` and
   `Presets\Meta\Table` are base classes a plugin extends with thin stubs naming
   their primary/query counterparts. The query stub derives its `{object}_meta`
   identity and key/value EAV schema from the primary — the generated foreign key
