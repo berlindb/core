@@ -239,12 +239,12 @@ class ConditionedRelationshipTest extends TestCase {
 	public function test_condition_is_sanitized_and_exposed(): void {
 		$rel = new Relationship(
 			array(
-				'name'      => 'notes',
-				'query'     => CrNoteQuery::class,
-				'columns'   => array( 'id' ),
-				'references'=> array( 'object_id' ),
-				'type'      => 'has_many',
-				'condition' => array(
+				'name'       => 'notes',
+				'query'      => CrNoteQuery::class,
+				'columns'    => array( 'id' ),
+				'references' => array( 'object_id' ),
+				'type'       => 'has_many',
+				'condition'  => array(
 					'object_type' => 'owner',
 					'bad_value'   => array( 'not', 'scalar' ), // dropped: non-scalar
 					42            => 'skip',                    // dropped: non-string key
@@ -260,13 +260,13 @@ class ConditionedRelationshipTest extends TestCase {
 	public function test_conditioned_relationship_is_not_enforceable(): void {
 		$rel = new Relationship(
 			array(
-				'name'      => 'owner',
-				'query'     => CrOwnerQuery::class,
-				'columns'   => array( 'object_id' ),
-				'references'=> array( 'id' ),
-				'type'      => 'belongs_to',
-				'enforce'   => true,
-				'condition' => array( 'object_type' => 'owner' ),
+				'name'       => 'owner',
+				'query'      => CrOwnerQuery::class,
+				'columns'    => array( 'object_id' ),
+				'references' => array( 'id' ),
+				'type'       => 'belongs_to',
+				'enforce'    => true,
+				'condition'  => array( 'object_type' => 'owner' ),
 			)
 		);
 
@@ -279,11 +279,11 @@ class ConditionedRelationshipTest extends TestCase {
 	public function test_unconditioned_relationship_reports_no_condition(): void {
 		$rel = new Relationship(
 			array(
-				'name'      => 'notes',
-				'query'     => CrNoteQuery::class,
-				'columns'   => array( 'id' ),
-				'references'=> array( 'object_id' ),
-				'type'      => 'has_many',
+				'name'       => 'notes',
+				'query'      => CrNoteQuery::class,
+				'columns'    => array( 'id' ),
+				'references' => array( 'object_id' ),
+				'type'       => 'has_many',
 			)
 		);
 
@@ -299,8 +299,20 @@ class ConditionedRelationshipTest extends TestCase {
 		$owner_id = (int) $owners->add_item( array( 'name' => 'Acme' ) );
 
 		// Two notes share object_id but differ in object_type; only 'owner' should traverse.
-		$notes->add_item( array( 'object_id' => $owner_id, 'object_type' => 'owner', 'body' => 'owner-note' ) );
-		$notes->add_item( array( 'object_id' => $owner_id, 'object_type' => 'task',  'body' => 'task-note' ) );
+		$notes->add_item(
+			array(
+				'object_id'   => $owner_id,
+				'object_type' => 'owner',
+				'body'        => 'owner-note',
+			)
+		);
+		$notes->add_item(
+			array(
+				'object_id'   => $owner_id,
+				'object_type' => 'task',
+				'body'        => 'task-note',
+			)
+		);
 		wp_cache_flush();
 
 		$owner = $owners->get_item( $owner_id );
@@ -320,8 +332,20 @@ class ConditionedRelationshipTest extends TestCase {
 		$without_note = (int) $owners->add_item( array( 'name' => 'OnlyTaskNote' ) );
 
 		// The first owner has an owner-note; the second has only a task-note (excluded).
-		$notes->add_item( array( 'object_id' => $with_note,    'object_type' => 'owner', 'body' => 'a' ) );
-		$notes->add_item( array( 'object_id' => $without_note, 'object_type' => 'task',  'body' => 'b' ) );
+		$notes->add_item(
+			array(
+				'object_id'   => $with_note,
+				'object_type' => 'owner',
+				'body'        => 'a',
+			)
+		);
+		$notes->add_item(
+			array(
+				'object_id'   => $without_note,
+				'object_type' => 'task',
+				'body'        => 'b',
+			)
+		);
 		wp_cache_flush();
 
 		/*
@@ -350,7 +374,13 @@ class ConditionedRelationshipTest extends TestCase {
 		$bad_id = (int) $bad_owners->add_item( array( 'name' => 'Bad' ) );
 
 		// A note that WOULD match on object_id alone; the bogus condition must exclude it.
-		$notes->add_item( array( 'object_id' => $bad_id, 'object_type' => 'owner', 'body' => 'x' ) );
+		$notes->add_item(
+			array(
+				'object_id'   => $bad_id,
+				'object_type' => 'owner',
+				'body'        => 'x',
+			)
+		);
 		wp_cache_flush();
 
 		$owner = $bad_owners->get_item( $bad_id );

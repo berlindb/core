@@ -79,18 +79,31 @@ class MetaTypeTest extends TestCase {
 
 	/** meta_query filters through the WP meta engine resolved by the property (wp_postmeta). */
 	public function test_meta_query_filters_via_meta_type_property(): void {
-		$blue = (int) self::$query->add_item( array( 'name' => 'Blue', 'status' => 'active' ) );
-		$red  = (int) self::$query->add_item( array( 'name' => 'Red',  'status' => 'active' ) );
+		$blue = (int) self::$query->add_item(
+			array(
+				'name'   => 'Blue',
+				'status' => 'active',
+			)
+		);
+		$red  = (int) self::$query->add_item(
+			array(
+				'name'   => 'Red',
+				'status' => 'active',
+			)
+		);
 
 		// wp_postmeta has no FK constraint; key meta by the widget's own numeric ID.
 		add_metadata( 'post', $blue, 'color', 'blue' );
-		add_metadata( 'post', $red,  'color', 'red' );
+		add_metadata( 'post', $red, 'color', 'red' );
 		wp_cache_flush();
 
 		$results = self::$query->query(
 			array(
 				'meta_query' => array(
-					array( 'key' => 'color', 'value' => 'blue' ),
+					array(
+						'key'   => 'color',
+						'value' => 'blue',
+					),
 				),
 			)
 		);
@@ -101,7 +114,12 @@ class MetaTypeTest extends TestCase {
 
 	/** Deleting an item removes its meta via the {meta_type}_id column (post_id), not item_name. */
 	public function test_delete_item_removes_meta_via_meta_type_column(): void {
-		$id = (int) self::$query->add_item( array( 'name' => 'Doomed', 'status' => 'active' ) );
+		$id = (int) self::$query->add_item(
+			array(
+				'name'   => 'Doomed',
+				'status' => 'active',
+			)
+		);
 
 		add_metadata( 'post', $id, 'keep_me', 'nope' );
 		$this->assertSame( 'nope', get_metadata( 'post', $id, 'keep_me', true ) );
