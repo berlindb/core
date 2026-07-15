@@ -19,7 +19,6 @@ use BerlinDB\Database\Kern\Column;
 use BerlinDB\Database\Kern\Query;
 use BerlinDB\Database\Kern\Schema;
 use BerlinDB\Database\Kern\Table;
-use BerlinDB\Tests\Fixtures\EngineSkips;
 use Yoast\WPTestUtils\WPIntegration\TestCase;
 
 // ============================================================================
@@ -122,8 +121,6 @@ class JsonTestQuery extends Query {
  * @since 3.0.0
  */
 class JsonColumnTest extends TestCase {
-
-	use EngineSkips;
 
 	/** @var JsonTestTable */
 	private static $table;
@@ -452,18 +449,13 @@ class JsonColumnTest extends TestCase {
 	/**
 	 * An array written to a JSON column is decoded back to an array on read.
 	 *
+	 * Values, types, and list order round-trip exactly; object key order is not
+	 * guaranteed (MySQL's native JSON type reorders object keys - see
+	 * assertSameJsonData() and berlindb/core#247), so compare order-insensitively.
+	 *
 	 * @since 3.0.0
 	 */
 	public function test_array_roundtrips_through_json_column() {
-
-		/*
-		 * MySQL's native JSON type normalizes object key order on storage, so an
-		 * associative array does not round-trip identically ( assertSame is order-
-		 * sensitive ); MariaDB stores JSON as text and preserves order. Tracked in
-		 * berlindb/core#247.
-		 */
-		$this->skip_on_mysql( 'JSON object key order is not preserved on MySQL; tracked in berlindb/core#247.' );
-
 		$data = array(
 			'color' => 'red',
 			'size'  => 'large',
@@ -474,7 +466,7 @@ class JsonColumnTest extends TestCase {
 
 		$item = self::$query->get_item( $id );
 		$this->assertIsObject( $item );
-		$this->assertSame( $data, $item->data );
+		$this->assertSameJsonData( $data, $item->data );
 
 		self::$query->delete_item( $id );
 	}
@@ -498,7 +490,7 @@ class JsonColumnTest extends TestCase {
 
 		$item = self::$query->get_item( $id );
 		$this->assertIsObject( $item );
-		$this->assertSame( $data, $item->data );
+		$this->assertSameJsonData( $data, $item->data );
 
 		self::$query->delete_item( $id );
 	}
@@ -535,5 +527,48 @@ class JsonColumnTest extends TestCase {
 		$this->assertSame( array( 'v' => 2 ), $item->data );
 
 		self::$query->delete_item( $id );
+	}
+
+	/**
+	 * Assert a JSON value round-tripped, ignoring object key order.
+	 *
+	 * BerlinDB does not guarantee JSON object key order on round-trip: MySQL's
+	 * native JSON type reorders object keys (by length, then bytewise) on storage,
+	 * while MariaDB (JSON = LONGTEXT) preserves insertion order. Object member order
+	 * is insignificant per the JSON spec (RFC 8259); values, types, and list (JSON
+	 * array) order are preserved and still compared strictly.
+	 *
+	 * @param mixed $expected Expected decoded value.
+	 * @param mixed $actual   Actual decoded value.
+	 */
+	private function assertSameJsonData( $expected, $actual ): void {
+		$this->assertSame(
+			$this->normalize_json_key_order( $expected ),
+			$this->normalize_json_key_order( $actual )
+		);
+	}
+
+	/**
+	 * Recursively sort associative-array keys, leaving list order intact.
+	 *
+	 * @param mixed $value Decoded JSON value.
+	 * @return mixed The value with associative-array keys recursively sorted.
+	 */
+	private function normalize_json_key_order( $value ) {
+		if ( ! is_array( $value ) ) {
+			return $value;
+		}
+
+		$normalized = array();
+		foreach ( $value as $key => $item ) {
+			$normalized[ $key ] = $this->normalize_json_key_order( $item );
+		}
+
+		// Sort object (associative) keys; JSON array order stays significant.
+		if ( ! array_is_list( $normalized ) ) {
+			ksort( $normalized );
+		}
+
+		return $normalized;
 	}
 }

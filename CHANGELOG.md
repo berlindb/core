@@ -4,6 +4,14 @@ Notable changes to BerlinDB are documented here.
 
 ## 3.1.0 - Unreleased
 
+- Documents and enforces the JSON column round-trip contract: values, types, and array
+  (list) order are preserved exactly, but JSON *object key order* is not guaranteed. MySQL's
+  native `json` type reorders object keys (by length, then bytewise) on storage, while
+  MariaDB (`json` = `longtext`) preserves insertion order; object member order is
+  insignificant per RFC 8259. Byte-exact key-order preservation would require storing JSON as
+  `longtext` and is tracked in #247. JSON columns now encode with native `json_encode()`
+  instead of `wp_json_encode()` (identical output for valid data on the PHP 8.1+ minimum;
+  invalid UTF-8 falls back to `{}` like other invalid input).
 - Fixes case-sensitive meta `REGEXP` (`type_key`/`type => BINARY`) on MySQL 8. The old
   form cast only one operand (`CAST(meta_key AS BINARY) REGEXP '<pattern>'`), which MySQL
   8's `regexp_like` rejects with *"Character set 'binary' cannot be used in conjunction

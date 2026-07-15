@@ -1832,6 +1832,12 @@ class Column {
 	 * as-is, so double-casting (e.g. from both the Column and a Row subclass)
 	 * is safe.
 	 *
+	 * Contract: values, types, and array (list) order round-trip exactly; JSON
+	 * OBJECT key order is NOT guaranteed. MySQL's native JSON type reorders object
+	 * keys (by length, then bytewise) on storage, while MariaDB (JSON = LONGTEXT)
+	 * preserves insertion order - object member order is insignificant per RFC 8259.
+	 * Byte-exact preservation would require storing JSON as LONGTEXT (see berlindb/core#247).
+	 *
 	 * @since 3.0.0
 	 * @param mixed $value Value to cast.
 	 * @return array<mixed>|mixed Decoded PHP array, or the original value on failure.
@@ -1864,12 +1870,15 @@ class Column {
 	/**
 	 * Validate a value before it is written to a JSON column.
 	 *
-	 * Arrays and objects are encoded with wp_json_encode(). Strings are
+	 * Arrays and objects are encoded with json_encode(). Strings are
 	 * accepted as-is when they contain valid JSON; an empty object `{}` is
 	 * substituted for invalid or empty strings. Non-scalar, non-array values
 	 * fall back to `{}` as well.
 	 *
 	 * @since 3.0.0
+	 * @since 3.1.0 Encodes with native json_encode() (PHP 8.1+ minimum) rather than
+	 *              wp_json_encode(); output is identical for valid data, and invalid
+	 *              UTF-8 (encode returns false) falls back to `{}` like other invalid input.
 	 * @param mixed $value Value to validate.
 	 * @return string JSON-encoded string ready for storage.
 	 */
@@ -1877,7 +1886,7 @@ class Column {
 
 		// Array or object: encode to a JSON string.
 		if ( is_array( $value ) || is_object( $value ) ) {
-			$encoded = wp_json_encode( $value );
+			$encoded = json_encode( $value );
 			return ( false !== $encoded ) ? $encoded : '{}';
 		}
 
