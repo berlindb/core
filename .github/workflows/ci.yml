@@ -70,10 +70,10 @@ jobs:
     name: PHPUnit ${{ matrix.php }} / ${{ matrix.db }}
     runs-on: ubuntu-latest
     # Only the MariaDB floor (10.2) gates today. The current-release and MySQL legs
-    # run non-gating: they surface tracked cross-engine divergences (JSON column
-    # round-trips and NO_ZERO_DATE strict mode on MySQL 8; temporary-table
-    # visibility on MariaDB 11.4) rather than block master. Promote a leg to gating
-    # once its divergence is fixed. See #230 / #220.
+    # run non-gating: they surface tracked cross-engine divergences - JSON column
+    # round-trips (#247) and NO_ZERO_DATE strict mode (#248) on MySQL 8; temporary-
+    # table visibility on MariaDB 11.4 (#249) - rather than block master. Promote a
+    # leg to gating once its divergence is fixed. See #230 / #220.
     continue-on-error: ${{ matrix.allow_failure || false }}
 
     strategy:
