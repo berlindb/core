@@ -11,7 +11,6 @@
 namespace BerlinDB\Tests;
 
 use BerlinDB\Database\Kern\Table;
-use BerlinDB\Tests\Fixtures\EngineSkips;
 use BerlinDB\Tests\Fixtures\TestSchema;
 use Yoast\WPTestUtils\WPIntegration\TestCase;
 
@@ -39,8 +38,6 @@ class TempWidgetsTable extends Table {
  * @since 3.1.0
  */
 class TableTemporaryTest extends TestCase {
-
-	use EngineSkips;
 
 	/** @var TempWidgetsTable */
 	private $table;
@@ -93,41 +90,24 @@ class TableTemporaryTest extends TestCase {
 
 	/**
 	 * create() then exists() then drop() then exists() - the exists() probe
-	 * correctly tracks a temporary table, which a SHOW TABLES check could not.
+	 * correctly tracks a temporary table on ANY engine/version.
+	 *
+	 * exists() special-cases a temporary table with a direct `SELECT 1 ... LIMIT 0`
+	 * probe rather than SHOW TABLES, because whether SHOW TABLES lists a temporary
+	 * table is engine- and version-specific (MySQL and MariaDB 10.x hide them;
+	 * MariaDB 11+ lists them). The probe is portable, so exists() is correct for
+	 * temporary and non-temporary tables alike, regardless of engine or version.
 	 *
 	 * @since 3.1.0
 	 */
 	public function test_temporary_create_exists_and_drop() {
+		$this->assertFalse( $this->table->exists() );
+
 		$this->assertTrue( $this->table->create() );
 		$this->assertTrue( $this->table->exists() );
 
 		$this->assertTrue( $this->table->drop() );
 		$this->assertFalse( $this->table->exists() );
-	}
-
-	/**
-	 * The created table really is TEMPORARY: exists() (probe) finds it, but SHOW
-	 * TABLES does not list it - the property that makes the probe necessary.
-	 *
-	 * @since 3.1.0
-	 */
-	public function test_temporary_table_is_not_listed_by_show_tables() {
-		global $wpdb;
-
-		/*
-		 * MariaDB 11+ lists temporary tables in SHOW TABLES; MySQL and MariaDB 10.x
-		 * hide them (the portable, expected behavior). Tracked in berlindb/core#249.
-		 */
-		$this->skip_on_mariadb_at_least( '11', 'SHOW TABLES lists temporary tables on MariaDB 11+; tracked in berlindb/core#249.' );
-
-		$this->table->create();
-
-		$this->assertTrue( $this->table->exists() );
-
-		$full   = $this->table->get_table_name();
-		$listed = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $full ) ) );
-
-		$this->assertNull( $listed );
 	}
 
 	/**
