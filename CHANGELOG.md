@@ -4,6 +4,15 @@ Notable changes to BerlinDB are documented here.
 
 ## 3.1.0 - Unreleased
 
+- Adds an explicit `$meta_type` Query property as the first-class source of the WordPress
+  meta type (#243). `get_meta_type()` returns it when set, else falls back to the previous
+  prefixed-`item_name` derivation - so a Query registered over an existing table whose
+  `item_name` is namespaced (e.g. `wpct_post`) can set `protected $meta_type = 'post'`
+  instead of overriding the method. The type is now the single source of truth for the meta
+  table (`{type}meta`) and its object-id column (`{type}_id`): `delete_all_item_meta()` no
+  longer independently guesses the column from `item_name`, and the WordPress meta-cache
+  prime is gated to the legacy path (a store-backed object caches through its own `meta`
+  relationship). Backward-compatible - an unset property preserves existing behavior.
 - Adds conditioned relationships. A relationship may declare a fixed `condition` (a
   `column => scalar` equality map, e.g. `object_type => 'order'`) that scopes the related
   rows, so a polymorphic child table - one table shared across parent types via an

@@ -282,8 +282,14 @@ trait Cache {
 		 */
 		if ( ! empty( $force ) || $this->get_query_var( 'update_meta_cache' ) ) {
 
-			// Proceed if meta table exists.
-			if ( $this->get_meta_table_name() ) {
+			/*
+			 * Only the legacy WordPress-metadata path warms via update_meta_cache(). A
+			 * store-backed object caches through its own `meta` relationship (with-priming),
+			 * and its custom sibling table is unrelated to the `{meta_type}meta` this would
+			 * warm - so skip WP priming for it, especially when an explicit `$meta_type`
+			 * happens to name a real WP `{type}meta` table.
+			 */
+			if ( ( null === $this->get_meta_store() ) && $this->get_meta_table_name() ) {
 				$meta_type = $this->get_meta_type();
 				$int_ids   = array_values( array_filter( $item_ids, 'is_int' ) );
 				if ( ! empty( $int_ids ) ) {

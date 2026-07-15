@@ -441,9 +441,12 @@ trait Meta {
 		// Get the primary column name.
 		$primary = $this->get_primary_column_name();
 
-		// Guess the item ID column for the meta table.
-		$item_name       = $this->get_item_name();
-		$item_id_column  = $this->apply_prefix( $item_name . '_' . $primary );
+		/*
+		 * The meta table's object-id column is {meta_type}_{primary} (get_meta_type()
+		 * already prefixes / honors an explicit type, so it is not re-prefixed here). This
+		 * is equivalent to the old item-name derivation when the type is unset.
+		 */
+		$item_id_column  = $this->get_meta_type() . '_' . $primary;
 		$item_id_pattern = $this->get_column_field( array( 'name' => $primary ), 'pattern', '%s' );
 
 		// Get meta IDs.
@@ -494,14 +497,22 @@ trait Meta {
 	/**
 	 * Get the meta type for this query.
 	 *
-	 * This method exists to reduce some duplication for now. Future iterations
-	 * will likely use Column::relationships to more reliably predict this.
+	 * The explicit `$meta_type` property when set (the first-class source), else the
+	 * (prefixed) item name as a legacy fallback - which is correct only when `item_name`
+	 * happens to equal the WordPress object type. It is the single source of truth for the
+	 * meta table name (`{type}meta`) and its object-id column (`{type}_id`), so a Query
+	 * whose item name is namespaced (`wpct_post`) can set `$meta_type = 'post'` instead of
+	 * overriding this method.
 	 *
 	 * @since 1.1.0
+	 * @since 3.1.0 Prefers the explicit `$meta_type` property; the item-name derivation is
+	 *              the fallback.
 	 *
 	 * @return string
 	 */
 	public function get_meta_type() {
-		return $this->apply_prefix( $this->item_name );
+		return ( '' !== $this->meta_type )
+			? $this->meta_type
+			: $this->apply_prefix( $this->item_name );
 	}
 }

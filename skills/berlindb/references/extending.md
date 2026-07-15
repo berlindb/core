@@ -264,7 +264,7 @@ may rely on them:
 | `get_query_var( $key )` / `get_query_vars()` | a single query var / all of them |
 | `parse_query_var( $vars, $key )` | a query var parsed to its value form |
 | `get_table_name()` / `get_table_alias()` | the primary table name / alias |
-| `get_meta_type()` | the object's meta type (for meta clauses) |
+| `get_meta_type()` | the object's meta type (the `$meta_type` property, else the prefixed item name) |
 | `get_relationship( $name )` | a declared `Relationship`, or `false` |
 | `get_item_name_plural()` | the plural item name |
 
