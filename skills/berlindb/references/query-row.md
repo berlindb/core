@@ -106,6 +106,13 @@ Column-specific parser support depends on Schema flags:
 - `sortable` enables `orderby` for that column.
 - `date_query` enables date query behavior.
 - `in` and `not_in` enable `{column}__in` and `{column}__not_in`.
+- `compare` enables the `{column}_compare` shorthand (opt-in comparison operators
+  `>`, `>=`, `<`, `<=`, `!=`, `BETWEEN`, ...; typical for numeric / monetary / date
+  columns). It is exact sugar for a `compare_query` clause on that column: the value
+  shapes mirror the container - `array( 'compare' => '>', 'value' => 40 )`, a bare list
+  `array( 10, 30 )` (defaults to `IN`), or a bare scalar `40` (defaults to `=`). It
+  folds into `compare_query`, so it shares that engine's SQL path and cache key, and an
+  explicit `compare_query` and a `{column}_compare` in the same call both apply (AND).
 
 `number` limits result count even when using `__in` or `__not_in`. Do not remove
 or bypass limits unless the caller explicitly needs all matching rows.

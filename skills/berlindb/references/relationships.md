@@ -50,6 +50,41 @@ public function get_relationships() {
 `columns` and `references` must be the same length (validated). Order is semantic - the
 `i`th local column pairs with the `i`th remote column.
 
+## Conditioned relationships (scoped / polymorphic)
+
+A relationship may carry a `condition` - a fixed `column => scalar` equality map that scopes
+the **remote** rows. This models a **polymorphic** child table (one table shared across parent
+types via an `object_id` + `object_type` pair) as a single relationship instead of hand-coded
+SQL:
+
+```php
+// On 'id': this Order has_many notes WHERE the note's object_type = 'order'.
+'relationships' => array(
+    array(
+        'query'     => \Acme\Database\Queries\Note::class,
+        'column'    => 'object_id',
+        'type'      => 'has_many',
+        'name'      => 'notes',
+        'condition' => array( 'object_type' => 'order' ),
+    ),
+),
+```
+
+The condition is appended to **every** SQL form of the relationship - `get_related()`
+traversal, the correlated `EXISTS` filter, and nested `EXISTS` - as
+`AND {remote}.object_type = 'order'`, so only the matching rows are traversed or matched.
+
+- **Application-layer only.** A `FOREIGN KEY` cannot encode a discriminator, so a conditioned
+  relationship is never enforced (an `enforce => true` is dropped).
+- **Defaults to the `join` / `EXISTS` filter strategy** and rejects an explicit
+  `strategy => 'in'`. `get_related()` traversal scopes via `{column}__in`, so a condition
+  column must declare `in => true` on the **remote** schema; the `join` / `EXISTS` path
+  renders raw SQL and needs no flag.
+- **Fails closed** on an unknown condition column (never widens). A condition on a
+  `many_to_many` is **rejected** (`get_validation_errors()`).
+- Equality-with-scalar values in 3.1.0; richer predicates (operators / `IN`) and
+  `many_to_many` support are follow-ups (#246).
+
 ## Fetching
 
 - `get_related( $item, $accessor )` (on the `Query`, not the `Row`) resolves a relationship
@@ -146,3 +181,6 @@ Only enable enforcement if you control the storage engine - real foreign keys ne
 - **`in` strategy** - single-column only; composite uses `join`.
 - **Nested chains are `belongs_to` / `has_many`** - a `many_to_many` hop *inside* a nested
   `relation` chain fails closed (a top-level m2m filter is fine; only mid-chain is excluded).
+- **Conditioned relationships** (#246) - equality-with-scalar values only; a `condition`
+  column must be `in => true` on the remote for `get_related()` traversal; `many_to_many`
+  conditions are rejected. Richer predicates (operators / `IN`) and m2m are follow-ups.

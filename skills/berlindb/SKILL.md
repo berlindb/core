@@ -45,8 +45,9 @@ Read only the reference needed for the task:
   container, grouped + `having`), JSON, casts, and the three-cache model
   (query/by-id/secondary) with `last_changed` salt invalidation.
 - `references/relationships.md`: relationships (`belongs_to`/`has_many`),
-  single- and composite- (multi-column) key declaration, `get_related` /
-  `with` priming, `relation` filtering (`in` vs `join` strategies, plus nested
+  single- and composite- (multi-column) key declaration, conditioned (scoped /
+  polymorphic) relationships via a fixed `condition`, `get_related` / `with`
+  priming, `relation` filtering (`in` vs `join` strategies, plus nested
   multi-hop chains via a nested `relation`), and opt-in enforced `FOREIGN KEY`
   DDL (deferred `add_foreign_keys()` / `inline`).
 - `references/debugging.md`: silent save failures, table upgrade issues,
@@ -120,6 +121,16 @@ Which side declares it, and what `column` means, differs by `type`:
     ),
 ),
 ```
+
+- **Conditioned (scoped / polymorphic) relationships.** Add a fixed `condition`
+  (`column => scalar`) to scope the remote rows, so a polymorphic child table
+  (`object_id` + `object_type`) models as ONE relationship:
+  `'condition' => array( 'object_type' => 'order' )` appends
+  `AND {remote}.object_type = 'order'` to traversal and filtering. Application-layer
+  only (never a `FOREIGN KEY`); defaults to the `join` / `EXISTS` strategy; the
+  condition column must be `in => true` on the remote for `get_related()`. Fails
+  closed on an unknown column; a `many_to_many` condition is rejected. See
+  `references/relationships.md`.
 
 - **Composite (multi-column) keys.** A relationship can key on more than one column.
   The per-column `relationships` shorthand above models a *single* key column, so declare

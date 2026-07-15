@@ -4,6 +4,25 @@ Notable changes to BerlinDB are documented here.
 
 ## 3.1.0 - Unreleased
 
+- Adds conditioned relationships. A relationship may declare a fixed `condition` (a
+  `column => scalar` equality map, e.g. `object_type => 'order'`) that scopes the related
+  rows, so a polymorphic child table - one table shared across parent types via an
+  `object_id` + `object_type` pair - models as a single relationship rather than hand-coded
+  SQL. The condition is appended (`AND {remote}.{col} = {val}`) across `get_related()`
+  traversal, the correlated `EXISTS` filter, and nested `EXISTS`. It is application-layer
+  only (a `FOREIGN KEY` cannot encode a discriminator, so `enforce` is dropped), defaults to
+  the `join` / `EXISTS` filter strategy, and fails closed on an unknown condition column; a
+  condition on a `many_to_many` is rejected. The condition column must declare `in => true`
+  on the remote for `get_related()` traversal (the `join` / `EXISTS` path needs no flag).
+  Equality-with-scalar values in this version; richer predicates (operators / `IN`) and
+  `many_to_many` support are follow-ups (#246).
+- Adds a per-column `compare` flag and its `{column}_compare` query-var shorthand. A column
+  declared `compare => true` can be filtered with comparison operators (`>`, `>=`, `<`,
+  `<=`, `!=`, `BETWEEN`, ...) through `{column}_compare` - exact sugar that folds into a
+  `compare_query` clause, sharing that engine's SQL path and cache key. Value shapes mirror
+  the container: `array( 'compare' => '>', 'value' => 40 )`, a bare list (defaults to `IN`),
+  or a bare scalar (defaults to `=`). Opt-in, since most columns are filtered by equality or
+  `__in` rather than compared - typical for numeric, monetary, and date columns.
 - Adds a `temporary` Table mode for session-scoped tables. A `Table` declared
   `temporary => true` (or `protected $temporary = true`) emits `CREATE TEMPORARY TABLE`
   / `DROP TEMPORARY TABLE`, so the table lives only for the current database connection

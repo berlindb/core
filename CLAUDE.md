@@ -248,6 +248,11 @@ the spec** — `meta type`, `object_id`, `prepare()`, `register_meta()`,
 - **`with`** primes accessors; strategy **`in`** (subquery → `{fk}__in`) vs
   **`join`** (real `EXISTS`/JOIN); **semi-join** (has_many EXISTS, one row each) /
   **anti-join** (`NOT EXISTS`).
+- **`condition`** — a relationship's fixed `column => scalar` predicate that scopes
+  the *remote* rows (`AND {remote}.object_type = 'order'`), modeling a **polymorphic**
+  (`object_id` + `object_type`) link as one relationship. Distinct from the caller's
+  runtime `where` on a filter clause, and from `constraint` (the FK name);
+  application-layer only (never a `FOREIGN KEY`). See #246.
 - **`prime` / priming** — warm a cache ahead of use (relationship/meta caches).
 
 ### Query & parsing
