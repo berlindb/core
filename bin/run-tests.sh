@@ -8,6 +8,7 @@
 #   -p <version>   PHP version to use (default: 8.2)
 #   -w <version>   WordPress version to use (default: latest)
 #   -d <version>   MariaDB version to use (default: 10.2)
+#   -i <image>     Full database image (e.g. mysql:8.4); overrides -d, for either engine
 #   -h             Show this help text
 #
 # Examples:
@@ -16,6 +17,8 @@
 #   bin/run-tests.sh -p 8.2 -w 6.4
 #   bin/run-tests.sh -w 6.7.2
 #   bin/run-tests.sh -d 11.8
+#   bin/run-tests.sh -i mysql:8.4
+#   bin/run-tests.sh -i mysql:5.7
 #   bin/run-tests.sh -- --filter ColumnTest
 #   bin/run-tests.sh -- --testdox
 
@@ -43,6 +46,10 @@ while [[ $# -gt 0 ]]; do
 			MARIADB_VERSION="$2"
 			shift 2
 			;;
+		-i)
+			DB_IMAGE="$2"
+			shift 2
+			;;
 		-h|--help)
 			sed -n '2,21p' "$0" | sed 's/^# \?//'
 			exit 0
@@ -59,9 +66,14 @@ while [[ $# -gt 0 ]]; do
 	esac
 done
 
+# Select the database image. An explicit -i / $DB_IMAGE wins; otherwise derive it
+# from MARIADB_VERSION so the historical -d flag keeps working unchanged.
+DB_IMAGE="${DB_IMAGE:-mariadb:${MARIADB_VERSION}}"
+
 export TEST_PHP_VERSION
 export WP_VERSION
 export MARIADB_VERSION
+export DB_IMAGE
 export COMPOSE_PROJECT_NAME="berlindb_tests_$(openssl rand -hex 4)"
 export PHPUNIT_ARGS="${PHPUNIT_ARGS[*]}"
 

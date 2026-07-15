@@ -67,20 +67,32 @@ jobs:
         run: vendor/bin/phpcs
 
   phpunit:
-    name: PHPUnit ${{ matrix.php }}
+    name: PHPUnit ${{ matrix.php }} / ${{ matrix.db }}
     runs-on: ubuntu-latest
+    # MySQL legs are non-gating for now: the matrix surfaces known MySQL-family
+    # divergences (case-sensitive meta-key REGEXP via CAST(... AS BINARY), JSON
+    # column round-trips, NO_ZERO_DATE strict mode) that are tracked SQL fixes, not
+    # regressions in this change. MariaDB legs gate. See #230 / #220.
+    continue-on-error: ${{ matrix.allow_failure || false }}
 
     strategy:
       fail-fast: false
       matrix:
-        php:
-          - '8.1'
-          - '8.2'
+        # Test both engines at the supported floor and a current release, so
+        # MySQL/MariaDB dialect divergence surfaces in CI (see #230, #220).
+        include:
+          # MariaDB: floor (10.2) + current LTS (11.4). Gating.
+          - { php: '8.1', db: 'mariadb:10.2' }
+          - { php: '8.2', db: 'mariadb:11.4' }
+          # MySQL: floor (5.7) + current LTS (8.4). Non-gating until the
+          # MySQL-family SQL divergences above are fixed.
+          - { php: '8.1', db: 'mysql:5.7', allow_failure: true }
+          - { php: '8.2', db: 'mysql:8.4', allow_failure: true }
 
     env:
       TEST_PHP_VERSION: ${{ matrix.php }}
       WP_VERSION: '6.7'
-      MARIADB_VERSION: '10.2'
+      DB_IMAGE: ${{ matrix.db }}
       SKIP_PHPCS: 'true'
 
     steps:

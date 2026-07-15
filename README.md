@@ -23,6 +23,13 @@ caching hooks, and table upgrade routines.
 - PHP 8.1 or newer
 - WordPress
 - Composer
+- MySQL 5.7+ or MariaDB 10.2+
+
+BerlinDB generates MySQL/MariaDB-flavored SQL. The supported floor is **MySQL 5.7**
+or **MariaDB 10.2** (the baseline for the row-constructor `IN` and related SQL it
+emits); CI runs the suite against both engines at that floor and at a current
+release (MySQL 8.4, MariaDB 11.4). Older engines and other databases (PostgreSQL,
+SQLite, ...) are not supported.
 
 ## Installation
 

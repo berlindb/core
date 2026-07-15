@@ -267,6 +267,8 @@ may rely on them:
 | `get_meta_type()` | the object's meta type (the `$meta_type` property, else the prefixed item name) |
 | `get_relationship( $name )` | a declared `Relationship`, or `false` |
 | `get_item_name_plural()` | the plural item name |
+| `get_prefix()` | the plugin prefix (`$prefix`) - drives table/cache/meta names |
+| `get_hook_prefix()` | the hook/filter-name prefix (`$hook_prefix`, else `$prefix`) |
 
 Call them on the caller directly, guarding for absence:
 
@@ -279,7 +281,18 @@ Treat anything outside this list as internal and subject to change.
 
 ## Database platform (engine awareness)
 
-BerlinDB emits MySQL/MariaDB-flavored SQL. To let it detect the engine and degrade
+BerlinDB emits MySQL/MariaDB-flavored SQL. The **supported engine floor is MySQL 5.7 /
+MariaDB 10.2** - the baseline for the row-constructor tuple `IN` and the rest of the
+recently-added SQL (`XOR`, `INTERVAL n UNIT`, `GREATEST`/`LEAST`/`CONCAT_WS`, composite
+JOIN/`EXISTS` correlation). CI runs the full suite against **both** engines at that floor
+and at a current release (MySQL 8.4, MariaDB 11.4), so dialect divergence surfaces in CI
+rather than at a user's site (see #230; grounded in the #220 dialect audit). Other
+databases (PostgreSQL, SQLite, ...) are not supported today - a real adapter-owned
+rendering seam is the 4.0 effort (#220). One forward-compatibility note: the key-side meta
+`REGEXP` uses `CAST(... AS BINARY) REGEXP` because bare `REGEXP BINARY` was removed in MySQL
+8.4.
+
+To let it detect the engine and degrade
 constructs another engine cannot run, a `Connection` MAY implement the opt-in
 `Interfaces\PlatformProvider` and return an `Adapters\Platform`:
 

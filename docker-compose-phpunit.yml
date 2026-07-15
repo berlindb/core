@@ -18,6 +18,7 @@ services:
       DB_PASS: "wordpress"
       WP_VERSION: "${WP_VERSION:-6.7}"
       SKIP_DB_CREATE: "${SKIP_DB_CREATE:-false}"
+      SKIP_PHPCS: "${SKIP_PHPCS:-false}"
       WP_CORE_DIR: "/app/.cache/wp-core"
       WP_TESTS_DIR: "/app/.cache/wordpress-tests-lib"
       HTTP_PROXY: "${HTTP_PROXY:-}"
@@ -29,12 +30,16 @@ services:
     command: bin/run-tests-internal.sh
 
   mysql:
-    image: mariadb:${MARIADB_VERSION:-10.2}
+    # DB_IMAGE selects the engine+version (e.g. mysql:8.4, mariadb:11.4). run-tests.sh
+    # derives it from MARIADB_VERSION for backward compatibility when unset.
+    image: ${DB_IMAGE:-mariadb:10.2}
     environment:
       MYSQL_ROOT_PASSWORD: "wordpress"
       MARIADB_ROOT_PASSWORD: "wordpress"
     healthcheck:
-      test: ["CMD-SHELL", "healthcheck.sh --connect --innodb_initialized 2>/dev/null || mysqladmin ping -h 127.0.0.1 -pwordpress --silent --ssl=FALSE"]
+      # healthcheck.sh only ships on MariaDB images; the mysqladmin ping fallback covers
+      # MySQL (no --ssl flag, which MySQL 8.x rejects and MariaDB does not need here).
+      test: ["CMD-SHELL", "healthcheck.sh --connect --innodb_initialized 2>/dev/null || mysqladmin ping -h 127.0.0.1 -pwordpress --silent"]
       interval: 5s
       timeout: 5s
       retries: 12
