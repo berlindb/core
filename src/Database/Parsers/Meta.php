@@ -431,10 +431,15 @@ class Meta extends Base {
 	 */
 	private function build_meta_join_where( $type, $primary_table, $primary_column ) {
 
-		// Attempt to get the secondary table.
-		$meta_table = _get_meta_table( $type );
+		/*
+		 * Resolve the meta table for this type off the Connection - the same dynamic
+		 * `{$type}meta` property WordPress core's _get_meta_table() reads, but through
+		 * db() so a custom Connection/adapter is respected and there is no global $wpdb
+		 * dependency. Returns '' (falsy) when no such meta table is registered.
+		 */
+		$meta_table = $this->db()->get_table_prefix( $type . 'meta' );
 
-		// Bail if no object table.
+		// Bail if no registered meta table for this type.
 		if ( empty( $meta_table ) ) {
 			return false;
 		}
