@@ -4,6 +4,18 @@ Notable changes to BerlinDB are documented here.
 
 ## 3.1.0 - Unreleased
 
+- Extends the plural write verbs `update_items()` / `delete_items()` to composite-key
+  tables (#241, following the singular verbs in #234). A query-var filter now resolves to
+  each matched row's FULL primary key - every primary column, not just the first - via the
+  new `select_primary_keys()`, then loops the already composite-aware `update_item()` /
+  `delete_item()`. Accepted inputs: a query-var filter
+  (`delete_items( array( 'status' => 'stale' ) )`), an explicit list of key maps
+  (`delete_items( array( array( 'a' => 1, 'b' => 2 ), ... ) )`), or a list of scalar ids; a
+  lone associative array is treated as a filter, not one literal key. Single-key tables are
+  unchanged (a one-column key still round-trips). Fails closed exactly as before - an empty
+  input or a filter with no `WHERE` writes nothing. Item meta on composite-key tables stays
+  unsupported (a composite key has no single object id), matching the singular verbs.
+
 - Documents and enforces the JSON column round-trip contract: values, types, and array
   (list) order are preserved exactly, but JSON *object key order* is not guaranteed. MySQL's
   native `json` type reorders object keys (by length, then bytewise) on storage, while

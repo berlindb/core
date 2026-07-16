@@ -25,8 +25,8 @@ defined( 'ABSPATH' ) || exit;
  * query() / get_items() drives: fire the pre-get scope hook, resolve the query
  * mode (rows / count / aggregate), build the clauses and request, execute, and
  * shape the raw result - with the cache read/write and pagination in between.
- * Also holds select_ids(), the fail-closed primary-ID resolver the write verbs
- * use. Delegates clause building to the Clauses trait and hydration to Hydration.
+ * Also holds select_primary_keys(), the fail-closed primary-key resolver the write
+ * verbs use. Delegates clause building to the Clauses trait and hydration to Hydration.
  *
  * @since 3.1.0
  */
@@ -35,8 +35,8 @@ trait Execution {
 	/**
 	 * Fire the "pre_get_{plural}" action, where installs scope a query just in time.
 	 *
-	 * Shared by get_items() (the SELECT path) and select_ids() (delete-by-filter), so
-	 * an install's pre-get scoping constrains both equally.
+	 * Shared by get_items() (the SELECT path) and select_primary_keys() (write-by-filter),
+	 * so an install's pre-get scoping constrains both equally.
 	 *
 	 * @since 3.1.0
 	 *
@@ -337,13 +337,15 @@ trait Execution {
 	}
 
 	/**
-	 * Select the primary IDs of the rows matching a set of query-var filters.
+	 * Select the full primary KEY of each row matching a set of query-var filters.
 	 *
-	 * A narrow, side-effect-free companion to get_item_ids(): it compiles the
-	 * passed vars into a JOIN/WHERE (running the parsers + Clauses\Builder, the
-	 * same construction the SELECT path uses) and returns the distinct primary IDs,
-	 * without the get_item_ids() lifecycle - no cache, no found_items, no count or
-	 * pagination handling, and no mutation of the query's stored clauses/request.
+	 * A narrow, side-effect-free companion to get_item_ids(): it compiles the passed
+	 * vars into a JOIN/WHERE (running the parsers + Clauses\Builder, the same
+	 * construction the SELECT path uses) and returns one `column => value` map per
+	 * distinct row - EVERY primary-key column, so the result addresses a row on a
+	 * composite-key table, not just its first column - without the get_item_ids()
+	 * lifecycle (no cache, no found_items, no count/pagination, no clause mutation).
+	 * A single-column key still yields a one-entry map (e.g. `array( 'id' => 1 )`).
 	 *
 	 * Fails closed: if the filters compile to no WHERE, this refuses and returns an
 	 * empty array rather than selecting every row. A malformed 'criteria' tree
@@ -351,12 +353,12 @@ trait Execution {
 	 * simply matches nothing. DISTINCT guards against JOINs multiplying rows.
 	 *
 	 * @since 3.1.0
-	 * @internal Operation collaborator (Operations\Delete, and later Update).
+	 * @internal Operation collaborator (Operations\Update, Operations\Delete).
 	 *
 	 * @param array<string,mixed> $query_vars Query-var filters (same vocabulary as query()).
-	 * @return array<int,int|string> Distinct primary IDs, or an empty array when refused / unmatched.
+	 * @return list<array<string,int|string>> One full primary-key map per row, or [] when refused / unmatched.
 	 */
-	public function select_ids( array $query_vars = array() ): array {
+	public function select_primary_keys( array $query_vars = array() ): array {
 
 		/*
 		 * Mirror the SELECT path's parse_query preparation, but ON $this->query_vars
@@ -415,14 +417,24 @@ trait Execution {
 			}
 
 			/*
-			 * Assemble a narrow "SELECT DISTINCT primary" clause set, in the same shape
-			 * the SELECT path produces (so the query-clauses filter sees every key).
+			 * Assemble a narrow "SELECT DISTINCT {primary key columns}" clause set, in the
+			 * same shape the SELECT path produces (so the query-clauses filter sees every
+			 * key). Every primary column is selected - so a composite key is addressable -
+			 * and DISTINCT applies to the whole key tuple.
 			 */
+			$primary_columns = $this->get_primary_column_names();
+			$key_fields      = array();
+
+			foreach ( $primary_columns as $primary_name ) {
+				$key_fields[] = $this->get_quoted_column_name_aliased( $primary_name );
+			}
+
 			$clauses = $this->distinct_id_clauses(
 				array(
 					'join'  => $join,
 					'where' => $where,
-				)
+				),
+				implode( ', ', $key_fields )
 			);
 
 			/*
@@ -437,10 +449,21 @@ trait Execution {
 			// Join the non-empty fragments into a single statement.
 			$request = $this->parse_request_clauses( $clauses );
 
-			// Execute, then shape each raw ID to the primary column type.
-			$item_ids = $this->db()->get_col( $request );
+			// Execute, then shape each row into a full primary-key map (per-column typed).
+			$rows = $this->db()->get_results( $request );
+			$keys = array();
 
-			return array_map( array( $this, 'shape_item_id' ), wp_parse_list( $item_ids ) );
+			foreach ( (array) $rows as $row ) {
+				$key = array();
+
+				foreach ( $primary_columns as $primary_name ) {
+					$key[ $primary_name ] = $this->validate_item_field( $row->{$primary_name} ?? null, $primary_name );
+				}
+
+				$keys[] = $key;
+			}
+
+			return $keys;
 
 		} finally {
 
@@ -464,23 +487,26 @@ trait Execution {
 	 * adding JOIN/WHERE predicates against the base table's alias - and reads FROM the
 	 * base table; it deliberately does not honor a filter that rewrites FROM to a
 	 * different source (the field/alias references are the base table's throughout, as
-	 * everywhere else in Query). select_ids() passes just its compiled JOIN/WHERE; an
-	 * aggregate over a fan-out JOIN passes its whole filtered clause set (see
-	 * aggregate_via_subquery()). The canonical clause order is fixed here, so
+	 * everywhere else in Query). select_primary_keys() passes just its compiled
+	 * JOIN/WHERE; an aggregate over a fan-out JOIN passes its whole filtered clause set
+	 * (see aggregate_via_subquery()). The canonical clause order is fixed here, so
 	 * the imploded SQL is well-formed no matter the caller's key order.
 	 *
 	 * @since 3.1.0
 	 *
 	 * @param array<string,string> $clauses A (possibly partial) clause set to reshape.
+	 * @param string               $fields  Optional SELECT field list. Defaults to the aliased
+	 *                                       single primary column (the id-dedup shape); pass the
+	 *                                       full comma-joined primary key for key selection.
 	 *
-	 * @return array<string,string> The clause set selecting DISTINCT the primary key.
+	 * @return array<string,string> The clause set selecting DISTINCT the given fields.
 	 */
-	private function distinct_id_clauses( array $clauses ): array {
+	private function distinct_id_clauses( array $clauses, string $fields = '' ): array {
 		return array(
 			'explain'     => '',
 			'select'      => $this->parse_select(),
 			'distinct'    => $this->parse_distinct( true ),
-			'fields'      => $this->get_quoted_column_name_aliased(),
+			'fields'      => ( '' !== $fields ) ? $fields : $this->get_quoted_column_name_aliased(),
 			'from'        => $this->parse_from(),
 			'index_hints' => '', // ID resolution is deliberately un-hinted.
 			'join'        => $clauses[ 'join' ] ?? '',

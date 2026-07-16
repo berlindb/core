@@ -455,12 +455,12 @@ class IndexHintsTest extends TestCase {
 	}
 
 	/**
-	 * Test the ID-resolution path (select_ids, used by delete_items/update_items)
+	 * Test the key-resolution path (select_primary_keys, used by delete_items/update_items)
 	 * does not render index hints even when the filter carries them.
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_select_ids_path_is_unhinted() {
+	public function test_select_primary_keys_path_is_unhinted() {
 		$sql = $this->captured_sql(
 			static function () {
 				self::$query->delete_items(

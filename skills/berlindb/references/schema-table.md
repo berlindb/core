@@ -133,7 +133,7 @@ full parity:
 | Relationships (`with` / `get_related`), aggregates | yes |
 | `get_item( scalar )` / `copy_item( scalar )` | no (single-column only) |
 | `add_item()` | inserts, but the returned id / dedup use the first key column |
-| `update_items()` / `delete_items()` (bulk) | no (scalar-only) |
+| `update_items()` / `delete_items()` (bulk) | yes (resolves each matched row's full key) |
 | Item meta | no |
 
 Address a composite row by passing its **full key** as a `column => value` array to

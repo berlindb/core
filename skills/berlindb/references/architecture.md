@@ -62,10 +62,11 @@ its verb). The builder is *inert* (building never executes), which is what lets 
 write operation reuse the same construction without pretending to be a SELECT.
 
 `Operations\Delete` (via `Query::delete_items()`) is the first operation to cash this
-in: it resolves matching primary IDs through `Query::select_ids()` (which runs the
-*full* read preparation — `parse_query` + the `parse_{plural}_query` / `pre_get_{plural}`
-scoping actions + the `{plural}_query_clauses` filter — so a delete is scoped exactly
-as a read is) and then loops `delete_item()`. It fails closed: a filter that compiles
+in: it resolves each matching row's full primary KEY through `Query::select_primary_keys()`
+(which runs the *full* read preparation — `parse_query` + the `parse_{plural}_query` /
+`pre_get_{plural}` scoping actions + the `{plural}_query_clauses` filter — so a delete is
+scoped exactly as a read is; selecting every primary column keeps composite-key tables
+addressable) and then loops the composite-aware `delete_item()`. It fails closed: a filter that compiles
 to no `WHERE` deletes nothing (a `JOIN` alone is not trusted — a `LEFT JOIN` does not
 constrain the base table). `Operations\Update` is the write sibling (same resolution,
 looping `update_item()`); `Operations\Add` is the create verb and the lone exception —

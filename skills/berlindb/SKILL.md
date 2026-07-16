@@ -365,13 +365,20 @@ Current limitations:
 - `delete_items()` (3.1.0) deletes a *set*: a single ID, a list of IDs, or a
   query-var filter (same vocabulary as `query()`, e.g.
   `delete_items( array( 'status__in' => array( 'spam' ) ) )`). It resolves the
-  matching IDs and loops `delete_item()` (so hooks/cache/meta cleanup all fire), and
+  matching keys and loops `delete_item()` (so hooks/cache/meta cleanup all fire), and
   returns the number deleted or `false`. An empty input or a filter with no `WHERE`
   deletes nothing — it never means "delete everything".
 - `update_items( $target, $data )` (3.1.0) is the write sibling: it writes `$data`
   to a *set* named the same three ways (single ID / list of IDs / query-var
   filter), looping `update_item()`. Returns the number updated or `false`. Empty
   `$data`, an empty input, or a filter with no `WHERE` updates nothing.
+- On a **composite-key** table (3.1.0, #241) both plural verbs resolve each matched
+  row's *full* primary key, so a filter like `delete_items( array( 'account_id' => 1 ) )`
+  removes every matching row addressed by its whole key — not just rows sharing the first
+  key column. Pass literal composite keys as a list of maps:
+  `delete_items( array( array( 'account_id' => 1, 'user_id' => 10 ), ... ) )`. A lone
+  `array( 'account_id' => 1, 'user_id' => 10 )` is read as a *filter* (which, for a full
+  key, matches exactly that row). Item meta stays unsupported on composite keys.
 - `add_items( $rows )` (3.1.0) is the create sibling: it inserts a *list of data
   arrays*, one new item each, looping `add_item()`. It takes no set selector (the
   rows do not exist yet), and returns the new IDs in input order — each slot the new

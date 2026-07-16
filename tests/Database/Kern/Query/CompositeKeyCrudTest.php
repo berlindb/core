@@ -1,7 +1,8 @@
 <?php
 /**
  * Composite-primary-key CRUD: update/delete a single row by its FULL key, and fail
- * closed on a scalar or partial key (#234).
+ * closed on a scalar or partial key (#234); and the plural update_items()/delete_items()
+ * resolving each matched row's full composite key (#241).
  *
  * @package     BerlinDB\Tests
  * @copyright   2026 - JJJ and all BerlinDB contributors
@@ -396,5 +397,90 @@ class CompositeKeyCrudTest extends TestCase {
 
 		$this->assertFalse( $schema->is_valid() );
 		$this->assertNotEmpty( preg_grep( '/AUTO_INCREMENT/', $schema->get_validation_errors() ) );
+	}
+
+	/**
+	 * delete_items() by a query-var FILTER resolves each matched row's FULL composite
+	 * key and deletes exactly those rows, not every row sharing the first key column (#241).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_delete_items_by_filter_targets_composite_rows() {
+		$query = new CompositeKeyQuery();
+
+		// account_id = 1 matches TWO rows: (1,10) and (1,20).
+		$this->assertSame( 2, $query->delete_items( array( 'account_id' => 1 ) ) );
+
+		$this->assertNull( $this->status_of( 1, 10 ) );
+		$this->assertNull( $this->status_of( 1, 20 ) );
+		$this->assertSame( 'active', $this->status_of( 2, 10 ) );
+	}
+
+	/**
+	 * update_items() by a query-var FILTER writes $data to exactly the matched
+	 * composite rows (#241).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_update_items_by_filter_targets_composite_rows() {
+		$query = new CompositeKeyQuery();
+
+		$this->assertSame( 2, $query->update_items( array( 'account_id' => 1 ), array( 'status' => 'updated' ) ) );
+
+		$this->assertSame( 'updated', $this->status_of( 1, 10 ) );
+		$this->assertSame( 'updated', $this->status_of( 1, 20 ) );
+		$this->assertSame( 'active', $this->status_of( 2, 10 ) );
+	}
+
+	/**
+	 * delete_items() accepts an explicit LIST of full composite-key maps and removes
+	 * exactly those rows (#241).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_delete_items_by_explicit_key_list() {
+		$query = new CompositeKeyQuery();
+
+		$deleted = $query->delete_items(
+			array(
+				array(
+					'account_id' => 1,
+					'user_id'    => 10,
+				),
+				array(
+					'account_id' => 2,
+					'user_id'    => 10,
+				),
+			)
+		);
+
+		$this->assertSame( 2, $deleted );
+		$this->assertNull( $this->status_of( 1, 10 ) );
+		$this->assertSame( 'active', $this->status_of( 1, 20 ) );
+		$this->assertNull( $this->status_of( 2, 10 ) );
+	}
+
+	/**
+	 * A lone associative array is interpreted as a FILTER (not one literal key) - which
+	 * for a full composite key matches exactly that one row and deletes it (#241).
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_delete_items_lone_key_map_is_a_filter() {
+		$query = new CompositeKeyQuery();
+
+		$this->assertSame(
+			1,
+			$query->delete_items(
+				array(
+					'account_id' => 1,
+					'user_id'    => 10,
+				)
+			)
+		);
+
+		$this->assertNull( $this->status_of( 1, 10 ) );
+		$this->assertSame( 'active', $this->status_of( 1, 20 ) );
+		$this->assertSame( 'active', $this->status_of( 2, 10 ) );
 	}
 }

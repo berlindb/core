@@ -70,23 +70,31 @@ abstract class Base {
 	}
 
 	/**
-	 * Resolve an operation's input into a concrete list of primary IDs.
+	 * Resolve an operation's input into a concrete list of primary KEYS.
 	 *
-	 * The shared "which rows" resolution for the per-set verbs (Delete, Update). A
-	 * scalar is one ID. An array with any string key is query-var filters and is
-	 * compiled to a WHERE before the matching IDs are selected. An array with only
-	 * integer keys is a list of IDs - including non-sequential ones from
-	 * array_filter()/wp_list_pluck() - and is taken as-is. An empty array is an
-	 * empty list of IDs (not an unfiltered "everything"), so it resolves to nothing.
+	 * The shared "which rows" resolution for the per-set verbs (Delete, Update). Each
+	 * resolved element is a primary key the composite-aware per-item verb accepts - a
+	 * scalar id, or a full `column => value` key map:
+	 *
+	 * - A scalar is one id (a single-column key).
+	 * - An array with any STRING key is query-var filters: compiled to a WHERE, then the
+	 *   matching rows' FULL primary keys are selected (so composite-key tables work).
+	 *   NOTE: this means a lone `array( 'a' => 1, 'b' => 2 )` is a FILTER, not one key;
+	 *   pass literal keys as a list of maps (see below).
+	 * - An array with only INTEGER keys is an explicit list - of scalar ids, or of
+	 *   `column => value` key maps (`array( array( 'a' => 1, 'b' => 2 ), ... )`) -
+	 *   including non-sequential entries, and is taken as-is.
+	 * - An empty array is an empty list (not an unfiltered "everything"), so it resolves
+	 *   to nothing.
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param mixed $input A single ID, a list of IDs, or a query-vars filter array.
-	 * @return array<int,mixed> Candidate primary IDs (each re-shaped by the per-item verb), possibly empty.
+	 * @param mixed $input A single id, a list of ids/keys, or a query-vars filter array.
+	 * @return array<int,mixed> Candidate primary keys (each re-shaped by the per-item verb), possibly empty.
 	 */
-	protected function resolve_ids( $input ): array {
+	protected function resolve_primary_keys( $input ): array {
 
-		// A single scalar ID.
+		// A single scalar id (a single-column key).
 		if ( is_scalar( $input ) ) {
 			return array( $input );
 		}
@@ -96,14 +104,14 @@ abstract class Base {
 			return array();
 		}
 
-		// Any string key means these are query-var filters -> compile and select IDs.
+		// Any string key means these are query-var filters -> compile and select keys.
 		foreach ( array_keys( $input ) as $key ) {
 			if ( is_string( $key ) ) {
-				return $this->query()->select_ids( $input );
+				return $this->query()->select_primary_keys( $input );
 			}
 		}
 
-		// Otherwise an all-integer-keyed array is a list of IDs (gaps tolerated).
+		// Otherwise an all-integer-keyed array is an explicit list of ids/key maps (gaps tolerated).
 		return array_values( $input );
 	}
 }
