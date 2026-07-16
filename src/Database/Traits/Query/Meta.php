@@ -32,6 +32,21 @@ use BerlinDB\Database\Kern\Relationship;
 trait Meta {
 
 	/**
+	 * WordPress meta type for this object's metadata, e.g. "post" (for wp_postmeta).
+	 *
+	 * Keys the WordPress metadata API (add_metadata/get_metadata/...), the meta table name
+	 * (`{type}meta`), and its object-id column (`{type}_id`). When empty it is derived from
+	 * the (prefixed) item name - correct only when `item_name` equals the WordPress object
+	 * type. Set it explicitly when they differ, e.g. a Query registered over an EXISTING
+	 * table whose `item_name` is namespaced to avoid a hook-name collision (`wpct_post` ->
+	 * meta type `post`). See get_meta_type().
+	 *
+	 * @since 3.1.0
+	 * @var   string
+	 */
+	protected $meta_type = '';
+
+	/**
 	 * Memoized 'meta' relationship store, resolved lazily by get_meta_store().
 	 *
 	 * Reused across this instance's *_item_meta() calls because building the store
