@@ -16,6 +16,7 @@ namespace BerlinDB\Database\Traits\Query;
 // Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
 
+use BerlinDB\Database\Clauses\BooleanGroup;
 use BerlinDB\Database\Kern\Column;
 
 /**
@@ -127,7 +128,7 @@ trait Crud {
 		}
 
 		// Read the one matching raw row via the shared reader.
-		$rows = $this->get_items_raw( implode( ' AND ', $predicates ) . ' LIMIT 1' );
+		$rows = $this->get_items_raw( BooleanGroup::combine( 'AND', $predicates ) . ' LIMIT 1' );
 
 		// Bail if no row matched.
 		return isset( $rows[0] ) && is_object( $rows[0] )
