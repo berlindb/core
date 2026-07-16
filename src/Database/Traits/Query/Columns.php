@@ -25,8 +25,8 @@ use BerlinDB\Database\Kern\Column;
  * objects and exposes them by name, field, or filter (get_columns,
  * get_column_by, get_column_names, get_primary_column_name, get_column_field,
  * get_columns_field_by), plus the identifier quoting/aliasing helpers used to
- * build SQL. is_valid_column is the exact-match injection guard for raw column
- * names.
+ * build SQL and get_in_sql (a column's prepared `IN ( ... )` fragment).
+ * is_valid_column is the exact-match injection guard for raw column names.
  *
  * @since 3.1.0
  */
@@ -323,6 +323,57 @@ trait Columns {
 		}
 
 		// Return SQL.
+		return $retval;
+	}
+
+	/**
+	 * Used internally to generate the SQL string for IN and NOT IN clauses.
+	 *
+	 * The $values being passed in should not be validated, and they will be
+	 * escaped before they are concatenated together and returned as a string.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param string                          $column_name Column name.
+	 * @param array<array-key,mixed>|string  $values      Value(s) to escape. Arrays are
+	 *                                                     flattened into the prepared statement.
+	 * @param bool                            $wrap        To wrap in parenthesis.
+	 * @param string                          $pattern     Pattern to prepare with.
+	 *
+	 * @return string Escaped/prepared SQL, possibly wrapped in parenthesis.
+	 */
+	public function get_in_sql( $column_name = '', $values = array(), $wrap = true, $pattern = '' ): string {
+
+		// Bail if no values or invalid column.
+		if ( empty( $values ) || ! $this->is_valid_column( $column_name ) ) {
+			return '';
+		}
+
+		// Fallback to column pattern.
+		if ( empty( $pattern ) || ! is_string( $pattern ) ) {
+			$pattern = $this->get_column_field( array( 'name' => $column_name ), 'pattern', '%s' );
+		}
+
+		// Fill an array of patterns to match the number of values.
+		$values   = (array) $values;
+		$count    = count( $values );
+		$patterns = array_fill( 0, $count, $pattern );
+
+		// Prepare.
+		$sql    = implode( ', ', $patterns );
+		$retval = $this->db()->prepare( $sql, ...$values );
+
+		// Set return value to empty string if prepare() returns falsy.
+		if ( empty( $retval ) ) {
+			$retval = '';
+		}
+
+		// Wrap them in parenthesis.
+		if ( true === $wrap ) {
+			$retval = "({$retval})";
+		}
+
+		// Return in SQL.
 		return $retval;
 	}
 }
