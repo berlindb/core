@@ -1193,6 +1193,53 @@ class ColumnTest extends TestCase {
 	}
 
 	/**
+	 * Test that a nullable timestamp explicitly opts out of implicit initialization.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_get_create_string_nullable_timestamp_creates_on_supported_database() {
+		global $wpdb;
+
+		$column = new Column(
+			array(
+				'name'       => 'seen',
+				'type'       => 'timestamp',
+				'allow_null' => true,
+				'default'    => null,
+			)
+		);
+		$sql    = $column->get_create_string();
+		$create = "CREATE TEMPORARY TABLE berlindb_nullable_timestamp_test ({$sql})"; // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		$this->assertStringContainsString( 'timestamp null default null', $sql );
+		$this->assertNotFalse( $wpdb->query( $create ), $wpdb->last_error ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+	}
+
+	/**
+	 * Test that a quoted literal default creates valid DDL.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_get_create_string_escapes_literal_default() {
+		global $wpdb;
+
+		$column = new Column(
+			array(
+				'name'     => 'label',
+				'type'     => 'varchar',
+				'length'   => 40,
+				'default'  => "O'Reilly",
+				'validate' => 'strval',
+			)
+		);
+		$sql    = $column->get_create_string();
+		$create = "CREATE TEMPORARY TABLE berlindb_literal_default_test ({$sql})"; // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		$this->assertStringContainsString( "default 'O\\'Reilly'", $sql );
+		$this->assertNotFalse( $wpdb->query( $create ), $wpdb->last_error ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+	}
+
+	/**
 	 * Test that a column comment is emitted as a COMMENT clause, with quotes escaped.
 	 *
 	 * @since 3.1.0

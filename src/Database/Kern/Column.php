@@ -2354,9 +2354,9 @@ class Column {
 			return '';
 		}
 
-		// Explicit default: trust it when not auto-incrementing.
+		// Explicit default: quote and escape it when not auto-incrementing.
 		if ( ! empty( $this->default ) && ! $this->is_extra( 'AUTO_INCREMENT' ) ) {
-			return "default '{$this->default}'";
+			return $this->get_literal_default_sql( $this->default );
 		}
 
 		// Numeric - use 0 unless the column is auto-incrementing.
@@ -2366,6 +2366,28 @@ class Column {
 
 		// All other types (strings, binary, etc.).
 		return "default ''";
+	}
+
+	/**
+	 * Return an escaped SQL DEFAULT clause for a literal value.
+	 *
+	 * Use the active connection's prepare implementation when available. The
+	 * fallback preserves standalone schema generation before WordPress has created
+	 * its database connection.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param mixed $value Literal default value.
+	 * @return string
+	 */
+	private function get_literal_default_sql( $value ): string {
+		$literal = $this->db()->prepare( '%s', $value );
+
+		if ( null === $literal ) {
+			$literal = "'" . addslashes( (string) $value ) . "'";
+		}
+
+		return "default {$literal}";
 	}
 
 	/**
@@ -2605,9 +2627,11 @@ class Column {
 			}
 		}
 
-		// Disallow null.
+		// Declare nullability explicitly for TIMESTAMP's legacy implicit rules.
 		if ( false === $this->allow_null ) {
 			$create[] = 'not null';
+		} elseif ( $this->is_type( 'timestamp' ) ) {
+			$create[] = 'null';
 		}
 
 		// Default.
