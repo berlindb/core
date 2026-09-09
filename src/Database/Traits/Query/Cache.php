@@ -110,20 +110,19 @@ trait Cache {
 	}
 
 	/**
-	 * Build a last_changed-salted cache key for a secondary get_item_by() lookup.
+	 * Build a stable cache key for a secondary get_item_by() lookup.
 	 *
 	 * The cache group already identifies the lookup column, so the key only
-	 * needs the looked-up value and table-wide generation salt. The cached value
-	 * is the primary ID; the object itself lives in the canonical by-id cache.
+	 * needs the looked-up value. The cached value holds the primary ID and the
+	 * lookup group generation; the object lives in the canonical by-id cache.
 	 *
 	 * @since 3.1.0
 	 *
-	 * @param mixed  $column_value Value being looked up.
-	 * @param string $group        Secondary lookup group to salt from. Default empty.
+	 * @param mixed $column_value Value being looked up.
 	 * @return string
 	 */
-	private function get_item_cache_key( $column_value = '', $group = '' ): string {
-		return md5( (string) $column_value ) . ':' . $this->get_last_changed_cache( $group );
+	private function get_item_cache_key( $column_value = '' ): string {
+		return md5( (string) $column_value );
 	}
 
 	/**
@@ -1068,9 +1067,8 @@ trait Cache {
 
 		/*
 		 * Warm the primary by-id object cache only. Secondary cache_key lookups
-		 * are salted and lazily populated by get_item_by(); proactively warming
-		 * them here would write keys the salted reads never hit, and overwrite
-		 * non-unique lookups with the last-written row.
+		 * are lazily populated by get_item_by(); proactively warming them here
+		 * would overwrite non-unique lookups with the last-written row.
 		 */
 		foreach ( $items as $item ) {
 
