@@ -1080,10 +1080,22 @@ class Column {
 	 * Consider using is_int() or is_decimal() for improved specificity.
 	 *
 	 * @since 1.0.0
+	 * @return bool True if bit, int, or float.
+	 */
+	public function is_numeric() {
+		return $this->is_numeric_type();
+	}
+
+	/**
+	 * Return if a column type is numeric.
+	 *
+	 * Consider using is_int() or is_decimal() for improved specificity.
+	 *
+	 * @since 3.1.0
 	 * @param string $type Optional type string to test. Defaults to $this->type.
 	 * @return bool True if bit, int, or float.
 	 */
-	public function is_numeric( $type = '' ) {
+	public function is_numeric_type( $type = '' ) {
 		return $this->is_type(
 			array(
 
@@ -1990,7 +2002,7 @@ class Column {
 	 * @param string $value Default ''. A datetime value that needs validating.
 	 * @return string|null A valid datetime value, or null for a nullable column.
 	 */
-	protected function validate_datetime( $value = '' ) {
+	public function validate_datetime( $value = '' ) {
 
 		// Not using the $default yet.
 		$use_default = false;
@@ -2048,7 +2060,7 @@ class Column {
 	 * @param int        $decimals Default 9. The number of decimal points to accept.
 	 * @return float Formatted to the number of decimals specified
 	 */
-	protected function validate_decimal( $value = 0, $decimals = 9 ) {
+	public function validate_decimal( $value = 0, $decimals = 9 ) {
 
 		// Protect against non-numeric decimals.
 		if ( ! is_numeric( $decimals ) ) {
@@ -2144,7 +2156,7 @@ class Column {
 	 * @param string $value The UUID value to validate.
 	 * @return string The original value if valid, or the column default.
 	 */
-	protected function validate_uuid( $value = '' ) {
+	public function validate_uuid( $value = '' ) {
 		$prefix = 'urn:uuid:';
 
 		// Return early if valid UUID string with correct prefix.

@@ -825,7 +825,7 @@ class Query {
 	 *
 	 * @return string
 	 */
-	public function get_item_name_plural(): string {
+	public function get_item_name_plural() {
 		return (string) $this->item_name_plural;
 	}
 

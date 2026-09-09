@@ -1284,6 +1284,6 @@ class Relationship extends Base {
 		 * returns a string; a value-less operator (e.g. NOT EXISTS) yields '',
 		 * which build_conditions() drops as "produced nothing".
 		 */
-		return $operator->get_sql( $column_object, $alias, $value, $cast );
+		return $operator->get_sql_with_cast( $column_object, $alias, $value, $cast );
 	}
 }

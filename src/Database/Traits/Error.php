@@ -51,7 +51,7 @@ trait Error {
 	 * @param mixed $result Optional. Default false. Any value to check.
 	 * @return bool
 	 */
-	protected function is_success( $result = false ): bool {
+	protected function is_success( $result = false ) {
 
 		// Default return value.
 		$retval = false;

@@ -746,7 +746,7 @@ class OperatorsTest extends TestCase {
 				'type' => 'varchar',
 			)
 		);
-		$sql = ( new Equal() )->get_sql( $col, 't', '100', 'SIGNED' );
+		$sql = ( new Equal() )->get_sql_with_cast( $col, 't', '100', 'SIGNED' );
 		$this->assertStringContainsString( 'CAST(`t`.`total` AS SIGNED)', $sql );
 	}
 
@@ -1023,7 +1023,7 @@ class OperatorsTest extends TestCase {
 				'type' => 'varchar',
 			)
 		);
-		$sql = ( new In() )->get_sql( $col, 't', array( '1', '2' ), 'SIGNED' );
+		$sql = ( new In() )->get_sql_with_cast( $col, 't', array( '1', '2' ), 'SIGNED' );
 		$this->assertStringContainsString( 'CAST(`t`.`total` AS SIGNED)', $sql );
 		$this->assertStringContainsStringIgnoringCase( 'IN', $sql );
 	}

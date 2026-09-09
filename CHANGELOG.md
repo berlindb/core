@@ -4,6 +4,20 @@ Notable changes to BerlinDB are documented here.
 
 ## 3.1.0 - Unreleased
 
+- Preserves selected released subclass signatures for schema accessors, Query
+  helpers, and operator rendering. New schema filtering uses `get_filtered_items()`,
+  `get_filtered_columns()`, and `get_filtered_indexes()`; each filters the result of
+  its released accessor. The two CREATE TABLE string methods share a private
+  `get_create_table_array()` builder for validation and SQL fragments.
+  Column compatibility is limited to APIs predating 3.0: `is_numeric()` retains
+  its parameterless signature, with explicit type checks on `is_numeric_type()`,
+  and `validate_datetime()`, `validate_decimal()`, and `validate_uuid()` remain
+  public. The 3.0-only Column predicates and cast-aware `get_name_sql()` keep their
+  expanded signatures. Cast-aware operator rendering uses `get_sql_with_cast()`.
+  Removed newly added native return types from selected released untyped extension
+  methods while retaining their PHPDoc contracts. The deliberate lifecycle and
+  strict-config changes below remain separate migration requirements.
+
 - Extends the plural write verbs `update_items()` / `delete_items()` to composite-key
   tables (#241, following the singular verbs in #234). A query-var filter now resolves to
   each matched row's FULL primary key - every primary column, not just the first - via the
@@ -563,19 +577,23 @@ Notable changes to BerlinDB are documented here.
   value otherwise. The `{item}_deleted` and `transition_{item}_{key}` action hooks
   now pass `$item_id` as `int|string` (the real key) rather than casting to `int`.
   Both are no-ops for the common `bigint` `auto_increment` case.
-- The `Query::sunrise()` construction hook (3.0.0) is renamed to `Query::init()`,
-  which now runs after `configure()` and before `consume_args()`; `sunrise()` still
-  exists but now runs *before* configuration. Rename any override that derived state
-  from the query's configuration.
+- Query setup moves from `sunrise()` to `init()`, after `configure()` and before
+  `consume_args()`. `sunrise()` already ran before argument processing in 3.0.0;
+  it no longer builds Query's schema, prefixes, shape, and parsers. Move overrides
+  that depend on that setup to `init()`, calling `parent::init()` first. A constructor
+  query now runs AFTER `init()`; an old `init()` override that expected query results
+  should move that work after `parent::consume_args()` or to `sunset()`.
 - The `parse_args()` construction hook (`Boot`/`Query`, 3.0.0) is renamed to
   `consume_args()`; `parse_args()` is now a `wp_parse_args()`-style array helper.
   Rename any override of the leftover-args hook to `consume_args()`.
 - Configuration is strict by default — keys outside the declared config surface
-  (`get_config_callbacks()`) are dropped and logged. Override `is_strict_config()`
+  (`get_config_callbacks()`) are dropped and logged. Declaring a custom property
+  alone does not register it as configuration. Override `is_strict_config()`
   to opt out (as `Row` does for its
   dynamic columns).
 - Several `Parser`/`Column`/`Query` methods introduced in 3.0.0 are now `protected`
-  rather than public.
+  rather than public. The older datetime, decimal, and UUID Column validators stay
+  public. The 3.0.0 visibility changes are intentional extension API changes.
 - Parsers now fail closed (return no rows) on unresolvable or misdeclared columns,
   and no longer bleed clauses across parser types.
 - `update_item()` now returns `true` for a meta-only update whose bulk meta saved
@@ -651,14 +669,15 @@ Notable changes to BerlinDB are documented here.
   same way. The primary cache_key needs no extra index (the primary key already covers
   it). It is a `KEY`, not `UNIQUE`: a cache_key's identity is an application invariant,
   not a database constraint.
-- `Schema::get_items()`, `Schema::get_columns()`, and `Schema::get_indexes()` accept
+- `Schema::get_filtered_items()`, `Schema::get_filtered_columns()`, and
+  `Schema::get_filtered_indexes()` accept
   optional `wp_filter_object_list()` match args, an `'and'`/`'or'`/`'not'` operator, and
   a `$field` to pluck from each match (mirroring `Query::get_columns()`), e.g.
-  `get_columns( array( 'primary' => true ), 'and', 'name' )`. The `type` arg is matched
+  `get_filtered_columns( array( 'primary' => true ), 'and', 'name' )`. The `type` arg is matched
   case-insensitively (Column types are stored uppercase, Index types lowercase). With no
   args and no field the whole collection is returned as before; a filtered or plucked
   result is a reindexed list.
-- `Query::get_columns()` now delegates to the schema object's `get_columns()` rather than
+- `Query::get_columns()` now delegates to the schema object's `get_filtered_columns()` rather than
   resolving columns itself.
 - The schema diff engine now detects **modified** columns and indexes (#224 phase 2b),
   not just added/dropped ones. A same-named column or index defined differently on the two

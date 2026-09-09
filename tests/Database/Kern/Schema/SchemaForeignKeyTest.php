@@ -153,7 +153,13 @@ class SchemaForeignKeyTest extends TestCase {
 	 * @since 3.1.0
 	 */
 	public function test_create_table_string_includes_the_foreign_key_when_opted_in() {
-		$sql = $this->schema_with_relationship( true )->get_create_table_string( true );
+		$schema = $this->schema_with_relationship( true );
+		$sql    = $schema->get_create_table_string_with_foreign_keys();
+
+		$this->assertSame(
+			$schema->get_create_table_string() . ",\n" . implode( ",\n", $schema->get_foreign_key_strings() ),
+			$sql
+		);
 
 		$this->assertStringContainsString( 'FOREIGN KEY', $sql );
 		$this->assertStringContainsString( '`widget_id`', $sql );

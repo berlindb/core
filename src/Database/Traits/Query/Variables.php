@@ -104,7 +104,7 @@ trait Variables {
 	 * @param string $key Query variable key.
 	 * @return bool
 	 */
-	public function is_query_var_default( $key = '' ): bool {
+	public function is_query_var_default( $key = '' ) {
 		return ( $this->get_query_var( $key ) === $this->query_var_default_value );
 	}
 

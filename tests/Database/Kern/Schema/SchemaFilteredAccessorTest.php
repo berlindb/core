@@ -2,7 +2,7 @@
 /**
  * Schema filtered-accessor tests.
  *
- * Schema::get_items() (and the get_columns() / get_indexes() that thin over it) accept
+ * Schema::get_filtered_items() (and the get_filtered_columns() / get_filtered_indexes() that thin over it) accept
  * wp_filter_object_list() match args: a property => value array plus an 'and' / 'or' /
  * 'not' operator. The `type` arg is normalized to each collection's stored case (Column
  * types are uppercase, Index types lowercase) so a caller may pass either.
@@ -21,7 +21,7 @@ use BerlinDB\Database\Kern\Schema;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Tests for the filtered get_items() / get_columns() / get_indexes() accessors.
+ * Tests for the get_filtered_items() / get_filtered_columns() / get_filtered_indexes() accessors.
  *
  * @since 3.1.0
  */
@@ -105,7 +105,7 @@ class SchemaFilteredAccessorTest extends TestCase {
 	 * @since 3.1.0
 	 */
 	public function test_get_columns_filters_by_boolean_flag() {
-		$columns = $this->schema()->get_columns( array( 'primary' => true ) );
+		$columns = $this->schema()->get_filtered_columns( array( 'primary' => true ) );
 
 		$this->assertSame( array( 'id' ), $this->names( $columns ) );
 	}
@@ -116,7 +116,7 @@ class SchemaFilteredAccessorTest extends TestCase {
 	 * @since 3.1.0
 	 */
 	public function test_get_columns_or_operator_matches_any_flag() {
-		$columns = $this->schema()->get_columns(
+		$columns = $this->schema()->get_filtered_columns(
 			array(
 				'unique' => true,
 				'index'  => true,
@@ -133,7 +133,7 @@ class SchemaFilteredAccessorTest extends TestCase {
 	 * @since 3.1.0
 	 */
 	public function test_get_columns_not_operator_excludes_matches() {
-		$columns = $this->schema()->get_columns(
+		$columns = $this->schema()->get_filtered_columns(
 			array(
 				'unique' => true,
 				'index'  => true,
@@ -151,7 +151,7 @@ class SchemaFilteredAccessorTest extends TestCase {
 	 * @since 3.1.0
 	 */
 	public function test_get_columns_type_arg_is_case_normalized() {
-		$columns = $this->schema()->get_columns( array( 'type' => 'varchar' ) );
+		$columns = $this->schema()->get_filtered_columns( array( 'type' => 'varchar' ) );
 
 		$this->assertSame( array( 'email', 'slug', 'token' ), $this->names( $columns ) );
 	}
@@ -162,7 +162,7 @@ class SchemaFilteredAccessorTest extends TestCase {
 	 * @since 3.1.0
 	 */
 	public function test_get_columns_no_match_returns_empty_array() {
-		$columns = $this->schema()->get_columns( array( 'name' => 'nonexistent' ) );
+		$columns = $this->schema()->get_filtered_columns( array( 'name' => 'nonexistent' ) );
 
 		$this->assertSame( array(), $columns );
 	}
@@ -173,7 +173,7 @@ class SchemaFilteredAccessorTest extends TestCase {
 	 * @since 3.1.0
 	 */
 	public function test_get_columns_filtered_result_is_a_list() {
-		$columns = $this->schema()->get_columns( array( 'type' => 'varchar' ) );
+		$columns = $this->schema()->get_filtered_columns( array( 'type' => 'varchar' ) );
 
 		$this->assertSame( array( 0, 1, 2 ), array_keys( $columns ) );
 	}
@@ -184,7 +184,7 @@ class SchemaFilteredAccessorTest extends TestCase {
 	 * @since 3.1.0
 	 */
 	public function test_get_indexes_filters_by_type() {
-		$indexes = $this->schema()->get_indexes( array( 'type' => 'unique' ) );
+		$indexes = $this->schema()->get_filtered_indexes( array( 'type' => 'unique' ) );
 
 		$this->assertSame( array( 'email' ), $this->names( $indexes ) );
 		$this->assertContainsOnlyInstancesOf( Index::class, $indexes );
@@ -196,30 +196,30 @@ class SchemaFilteredAccessorTest extends TestCase {
 	 * @since 3.1.0
 	 */
 	public function test_get_indexes_type_arg_is_case_normalized() {
-		$indexes = $this->schema()->get_indexes( array( 'type' => 'PRIMARY' ) );
+		$indexes = $this->schema()->get_filtered_indexes( array( 'type' => 'PRIMARY' ) );
 
 		$this->assertCount( 1, $indexes );
 		$this->assertSame( 'primary', strtolower( $indexes[0]->type ) );
 	}
 
 	/**
-	 * get_items() applies the same filtering for the columns collection.
+	 * get_filtered_items() applies the same filtering for the columns collection.
 	 *
 	 * @since 3.1.0
 	 */
 	public function test_get_items_columns_filters() {
-		$items = $this->schema()->get_items( 'columns', array( 'primary' => true ) );
+		$items = $this->schema()->get_filtered_items( 'columns', array( 'primary' => true ) );
 
 		$this->assertSame( array( 'id' ), $this->names( $items ) );
 	}
 
 	/**
-	 * get_items() accepts the singular 'column' alias with filter args.
+	 * get_filtered_items() accepts the singular 'column' alias with filter args.
 	 *
 	 * @since 3.1.0
 	 */
 	public function test_get_items_singular_alias_filters() {
-		$items = $this->schema()->get_items( 'column', array( 'unique' => true ) );
+		$items = $this->schema()->get_filtered_items( 'column', array( 'unique' => true ) );
 
 		$this->assertSame( array( 'email' ), $this->names( $items ) );
 	}
@@ -230,7 +230,7 @@ class SchemaFilteredAccessorTest extends TestCase {
 	 * @since 3.1.0
 	 */
 	public function test_get_items_unknown_type_returns_empty_with_args() {
-		$items = $this->schema()->get_items( 'bogus', array( 'primary' => true ) );
+		$items = $this->schema()->get_filtered_items( 'bogus', array( 'primary' => true ) );
 
 		$this->assertSame( array(), $items );
 	}
@@ -241,7 +241,7 @@ class SchemaFilteredAccessorTest extends TestCase {
 	 * @since 3.1.0
 	 */
 	public function test_get_columns_field_plucks_property_from_all() {
-		$names = $this->schema()->get_columns( array(), 'and', 'name' );
+		$names = $this->schema()->get_filtered_columns( array(), 'and', 'name' );
 
 		$this->assertSame( array( 'id', 'email', 'slug', 'token' ), $names );
 	}
@@ -252,7 +252,7 @@ class SchemaFilteredAccessorTest extends TestCase {
 	 * @since 3.1.0
 	 */
 	public function test_get_columns_field_plucks_from_filtered_matches() {
-		$names = $this->schema()->get_columns( array( 'type' => 'varchar' ), 'and', 'name' );
+		$names = $this->schema()->get_filtered_columns( array( 'type' => 'varchar' ), 'and', 'name' );
 
 		$this->assertSame( array( 'email', 'slug', 'token' ), $names );
 	}
@@ -263,18 +263,18 @@ class SchemaFilteredAccessorTest extends TestCase {
 	 * @since 3.1.0
 	 */
 	public function test_get_indexes_field_plucks_property() {
-		$names = $this->schema()->get_indexes( array( 'type' => 'unique' ), 'and', 'name' );
+		$names = $this->schema()->get_filtered_indexes( array( 'type' => 'unique' ), 'and', 'name' );
 
 		$this->assertSame( array( 'email' ), $names );
 	}
 
 	/**
-	 * get_items() plucks a field for the resolved collection.
+	 * get_filtered_items() plucks a field for the resolved collection.
 	 *
 	 * @since 3.1.0
 	 */
 	public function test_get_items_field_plucks_property() {
-		$names = $this->schema()->get_items( 'columns', array( 'primary' => true ), 'and', 'name' );
+		$names = $this->schema()->get_filtered_items( 'columns', array( 'primary' => true ), 'and', 'name' );
 
 		$this->assertSame( array( 'id' ), $names );
 	}

@@ -1247,7 +1247,7 @@ trait Parser {
 
 					// Bare key + bare value: the ordinary operator value path (unchanged).
 				} else {
-					$expr = $operator->get_sql( $col, $alias, $value, $cast );
+					$expr = $operator->get_sql_with_cast( $col, $alias, $value, $cast );
 				}
 			}
 

@@ -94,11 +94,10 @@ class IsNotNull extends Base {
 	 * @param Column $col   The column being compared.
 	 * @param string $alias Optional. Table alias for the column reference.
 	 * @param mixed  $value Unused. Unary operators take no value.
-	 * @param string $cast  Unused. A NULL test never casts.
 	 *
 	 * @return string The `{column} IS NOT NULL` expression.
 	 */
-	public function get_sql( Column $col, string $alias = '', $value = null, string $cast = '' ): string {
+	public function get_sql( Column $col, string $alias = '', $value = null ): string {
 		return $col->get_name_sql( $alias ) . ' ' . $this->get_sql_compare();
 	}
 
@@ -114,5 +113,19 @@ class IsNotNull extends Base {
 	 */
 	public function get_value_sql( $value = null, $pattern = '%s' ) {
 		return '';
+	}
+
+	/**
+	 * Render this value-free comparison through its specialized renderer.
+	 *
+	 * @since 3.1.0
+	 * @param Column $col Schema column.
+	 * @param string $alias Table alias.
+	 * @param mixed $value Unused value.
+	 * @param string $cast Unused cast.
+	 * @return string
+	 */
+	public function get_sql_with_cast( Column $col, string $alias = '', $value = null, string $cast = '' ): string {
+		return $this->get_sql( $col, $alias, $value );
 	}
 }
