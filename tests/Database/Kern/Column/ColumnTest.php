@@ -934,6 +934,48 @@ class ColumnTest extends TestCase {
 	}
 
 	/**
+	 * Test that decimal validation honors the column's signedness.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_validate_decimal_honors_signedness() {
+		$signed   = new Column(
+			array(
+				'name'     => 'amount',
+				'type'     => 'decimal',
+				'unsigned' => false,
+			)
+		);
+		$unsigned = new Column(
+			array(
+				'name'     => 'amount',
+				'type'     => 'decimal',
+				'unsigned' => true,
+			)
+		);
+
+		$this->assertSame( -12.5, $signed->validate( '-12.5' ) );
+		$this->assertSame( 12.5, $unsigned->validate( '-12.5' ) );
+	}
+
+	/**
+	 * Test that decimal validation preserves scientific notation.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_validate_decimal_preserves_scientific_notation() {
+		$column = new Column(
+			array(
+				'name'     => 'amount',
+				'type'     => 'decimal',
+				'unsigned' => false,
+			)
+		);
+
+		$this->assertSame( 0.000001, $column->validate( '1e-6' ) );
+	}
+
+	/**
 	 * Test that validate_datetime returns a well-formed datetime string unchanged.
 	 *
 	 * @since 2.1.0
