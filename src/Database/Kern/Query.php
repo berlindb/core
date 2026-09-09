@@ -1196,9 +1196,15 @@ class Query {
 		// Check the cache.
 		$cache_results = (bool) $this->get_query_var( 'cache_results' );
 		$cache_key     = $this->get_cache_key();
+		$last_changed  = $this->get_last_changed_cache();
 		$cache_value   = ( true === $cache_results )
 			? $this->cache_get( $cache_key, $this->cache_group )
 			: false;
+
+		// Ignore results from an earlier cache generation.
+		if ( ! is_array( $cache_value ) || ! isset( $cache_value[ 'last_changed' ] ) || ( $last_changed !== $cache_value[ 'last_changed' ] ) ) {
+			$cache_value = false;
+		}
 
 		// No cache value.
 		if ( false === $cache_value ) {
@@ -1211,23 +1217,21 @@ class Query {
 
 			// Format the cached value.
 			$cache_value = array(
-				'item_ids'    => $result,
-				'found_items' => $this->get_current_int( 'found_items' ),
+				'item_ids'     => $result,
+				'found_items'  => $this->get_current_int( 'found_items' ),
+				'last_changed' => $last_changed,
 			);
 
 			// Only store when caching is enabled for this query.
 			if ( $cache_results ) {
-				$this->cache_add( $cache_key, $cache_value, $this->cache_group );
+				$this->cache_set( $cache_key, $cache_value, $this->cache_group );
 			}
 
 			// Value exists in cache.
-		} elseif ( is_array( $cache_value ) ) {
+		} else {
 			$result          = $cache_value[ 'item_ids' ] ?? array();
 			$found_items_val = $cache_value[ 'found_items' ] ?? 0;
 			$this->set_current( 'found_items', (int) $found_items_val );
-		} else {
-			$result = array();
-			$this->set_current( 'found_items', 0 );
 		}
 
 		// Pagination.
@@ -3313,15 +3317,14 @@ class Query {
 	 * - Sorts query_vars by query_var_default keys
 	 * - Removes query_vars with default values
 	 * - Serializes and md5 hashes query_vars
-	 * - Combines plural name, key, and last_changed for cache group
+	 * - Combines plural name and hash independently of the cache generation
 	 *
 	 * @since 1.0.0
 	 * @since 2.1.0 Correctly removes unique query_var_default_value values
 	 *
-	 * @param string $group Cache group name.
 	 * @return string
 	 */
-	private function get_cache_key( $group = '' ) {
+	private function get_cache_key() {
 
 		// Default slice.
 		$slice = array();
@@ -3348,13 +3351,12 @@ class Query {
 			$slice[ $key ] = $this->query_vars[ $key ];
 		}
 
-		// Setup key & last_changed.
+		// Hash the query independently of its cache generation.
 		$key              = md5( serialize( $slice ) ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.serialize_serialize
-		$last_changed     = $this->get_last_changed_cache( $group );
 		$item_name_plural = $this->get_item_name_plural();
 
 		// Return the concatenated cache key.
-		return "get_{$item_name_plural}:{$key}:{$last_changed}";
+		return "get_{$item_name_plural}:{$key}";
 	}
 
 	/**
