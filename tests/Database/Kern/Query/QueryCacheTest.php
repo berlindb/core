@@ -265,4 +265,118 @@ class QueryCacheTest extends TestCase {
 			'cache_results must not segment the cache key.'
 		);
 	}
+
+	/**
+	 * Repeated mutations replace one result entry and preserve warm cache hits.
+	 *
+	 * @since 3.0.1
+	 */
+	public function test_invalidated_results_replace_the_same_cache_entry(): void {
+		global $wpdb;
+
+		$args    = array(
+			'status' => 'active',
+			'number' => 10,
+		);
+		$get_key = new \ReflectionMethod( TestQuery::class, 'get_cache_key' );
+		$group   = ( new \ReflectionMethod( TestQuery::class, 'get_cache_group' ) )->invoke( self::$query );
+		$query   = new TestQuery( $args );
+		$key     = $get_key->invoke( $query );
+
+		for ( $i = 0; $i < 3; $i++ ) {
+			$id = self::$query->add_item(
+				array(
+					'name'   => 'New Widget',
+					'status' => 'active',
+				)
+			);
+			$this->assertCount( 2, $query->query( $args ) );
+			$this->assertSame( $key, $get_key->invoke( $query ) );
+
+			self::$query->delete_item( $id );
+			$this->assertCount( 1, $query->query( $args ) );
+			$this->assertSame( $key, $get_key->invoke( $query ) );
+
+			$cached = wp_cache_get( $key, $group );
+			$this->assertSame( wp_cache_get( 'last_changed', $group ), $cached['last_changed'] );
+			$this->assertCount( 1, $cached['item_ids'] );
+
+			$before = $wpdb->num_queries;
+			$this->assertCount( 1, $query->query( $args ) );
+			$this->assertSame( $before, $wpdb->num_queries );
+		}
+	}
+
+	/**
+	 * Entries without a matching generation must be replaced, including empties.
+	 *
+	 * @since 3.0.1
+	 */
+	public function test_missing_or_stale_generations_are_replaced(): void {
+		$args    = array(
+			'status' => 'inactive',
+			'number' => 10,
+		);
+		$query   = new TestQuery( $args );
+		$get_key = new \ReflectionMethod( TestQuery::class, 'get_cache_key' );
+		$group   = ( new \ReflectionMethod( TestQuery::class, 'get_cache_group' ) )->invoke( self::$query );
+		$key     = $get_key->invoke( $query );
+
+		foreach ( array( false, 'obsolete' ) as $generation ) {
+			$entry = array(
+				'item_ids'    => array( 999999 ),
+				'found_items' => 1,
+			);
+			if ( false !== $generation ) {
+				$entry['last_changed'] = $generation;
+			}
+			wp_cache_set( $key, $entry, $group );
+
+			$this->assertSame( array(), $query->query( $args ) );
+			$cached = wp_cache_get( $key, $group );
+			$this->assertSame( array(), $cached['item_ids'] );
+			$this->assertSame( 0, $cached['found_items'] );
+			$this->assertSame( wp_cache_get( 'last_changed', $group ), $cached['last_changed'] );
+		}
+	}
+
+	/**
+	 * An invalidation during a database read cannot label old results as current.
+	 *
+	 * @since 3.0.1
+	 */
+	public function test_generation_is_captured_before_the_database_read(): void {
+		global $wpdb;
+
+		$args    = array(
+			'status' => 'active',
+			'number' => 10,
+		);
+		$query   = new TestQuery( $args );
+		$get_key = new \ReflectionMethod( TestQuery::class, 'get_cache_key' );
+		$group   = ( new \ReflectionMethod( TestQuery::class, 'get_cache_group' ) )->invoke( self::$query );
+		$key     = $get_key->invoke( $query );
+		wp_cache_delete( $key, $group );
+		$before = wp_cache_get( 'last_changed', $group );
+		$rotate = static function ( $sql ) use ( $group ) {
+			if ( false !== strpos( $sql, 'SELECT' ) && false !== strpos( $sql, 'test_widgets' ) ) {
+				wp_cache_set( 'last_changed', 'during-read', $group );
+			}
+			return $sql;
+		};
+
+		add_filter( 'query', $rotate );
+		try {
+			$query->query( $args );
+		} finally {
+			remove_filter( 'query', $rotate );
+		}
+
+		$cached = wp_cache_get( $key, $group );
+		$this->assertSame( $before, $cached['last_changed'] );
+		$this->assertSame( 'during-read', wp_cache_get( 'last_changed', $group ) );
+		$queries_before = $wpdb->num_queries;
+		$this->assertCount( 1, $query->query( $args ) );
+		$this->assertGreaterThan( $queries_before, $wpdb->num_queries );
+	}
 }

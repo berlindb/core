@@ -68,15 +68,14 @@ trait Cache {
 	 * - Sorts query_vars by query_var_default keys
 	 * - Removes query_vars with default values
 	 * - Serializes and md5 hashes query_vars
-	 * - Combines plural name, key, and last_changed for cache group
+	 * - Combines plural name and hash independently of the cache generation
 	 *
 	 * @since 1.0.0
 	 * @since 2.1.0 Correctly removes unique query_var_default_value values
 	 *
-	 * @param string $group Cache group name.
 	 * @return string
 	 */
-	private function get_cache_key( $group = '' ): string {
+	private function get_cache_key(): string {
 
 		// Default slice.
 		$slice = array();
@@ -106,8 +105,8 @@ trait Cache {
 		// Hash the sliced query vars. serialize() is intentional and safe here.
 		$hash = md5( serialize( $slice ) ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.serialize_serialize
 
-		// Return the namespaced, salted cache key.
-		return "get_{$this->get_item_name_plural()}:{$hash}:" . $this->get_last_changed_cache( $group );
+		// Return the namespaced cache key.
+		return "get_{$this->get_item_name_plural()}:{$hash}";
 	}
 
 	/**
@@ -1013,8 +1012,9 @@ trait Cache {
 				$this->cache_set(
 					$this->get_cache_key(),
 					array(
-						'item_ids'    => $ids,
-						'found_items' => count( $ids ),
+						'item_ids'     => $ids,
+						'found_items'  => count( $ids ),
+						'last_changed' => $this->get_last_changed_cache(),
 					),
 					$this->cache_group
 				);

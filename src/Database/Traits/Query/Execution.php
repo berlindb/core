@@ -156,9 +156,15 @@ trait Execution {
 		$cache_results = (bool) $this->get_query_var( 'cache_results' )
 			&& empty( $this->get_query_var( 'explain' ) );
 		$cache_key     = $this->get_cache_key();
+		$last_changed  = $this->get_last_changed_cache();
 		$cache_value   = ( true === $cache_results )
 			? $this->cache_get( $cache_key, $this->cache_group )
 			: false;
+
+		// Ignore results from an earlier cache generation.
+		if ( ! is_array( $cache_value ) || ! isset( $cache_value[ 'last_changed' ] ) || ( $last_changed !== $cache_value[ 'last_changed' ] ) ) {
+			$cache_value = false;
+		}
 
 		// No cache value.
 		if ( false === $cache_value ) {
@@ -171,23 +177,21 @@ trait Execution {
 
 			// Format the cached value.
 			$cache_value = array(
-				'item_ids'    => $result,
-				'found_items' => $this->get_current_int( 'found_items' ),
+				'item_ids'     => $result,
+				'found_items'  => $this->get_current_int( 'found_items' ),
+				'last_changed' => $last_changed,
 			);
 
 			// Only store when caching is enabled for this query.
 			if ( true === $cache_results ) {
-				$this->cache_add( $cache_key, $cache_value, $this->cache_group );
+				$this->cache_set( $cache_key, $cache_value, $this->cache_group );
 			}
 
 			// Value exists in cache.
-		} elseif ( is_array( $cache_value ) ) {
+		} else {
 			$result          = $cache_value[ 'item_ids' ] ?? array();
 			$found_items_val = $cache_value[ 'found_items' ] ?? 0;
 			$this->set_current( 'found_items', (int) $found_items_val );
-		} else {
-			$result = array();
-			$this->set_current( 'found_items', 0 );
 		}
 
 		// Pagination.
