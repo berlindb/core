@@ -891,8 +891,14 @@ class Query extends Base {
 		}
 
 		// Check the cache
-		$cache_key   = $this->get_cache_key();
-		$cache_value = $this->cache_get( $cache_key, $this->cache_group );
+		$cache_key    = $this->get_cache_key();
+		$last_changed = $this->get_last_changed_cache();
+		$cache_value  = $this->cache_get( $cache_key, $this->cache_group );
+
+		// Ignore results from an earlier cache generation
+		if ( ! is_array( $cache_value ) || ! isset( $cache_value['last_changed'] ) || ( $last_changed !== $cache_value['last_changed'] ) ) {
+			$cache_value = false;
+		}
 
 		// No cache value
 		if ( false === $cache_value ) {
@@ -903,12 +909,13 @@ class Query extends Base {
 
 			// Format the cached value
 			$cache_value = array(
-				'item_ids'    => $item_ids,
-				'found_items' => intval( $this->found_items ),
+				'item_ids'     => $item_ids,
+				'found_items'  => intval( $this->found_items ),
+				'last_changed' => $last_changed,
 			);
 
-			// Add value to the cache
-			$this->cache_add( $cache_key, $cache_value, $this->cache_group );
+			// Replace results under the same key after invalidation
+			$this->cache_set( $cache_key, $cache_value, $this->cache_group );
 
 		// Value exists in cache
 		} else {
@@ -2605,12 +2612,18 @@ class Query extends Base {
 		// Unset `fields` so it does not effect the cache key
 		unset( $slice['fields'] );
 
-		// Setup key & last_changed
-		$key          = md5( serialize( $slice ) );
-		$last_changed = $this->get_last_changed_cache( $group );
+		// Remove per-instance defaults so identical queries share a key
+		foreach ( $slice as $name => $value ) {
+			if ( $value === $this->query_var_default_value ) {
+				unset( $slice[ $name ] );
+			}
+		}
+
+		// Hash the query independently of its cache generation
+		$key = md5( serialize( $slice ) );
 
 		// Concatenate and return cache key
-		return "get_{$this->item_name_plural}:{$key}:{$last_changed}";
+		return "get_{$this->item_name_plural}:{$key}";
 	}
 
 	/**
