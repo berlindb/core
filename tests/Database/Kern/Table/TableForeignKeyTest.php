@@ -105,6 +105,11 @@ class FkChildTable extends Table {
 	protected $engine  = 'InnoDB';
 }
 
+/** Referencing table with constraints emitted during creation. */
+class FkInlineChildTable extends FkChildTable {
+	protected $foreign_keys = 'inline';
+}
+
 /**
  * Runtime integration tests for Table::add_foreign_keys().
  *
@@ -182,6 +187,31 @@ class TableForeignKeyTest extends TestCase {
 			$wpdb->prefix . 'berlindb_fk_parent_test',
 			$constraints[0]->REFERENCED_TABLE_NAME
 		);
+	}
+
+	/**
+	 * The inline mode sends foreign keys through the table creation path.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_inline_creation_emits_foreign_keys(): void {
+		$table   = new FkInlineChildTable();
+		$sql     = '';
+		$capture = static function ( $query ) use ( &$sql ) {
+			if ( 0 === strpos( $query, 'CREATE ' ) ) {
+				$sql = $query;
+				return 'SELECT 1';
+			}
+			return $query;
+		};
+		add_filter( 'query', $capture );
+		try {
+			$table->create();
+		} finally {
+			remove_filter( 'query', $capture );
+		}
+		$this->assertStringContainsString( 'FOREIGN KEY', $sql );
+		$this->assertStringContainsString( '`parent_id`', $sql );
 	}
 
 	/**

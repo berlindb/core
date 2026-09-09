@@ -1620,28 +1620,18 @@ class Schema {
 	 * independently and in no guaranteed order, so a FK inside CREATE TABLE would
 	 * reference a table that may not exist yet (and MySQL would reject the whole
 	 * create), and two tables could never reference each other. Enforced keys are
-	 * therefore added AFTER the tables exist, via Table::add_foreign_keys(). Use
-	 * get_create_table_string_with_foreign_keys() only when you control install
-	 * order and want the constraints inline.
+	 * therefore added AFTER the tables exist, via Table::add_foreign_keys(). Pass
+	 * $with_foreign_keys = true only when you control install order and want the
+	 * constraints inline.
 	 *
 	 * @since 3.0.0
+	 * @since 3.1.0 Added the optional foreign-key flag.
 	 *
+	 * @param bool $with_foreign_keys Include enforced foreign keys inline.
 	 * @return string SQL body string, or empty string if invalid or empty.
 	 */
-	public function get_create_table_string() {
-		return implode( ",\n", $this->get_create_table_array() );
-	}
-
-	/**
-	 * Get the CREATE TABLE body with enforced foreign keys included.
-	 *
-	 * Call only when referenced tables already exist and install order is known.
-	 *
-	 * @since 3.1.0
-	 * @return string
-	 */
-	public function get_create_table_string_with_foreign_keys() {
-		return implode( ",\n", $this->get_create_table_array( true ) );
+	public function get_create_table_string( bool $with_foreign_keys = false ) {
+		return implode( ",\n", $this->get_create_table_array( $with_foreign_keys ) );
 	}
 
 	/**

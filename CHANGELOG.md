@@ -7,13 +7,17 @@ Notable changes to BerlinDB are documented here.
 - Preserves selected released subclass signatures for schema accessors, Query
   helpers, and operator rendering. New schema filtering uses `get_filtered_items()`,
   `get_filtered_columns()`, and `get_filtered_indexes()`; each filters the result of
-  its released accessor. The two CREATE TABLE string methods share a private
-  `get_create_table_array()` builder for validation and SQL fragments.
+  its released accessor, with a Query fallback for schemas exposing only
+  `get_columns()`. `get_create_table_string()` uses a private
+  `get_create_table_array()` builder and accepts an optional foreign-key flag.
+  Subclasses overriding this 3.0 method must add `bool $with_foreign_keys = false`
+  to their signature.
   Column compatibility is limited to APIs predating 3.0: `is_numeric()` retains
   its parameterless signature, with explicit type checks on `is_numeric_type()`,
   and `validate_datetime()`, `validate_decimal()`, and `validate_uuid()` remain
   public. The 3.0-only Column predicates and cast-aware `get_name_sql()` keep their
-  expanded signatures. Cast-aware operator rendering uses `get_sql_with_cast()`.
+  expanded signatures. Cast-aware operator rendering uses `get_sql_with_cast()`;
+  custom operators must override that method to customize explicit casts.
   Removed newly added native return types from selected released untyped extension
   methods while retaining their PHPDoc contracts. The deliberate lifecycle and
   strict-config changes below remain separate migration requirements.

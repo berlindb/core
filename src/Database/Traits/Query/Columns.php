@@ -183,9 +183,10 @@ trait Columns {
 	/**
 	 * Get columns from the schema, optionally filtered.
 	 *
-	 * Delegates to the schema object's get_columns(): $args and $operator filter the
-	 * columns via wp_filter_object_list() (the schema normalizes a `type` arg to the
-	 * stored uppercase), and $field plucks a property from each match.
+	 * Delegates to the schema object's get_filtered_columns(), falling back to
+	 * get_columns() with local filtering for released schema classes. Both paths
+	 * use $args and $operator to filter, normalize a `type` arg to uppercase, and
+	 * use $field to pluck a property from each match.
 	 *
 	 * @since 1.0.0
 	 * @since 3.0.0
@@ -199,15 +200,27 @@ trait Columns {
 	 */
 	public function get_columns( $args = array(), $operator = 'and', $field = false ) {
 
-		// Without a schema there are no columns to return.
-		if ( ! is_callable( array( $this->schema_object, 'get_filtered_columns' ) ) ) {
+		// Prefer the schema's filtering implementation when available.
+		if ( is_callable( array( $this->schema_object, 'get_filtered_columns' ) ) ) {
+			return $this->schema_object->get_filtered_columns( $args, $operator, $field );
+		}
+
+		// Released schema classes may expose only the unfiltered accessor.
+		if ( ! is_callable( array( $this->schema_object, 'get_columns' ) ) ) {
 			return array();
 		}
 
-		/** @var Column[]|list<mixed> $columns */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
-		$columns = $this->schema_object->get_filtered_columns( $args, $operator, $field );
+		$columns = $this->schema_object->get_columns();
+		if ( empty( $args ) && ( false === $field ) ) {
+			return $columns;
+		}
 
-		return $columns;
+		// Match the stored column type case, as Schema's filtered accessor does.
+		if ( isset( $args['type'] ) && is_string( $args['type'] ) ) {
+			$args['type'] = strtoupper( $args['type'] );
+		}
+
+		return array_values( wp_filter_object_list( $columns, $args, $operator, $field ) );
 	}
 
 	/**

@@ -345,6 +345,10 @@ trait Operator {
 	/**
 	 * Generate an expression with an optional column cast.
 	 *
+	 * Without a cast, dispatches through the released get_sql() hook. Explicit
+	 * casts use the comparison renderer; subclasses with custom cast semantics
+	 * must override this method as well as get_sql().
+	 *
 	 * @since 3.1.0
 	 * @param Column $col Schema column.
 	 * @param string $alias Table alias.

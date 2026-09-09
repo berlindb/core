@@ -55,16 +55,6 @@ class ReleasedSchemaOverrides extends TestSchema {
 	public function get_indexes() {
 		return parent::get_indexes();
 	}
-
-	/**
-	 * Supply custom DDL through the released hook.
-	 *
-	 * @since 3.1.0
-	 * @return string
-	 */
-	public function get_create_table_string() {
-		return '`custom` bigint';
-	}
 }
 
 /**
@@ -128,6 +118,35 @@ class ReleasedQueryOverrides extends TestQuery {
 }
 
 /**
+ * A schema exposing only the released column accessor.
+ *
+ * @since 3.1.0
+ */
+class ReleasedColumnsOnlySchema {
+
+	/**
+	 * Get columns without requiring inheritance from Schema.
+	 *
+	 * @since 3.1.0
+	 * @return Column[]
+	 */
+	public function get_columns() {
+		return ( new TestSchema() )->get_columns();
+	}
+}
+
+/**
+ * A query declaring a schema through its released property.
+ *
+ * @since 3.1.0
+ */
+class ReleasedColumnsOnlyQuery extends TestQuery {
+
+	/** @var string */
+	protected $table_schema = ReleasedColumnsOnlySchema::class;
+}
+
+/**
  * An operator using the released rendering signature.
  *
  * @since 3.1.0
@@ -185,6 +204,33 @@ class ReleasedSubclassContractTest extends TestCase {
 		$this->assertSame( 'CAST(`total` AS SIGNED)', $column->get_name_sql( '', 'SIGNED' ) );
 		$this->assertSame( 'custom = 1', ( new ReleasedOperatorOverride() )->get_sql_with_cast( $column, '', 1 ) );
 		$this->assertNotEmpty( ( new ReleasedQueryOverrides() )->get_columns() );
+	}
+
+	/**
+	 * A released schema object supports filtering without the new accessor.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_query_accepts_columns_only_schema(): void {
+		$query = new ReleasedColumnsOnlyQuery();
+		$this->assertNotEmpty( $query->get_columns() );
+		$this->assertSame( array( 'status' ), $query->get_columns( array( 'name' => 'status' ), 'and', 'name' ) );
+		$this->assertSame( array(), $query->get_columns( array( 'name' => 'missing' ) ) );
+	}
+
+	/**
+	 * Explicit casts use the cast-aware renderer rather than the released hook.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_casts_use_cast_aware_renderer(): void {
+		$column = new Column(
+			array(
+				'name' => 'total',
+				'type' => 'int',
+			)
+		);
+		$this->assertSame( 'CAST(`total` AS SIGNED) = 1', ( new ReleasedOperatorOverride() )->get_sql_with_cast( $column, '', 1, 'SIGNED' ) );
 	}
 
 	/**
