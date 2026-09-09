@@ -330,6 +330,39 @@ trait Operator {
 	}
 
 	/**
+	 * Generate the SQL WHERE expression for this operator.
+	 *
+	 * @since 3.0.0
+	 * @param Column $col Schema column.
+	 * @param string $alias Table alias.
+	 * @param mixed $value Value to compare.
+	 * @return string
+	 */
+	public function get_sql( Column $col, string $alias = '', $value = null ): string {
+		return $this->get_comparison_sql( $col, $alias, $value, '' );
+	}
+
+	/**
+	 * Generate an expression with an optional column cast.
+	 *
+	 * Without a cast, dispatches through the released get_sql() hook. Explicit
+	 * casts use the comparison renderer; subclasses with custom cast semantics
+	 * must override this method as well as get_sql().
+	 *
+	 * @since 3.1.0
+	 * @param Column $col Schema column.
+	 * @param string $alias Table alias.
+	 * @param mixed $value Value to compare.
+	 * @param string $cast SQL cast type.
+	 * @return string
+	 */
+	public function get_sql_with_cast( Column $col, string $alias = '', $value = null, string $cast = '' ): string {
+		return ( '' === $cast )
+			? $this->get_sql( $col, $alias, $value )
+			: $this->get_comparison_sql( $col, $alias, $value, $cast );
+	}
+
+	/**
 	 * Generate the full SQL WHERE expression for this operator.
 	 *
 	 * Assembles "{column} {compare} {value}" using the Column's own SQL
@@ -338,7 +371,7 @@ trait Operator {
 	 * callers do not need to supply it separately. Returns an empty string when
 	 * get_value_sql() returns '' (e.g. NOT EXISTS).
 	 *
-	 * @since 3.0.0
+	 * @since 3.1.0
 	 *
 	 * @param Column $col   The schema column providing its name, alias, and pattern.
 	 * @param string $alias Optional. Table alias to prefix the column reference. Default empty.
@@ -347,7 +380,7 @@ trait Operator {
 	 *
 	 * @return string Full SQL expression, or empty string when not applicable.
 	 */
-	public function get_sql( Column $col, string $alias = '', $value = null, string $cast = '' ): string {
+	private function get_comparison_sql( Column $col, string $alias = '', $value = null, string $cast = '' ): string {
 
 		/*
 		 * Derive the pattern from the column, folding the cast: a cast column side

@@ -134,7 +134,7 @@ trait Alter {
 	 * Add this schema's enforced foreign keys to the table, via ALTER TABLE.
 	 *
 	 * The deferred counterpart to emitting foreign keys inside CREATE TABLE (see
-	 * Schema::get_create_table_string()): use this when the referenced tables were
+	 * Schema::get_create_table_string( true )): use this when the referenced tables were
 	 * not guaranteed to exist at create time, or for two tables that reference each
 	 * other - create both first, then add the keys. Only enforced (enforce => true)
 	 * relationships emit anything; a schema with none is a no-op success. Each key

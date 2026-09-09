@@ -183,13 +183,14 @@ trait Columns {
 	/**
 	 * Get columns from the schema, optionally filtered.
 	 *
-	 * Delegates to the schema object's get_columns(): $args and $operator filter the
-	 * columns via wp_filter_object_list() (the schema normalizes a `type` arg to the
-	 * stored uppercase), and $field plucks a property from each match.
+	 * Delegates to the schema object's get_filtered_columns(), falling back to
+	 * get_columns() with local filtering for released schema classes. Both paths
+	 * use $args and $operator to filter, normalize a `type` arg to uppercase, and
+	 * use $field to pluck a property from each match.
 	 *
 	 * @since 1.0.0
 	 * @since 3.0.0
-	 * @since 3.1.0 Delegates to Schema::get_columns(); dropped the legacy inline-$columns source.
+	 * @since 3.1.0 Delegates to Schema::get_filtered_columns(); dropped the legacy inline-$columns source.
 	 *
 	 * @param array<string,mixed> $args     Arguments to filter columns by.
 	 * @param string              $operator Optional. The logical operation to perform.
@@ -197,17 +198,29 @@ trait Columns {
 	 *                                      instead of the entire object. Default false.
 	 * @return Column[]|list<mixed> Array of Column objects, or field values if $field is set.
 	 */
-	public function get_columns( $args = array(), $operator = 'and', $field = false ): array {
+	public function get_columns( $args = array(), $operator = 'and', $field = false ) {
 
-		// Without a schema there are no columns to return.
+		// Prefer the schema's filtering implementation when available.
+		if ( is_callable( array( $this->schema_object, 'get_filtered_columns' ) ) ) {
+			return $this->schema_object->get_filtered_columns( $args, $operator, $field );
+		}
+
+		// Released schema classes may expose only the unfiltered accessor.
 		if ( ! is_callable( array( $this->schema_object, 'get_columns' ) ) ) {
 			return array();
 		}
 
-		/** @var Column[]|list<mixed> $columns */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
-		$columns = $this->schema_object->get_columns( $args, $operator, $field );
+		$columns = $this->schema_object->get_columns();
+		if ( empty( $args ) && ( false === $field ) ) {
+			return $columns;
+		}
 
-		return $columns;
+		// Match the stored column type case, as Schema's filtered accessor does.
+		if ( isset( $args['type'] ) && is_string( $args['type'] ) ) {
+			$args['type'] = strtoupper( $args['type'] );
+		}
+
+		return array_values( wp_filter_object_list( $columns, $args, $operator, $field ) );
 	}
 
 	/**
@@ -265,7 +278,7 @@ trait Columns {
 	 * @param bool   $alias Whether to include the table alias prefix.
 	 * @return string
 	 */
-	protected function get_column_name_aliased( $column_name = '', $alias = true ): string {
+	protected function get_column_name_aliased( $column_name = '', $alias = true ) {
 
 		// Default return value.
 		$retval = $column_name;
@@ -292,7 +305,7 @@ trait Columns {
 	 * @param bool   $alias Whether to include the table alias prefix.
 	 * @return string
 	 */
-	public function get_quoted_column_name_aliased( $column_name = '', $alias = true ): string {
+	public function get_quoted_column_name_aliased( $column_name = '', $alias = true ) {
 
 		// Default to the primary column when no name is given.
 		if ( '' === $column_name ) {
@@ -342,7 +355,7 @@ trait Columns {
 	 *
 	 * @return string Escaped/prepared SQL, possibly wrapped in parenthesis.
 	 */
-	public function get_in_sql( $column_name = '', $values = array(), $wrap = true, $pattern = '' ): string {
+	public function get_in_sql( $column_name = '', $values = array(), $wrap = true, $pattern = '' ) {
 
 		// Bail if no values or invalid column.
 		if ( empty( $values ) || ! $this->is_valid_column( $column_name ) ) {

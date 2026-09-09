@@ -442,7 +442,7 @@ class Schema {
 		}
 
 		// Gather the primary-flagged columns.
-		$primary = $this->get_columns( array( 'primary' => true ) );
+		$primary = $this->get_filtered_columns( array( 'primary' => true ) );
 
 		// Derive only for a single primary column; a composite PK must be explicit.
 		if ( 1 !== count( $primary ) ) {
@@ -464,7 +464,7 @@ class Schema {
 	 * @return bool
 	 */
 	private function has_primary_index(): bool {
-		return ! empty( $this->get_indexes( array( 'type' => 'primary' ) ) );
+		return ! empty( $this->get_filtered_indexes( array( 'type' => 'primary' ) ) );
 	}
 
 	/**
@@ -492,7 +492,7 @@ class Schema {
 	 * @since 3.1.0
 	 */
 	private function init_flag_indexes(): void {
-		$flagged = $this->get_columns(
+		$flagged = $this->get_filtered_columns(
 			array(
 				'unique' => true,
 				'index'  => true,
@@ -607,7 +607,7 @@ class Schema {
 	private function init_cache_key_indexes(): void {
 
 		// A cache_key column is looked up by value - index it.
-		foreach ( $this->get_columns( array( 'cache_key' => true ) ) as $column ) {
+		foreach ( $this->get_filtered_columns( array( 'cache_key' => true ) ) as $column ) {
 			$this->add_lookup_key( $column, 'cache_key column', 'cache_key_index_not_indexable' );
 		}
 	}
@@ -853,15 +853,33 @@ class Schema {
 	}
 
 	/**
+	 * Get a schema item collection by type.
+	 *
+	 * @since 3.0.0
+	 * @param string $type Item collection type.
+	 * @return Column[]|Index[]
+	 */
+	public function get_items( $type = 'columns' ) {
+		$type = $this->validate_item_type( $type );
+
+		if ( 'columns' === $type ) {
+			return $this->columns;
+		} elseif ( 'indexes' === $type ) {
+			return $this->indexes;
+		}
+
+		return array();
+	}
+
+	/**
 	 * Get a schema item collection by type, optionally filtered.
 	 *
 	 * With no $args, returns the whole collection. With $args, returns the items whose
 	 * properties match (via WordPress's wp_filter_object_list()) - e.g.
-	 * get_items( 'columns', array( 'primary' => true ) ). A $field plucks that property
+	 * get_filtered_items( 'columns', array( 'primary' => true ) ). A $field plucks that property
 	 * from each match instead of returning the objects. Mirrors Query::get_columns().
 	 *
-	 * @since 3.0.0
-	 * @since 3.1.0 Added $args / $operator filtering and the $field pluck.
+	 * @since 3.1.0
 	 *
 	 * @param string              $type     Item collection type. Accepts 'columns' or
 	 *                                      'indexes' (and their singular aliases).
@@ -877,17 +895,26 @@ class Schema {
 	 *
 	 * @phpstan-return ($field is false ? Column[]|Index[] : list<mixed>)
 	 */
-	public function get_items( $type = 'columns', $args = array(), $operator = 'and', $field = false ) {
+	public function get_filtered_items( $type = 'columns', $args = array(), $operator = 'and', $field = false ) {
 		$type = $this->validate_item_type( $type );
 
-		// Resolve the collection.
-		if ( 'columns' === $type ) {
-			$items = $this->columns;
-		} elseif ( 'indexes' === $type ) {
-			$items = $this->indexes;
-		} else {
-			return array();
-		}
+		$items = $this->get_items( $type );
+
+		return $this->filter_item_collection( $items, $type, $args, $operator, $field );
+	}
+
+	/**
+	 * Filter a collection supplied by a released accessor.
+	 *
+	 * @since 3.1.0
+	 * @param Column[]|Index[] $items Items to filter.
+	 * @param string $type Collection type.
+	 * @param array<string,mixed> $args Property filters.
+	 * @param string $operator Match operator.
+	 * @param bool|string $field Property to return, or false for objects.
+	 * @return Column[]|Index[]|list<mixed>
+	 */
+	private function filter_item_collection( $items, $type, $args, $operator, $field ) {
 
 		// The whole collection when there is nothing to filter or pluck.
 		if ( empty( $args ) && ( false === $field ) ) {
@@ -1249,10 +1276,22 @@ class Schema {
 	}
 
 	/**
-	 * Get all columns in this schema, optionally filtered.
+	 * Get all columns in this schema.
 	 *
 	 * @since 3.0.0
-	 * @since 3.1.0 Added $args / $operator filtering and the $field pluck.
+	 * @return Column[]
+	 */
+	public function get_columns() {
+		/** @var Column[] $items */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
+		$items = $this->get_items( 'columns' );
+
+		return $items;
+	}
+
+	/**
+	 * Get all columns in this schema, optionally filtered.
+	 *
+	 * @since 3.1.0
 	 *
 	 * @param array<string,mixed> $args     Optional. Property => value match args.
 	 *                                      Default empty (all columns).
@@ -1266,9 +1305,9 @@ class Schema {
 	 *
 	 * @phpstan-return ($field is false ? Column[] : list<mixed>)
 	 */
-	public function get_columns( $args = array(), $operator = 'and', $field = false ) {
+	public function get_filtered_columns( $args = array(), $operator = 'and', $field = false ) {
 		/** @var Column[]|list<mixed> $items */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
-		$items = $this->get_items( 'columns', $args, $operator, $field );
+		$items = $this->filter_item_collection( $this->get_columns(), 'columns', $args, $operator, $field );
 
 		return $items;
 	}
@@ -1315,7 +1354,7 @@ class Schema {
 	 * @return string The primary column name, or 'id' if none is flagged.
 	 */
 	public function get_primary_column_name(): string {
-		$primary = $this->get_columns( array( 'primary' => true ) );
+		$primary = $this->get_filtered_columns( array( 'primary' => true ) );
 
 		return ! empty( $primary )
 			? (string) $primary[0]->name
@@ -1424,10 +1463,22 @@ class Schema {
 	}
 
 	/**
-	 * Get all indexes in this schema, optionally filtered.
+	 * Get all indexes in this schema.
 	 *
 	 * @since 3.0.0
-	 * @since 3.1.0 Added $args / $operator filtering and the $field pluck.
+	 * @return Index[]
+	 */
+	public function get_indexes() {
+		/** @var Index[] $items */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
+		$items = $this->get_items( 'indexes' );
+
+		return $items;
+	}
+
+	/**
+	 * Get all indexes in this schema, optionally filtered.
+	 *
+	 * @since 3.1.0
 	 *
 	 * @param array<string,mixed> $args     Optional. Property => value match args.
 	 *                                      Default empty (all indexes).
@@ -1441,9 +1492,9 @@ class Schema {
 	 *
 	 * @phpstan-return ($field is false ? Index[] : list<mixed>)
 	 */
-	public function get_indexes( $args = array(), $operator = 'and', $field = false ) {
+	public function get_filtered_indexes( $args = array(), $operator = 'and', $field = false ) {
 		/** @var Index[]|list<mixed> $items */ // phpcs:ignore Generic.Commenting.DocComment.MissingShort
-		$items = $this->get_items( 'indexes', $args, $operator, $field );
+		$items = $this->filter_item_collection( $this->get_indexes(), 'indexes', $args, $operator, $field );
 
 		return $items;
 	}
@@ -1465,7 +1516,7 @@ class Schema {
 
 		// The primary key is addressable as 'primary', whatever its own name.
 		if ( 'primary' === $name ) {
-			$primary = $this->get_indexes( array( 'type' => 'primary' ) );
+			$primary = $this->get_filtered_indexes( array( 'type' => 'primary' ) );
 
 			if ( ! empty( $primary ) ) {
 				return $primary[0];
@@ -1570,23 +1621,31 @@ class Schema {
 	 * reference a table that may not exist yet (and MySQL would reject the whole
 	 * create), and two tables could never reference each other. Enforced keys are
 	 * therefore added AFTER the tables exist, via Table::add_foreign_keys(). Pass
-	 * $with_foreign_keys = true only when you control install order (referenced
-	 * tables created first, no cycles) and want the constraint inline.
+	 * $with_foreign_keys = true only when you control install order and want the
+	 * constraints inline.
 	 *
 	 * @since 3.0.0
-	 * @since 3.1.0 Optionally emits FOREIGN KEY fragments for enforced relationships.
+	 * @since 3.1.0 Added the optional foreign-key flag.
 	 *
-	 * @param bool $with_foreign_keys Include enforced FK fragments inline. Default
-	 *                                false (deferred); requires controlled install
-	 *                                order when true.
-	 *
+	 * @param bool $with_foreign_keys Include enforced foreign keys inline.
 	 * @return string SQL body string, or empty string if invalid or empty.
 	 */
 	public function get_create_table_string( bool $with_foreign_keys = false ) {
+		return implode( ",\n", $this->get_create_table_array( $with_foreign_keys ) );
+	}
+
+	/**
+	 * Build the validated CREATE TABLE body fragments.
+	 *
+	 * @since 3.1.0
+	 * @param bool $with_foreign_keys Include enforced foreign-key fragments.
+	 * @return string[] Non-empty SQL fragments, or an empty array if invalid.
+	 */
+	private function get_create_table_array( bool $with_foreign_keys = false ): array {
 
 		// Bail if schema has validation errors.
 		if ( ! $this->is_valid() ) {
-			return '';
+			return array();
 		}
 
 		// Columns and indexes always.
@@ -1595,15 +1654,12 @@ class Schema {
 			$this->get_items_create_string( 'indexes' ),
 		);
 
-		// Enforced foreign keys only when opted in (deferred by default).
+		// Foreign keys only when the caller controls installation order.
 		if ( true === $with_foreign_keys ) {
 			$strings = array_merge( $strings, $this->get_foreign_key_strings() );
 		}
 
-		// Join non-empty fragments.
-		$retval = implode( ",\n", array_filter( $strings ) );
-
-		return $retval;
+		return array_values( array_filter( $strings ) );
 	}
 
 	/**
@@ -1611,7 +1667,7 @@ class Schema {
 	 *
 	 * One fragment per enforced, owning-side (belongs_to) relationship, each with
 	 * its remote table resolved from the relationship's remote Query class. Shared
-	 * by get_create_table_string() (emitted inside CREATE TABLE) and
+	 * by get_create_table_array() (emitted inside CREATE TABLE) and
 	 * Table::add_foreign_keys() (emitted as ALTER TABLE ADD). Empty when nothing is
 	 * enforced. Non-enforced relationships stay application-level and emit nothing.
 	 *

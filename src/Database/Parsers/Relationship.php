@@ -1280,10 +1280,10 @@ class Relationship extends Base {
 		}
 
 		/*
-		 * Build the comparison SQL against the joined alias. get_sql() always
+		 * Build the comparison SQL against the joined alias. get_sql_with_cast() always
 		 * returns a string; a value-less operator (e.g. NOT EXISTS) yields '',
 		 * which build_conditions() drops as "produced nothing".
 		 */
-		return $operator->get_sql( $column_object, $alias, $value, $cast );
+		return $operator->get_sql_with_cast( $column_object, $alias, $value, $cast );
 	}
 }
