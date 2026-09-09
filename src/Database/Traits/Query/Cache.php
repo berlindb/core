@@ -110,6 +110,91 @@ trait Cache {
 	}
 
 	/**
+	 * Get the current cache generations for tables used by relationship filters.
+	 *
+	 * A joined relationship query depends on rows outside this Query's cache group.
+	 * Store those remote generations with the cached result so a remote write makes
+	 * the local entry stale without coupling otherwise independent cache groups.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return array<string,string> Dependency identifier => last-changed value.
+	 */
+	private function get_relationship_cache_dependencies(): array {
+		$clauses      = $this->get_query_var( 'relation_query' );
+		$dependencies = array();
+
+		if ( is_array( $clauses ) ) {
+			$this->add_relationship_cache_dependencies( $this, $clauses, $dependencies );
+		}
+
+		ksort( $dependencies );
+
+		return $dependencies;
+	}
+
+	/**
+	 * Collect cache generations for one relationship-clause tree.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param Query                     $query        Query that owns these relationship names.
+	 * @param array<string|int,mixed>   $clauses      Single clause or boolean clause group.
+	 * @param array<string,string>     &$dependencies Collected dependency generations.
+	 */
+	private function add_relationship_cache_dependencies( Query $query, array $clauses, array &$dependencies ): void {
+		if ( isset( $clauses[ 'name' ] ) && is_string( $clauses[ 'name' ] ) ) {
+			$relationship = $query->get_relationship( $clauses[ 'name' ] );
+
+			if ( ! ( $relationship instanceof Relationship ) ) {
+				return;
+			}
+
+			// A many-to-many filter also reads its pivot table.
+			if ( ( 'many_to_many' === $relationship->type ) && ! empty( $relationship->through ) ) {
+				$pivot = $query->instantiate_class( $relationship->through );
+
+				if ( $pivot instanceof Query ) {
+					$this->add_query_cache_dependency( $pivot, $dependencies );
+				}
+			}
+
+			$remote = $query->resolve_remote_query( $relationship );
+
+			if ( null !== $remote ) {
+				$this->add_query_cache_dependency( $remote, $dependencies );
+
+				// Nested relationship names belong to the remote Query.
+				if ( isset( $clauses[ 'relation' ] ) && is_array( $clauses[ 'relation' ] ) ) {
+					$this->add_relationship_cache_dependencies( $remote, $clauses[ 'relation' ], $dependencies );
+				}
+			}
+
+			return;
+		}
+
+		// Boolean clause groups hold their child clauses at numeric keys.
+		foreach ( $clauses as $key => $clause ) {
+			if ( is_int( $key ) && is_array( $clause ) ) {
+				$this->add_relationship_cache_dependencies( $query, $clause, $dependencies );
+			}
+		}
+	}
+
+	/**
+	 * Add one Query's current primary cache generation to a dependency set.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param Query                    $query         Remote or pivot Query.
+	 * @param array<string,string>    &$dependencies Collected dependency generations.
+	 */
+	private function add_query_cache_dependency( Query $query, array &$dependencies ): void {
+		$key                  = get_class( $query ) . ':' . $query->cache_group;
+		$dependencies[ $key ] = $query->get_last_changed_cache();
+	}
+
+	/**
 	 * Build a stable cache key for a secondary get_item_by() lookup.
 	 *
 	 * The cache group already identifies the lookup column, so the key only
@@ -803,8 +888,16 @@ trait Cache {
 		}
 
 		// One bulk read of every row matching any requested tuple.
+		$where = $this->get_relationship_tuple_where( $reference_columns, $tuples );
+
+		if ( '' === $where ) {
+			return array();
+		}
+
+		$primary = $this->get_primary_column_name();
+
 		return $this->get_items_raw(
-			$this->get_relationship_tuple_where( $reference_columns, $tuples )
+			"{$where} ORDER BY {$primary} DESC"
 		);
 	}
 
@@ -818,10 +911,8 @@ trait Cache {
 	 * child set) for has_many, 1 (the first match) for belongs_to - so the seeded key
 	 * equals the key that lookup later computes.
 	 *
-	 * Like prime_has_many(), the bulk read is unordered, so a primed result matches
-	 * the query's row SET, not necessarily its orderby. A belongs_to key should be
-	 * unique (one remote row); a non-unique key's "first match" is arbitrary here,
-	 * exactly as it already is for an unprimed get_related() with number => 1.
+	 * The bulk read uses the Query's default primary-key descending order, so the
+	 * seeded result matches an unprimed get_related() call.
 	 *
 	 * This is the reusable one-hop primitive - "given remote key columns and many
 	 * tuples, warm the exact per-tuple result caches." A many-to-many / pivot
@@ -946,7 +1037,8 @@ trait Cache {
 		}
 
 		// One bulk read of every related row, then warm the by-id item cache.
-		$rows = $this->get_items_raw( "{$fk_column} IN {$in}" );
+		$primary = $this->get_primary_column_name();
+		$rows    = $this->get_items_raw( "{$fk_column} IN {$in} ORDER BY {$primary} DESC" );
 
 		if ( ! empty( $rows ) ) {
 			$this->update_item_cache( $rows, false );
@@ -1006,14 +1098,16 @@ trait Cache {
 				}
 
 				// Store the known IDs under the same key query() would compute.
-				$ids = array_values( $item_ids );
+				$ids          = array_values( $item_ids );
+				$dependencies = $this->get_relationship_cache_dependencies();
 
 				$this->cache_set(
 					$this->get_cache_key(),
 					array(
-						'item_ids'     => $ids,
-						'found_items'  => count( $ids ),
-						'last_changed' => $this->get_last_changed_cache(),
+						'item_ids'                  => $ids,
+						'found_items'               => count( $ids ),
+						'last_changed'              => $this->get_last_changed_cache(),
+						'relationship_last_changed' => $dependencies,
 					),
 					$this->cache_group
 				);

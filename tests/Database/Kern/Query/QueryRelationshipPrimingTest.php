@@ -558,12 +558,31 @@ class QueryRelationshipPrimingTest extends TestCase {
 	}
 
 	/**
-	 * Test that the 'in' strategy on a has_many relationship fails closed
+	 * Test that the explicit 'in' strategy on a has_many relationship fails closed
 	 * (unsupported), rather than ignoring the filter and returning all rows.
 	 *
 	 * @since 3.1.0
 	 */
 	public function test_relation_in_on_has_many_fails_closed() {
+		$results = self::$query->query(
+			array(
+				'relation' => array(
+					'name'     => 'children',
+					'where'    => array( 'status' => 'child' ),
+					'strategy' => 'in',
+				),
+			)
+		);
+
+		$this->assertSame( array(), $results );
+	}
+
+	/**
+	 * Test that a has_many filter defaults to its supported EXISTS strategy.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_relation_has_many_defaults_to_join_strategy() {
 		$results = self::$query->query(
 			array(
 				'relation' => array(
@@ -573,7 +592,38 @@ class QueryRelationshipPrimingTest extends TestCase {
 			)
 		);
 
-		$this->assertSame( array(), $results );
+		$this->assertCount( 1, $results );
+		$this->assertSame( $this->parent_id, (int) $results[0]->id );
+	}
+
+	/**
+	 * Test that priming preserves the default primary-key descending order.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_has_many_priming_preserves_cold_order() {
+		$newest_child_id = (int) self::$query->add_item(
+			array(
+				'status'    => 'child',
+				'parent_id' => $this->parent_id,
+			)
+		);
+
+		wp_cache_flush();
+		$parent = self::$query->get_item( $this->parent_id );
+		$cold   = wp_list_pluck( self::$query->get_related( $parent, 'children' ), 'id' );
+
+		wp_cache_flush();
+		$primed_query = new PrimingQuery(
+			array(
+				'id'   => $this->parent_id,
+				'with' => array( 'children' ),
+			)
+		);
+		$warm         = wp_list_pluck( $primed_query->get_related( $primed_query->items[0], 'children' ), 'id' );
+
+		$this->assertSame( array( $newest_child_id, $this->child_id ), array_map( 'intval', $cold ) );
+		$this->assertSame( $cold, $warm );
 	}
 
 	// Relationship filtering - 'join' strategy (#193, Phase 5b).

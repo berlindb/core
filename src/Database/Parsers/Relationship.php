@@ -221,7 +221,7 @@ class Relationship extends Base {
 			 * explicit strategy, a COMPOSITE ( multi-column ) key or a many_to_many
 			 * defaults to 'join': the 'in' materialize strategy is single-column
 			 * belongs_to only, so those would otherwise default to 'in' and fail
-			 * closed. Single-column belongs_to / has_many keep the 'in' default.
+			 * closed. Only single-column belongs_to keeps the 'in' default.
 			 */
 			$explicit = ( isset( $clause_args[ 'strategy' ] ) && is_string( $clause_args[ 'strategy' ] ) )
 				? strtolower( $clause_args[ 'strategy' ] )
@@ -249,7 +249,7 @@ class Relationship extends Base {
 					( true === $has_nested )
 					|| (
 						( $relationship instanceof RelationshipObject )
-						&& ( ( 'many_to_many' === $relationship->type ) || ( count( $relationship->columns ) > 1 ) || $relationship->has_condition() )
+						&& ( ( 'belongs_to' !== $relationship->type ) || ( count( $relationship->columns ) > 1 ) || $relationship->has_condition() )
 					)
 				)
 					? 'join'

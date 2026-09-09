@@ -366,6 +366,30 @@ class ConditionedRelationshipTest extends TestCase {
 		$this->assertSame( array( $with_note ), $ids );
 	}
 
+	/** A remote mutation invalidates a cached relationship-filtered owner query. */
+	public function test_relation_filter_cache_tracks_remote_writes(): void {
+		$owners   = new CrOwnerQuery();
+		$notes    = new CrNoteQuery();
+		$owner_id = (int) $owners->add_item( array( 'name' => 'CachedOwner' ) );
+		$note_id  = (int) $notes->add_item(
+			array(
+				'object_id'   => $owner_id,
+				'object_type' => 'owner',
+				'body'        => 'before',
+			)
+		);
+
+		$args = array(
+			'fields'   => 'ids',
+			'number'   => 0,
+			'relation' => array( 'name' => 'notes' ),
+		);
+
+		$this->assertSame( array( $owner_id ), array_map( 'intval', $owners->query( $args ) ) );
+		$this->assertTrue( $notes->update_item( $note_id, array( 'object_type' => 'task' ) ) );
+		$this->assertSame( array(), $owners->query( $args ) );
+	}
+
 	/** Safety: an unknown condition column fails closed (does not widen to all rows). */
 	public function test_unknown_condition_column_fails_closed(): void {
 		$bad_owners = new CrBadOwnerQuery();
