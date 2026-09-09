@@ -318,11 +318,13 @@ trait Crud {
 		 * Cache key. The primary column is stable and unique, so its value (the
 		 * id) is used directly as a by-id object-cache key. Secondary cache_key
 		 * columns use a dedicated "{cache_group}-by-{name}" group and a value
-		 * hash salted with last_changed.
+		 * hash independent of last_changed.
 		 */
-		$cache_key = $column_value;
+		$cache_key    = $column_value;
+		$last_changed = '';
 		if ( ( false === $is_primary ) && ! empty( $group ) ) {
-			$cache_key = $this->get_item_cache_key( $column_value, $group );
+			$cache_key    = $this->get_item_cache_key( $column_value );
+			$last_changed = $this->get_last_changed_cache( $group );
 		}
 
 		// Check cache.
@@ -330,9 +332,14 @@ trait Crud {
 			$retval = $this->cache_get( $cache_key, $group );
 		}
 
-		// Secondary cache hits store the primary ID; resolve via by-id cache.
+		// Resolve current secondary entries through the canonical by-id cache.
 		if ( ( false === $is_primary ) && false !== $retval ) {
-			return $this->get_item( $retval );
+			if ( is_array( $retval ) && isset( $retval[ 'item_id' ], $retval[ 'last_changed' ] ) && ( $last_changed === $retval[ 'last_changed' ] ) ) {
+				return $this->get_item( $retval[ 'item_id' ] );
+			}
+
+			// Ignore entries from an earlier cache generation or format.
+			$retval = false;
 		}
 
 		// Item not cached.
@@ -352,9 +359,16 @@ trait Crud {
 				// Always warm the canonical primary by-id object cache.
 				$this->update_item_cache( $retval, false );
 
-				// For secondary cache_key columns, store only the primary ID.
+				// Replace the secondary entry using the generation from before the read.
 				if ( ( false === $is_primary ) && ! empty( $group ) && isset( $retval->{$primary} ) ) {
-					$this->cache_set( $cache_key, $retval->{$primary}, $group );
+					$this->cache_set(
+						$cache_key,
+						array(
+							'item_id'      => $retval->{$primary},
+							'last_changed' => $last_changed,
+						),
+						$group
+					);
 				}
 			}
 		}

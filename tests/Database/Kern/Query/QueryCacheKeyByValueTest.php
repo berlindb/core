@@ -3,8 +3,8 @@
  * Coherence tests for get_item_by() and the cache_key column caching path.
  *
  * BerlinDB caches single items looked up by a cache_key column. Secondary
- * (non-primary) lookups cache the matching primary ID using the lookup group's
- * last_changed salt and are populated lazily from the actual query result, so:
+ * (non-primary) lookups cache the matching primary ID and lookup group generation under a
+ * stable value key, populated lazily from the actual query result, so:
  *
  *   1. Stale-after-transition: writes that can affect a cache_key mapping bump
  *      that lookup group's last_changed, so a lookup by an old value re-resolves
@@ -434,5 +434,99 @@ class QueryCacheKeyByValueTest extends TestCase {
 		$this->add_widget( array( 'status' => 'active' ) );
 
 		$this->assertFalse( $query->get_item_by( 'status', 'nonexistent' ) );
+	}
+
+	/**
+	 * Repeated transitions replace one secondary entry and preserve warm hits.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_secondary_entry_is_replaced_at_a_stable_key(): void {
+		global $wpdb;
+
+		$query = new TestQuery();
+		$id    = $this->add_widget( array( 'status' => 'active' ) );
+		$group = ( new \ReflectionMethod( $query, 'get_cache_group_for_column' ) )->invoke( $query, 'status' );
+		$key   = md5( 'active' );
+
+		for ( $i = 0; $i < 3; $i++ ) {
+			$this->assertSame( $id, (int) $query->get_item_by( 'status', 'active' )->id );
+			$entry = wp_cache_get( $key, $group );
+			$this->assertIsArray( $entry );
+			$this->assertSame( $id, (int) $entry['item_id'] );
+			$this->assertSame( wp_cache_get( 'last_changed', $group ), $entry['last_changed'] );
+
+			$before = $wpdb->num_queries;
+			$query->get_item_by( 'status', 'active' );
+			$this->assertSame( $before, $wpdb->num_queries );
+
+			$query->update_item( $id, array( 'status' => 'inactive' ) );
+			$this->assertFalse( $query->get_item_by( 'status', 'active' ) );
+			$query->update_item( $id, array( 'status' => 'active' ) );
+		}
+	}
+
+	/**
+	 * Missing or stale generations and legacy scalar IDs cannot serve a hit.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_secondary_entries_require_a_matching_generation(): void {
+		$query = new TestQuery();
+		$id    = $this->add_widget( array( 'status' => 'active' ) );
+		$wrong = $this->add_widget( array( 'status' => 'inactive' ) );
+		$group = ( new \ReflectionMethod( $query, 'get_cache_group_for_column' ) )->invoke( $query, 'status' );
+		$key   = md5( 'active' );
+
+		foreach ( array(
+			$wrong,
+			array( 'item_id' => $wrong ),
+			array(
+				'item_id'      => $wrong,
+				'last_changed' => 'obsolete',
+			),
+		) as $entry ) {
+			wp_cache_set( $key, $entry, $group );
+			$this->assertSame( $id, (int) $query->get_item_by( 'status', 'active' )->id );
+			$cached = wp_cache_get( $key, $group );
+			$this->assertIsArray( $cached );
+			$this->assertSame( $id, (int) $cached['item_id'] );
+			$this->assertSame( wp_cache_get( 'last_changed', $group ), $cached['last_changed'] );
+		}
+	}
+
+	/**
+	 * A generation change during a lookup forces the next lookup to read again.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_secondary_generation_is_captured_before_the_read(): void {
+		global $wpdb;
+
+		$query  = new TestQuery();
+		$id     = $this->add_widget( array( 'status' => 'active' ) );
+		$group  = ( new \ReflectionMethod( $query, 'get_cache_group_for_column' ) )->invoke( $query, 'status' );
+		$old    = wp_cache_get( 'last_changed', $group );
+		$rotate = static function ( $sql ) use ( $group ) {
+			if ( false !== strpos( $sql, 'SELECT' ) && false !== strpos( $sql, 'test_widgets' ) ) {
+				wp_cache_set( 'last_changed', 'during-read', $group );
+			}
+			return $sql;
+		};
+
+		add_filter( 'query', $rotate );
+		try {
+			$query->get_item_by( 'status', 'active' );
+		} finally {
+			remove_filter( 'query', $rotate );
+		}
+
+		$entry = wp_cache_get( md5( 'active' ), $group );
+		$this->assertIsArray( $entry );
+		$this->assertSame( $old, $entry['last_changed'] );
+		$this->assertSame( 'during-read', wp_cache_get( 'last_changed', $group ) );
+		$before = $wpdb->num_queries;
+		$this->assertSame( $id, (int) $query->get_item_by( 'status', 'active' )->id );
+		$this->assertGreaterThan( $before, $wpdb->num_queries );
 	}
 }
