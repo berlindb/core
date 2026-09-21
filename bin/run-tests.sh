@@ -27,9 +27,9 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"
 
-TEST_PHP_VERSION="8.2"
-WP_VERSION="latest"
-MARIADB_VERSION="10.2"
+TEST_PHP_VERSION="${TEST_PHP_VERSION:-8.2}"
+WP_VERSION="${WP_VERSION:-latest}"
+MARIADB_VERSION="${MARIADB_VERSION:-10.2}"
 PHPUNIT_ARGS=()
 
 while [[ $# -gt 0 ]]; do
