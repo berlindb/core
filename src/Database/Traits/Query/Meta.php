@@ -456,7 +456,11 @@ trait Meta {
 		// Get the primary column name.
 		$primary = $this->get_primary_column_name();
 
-		// Use the standard meta columns when no matching meta relationship is declared.
+		/*
+		 * Most WordPress meta tables key rows by meta_id; usermeta keys them by
+		 * umeta_id. A matching meta relationship supplies that primary column from
+		 * its remote schema below, so the fallback does not need a type override.
+		 */
 		$meta_type       = $this->get_meta_type();
 		$item_id_column  = sanitize_key( $meta_type . '_id' );
 		$meta_id_column  = 'meta_id';

@@ -221,12 +221,26 @@ class MetaTypeTest extends TestCase {
 
 	/** User cleanup gets umeta_id from the declared remote schema. */
 	public function test_user_meta_cleanup_selects_umeta_id(): void {
+		global $wpdb;
+
 		$id = 987654322;
 		add_metadata( 'user', $id, 'berlindb_cleanup_probe', 'present' );
 
-		( new ReflectionMethod( MtqUserMetaQuery::class, 'delete_all_item_meta' ) )
-			->invoke( new MtqUserMetaQuery(), $id );
+		$queries = array();
+		$capture = static function ( $sql ) use ( &$queries ) {
+			$queries[] = $sql;
+			return $sql;
+		};
 
+		add_filter( 'query', $capture );
+		try {
+			( new ReflectionMethod( MtqUserMetaQuery::class, 'delete_all_item_meta' ) )
+				->invoke( new MtqUserMetaQuery(), $id );
+		} finally {
+			remove_filter( 'query', $capture );
+		}
+
+		$this->assertStringContainsString( "SELECT umeta_id FROM {$wpdb->usermeta} WHERE user_id =", implode( "\n", $queries ) );
 		$this->assertSame( '', get_metadata( 'user', $id, 'berlindb_cleanup_probe', true ) );
 	}
 }
