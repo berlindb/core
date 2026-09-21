@@ -496,6 +496,46 @@ class ColumnTest extends TestCase {
 	}
 
 	/**
+	 * Test that decimal validation keeps signed values and normalizes unsigned values.
+	 *
+	 * @since 3.0.2
+	 */
+	public function test_validate_decimal_honors_signedness() {
+		$signed   = new Column(
+			array(
+				'type'     => 'decimal',
+				'unsigned' => false,
+			)
+		);
+		$unsigned = new Column(
+			array(
+				'type'     => 'decimal',
+				'unsigned' => true,
+			)
+		);
+
+		$this->assertSame( -12.5, $signed->validate_decimal( '-12.5' ) );
+		$this->assertSame( 12.5, $unsigned->validate_decimal( '-12.5' ) );
+	}
+
+	/**
+	 * Test that numeric validation preserves scientific notation.
+	 *
+	 * @since 3.0.2
+	 */
+	public function test_validate_numeric_preserves_scientific_notation() {
+		$column = new Column(
+			array(
+				'type'     => 'decimal',
+				'unsigned' => false,
+			)
+		);
+
+		$this->assertSame( 0.000001, $column->validate_numeric( '1e-6' ) );
+		$this->assertSame( -0.000001, $column->validate_numeric( '-1e-6' ) );
+	}
+
+	/**
 	 * Test that validate_datetime returns a well-formed datetime string unchanged.
 	 *
 	 * @since 2.1.0

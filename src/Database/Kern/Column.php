@@ -1433,36 +1433,27 @@ class Column {
 				: 0;
 		}
 
-		// Is the value negative and allowed to be?
-		$negative_exponent = ( ( $value < 0 ) && ! empty( $this->unsigned ) )
-			? -1
-			: 1;
+		// A non-numeric configured default ultimately falls back to zero.
+		$value = is_numeric( $value )
+			? (float) $value
+			: 0.0;
 
-		// Only numbers and period.
-		$value = preg_replace( '/[^0-9\.]/', '', (string) $value ) ?? '';
+		// Unsigned columns cannot retain a negative sign.
+		if ( ( $value < 0 ) && ! empty( $this->unsigned ) ) {
+			$value = abs( $value );
+		}
 
-		// Attempt to find the decimal position.
+		/*
+		 * Without an explicit precision, preserve PHP's numeric interpretation.
+		 * This retains signs and scientific notation; formatting a float solely to
+		 * rediscover its source precision cannot preserve exponent syntax correctly.
+		 */
 		if ( false === $decimals ) {
-
-			// Look for period.
-			$period = strpos( $value, '.' );
-
-			// Count the digits after the period, or 0 if no period.
-			if ( false !== $period ) {
-				$decimals = strlen( $value ) - $period - 1;
-			} else {
-				$decimals = 0;
-			}
+			return $value;
 		}
 
 		// Format to number of decimals.
-		$formatted = number_format( (float) $value, (int) $decimals, '.', '' );
-
-		// Adjust for negative values.
-		$retval = ( $formatted * $negative_exponent );
-
-		// Return.
-		return $retval;
+		return (float) number_format( $value, (int) $decimals, '.', '' );
 	}
 
 	/**
