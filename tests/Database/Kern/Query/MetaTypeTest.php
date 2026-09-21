@@ -59,7 +59,60 @@ class MtqCommentMetaQuery extends TestQuery {
 }
 
 /** @since 3.1.0 */
+class MtqUserMetaSchema extends TestSchema {
+	public $columns = array(
+		array(
+			'name'     => 'umeta_id',
+			'type'     => 'bigint',
+			'length'   => '20',
+			'unsigned' => true,
+			'primary'  => true,
+		),
+		array(
+			'name'     => 'user_id',
+			'type'     => 'bigint',
+			'length'   => '20',
+			'unsigned' => true,
+		),
+	);
+}
+
+/** @since 3.1.0 */
+class MtqUserMetaTableQuery extends TestQuery {
+	protected $prefix       = '';
+	protected $table_name   = 'usermeta';
+	protected $table_schema = MtqUserMetaSchema::class;
+}
+
+/** @since 3.1.0 */
+class MtqUserSchema extends TestSchema {
+	public $columns = array(
+		array(
+			'name'          => 'id',
+			'type'          => 'bigint',
+			'length'        => '20',
+			'unsigned'      => true,
+			'primary'       => true,
+			'relationships' => array(
+				array(
+					'query'  => MtqUserMetaTableQuery::class,
+					'column' => 'user_id',
+					'type'   => 'has_many',
+					'name'   => 'meta',
+				),
+			),
+		),
+	);
+}
+
+/** @since 3.1.0 */
 class MtqUserMetaQuery extends TestQuery {
+	protected $table_schema = MtqUserSchema::class;
+	protected $meta_type    = 'user';
+}
+
+/** @since 3.1.0 */
+class MtqLegacyUserMetaQuery extends TestQuery {
 	protected $meta_type = 'user';
 }
 
@@ -171,7 +224,7 @@ class MetaTypeTest extends TestCase {
 		$this->assertSame( '', get_metadata( 'comment', $id, 'berlindb_cleanup_probe', true ) );
 	}
 
-	/** User metadata uses umeta_id as its metadata row's primary key. */
+	/** User cleanup works with the remote schema and the legacy no-relationship fallback. */
 	public function test_user_meta_cleanup_selects_umeta_id(): void {
 		$id = 987654322;
 		add_metadata( 'user', $id, 'berlindb_cleanup_probe', 'present' );
@@ -180,5 +233,13 @@ class MetaTypeTest extends TestCase {
 			->invoke( new MtqUserMetaQuery(), $id );
 
 		$this->assertSame( '', get_metadata( 'user', $id, 'berlindb_cleanup_probe', true ) );
+
+		$legacy_id = $id + 1;
+		add_metadata( 'user', $legacy_id, 'berlindb_cleanup_probe', 'present' );
+
+		( new ReflectionMethod( MtqLegacyUserMetaQuery::class, 'delete_all_item_meta' ) )
+			->invoke( new MtqLegacyUserMetaQuery(), $legacy_id );
+
+		$this->assertSame( '', get_metadata( 'user', $legacy_id, 'berlindb_cleanup_probe', true ) );
 	}
 }

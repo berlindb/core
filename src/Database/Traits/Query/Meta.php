@@ -456,11 +456,39 @@ trait Meta {
 		// Get the primary column name.
 		$primary = $this->get_primary_column_name();
 
-		// WordPress metadata tables use {meta_type}_id, regardless of the item's primary key.
+		// Use WordPress's column conventions when no matching meta relationship is declared.
 		$meta_type       = $this->get_meta_type();
 		$item_id_column  = sanitize_key( $meta_type . '_id' );
 		$meta_id_column  = ( 'user' === $meta_type ) ? 'umeta_id' : 'meta_id';
 		$item_id_pattern = $this->get_column_field( array( 'name' => $primary ), 'pattern', '%s' );
+
+		/*
+		 * A declared meta relationship supplies the object-ID column and the remote
+		 * schema supplies its primary key. Only use it when it describes the same
+		 * WordPress meta table that delete_metadata_by_mid() will delete from.
+		 */
+		$relationship = $this->get_relationship( 'meta' );
+		if (
+			( $relationship instanceof Relationship )
+			&& ( 'has_many' === $relationship->type )
+			&& ( array( $primary ) === $relationship->columns )
+			&& ( 1 === count( $relationship->references ) )
+		) {
+			$remote = $this->resolve_remote_query( $relationship );
+
+			if ( ( null !== $remote ) && ( $table === $remote->get_table_name() ) ) {
+				$reference      = $relationship->references[0];
+				$remote_primary = $remote->get_primary_column_name();
+
+				if (
+					( false !== $remote->get_column_by( array( 'name' => $reference ) ) )
+					&& ( false !== $remote->get_column_by( array( 'name' => $remote_primary ) ) )
+				) {
+					$item_id_column = $reference;
+					$meta_id_column = $remote_primary;
+				}
+			}
+		}
 
 		// Get meta IDs.
 		$query    = "SELECT {$meta_id_column} FROM {$table} WHERE {$item_id_column} = {$item_id_pattern}";
