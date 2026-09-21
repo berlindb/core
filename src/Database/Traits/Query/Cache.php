@@ -894,10 +894,26 @@ trait Cache {
 			return array();
 		}
 
-		$primary = $this->get_primary_column_name();
+		$orderby = $this->get_relationship_priming_orderby_sql();
 
 		return $this->get_items_raw(
-			"{$where} ORDER BY {$primary} DESC"
+			trim( "{$where} {$orderby}" )
+		);
+	}
+
+	/**
+	 * Get the Query's default ordering for a raw relationship-priming read.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @return string SQL ORDER BY clause, or an empty string when disabled.
+	 */
+	private function get_relationship_priming_orderby_sql(): string {
+		return $this->parse_orderby(
+			$this->query_var_defaults[ 'orderby' ] ?? '',
+			$this->query_var_defaults[ 'order' ] ?? '',
+			'ORDER BY',
+			false
 		);
 	}
 
@@ -911,7 +927,7 @@ trait Cache {
 	 * child set) for has_many, 1 (the first match) for belongs_to - so the seeded key
 	 * equals the key that lookup later computes.
 	 *
-	 * The bulk read uses the Query's default primary-key descending order, so the
+	 * The bulk read uses the Query's configured default order, so the
 	 * seeded result matches an unprimed get_related() call.
 	 *
 	 * This is the reusable one-hop primitive - "given remote key columns and many
@@ -1037,8 +1053,8 @@ trait Cache {
 		}
 
 		// One bulk read of every related row, then warm the by-id item cache.
-		$primary = $this->get_primary_column_name();
-		$rows    = $this->get_items_raw( "{$fk_column} IN {$in} ORDER BY {$primary} DESC" );
+		$orderby = $this->get_relationship_priming_orderby_sql();
+		$rows    = $this->get_items_raw( trim( "{$fk_column} IN {$in} {$orderby}" ) );
 
 		if ( ! empty( $rows ) ) {
 			$this->update_item_cache( $rows, false );

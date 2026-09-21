@@ -54,6 +54,7 @@ class PrimingSchema extends Schema {
 			'default'       => '',
 			'cache_key'     => true,
 			'in'            => true,
+			'sortable'      => true,
 			/*
 			 * A relationship pointing at a real class that is NOT a Query, to
 			 * exercise resolve_remote_query()'s instanceof guard (fails closed).
@@ -131,6 +132,19 @@ class PrimingQuery extends Query {
 	protected $item_name_plural = 'primings';
 	protected $item_shape       = PrimingRow::class;
 	protected $cache_group      = 'berlindb-priming';
+}
+
+/** Query fixture with a non-primary default sort order. */
+class PrimingAscendingQuery extends PrimingQuery {
+	protected function init(): void {
+		parent::init();
+		$this->set_query_var( 'orderby', 'status' );
+		$this->set_query_var( 'order', 'ASC' );
+	}
+
+	public function prime_children( int $parent_id ): void {
+		$this->prime_has_many( 'parent_id', array( $parent_id ) );
+	}
 }
 
 /**
@@ -623,6 +637,37 @@ class QueryRelationshipPrimingTest extends TestCase {
 		$warm         = wp_list_pluck( $primed_query->get_related( $primed_query->items[0], 'children' ), 'id' );
 
 		$this->assertSame( array( $newest_child_id, $this->child_id ), array_map( 'intval', $cold ) );
+		$this->assertSame( $cold, $warm );
+	}
+
+	/** Priming honors a Query's configured default order beyond primary-key DESC. */
+	public function test_has_many_priming_preserves_custom_default_order() {
+		self::$query->add_item(
+			array(
+				'status'    => 'alpha',
+				'parent_id' => $this->parent_id,
+			)
+		);
+		self::$query->add_item(
+			array(
+				'status'    => 'zeta',
+				'parent_id' => $this->parent_id,
+			)
+		);
+
+		$query = new PrimingAscendingQuery();
+		wp_cache_flush();
+		$args = array(
+			'parent_id' => $this->parent_id,
+			'number'    => 0,
+		);
+		$cold = wp_list_pluck( $query->query( $args ), 'status' );
+
+		wp_cache_flush();
+		$query->prime_children( $this->parent_id );
+		$warm = wp_list_pluck( $query->query( $args ), 'status' );
+
+		$this->assertSame( array( 'alpha', 'child', 'zeta' ), $cold );
 		$this->assertSame( $cold, $warm );
 	}
 
