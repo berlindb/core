@@ -17,7 +17,9 @@
 namespace BerlinDB\Tests;
 
 use BerlinDB\Tests\Fixtures\TestQuery;
+use BerlinDB\Tests\Fixtures\TestSchema;
 use BerlinDB\Tests\Fixtures\TestTable;
+use ReflectionMethod;
 use Yoast\WPTestUtils\WPIntegration\TestCase;
 
 /**
@@ -31,6 +33,34 @@ use Yoast\WPTestUtils\WPIntegration\TestCase;
 class MtqPostMetaQuery extends TestQuery {
 	protected $item_name = 'mtq_namespaced_post';
 	protected $meta_type = 'post';
+}
+
+/**
+ * Simulate a query whose primary key differs from WordPress's commentmeta object ID.
+ *
+ * @since 3.1.0
+ */
+class MtqCommentSchema extends TestSchema {
+	public $columns = array(
+		array(
+			'name'     => 'comment_ID',
+			'type'     => 'bigint',
+			'length'   => '20',
+			'unsigned' => true,
+			'primary'  => true,
+		),
+	);
+}
+
+/** @since 3.1.0 */
+class MtqCommentMetaQuery extends TestQuery {
+	protected $table_schema = MtqCommentSchema::class;
+	protected $meta_type    = 'comment';
+}
+
+/** @since 3.1.0 */
+class MtqUserMetaQuery extends TestQuery {
+	protected $meta_type = 'user';
 }
 
 /**
@@ -128,5 +158,27 @@ class MetaTypeTest extends TestCase {
 
 		// If delete_all_item_meta queried the wrong column, the meta would survive.
 		$this->assertSame( '', get_metadata( 'post', $id, 'keep_me', true ) );
+	}
+
+	/** A comment's comment_ID primary key must resolve to commentmeta.comment_id. */
+	public function test_comment_meta_cleanup_uses_wordpress_object_id_column(): void {
+		$id = 987654321;
+		add_metadata( 'comment', $id, 'berlindb_cleanup_probe', 'present' );
+
+		( new ReflectionMethod( MtqCommentMetaQuery::class, 'delete_all_item_meta' ) )
+			->invoke( new MtqCommentMetaQuery(), $id );
+
+		$this->assertSame( '', get_metadata( 'comment', $id, 'berlindb_cleanup_probe', true ) );
+	}
+
+	/** User metadata uses umeta_id as its metadata row's primary key. */
+	public function test_user_meta_cleanup_selects_umeta_id(): void {
+		$id = 987654322;
+		add_metadata( 'user', $id, 'berlindb_cleanup_probe', 'present' );
+
+		( new ReflectionMethod( MtqUserMetaQuery::class, 'delete_all_item_meta' ) )
+			->invoke( new MtqUserMetaQuery(), $id );
+
+		$this->assertSame( '', get_metadata( 'user', $id, 'berlindb_cleanup_probe', true ) );
 	}
 }

@@ -456,16 +456,14 @@ trait Meta {
 		// Get the primary column name.
 		$primary = $this->get_primary_column_name();
 
-		/*
-		 * The meta table's object-id column is {meta_type}_{primary} (get_meta_type()
-		 * already prefixes / honors an explicit type, so it is not re-prefixed here). This
-		 * is equivalent to the old item-name derivation when the type is unset.
-		 */
-		$item_id_column  = $this->get_meta_type() . '_' . $primary;
+		// WordPress metadata tables use {meta_type}_id, regardless of the item's primary key.
+		$meta_type       = $this->get_meta_type();
+		$item_id_column  = sanitize_key( $meta_type . '_id' );
+		$meta_id_column  = ( 'user' === $meta_type ) ? 'umeta_id' : 'meta_id';
 		$item_id_pattern = $this->get_column_field( array( 'name' => $primary ), 'pattern', '%s' );
 
 		// Get meta IDs.
-		$query    = "SELECT meta_id FROM {$table} WHERE {$item_id_column} = {$item_id_pattern}";
+		$query    = "SELECT {$meta_id_column} FROM {$table} WHERE {$item_id_column} = {$item_id_pattern}";
 		$prepared = $this->db()->prepare( $query, $item_id );
 		$meta_ids = $this->db()->get_col( $prepared );
 
@@ -473,9 +471,6 @@ trait Meta {
 		if ( empty( $meta_ids ) ) {
 			return;
 		}
-
-		// Get the meta type.
-		$meta_type = $this->get_meta_type();
 
 		// Delete all meta data for this item ID.
 		foreach ( $meta_ids as $mid ) {
