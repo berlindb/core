@@ -111,6 +111,11 @@ class MtqUserMetaQuery extends TestQuery {
 	protected $meta_type    = 'user';
 }
 
+/** @since 3.1.0 */
+class MtqBareUserMetaQuery extends TestQuery {
+	protected $meta_type = 'user';
+}
+
 /**
  * @since 3.1.0
  */
@@ -242,5 +247,18 @@ class MetaTypeTest extends TestCase {
 
 		$this->assertStringContainsString( "SELECT umeta_id FROM {$wpdb->usermeta} WHERE user_id =", implode( "\n", $queries ) );
 		$this->assertSame( '', get_metadata( 'user', $id, 'berlindb_cleanup_probe', true ) );
+	}
+
+	/** User cleanup without a meta relationship delegates column selection to WordPress. */
+	public function test_user_meta_cleanup_without_meta_relationship(): void {
+		$id = 987654323;
+		add_metadata( 'user', $id, 'berlindb_cleanup_probe', 'first' );
+		add_metadata( 'user', $id, 'berlindb_cleanup_probe', 'second' );
+		add_metadata( 'user', $id, 'berlindb_cleanup_other', 'third' );
+
+		( new ReflectionMethod( MtqBareUserMetaQuery::class, 'delete_all_item_meta' ) )
+			->invoke( new MtqBareUserMetaQuery(), $id );
+
+		$this->assertSame( array(), get_metadata( 'user', $id ) );
 	}
 }

@@ -456,14 +456,9 @@ trait Meta {
 		// Get the primary column name.
 		$primary = $this->get_primary_column_name();
 
-		/*
-		 * Most WordPress meta tables key rows by meta_id; usermeta keys them by
-		 * umeta_id. A matching meta relationship supplies that primary column from
-		 * its remote schema below, so the fallback does not need a type override.
-		 */
 		$meta_type       = $this->get_meta_type();
-		$item_id_column  = sanitize_key( $meta_type . '_id' );
-		$meta_id_column  = 'meta_id';
+		$item_id_column  = '';
+		$meta_id_column  = '';
 		$item_id_pattern = $this->get_column_field( array( 'name' => $primary ), 'pattern', '%s' );
 
 		/*
@@ -492,6 +487,28 @@ trait Meta {
 					$meta_id_column = $remote_primary;
 				}
 			}
+		}
+
+		/*
+		 * Without a registered meta schema, leave column selection to WordPress.
+		 * Its metadata API knows the table's object and row ID columns, including
+		 * usermeta's umeta_id, so no SQL column names need to be guessed here.
+		 */
+		if ( ( '' === $item_id_column ) || ( '' === $meta_id_column ) ) {
+			// The legacy WordPress metadata API accepts integer object IDs only.
+			if ( ! is_int( $item_id ) ) {
+				return;
+			}
+
+			$meta = get_metadata( $meta_type, $item_id );
+
+			if ( is_array( $meta ) ) {
+				foreach ( array_keys( $meta ) as $key ) {
+					delete_metadata( $meta_type, $item_id, $key );
+				}
+			}
+
+			return;
 		}
 
 		// Get meta IDs.
