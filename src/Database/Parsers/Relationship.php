@@ -180,6 +180,12 @@ class Relationship extends Base {
 	 * @return array<string,mixed> The (possibly modified) query vars.
 	 */
 	public function normalize_query_vars( array $query_vars, Query $caller ): array {
+		// An explicit malformed filter must not become an unfiltered query.
+		$direct = $query_vars[ 'relation_query' ] ?? null;
+
+		if ( ! empty( $direct ) && ! is_array( $direct ) && ! $caller->is_query_var_default_value( $direct ) ) {
+			return $this->short_circuit( $query_vars, 'relation_query must be an array clause (or a list of clauses)' );
+		}
 
 		$relation = $query_vars[ 'relation' ] ?? null;
 

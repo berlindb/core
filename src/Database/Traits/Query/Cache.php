@@ -1120,10 +1120,10 @@ trait Cache {
 				$this->cache_set(
 					$this->get_cache_key(),
 					array(
-						'item_ids'                  => $ids,
-						'found_items'               => count( $ids ),
-						'last_changed'              => $this->get_last_changed_cache(),
-						'relationship_last_changed' => $dependencies,
+						'item_ids'     => $ids,
+						'found_items'  => count( $ids ),
+						'last_changed' => $this->get_last_changed_cache(),
+						'dependencies' => $dependencies,
 					),
 					$this->cache_group
 				);

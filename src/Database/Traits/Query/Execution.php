@@ -167,7 +167,7 @@ trait Execution {
 			! is_array( $cache_value )
 			|| ! isset( $cache_value[ 'last_changed' ] )
 			|| ( $last_changed !== $cache_value[ 'last_changed' ] )
-			|| ( ( $cache_value[ 'relationship_last_changed' ] ?? array() ) !== $dependencies )
+			|| ( ( $cache_value[ 'dependencies' ] ?? array() ) !== $dependencies )
 		) {
 			$cache_value = false;
 		}
@@ -183,10 +183,10 @@ trait Execution {
 
 			// Format the cached value.
 			$cache_value = array(
-				'item_ids'                  => $result,
-				'found_items'               => $this->get_current_int( 'found_items' ),
-				'last_changed'              => $last_changed,
-				'relationship_last_changed' => $dependencies,
+				'item_ids'     => $result,
+				'found_items'  => $this->get_current_int( 'found_items' ),
+				'last_changed' => $last_changed,
+				'dependencies' => $dependencies,
 			);
 
 			// Only store when caching is enabled for this query.

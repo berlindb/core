@@ -390,6 +390,50 @@ class ConditionedRelationshipTest extends TestCase {
 		$this->assertSame( array(), $owners->query( $args ) );
 	}
 
+	/** An empty cached relationship result must become visible after a remote insert. */
+	public function test_empty_relation_filter_cache_tracks_remote_inserts(): void {
+		$owners   = new CrOwnerQuery();
+		$notes    = new CrNoteQuery();
+		$owner_id = (int) $owners->add_item( array( 'name' => 'InitiallyUnmatched' ) );
+		$args     = array(
+			'fields'   => 'ids',
+			'number'   => 0,
+			'relation' => array( 'name' => 'notes' ),
+		);
+
+		$this->assertSame( array(), $owners->query( $args ) );
+		$this->assertSame( array(), $owners->query( $args ) );
+
+		$notes->add_item(
+			array(
+				'object_id'   => $owner_id,
+				'object_type' => 'owner',
+				'body'        => 'new',
+			)
+		);
+
+		$this->assertSame( array( $owner_id ), array_map( 'intval', $owners->query( $args ) ) );
+	}
+
+	/** Empty direct clauses are unfiltered; malformed non-empty clauses fail closed. */
+	public function test_direct_relation_query_shape(): void {
+		$owners   = new CrOwnerQuery();
+		$owner_id = (int) $owners->add_item( array( 'name' => 'DirectRelationShape' ) );
+		$args     = array(
+			'fields' => 'ids',
+			'number' => 0,
+		);
+
+		$this->assertSame(
+			array( $owner_id ),
+			array_map( 'intval', $owners->query( array_merge( $args, array( 'relation_query' => array() ) ) ) )
+		);
+		$this->assertSame(
+			array(),
+			$owners->query( array_merge( $args, array( 'relation_query' => 'notes' ) ) )
+		);
+	}
+
 	/** Safety: an unknown condition column fails closed (does not widen to all rows). */
 	public function test_unknown_condition_column_fails_closed(): void {
 		$bad_owners = new CrBadOwnerQuery();
