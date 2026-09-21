@@ -456,10 +456,10 @@ trait Meta {
 		// Get the primary column name.
 		$primary = $this->get_primary_column_name();
 
-		// Use WordPress's column conventions when no matching meta relationship is declared.
+		// Use the standard meta columns when no matching meta relationship is declared.
 		$meta_type       = $this->get_meta_type();
 		$item_id_column  = sanitize_key( $meta_type . '_id' );
-		$meta_id_column  = ( 'user' === $meta_type ) ? 'umeta_id' : 'meta_id';
+		$meta_id_column  = 'meta_id';
 		$item_id_pattern = $this->get_column_field( array( 'name' => $primary ), 'pattern', '%s' );
 
 		/*

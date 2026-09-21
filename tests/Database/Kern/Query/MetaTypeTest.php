@@ -111,11 +111,6 @@ class MtqUserMetaQuery extends TestQuery {
 	protected $meta_type    = 'user';
 }
 
-/** @since 3.1.0 */
-class MtqLegacyUserMetaQuery extends TestQuery {
-	protected $meta_type = 'user';
-}
-
 /**
  * @since 3.1.0
  */
@@ -224,7 +219,7 @@ class MetaTypeTest extends TestCase {
 		$this->assertSame( '', get_metadata( 'comment', $id, 'berlindb_cleanup_probe', true ) );
 	}
 
-	/** User cleanup works with the remote schema and the legacy no-relationship fallback. */
+	/** User cleanup gets umeta_id from the declared remote schema. */
 	public function test_user_meta_cleanup_selects_umeta_id(): void {
 		$id = 987654322;
 		add_metadata( 'user', $id, 'berlindb_cleanup_probe', 'present' );
@@ -233,13 +228,5 @@ class MetaTypeTest extends TestCase {
 			->invoke( new MtqUserMetaQuery(), $id );
 
 		$this->assertSame( '', get_metadata( 'user', $id, 'berlindb_cleanup_probe', true ) );
-
-		$legacy_id = $id + 1;
-		add_metadata( 'user', $legacy_id, 'berlindb_cleanup_probe', 'present' );
-
-		( new ReflectionMethod( MtqLegacyUserMetaQuery::class, 'delete_all_item_meta' ) )
-			->invoke( new MtqLegacyUserMetaQuery(), $legacy_id );
-
-		$this->assertSame( '', get_metadata( 'user', $legacy_id, 'berlindb_cleanup_probe', true ) );
 	}
 }
