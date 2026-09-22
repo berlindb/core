@@ -263,18 +263,19 @@ class Relationship {
 	 * Models a polymorphic / discriminated ownership pattern - a remote table with an
 	 * object_id + object_type pair pointing at different parent types - as ONE
 	 * relationship. Traversal and join / EXISTS filters apply the condition to the
-	 * remote rows. Conditioned relationships are not bulk-primed, and the `in`
-	 * filter strategy is not supported. Example: `array( 'object_type' => 'order' )`.
+	 * remote rows. The priming methods in Traits/Query/Cache.php skip conditioned
+	 * relationships; resolve_in_filter() in Parsers/Relationship.php rejects the
+	 * `in` filter strategy. Example: `array( 'object_type' => 'order' )`.
 	 *
 	 * A conditioned relationship is application-layer only: a SQL FOREIGN KEY cannot
 	 * encode a discriminator, so it is never enforced - init() drops any `enforce`
 	 * (see is_foreign_key()). Supported on belongs_to / has_many (single-hop and nested);
 	 * a condition on a many_to_many is rejected (get_validation_errors()). For the
 	 * query-var traversal, a condition column must be queryable on the remote
-	 * (declare `in => true`); the join / EXISTS
-	 * paths render raw SQL and need no flag. An unknown condition column fails closed
-	 * everywhere. A scalar matches by equality; a list of scalars matches with IN
-	 * (an empty list matches nothing). Other operators remain unsupported.
+	 * (declare `in => true`); join / EXISTS paths render raw SQL and need no flag.
+	 * An unknown condition column fails closed everywhere. A scalar matches by
+	 * equality; a list of scalars matches with IN (an empty list matches nothing).
+	 * Other operators remain unsupported.
 	 *
 	 * @since 3.1.0
 	 * @var   array<string,scalar|list<scalar>> Default empty array.
@@ -757,13 +758,34 @@ class Relationship {
 				? $this->sanitize_column_name( $column )
 				: '';
 
-			$valid_list = is_array( $value )
-				&& array_is_list( $value )
-				&& ( count( array_filter( $value, 'is_scalar' ) ) === count( $value ) );
+			if ( ! is_string( $name ) || ( '' === $name ) ) {
+				continue;
+			}
 
 			// prepare() escapes each accepted value at render time.
-			if ( is_string( $name ) && ( '' !== $name ) && ( is_scalar( $value ) || $valid_list ) ) {
+			if ( is_scalar( $value ) ) {
 				$retval[ $name ] = $value;
+				continue;
+			}
+
+			if ( ! is_array( $value ) || ! array_is_list( $value ) ) {
+				continue;
+			}
+
+			$list  = array();
+			$valid = true;
+
+			foreach ( $value as $item ) {
+				if ( ! is_scalar( $item ) ) {
+					$valid = false;
+					break;
+				}
+
+				$list[] = $item;
+			}
+
+			if ( true === $valid ) {
+				$retval[ $name ] = $list;
 			}
 		}
 

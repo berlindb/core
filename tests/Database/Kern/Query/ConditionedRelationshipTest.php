@@ -141,7 +141,7 @@ class CrNoteSchema extends Schema {
 		array(
 			/*
 			 * in => true so the discriminator is filterable via the query-var paths
-			 * (get_related traversal / the 'in' strategy); the join/EXISTS path renders
+			 * (get_related traversal); the join/EXISTS path renders
 			 * raw SQL and does not require it.
 			 */
 			'name'   => 'object_type',
