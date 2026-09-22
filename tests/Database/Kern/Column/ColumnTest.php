@@ -934,6 +934,48 @@ class ColumnTest extends TestCase {
 	}
 
 	/**
+	 * Test that decimal validation honors the column's signedness.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_validate_decimal_honors_signedness() {
+		$signed   = new Column(
+			array(
+				'name'     => 'amount',
+				'type'     => 'decimal',
+				'unsigned' => false,
+			)
+		);
+		$unsigned = new Column(
+			array(
+				'name'     => 'amount',
+				'type'     => 'decimal',
+				'unsigned' => true,
+			)
+		);
+
+		$this->assertSame( -12.5, $signed->validate( '-12.5' ) );
+		$this->assertSame( 12.5, $unsigned->validate( '-12.5' ) );
+	}
+
+	/**
+	 * Test that decimal validation preserves scientific notation.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_validate_decimal_preserves_scientific_notation() {
+		$column = new Column(
+			array(
+				'name'     => 'amount',
+				'type'     => 'decimal',
+				'unsigned' => false,
+			)
+		);
+
+		$this->assertSame( 0.000001, $column->validate( '1e-6' ) );
+	}
+
+	/**
 	 * Test that validate_datetime returns a well-formed datetime string unchanged.
 	 *
 	 * @since 2.1.0
@@ -1190,6 +1232,53 @@ class ColumnTest extends TestCase {
 		);
 		$sql    = $column->get_create_string();
 		$this->assertStringContainsString( 'default null', $sql );
+	}
+
+	/**
+	 * Test that a nullable timestamp explicitly opts out of implicit initialization.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_get_create_string_nullable_timestamp_creates_on_supported_database() {
+		global $wpdb;
+
+		$column = new Column(
+			array(
+				'name'       => 'seen',
+				'type'       => 'timestamp',
+				'allow_null' => true,
+				'default'    => null,
+			)
+		);
+		$sql    = $column->get_create_string();
+		$create = "CREATE TEMPORARY TABLE berlindb_nullable_timestamp_test ({$sql})"; // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		$this->assertStringContainsString( 'timestamp null default null', $sql );
+		$this->assertNotFalse( $wpdb->query( $create ), $wpdb->last_error ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+	}
+
+	/**
+	 * Test that a quoted literal default creates valid DDL.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_get_create_string_escapes_literal_default() {
+		global $wpdb;
+
+		$column = new Column(
+			array(
+				'name'     => 'label',
+				'type'     => 'varchar',
+				'length'   => 40,
+				'default'  => "O'Reilly",
+				'validate' => 'strval',
+			)
+		);
+		$sql    = $column->get_create_string();
+		$create = "CREATE TEMPORARY TABLE berlindb_literal_default_test ({$sql})"; // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		$this->assertStringContainsString( "default 'O\\'Reilly'", $sql );
+		$this->assertNotFalse( $wpdb->query( $create ), $wpdb->last_error ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 	}
 
 	/**

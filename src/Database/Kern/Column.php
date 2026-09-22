@@ -2094,36 +2094,27 @@ class Column {
 				: 0;
 		}
 
-		// Is the value negative and allowed to be?
-		$negative_exponent = ( ( $value < 0 ) && ! empty( $this->unsigned ) )
-			? -1
-			: 1;
+		// A non-numeric configured default ultimately falls back to zero.
+		$value = is_numeric( $value )
+			? (float) $value
+			: 0.0;
 
-		// Only numbers and period.
-		$value = preg_replace( '/[^0-9\.]/', '', (string) $value ) ?? '';
+		// Unsigned columns cannot retain a negative sign.
+		if ( ( $value < 0 ) && ! empty( $this->unsigned ) ) {
+			$value = abs( $value );
+		}
 
-		// Attempt to find the decimal position.
+		/*
+		 * Without an explicit precision, preserve PHP's numeric interpretation.
+		 * This retains signs and scientific notation; formatting a float solely to
+		 * rediscover its source precision cannot preserve exponent syntax correctly.
+		 */
 		if ( false === $decimals ) {
-
-			// Look for period.
-			$period = strpos( $value, '.' );
-
-			// Count the digits after the period, or 0 if no period.
-			if ( false !== $period ) {
-				$decimals = strlen( $value ) - $period - 1;
-			} else {
-				$decimals = 0;
-			}
+			return $value;
 		}
 
 		// Format to number of decimals.
-		$formatted = number_format( (float) $value, (int) $decimals, '.', '' );
-
-		// Adjust for negative values.
-		$retval = ( $formatted * $negative_exponent );
-
-		// Return.
-		return $retval;
+		return (float) number_format( $value, (int) $decimals, '.', '' );
 	}
 
 	/**
@@ -2354,9 +2345,9 @@ class Column {
 			return '';
 		}
 
-		// Explicit default: trust it when not auto-incrementing.
+		// Explicit default: quote and escape it when not auto-incrementing.
 		if ( ! empty( $this->default ) && ! $this->is_extra( 'AUTO_INCREMENT' ) ) {
-			return "default '{$this->default}'";
+			return $this->get_literal_default_sql( $this->default );
 		}
 
 		// Numeric - use 0 unless the column is auto-incrementing.
@@ -2366,6 +2357,28 @@ class Column {
 
 		// All other types (strings, binary, etc.).
 		return "default ''";
+	}
+
+	/**
+	 * Return an escaped SQL DEFAULT clause for a literal value.
+	 *
+	 * Use the active connection's prepare implementation when available. The
+	 * fallback preserves standalone schema generation before WordPress has created
+	 * its database connection.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param mixed $value Literal default value.
+	 * @return string
+	 */
+	private function get_literal_default_sql( $value ): string {
+		$literal = $this->db()->prepare( '%s', $value );
+
+		if ( null === $literal ) {
+			$literal = "'" . addslashes( (string) $value ) . "'";
+		}
+
+		return "default {$literal}";
 	}
 
 	/**
@@ -2605,9 +2618,11 @@ class Column {
 			}
 		}
 
-		// Disallow null.
+		// Declare nullability explicitly for TIMESTAMP's legacy implicit rules.
 		if ( false === $this->allow_null ) {
 			$create[] = 'not null';
+		} elseif ( $this->is_type( 'timestamp' ) ) {
+			$create[] = 'null';
 		}
 
 		// Default.

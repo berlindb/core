@@ -456,16 +456,63 @@ trait Meta {
 		// Get the primary column name.
 		$primary = $this->get_primary_column_name();
 
-		/*
-		 * The meta table's object-id column is {meta_type}_{primary} (get_meta_type()
-		 * already prefixes / honors an explicit type, so it is not re-prefixed here). This
-		 * is equivalent to the old item-name derivation when the type is unset.
-		 */
-		$item_id_column  = $this->get_meta_type() . '_' . $primary;
+		$meta_type       = $this->get_meta_type();
+		$item_id_column  = '';
+		$meta_id_column  = '';
 		$item_id_pattern = $this->get_column_field( array( 'name' => $primary ), 'pattern', '%s' );
 
+		/*
+		 * A declared meta relationship supplies the object-ID column and the remote
+		 * schema supplies its primary key. Only use it when it describes the same
+		 * WordPress meta table that delete_metadata_by_mid() will delete from.
+		 */
+		$relationship = $this->get_relationship( 'meta' );
+		if (
+			( $relationship instanceof Relationship )
+			&& ( 'has_many' === $relationship->type )
+			&& ( array( $primary ) === $relationship->columns )
+			&& ( 1 === count( $relationship->references ) )
+		) {
+			$remote = $this->resolve_remote_query( $relationship );
+
+			if ( ( null !== $remote ) && ( $table === $remote->get_table_name() ) ) {
+				$reference      = $relationship->references[0];
+				$remote_primary = $remote->get_primary_column_name();
+
+				if (
+					( false !== $remote->get_column_by( array( 'name' => $reference ) ) )
+					&& ( false !== $remote->get_column_by( array( 'name' => $remote_primary ) ) )
+				) {
+					$item_id_column = $reference;
+					$meta_id_column = $remote_primary;
+				}
+			}
+		}
+
+		/*
+		 * Without a registered meta schema, leave column selection to WordPress.
+		 * Its metadata API knows the table's object and row ID columns, including
+		 * usermeta's umeta_id, so no SQL column names need to be guessed here.
+		 */
+		if ( ( '' === $item_id_column ) || ( '' === $meta_id_column ) ) {
+			// The legacy WordPress metadata API accepts integer object IDs only.
+			if ( ! is_int( $item_id ) ) {
+				return;
+			}
+
+			$meta = get_metadata( $meta_type, $item_id );
+
+			if ( is_array( $meta ) ) {
+				foreach ( array_keys( $meta ) as $key ) {
+					delete_metadata( $meta_type, $item_id, $key );
+				}
+			}
+
+			return;
+		}
+
 		// Get meta IDs.
-		$query    = "SELECT meta_id FROM {$table} WHERE {$item_id_column} = {$item_id_pattern}";
+		$query    = "SELECT {$meta_id_column} FROM {$table} WHERE {$item_id_column} = {$item_id_pattern}";
 		$prepared = $this->db()->prepare( $query, $item_id );
 		$meta_ids = $this->db()->get_col( $prepared );
 
@@ -473,9 +520,6 @@ trait Meta {
 		if ( empty( $meta_ids ) ) {
 			return;
 		}
-
-		// Get the meta type.
-		$meta_type = $this->get_meta_type();
 
 		// Delete all meta data for this item ID.
 		foreach ( $meta_ids as $mid ) {

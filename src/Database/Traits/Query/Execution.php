@@ -157,12 +157,18 @@ trait Execution {
 			&& empty( $this->get_query_var( 'explain' ) );
 		$cache_key     = $this->get_cache_key();
 		$last_changed  = $this->get_last_changed_cache();
+		$dependencies  = $this->get_relationship_cache_dependencies();
 		$cache_value   = ( true === $cache_results )
 			? $this->cache_get( $cache_key, $this->cache_group )
 			: false;
 
-		// Ignore results from an earlier cache generation.
-		if ( ! is_array( $cache_value ) || ! isset( $cache_value[ 'last_changed' ] ) || ( $last_changed !== $cache_value[ 'last_changed' ] ) ) {
+		// Ignore results from an earlier local or relationship cache generation.
+		if (
+			! is_array( $cache_value )
+			|| ! isset( $cache_value[ 'last_changed' ] )
+			|| ( $last_changed !== $cache_value[ 'last_changed' ] )
+			|| ( ( $cache_value[ 'dependencies' ] ?? array() ) !== $dependencies )
+		) {
 			$cache_value = false;
 		}
 
@@ -180,6 +186,7 @@ trait Execution {
 				'item_ids'     => $result,
 				'found_items'  => $this->get_current_int( 'found_items' ),
 				'last_changed' => $last_changed,
+				'dependencies' => $dependencies,
 			);
 
 			// Only store when caching is enabled for this query.

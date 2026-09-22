@@ -54,6 +54,7 @@ class PrimingSchema extends Schema {
 			'default'       => '',
 			'cache_key'     => true,
 			'in'            => true,
+			'sortable'      => true,
 			/*
 			 * A relationship pointing at a real class that is NOT a Query, to
 			 * exercise resolve_remote_query()'s instanceof guard (fails closed).
@@ -131,6 +132,19 @@ class PrimingQuery extends Query {
 	protected $item_name_plural = 'primings';
 	protected $item_shape       = PrimingRow::class;
 	protected $cache_group      = 'berlindb-priming';
+}
+
+/** Query fixture with a non-primary default sort order. */
+class PrimingAscendingQuery extends PrimingQuery {
+	protected function init(): void {
+		parent::init();
+		$this->set_query_var( 'orderby', 'status' );
+		$this->set_query_var( 'order', 'ASC' );
+	}
+
+	public function prime_children( int $parent_id ): void {
+		$this->prime_has_many( 'parent_id', array( $parent_id ) );
+	}
 }
 
 /**
@@ -558,12 +572,31 @@ class QueryRelationshipPrimingTest extends TestCase {
 	}
 
 	/**
-	 * Test that the 'in' strategy on a has_many relationship fails closed
+	 * Test that the explicit 'in' strategy on a has_many relationship fails closed
 	 * (unsupported), rather than ignoring the filter and returning all rows.
 	 *
 	 * @since 3.1.0
 	 */
 	public function test_relation_in_on_has_many_fails_closed() {
+		$results = self::$query->query(
+			array(
+				'relation' => array(
+					'name'     => 'children',
+					'where'    => array( 'status' => 'child' ),
+					'strategy' => 'in',
+				),
+			)
+		);
+
+		$this->assertSame( array(), $results );
+	}
+
+	/**
+	 * Test that a has_many filter defaults to its supported EXISTS strategy.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_relation_has_many_defaults_to_join_strategy() {
 		$results = self::$query->query(
 			array(
 				'relation' => array(
@@ -573,7 +606,69 @@ class QueryRelationshipPrimingTest extends TestCase {
 			)
 		);
 
-		$this->assertSame( array(), $results );
+		$this->assertCount( 1, $results );
+		$this->assertSame( $this->parent_id, (int) $results[0]->id );
+	}
+
+	/**
+	 * Test that priming preserves the default primary-key descending order.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_has_many_priming_preserves_cold_order() {
+		$newest_child_id = (int) self::$query->add_item(
+			array(
+				'status'    => 'child',
+				'parent_id' => $this->parent_id,
+			)
+		);
+
+		wp_cache_flush();
+		$parent = self::$query->get_item( $this->parent_id );
+		$cold   = wp_list_pluck( self::$query->get_related( $parent, 'children' ), 'id' );
+
+		wp_cache_flush();
+		$primed_query = new PrimingQuery(
+			array(
+				'id'   => $this->parent_id,
+				'with' => array( 'children' ),
+			)
+		);
+		$warm         = wp_list_pluck( $primed_query->get_related( $primed_query->items[0], 'children' ), 'id' );
+
+		$this->assertSame( array( $newest_child_id, $this->child_id ), array_map( 'intval', $cold ) );
+		$this->assertSame( $cold, $warm );
+	}
+
+	/** Priming honors a Query's configured default order beyond primary-key DESC. */
+	public function test_has_many_priming_preserves_custom_default_order() {
+		self::$query->add_item(
+			array(
+				'status'    => 'alpha',
+				'parent_id' => $this->parent_id,
+			)
+		);
+		self::$query->add_item(
+			array(
+				'status'    => 'zeta',
+				'parent_id' => $this->parent_id,
+			)
+		);
+
+		$query = new PrimingAscendingQuery();
+		wp_cache_flush();
+		$args = array(
+			'parent_id' => $this->parent_id,
+			'number'    => 0,
+		);
+		$cold = wp_list_pluck( $query->query( $args ), 'status' );
+
+		wp_cache_flush();
+		$query->prime_children( $this->parent_id );
+		$warm = wp_list_pluck( $query->query( $args ), 'status' );
+
+		$this->assertSame( array( 'alpha', 'child', 'zeta' ), $cold );
+		$this->assertSame( $cold, $warm );
 	}
 
 	// Relationship filtering - 'join' strategy (#193, Phase 5b).

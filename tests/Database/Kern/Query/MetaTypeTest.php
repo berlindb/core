@@ -17,7 +17,9 @@
 namespace BerlinDB\Tests;
 
 use BerlinDB\Tests\Fixtures\TestQuery;
+use BerlinDB\Tests\Fixtures\TestSchema;
 use BerlinDB\Tests\Fixtures\TestTable;
+use ReflectionMethod;
 use Yoast\WPTestUtils\WPIntegration\TestCase;
 
 /**
@@ -31,6 +33,87 @@ use Yoast\WPTestUtils\WPIntegration\TestCase;
 class MtqPostMetaQuery extends TestQuery {
 	protected $item_name = 'mtq_namespaced_post';
 	protected $meta_type = 'post';
+}
+
+/**
+ * Simulate a query whose primary key differs from WordPress's commentmeta object ID.
+ *
+ * @since 3.1.0
+ */
+class MtqCommentSchema extends TestSchema {
+	public $columns = array(
+		array(
+			'name'     => 'comment_ID',
+			'type'     => 'bigint',
+			'length'   => '20',
+			'unsigned' => true,
+			'primary'  => true,
+		),
+	);
+}
+
+/** @since 3.1.0 */
+class MtqCommentMetaQuery extends TestQuery {
+	protected $table_schema = MtqCommentSchema::class;
+	protected $meta_type    = 'comment';
+}
+
+/** @since 3.1.0 */
+class MtqUserMetaSchema extends TestSchema {
+	public $columns = array(
+		array(
+			'name'     => 'umeta_id',
+			'type'     => 'bigint',
+			'length'   => '20',
+			'unsigned' => true,
+			'primary'  => true,
+		),
+		array(
+			'name'     => 'user_id',
+			'type'     => 'bigint',
+			'length'   => '20',
+			'unsigned' => true,
+		),
+	);
+}
+
+/** @since 3.1.0 */
+class MtqUserMetaTableQuery extends TestQuery {
+	protected $prefix       = '';
+	protected $table_name   = 'usermeta';
+	protected $table_schema = MtqUserMetaSchema::class;
+}
+
+/** @since 3.1.0 */
+class MtqUserSchema extends TestSchema {
+	public $columns = array(
+		array(
+			'name'          => 'id',
+			'type'          => 'bigint',
+			'length'        => '20',
+			'unsigned'      => true,
+			'primary'       => true,
+			'relationships' => array(
+				array(
+					'query'  => MtqUserMetaTableQuery::class,
+					'column' => 'user_id',
+					'type'   => 'has_many',
+					'name'   => 'meta',
+				),
+			),
+		),
+	);
+}
+
+/** @since 3.1.0 */
+class MtqUserMetaQuery extends TestQuery {
+	protected $table_schema = MtqUserSchema::class;
+	protected $meta_type    = 'user';
+}
+
+/** @since 3.1.0 */
+class MtqBareUserMetaQuery extends TestQuery {
+	protected $meta_type = 'user';
 }
 
 /**
@@ -128,5 +211,54 @@ class MetaTypeTest extends TestCase {
 
 		// If delete_all_item_meta queried the wrong column, the meta would survive.
 		$this->assertSame( '', get_metadata( 'post', $id, 'keep_me', true ) );
+	}
+
+	/** A comment's comment_ID primary key must resolve to commentmeta.comment_id. */
+	public function test_comment_meta_cleanup_uses_wordpress_object_id_column(): void {
+		$id = 987654321;
+		add_metadata( 'comment', $id, 'berlindb_cleanup_probe', 'present' );
+
+		( new ReflectionMethod( MtqCommentMetaQuery::class, 'delete_all_item_meta' ) )
+			->invoke( new MtqCommentMetaQuery(), $id );
+
+		$this->assertSame( '', get_metadata( 'comment', $id, 'berlindb_cleanup_probe', true ) );
+	}
+
+	/** User cleanup gets umeta_id from the declared remote schema. */
+	public function test_user_meta_cleanup_selects_umeta_id(): void {
+		global $wpdb;
+
+		$id = 987654322;
+		add_metadata( 'user', $id, 'berlindb_cleanup_probe', 'present' );
+
+		$queries = array();
+		$capture = static function ( $sql ) use ( &$queries ) {
+			$queries[] = $sql;
+			return $sql;
+		};
+
+		add_filter( 'query', $capture );
+		try {
+			( new ReflectionMethod( MtqUserMetaQuery::class, 'delete_all_item_meta' ) )
+				->invoke( new MtqUserMetaQuery(), $id );
+		} finally {
+			remove_filter( 'query', $capture );
+		}
+
+		$this->assertStringContainsString( "SELECT umeta_id FROM {$wpdb->usermeta} WHERE user_id =", implode( "\n", $queries ) );
+		$this->assertSame( '', get_metadata( 'user', $id, 'berlindb_cleanup_probe', true ) );
+	}
+
+	/** User cleanup without a meta relationship delegates column selection to WordPress. */
+	public function test_user_meta_cleanup_without_meta_relationship(): void {
+		$id = 987654323;
+		add_metadata( 'user', $id, 'berlindb_cleanup_probe', 'first' );
+		add_metadata( 'user', $id, 'berlindb_cleanup_probe', 'second' );
+		add_metadata( 'user', $id, 'berlindb_cleanup_other', 'third' );
+
+		( new ReflectionMethod( MtqBareUserMetaQuery::class, 'delete_all_item_meta' ) )
+			->invoke( new MtqBareUserMetaQuery(), $id );
+
+		$this->assertSame( array(), get_metadata( 'user', $id ) );
 	}
 }
