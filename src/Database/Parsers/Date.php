@@ -716,10 +716,13 @@ class Date extends Base {
 					 */
 				if ( ! $value_is_operand ) {
 					if ( is_array( $value ) ) {
-						$value = array_map(
-							static fn( $item ) => ( 0 === $item || '0' === $item ) ? '0000-00-00 00:00:00' : $item,
-							array_values( $value )
-						);
+						$value = array_values( $value );
+
+						foreach ( $value as $index => $item ) {
+							if ( 0 === $item || '0' === $item ) {
+								$value[ $index ] = '0000-00-00 00:00:00';
+							}
+						}
 					} elseif ( 0 === $value || '0' === $value ) {
 						// MySQL rejects a bare '0' in a DATETIME comparison.
 						$value = '0000-00-00 00:00:00';
