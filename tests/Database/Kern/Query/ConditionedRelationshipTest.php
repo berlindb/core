@@ -147,6 +147,39 @@ class CrMalformedOwnerSchema extends CrOwnerSchema {
 	);
 }
 
+/** Owner whose notes exclude one object type through a fixed comparison. */
+class CrComparedOwnerSchema extends CrOwnerSchema {
+	public $columns = array(
+		array(
+			'name'          => 'id',
+			'type'          => 'bigint',
+			'length'        => '20',
+			'unsigned'      => true,
+			'extra'         => 'auto_increment',
+			'primary'       => true,
+			'relationships' => array(
+				array(
+					'name'      => 'notes',
+					'query'     => CrNoteQuery::class,
+					'column'    => 'object_id',
+					'type'      => 'has_many',
+					'condition' => array(
+						'object_type' => array(
+							'compare' => '!=',
+							'value'   => 'task',
+						),
+					),
+				),
+			),
+		),
+		array(
+			'name'   => 'name',
+			'type'   => 'varchar',
+			'length' => '50',
+		),
+	);
+}
+
 /** Polymorphic note: object_id + object_type point at different parent types. */
 class CrNoteSchema extends Schema {
 	public $columns = array(
@@ -245,6 +278,10 @@ class CrEmptyListOwnerQuery extends CrOwnerQuery {
 
 class CrMalformedOwnerQuery extends CrOwnerQuery {
 	protected $table_schema = CrMalformedOwnerSchema::class;
+}
+
+class CrComparedOwnerQuery extends CrOwnerQuery {
+	protected $table_schema = CrComparedOwnerSchema::class;
 }
 
 class CrBadOwnerQuery extends Query {
@@ -346,6 +383,13 @@ class ConditionedRelationshipTest extends TestCase {
 						1 => 'owner',
 						3 => 'task',
 					),
+					'excluded'    => array(
+						'compare' => 'not in',
+						'value'   => array(
+							1 => 'task',
+							3 => 'other',
+						),
+					),
 				),
 			)
 		);
@@ -355,6 +399,10 @@ class ConditionedRelationshipTest extends TestCase {
 			array(
 				'object_type' => 'owner',
 				'allowed'     => array( 'owner', 'task' ),
+				'excluded'    => array(
+					'compare' => 'NOT IN',
+					'value'   => array( 'task', 'other' ),
+				),
 			),
 			$rel->get_condition()
 		);
@@ -368,6 +416,18 @@ class ConditionedRelationshipTest extends TestCase {
 			array(
 				'object_type' => 'owner',
 				42            => 'skip',
+			),
+			array(
+				'object_type' => array(
+					'compare' => 'bogus',
+					'value'   => 'owner',
+				),
+			),
+			array(
+				'object_type' => array(
+					'compare' => 'NOT IN',
+					'value'   => array(),
+				),
 			),
 			array( 'relation' => 'OR' ),
 			'owner',
@@ -546,6 +606,59 @@ class ConditionedRelationshipTest extends TestCase {
 					'relation' => array( 'name' => 'notes' ),
 					'fields'   => 'ids',
 					'number'   => 0,
+				)
+			)
+		);
+	}
+
+	/** Explicit comparisons scope both relationship access paths. */
+	public function test_comparison_condition_scopes_traversal_and_filter(): void {
+		$owners      = new CrComparedOwnerQuery();
+		$notes       = new CrNoteQuery();
+		$matching_id = (int) $owners->add_item( array( 'name' => 'Matching' ) );
+		$other_id    = (int) $owners->add_item( array( 'name' => 'Other' ) );
+
+		foreach (
+			array(
+				array(
+					'id'   => $matching_id,
+					'type' => 'owner',
+				),
+				array(
+					'id'   => $matching_id,
+					'type' => 'task',
+				),
+				array(
+					'id'   => $other_id,
+					'type' => 'task',
+				),
+			) as $note
+		) {
+			$notes->add_item(
+				array(
+					'object_id'   => $note[ 'id' ],
+					'object_type' => $note[ 'type' ],
+					'body'        => $note[ 'type' ],
+				)
+			);
+		}
+
+		wp_cache_flush();
+
+		$related = $owners->get_related( $owners->get_item( $matching_id ), 'notes' );
+		$this->assertCount( 1, $related );
+		$this->assertSame( 'owner', reset( $related )->body );
+		$this->assertSame( array(), $owners->get_related( $owners->get_item( $other_id ), 'notes' ) );
+		$this->assertSame(
+			array( $matching_id ),
+			array_map(
+				'intval',
+				(array) $owners->query(
+					array(
+						'relation' => array( 'name' => 'notes' ),
+						'fields'   => 'ids',
+						'number'   => 0,
+					)
 				)
 			)
 		);

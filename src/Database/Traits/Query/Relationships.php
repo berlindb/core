@@ -397,17 +397,35 @@ trait Relationships {
 		 * A conditioned relationship scopes the related rows by a fixed discriminator
 		 * (e.g. object_type => 'order'). It rides the canonical {column}__in var, whose
 		 * suffix means it can never be mistaken for a reserved control var and never
-		 * overwrites the FK correlation key. That path is in-filter based, so fail closed
-		 * on any condition column that is unknown OR not `in => true` - a typo (or a
-		 * missing flag) must not widen to all rows.
+		 * overwrites the FK correlation key. Explicit binary comparisons use the
+		 * remote compare_query instead. Unknown columns and scalar/list conditions
+		 * without `in => true` fail closed.
 		 */
 		if ( $relationship->has_condition() ) {
+			$compares = array();
+
 			foreach ( $relationship->get_condition() as $condition_col => $condition_value ) {
 				// An empty IN list matches no related rows.
 				if ( array() === $condition_value ) {
 					return ( 'has_many' === $relationship->type )
 						? array()
 						: null;
+				}
+
+				// Explicit comparisons use compare_query on the remote Query.
+				if ( is_array( $condition_value ) && isset( $condition_value[ 'compare' ], $condition_value[ 'value' ] ) ) {
+					if ( empty( $remote->get_columns( array( 'name' => $condition_col ) ) ) ) {
+						return ( 'has_many' === $relationship->type )
+							? array()
+							: null;
+					}
+
+					$compares[] = array(
+						'key'     => $condition_col,
+						'compare' => $condition_value[ 'compare' ],
+						'value'   => $condition_value[ 'value' ],
+					);
+					continue;
 				}
 
 				if ( empty(
@@ -426,6 +444,10 @@ trait Relationships {
 				$key[ "{$condition_col}__in" ] = is_array( $condition_value )
 					? $condition_value
 					: array( $condition_value );
+			}
+
+			if ( ! empty( $compares ) ) {
+				$key[ 'compare_query' ] = $compares;
 			}
 		}
 

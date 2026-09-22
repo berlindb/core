@@ -122,6 +122,14 @@ class Relationship {
 	 */
 	private const INVALID_CONDITION = array( '' => array() );
 
+	/**
+	 * Binary comparisons supported by relationship SQL and compare_query.
+	 *
+	 * @since 3.1.0
+	 * @var   list<string>
+	 */
+	private const CONDITION_COMPARES = array( '=', '!=', '>', '>=', '<', '<=', 'LIKE', 'NOT LIKE', 'REGEXP', 'NOT REGEXP', 'RLIKE', 'IN', 'NOT IN', 'BETWEEN', 'NOT BETWEEN' );
+
 	/** Attributes ************************************************************/
 
 	/**
@@ -282,14 +290,15 @@ class Relationship {
 	 * encode a discriminator, so it is never enforced - init() drops any `enforce`
 	 * (see is_foreign_key()). Supported on belongs_to / has_many (single-hop and nested);
 	 * a condition on a many_to_many is rejected (get_validation_errors()). For the
-	 * query-var traversal, a condition column must be queryable on the remote
-	 * (declare `in => true`); join / EXISTS paths render raw SQL and need no flag.
+	 * query-var traversal, scalar and list conditions require `in => true` on the
+	 * remote column; explicit comparison descriptors use compare_query instead.
+	 * Join / EXISTS paths render raw SQL and need no flag.
 	 * An unknown condition column fails closed everywhere. A scalar matches by
 	 * equality; a list of scalars matches with IN (an empty list matches nothing).
-	 * Other operators remain unsupported.
+	 * A descriptor with `compare` and `value` selects a binary operator.
 	 *
 	 * @since 3.1.0
-	 * @var   array<string,scalar|list<scalar>> Default empty array.
+	 * @var   array<string,scalar|list<scalar>|array{compare:string,value:scalar|list<scalar>}> Default empty array.
 	 */
 	protected $condition = array();
 
@@ -404,7 +413,7 @@ class Relationship {
 	 *
 	 * @since 3.1.0
 	 *
-	 * @return array<string,scalar|list<scalar>> Map of column => value (empty when unconditioned).
+	 * @return array<string,scalar|list<scalar>|array{compare:string,value:scalar|list<scalar>}> Map of column => value (empty when unconditioned).
 	 */
 	public function get_condition(): array {
 		return $this->condition;
@@ -748,14 +757,14 @@ class Relationship {
 	 * Sanitize a relationship condition into a column => scalar or list map.
 	 *
 	 * Each key must sanitize to a valid column name (it renders into SQL as an
-	 * identifier) and each value must be a scalar or a list of scalars
-	 * (escaped via prepare() at render time). Numeric-key lists are reindexed; any
-	 * malformed entry makes the whole condition fail closed.
+	 * identifier) and each value must be a scalar, a list of scalars, or a binary
+	 * comparison descriptor. Numeric-key lists are reindexed; any malformed entry
+	 * makes the whole condition fail closed.
 	 *
 	 * @since 3.1.0
 	 *
 	 * @param mixed $condition The raw condition config.
-	 * @return array<string,scalar|list<scalar>> Map of column => value.
+	 * @return array<string,scalar|list<scalar>|array{compare:string,value:scalar|list<scalar>}> Map of column => value.
 	 */
 	private function sanitize_condition( $condition = array() ): array {
 
@@ -788,6 +797,55 @@ class Relationship {
 
 			if ( ! is_array( $value ) ) {
 				return self::INVALID_CONDITION;
+			}
+
+			// A descriptor selects the same binary operator in both access paths.
+			if ( array_key_exists( 'compare', $value ) || array_key_exists( 'value', $value ) ) {
+				if (
+					( 2 !== count( $value ) )
+					|| ! isset( $value[ 'compare' ], $value[ 'value' ] )
+					|| ! is_string( $value[ 'compare' ] )
+				) {
+					return self::INVALID_CONDITION;
+				}
+
+				$compare = strtoupper( trim( $value[ 'compare' ] ) );
+				$operand = $value[ 'value' ];
+
+				if ( ! in_array( $compare, self::CONDITION_COMPARES, true ) ) {
+					return self::INVALID_CONDITION;
+				}
+
+				$list_compare = in_array( $compare, array( 'IN', 'NOT IN', 'BETWEEN', 'NOT BETWEEN' ), true );
+
+				if ( true === $list_compare ) {
+					if ( ! is_array( $operand ) ) {
+						return self::INVALID_CONDITION;
+					}
+
+					$list = array();
+					foreach ( $operand as $key => $item ) {
+						if ( ! is_int( $key ) || ! is_scalar( $item ) ) {
+							return self::INVALID_CONDITION;
+						}
+
+						$list[] = $item;
+					}
+
+					if ( empty( $list ) || ( in_array( $compare, array( 'BETWEEN', 'NOT BETWEEN' ), true ) && ( 2 !== count( $list ) ) ) ) {
+						return self::INVALID_CONDITION;
+					}
+
+					$operand = $list;
+				} elseif ( ! is_scalar( $operand ) ) {
+					return self::INVALID_CONDITION;
+				}
+
+				$retval[ $name ] = array(
+					'compare' => $compare,
+					'value'   => $operand,
+				);
+				continue;
 			}
 
 			$list = array();
