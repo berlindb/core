@@ -3,8 +3,8 @@
  * Enforced foreign-key DDL emission (#205 / #193 Phase 5).
  *
  * An enforced belongs_to relationship now emits a FOREIGN KEY fragment - inside
- * CREATE TABLE (Schema::get_create_table_string( true )) and as a reusable list
- * (get_foreign_key_strings()), with the remote table resolved from the remote
+ * CREATE TABLE via Table::create() and as a reusable list
+ * (Schema::get_foreign_key_strings()), with the remote table resolved from the remote
  * Query class. These are integration tests: resolving the remote name needs the
  * remote table registered on $wpdb, which constructing a TestTable does.
  *
@@ -148,21 +148,14 @@ class SchemaForeignKeyTest extends TestCase {
 	}
 
 	/**
-	 * CREATE TABLE includes the enforced foreign key when opted in.
+	 * The released CREATE TABLE method remains a zero-argument extension point.
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_create_table_string_includes_the_foreign_key_when_opted_in() {
-		$schema = $this->schema_with_relationship( true );
-		$sql    = $schema->get_create_table_string( true );
+	public function test_create_table_string_keeps_its_released_signature() {
+		$method = new \ReflectionMethod( Schema::class, 'get_create_table_string' );
 
-		$this->assertSame(
-			$schema->get_create_table_string() . ",\n" . implode( ",\n", $schema->get_foreign_key_strings() ),
-			$sql
-		);
-
-		$this->assertStringContainsString( 'FOREIGN KEY', $sql );
-		$this->assertStringContainsString( '`widget_id`', $sql );
+		$this->assertSame( 0, $method->getNumberOfParameters() );
 	}
 
 	/**

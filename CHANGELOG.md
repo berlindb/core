@@ -9,9 +9,9 @@ Notable changes to BerlinDB are documented here.
   `get_filtered_columns()`, and `get_filtered_indexes()`; each filters the result of
   its released accessor, with a Query fallback for schemas exposing only
   `get_columns()`. `get_create_table_string()` uses a private
-  `get_create_table_array()` builder and accepts an optional foreign-key flag.
-  Subclasses overriding this 3.0 method must add `bool $with_foreign_keys = false`
-  to their signature.
+  `get_create_table_strings()` builder and retains its released zero-argument
+  signature. `Table::create()` appends enforced foreign keys in inline mode, so
+  existing Schema overrides remain compatible.
   Column compatibility is limited to APIs predating 3.0: `is_numeric()` retains
   its parameterless signature, with explicit type checks on `is_numeric_type()`,
   and `validate_datetime()`, `validate_decimal()`, and `validate_uuid()` remain

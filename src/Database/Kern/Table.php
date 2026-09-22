@@ -403,12 +403,20 @@ class Table implements Installable {
 		 * Get the "CREATE TABLE" string. Foreign keys are deferred to
 		 * add_foreign_keys() by default; emit them inline only when opted in.
 		 */
-		$inline_foreign_keys = ( 'inline' === $this->foreign_keys );
-		$create_table_string = $this->schema_object->get_create_table_string( $inline_foreign_keys );
+		$create_table_string = $this->schema_object->get_create_table_string();
 
 		// Bail if no create string.
 		if ( empty( $create_table_string ) ) {
 			return false;
+		}
+
+		// Append enforced constraints only when this table opts into inline keys.
+		if ( ( 'inline' === $this->foreign_keys ) && is_callable( array( $this->schema_object, 'get_foreign_key_strings' ) ) ) {
+			$foreign_key_strings = $this->schema_object->get_foreign_key_strings();
+
+			if ( ! empty( $foreign_key_strings ) ) {
+				$create_table_string .= ",\n" . implode( ",\n", $foreign_key_strings );
+			}
 		}
 
 		// Required parts (TEMPORARY when this is a session-scoped table).

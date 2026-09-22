@@ -1620,28 +1620,24 @@ class Schema {
 	 * independently and in no guaranteed order, so a FK inside CREATE TABLE would
 	 * reference a table that may not exist yet (and MySQL would reject the whole
 	 * create), and two tables could never reference each other. Enforced keys are
-	 * therefore added AFTER the tables exist, via Table::add_foreign_keys(). Pass
-	 * $with_foreign_keys = true only when you control install order and want the
-	 * constraints inline.
+	 * therefore added AFTER the tables exist, via Table::add_foreign_keys().
+	 * Table::create() appends get_foreign_key_strings() in inline mode.
 	 *
 	 * @since 3.0.0
-	 * @since 3.1.0 Added the optional foreign-key flag.
 	 *
-	 * @param bool $with_foreign_keys Include enforced foreign keys inline.
 	 * @return string SQL body string, or empty string if invalid or empty.
 	 */
-	public function get_create_table_string( bool $with_foreign_keys = false ) {
-		return implode( ",\n", $this->get_create_table_array( $with_foreign_keys ) );
+	public function get_create_table_string() {
+		return implode( ",\n", $this->get_create_table_strings() );
 	}
 
 	/**
 	 * Build the validated CREATE TABLE body fragments.
 	 *
 	 * @since 3.1.0
-	 * @param bool $with_foreign_keys Include enforced foreign-key fragments.
 	 * @return string[] Non-empty SQL fragments, or an empty array if invalid.
 	 */
-	private function get_create_table_array( bool $with_foreign_keys = false ): array {
+	private function get_create_table_strings(): array {
 
 		// Bail if schema has validation errors.
 		if ( ! $this->is_valid() ) {
@@ -1654,11 +1650,6 @@ class Schema {
 			$this->get_items_create_string( 'indexes' ),
 		);
 
-		// Foreign keys only when the caller controls installation order.
-		if ( true === $with_foreign_keys ) {
-			$strings = array_merge( $strings, $this->get_foreign_key_strings() );
-		}
-
 		return array_values( array_filter( $strings ) );
 	}
 
@@ -1666,10 +1657,9 @@ class Schema {
 	 * Return the FOREIGN KEY fragments for this schema's enforced relationships.
 	 *
 	 * One fragment per enforced, owning-side (belongs_to) relationship, each with
-	 * its remote table resolved from the relationship's remote Query class. Shared
-	 * by get_create_table_array() (emitted inside CREATE TABLE) and
-	 * Table::add_foreign_keys() (emitted as ALTER TABLE ADD). Empty when nothing is
-	 * enforced. Non-enforced relationships stay application-level and emit nothing.
+	 * its remote table resolved from the relationship's remote Query class. Used
+	 * by Table::create() in inline mode and Table::add_foreign_keys() in deferred
+	 * mode. Non-enforced relationships emit nothing.
 	 *
 	 * @since 3.1.0
 	 *

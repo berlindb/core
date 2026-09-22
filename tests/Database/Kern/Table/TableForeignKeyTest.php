@@ -110,6 +110,21 @@ class FkInlineChildTable extends FkChildTable {
 	protected $foreign_keys = 'inline';
 }
 
+/** Released Schema override signature, still used by inline table creation. */
+class FkLegacySignatureChildSchema extends FkChildSchema {
+	public static $called = false;
+
+	public function get_create_table_string() {
+		self::$called = true;
+		return parent::get_create_table_string();
+	}
+}
+
+/** Inline table that uses a Schema subclass with the released method signature. */
+class FkLegacySignatureInlineChildTable extends FkInlineChildTable {
+	protected $schema = FkLegacySignatureChildSchema::class;
+}
+
 /**
  * Runtime integration tests for Table::add_foreign_keys().
  *
@@ -195,8 +210,11 @@ class TableForeignKeyTest extends TestCase {
 	 * @since 3.1.0
 	 */
 	public function test_inline_creation_emits_foreign_keys(): void {
-		$table   = new FkInlineChildTable();
-		$sql     = '';
+		$table = new FkLegacySignatureInlineChildTable();
+		$sql   = '';
+
+		FkLegacySignatureChildSchema::$called = false;
+
 		$capture = static function ( $query ) use ( &$sql ) {
 			if ( 0 === strpos( $query, 'CREATE ' ) ) {
 				$sql = $query;
@@ -210,6 +228,7 @@ class TableForeignKeyTest extends TestCase {
 		} finally {
 			remove_filter( 'query', $capture );
 		}
+		$this->assertTrue( FkLegacySignatureChildSchema::$called );
 		$this->assertStringContainsString( 'FOREIGN KEY', $sql );
 		$this->assertStringContainsString( '`parent_id`', $sql );
 	}
