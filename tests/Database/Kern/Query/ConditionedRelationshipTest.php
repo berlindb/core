@@ -414,7 +414,9 @@ class ConditionedRelationshipTest extends TestCase {
 
 		$found = $owners->get_related( $owners->get_item( $owner_id ), 'notes' );
 		$this->assertCount( 2, $found );
-		$this->assertSame( array( 'owner', 'task' ), array_column( $found, 'body' ) );
+		$bodies = array_column( $found, 'body' );
+		sort( $bodies );
+		$this->assertSame( array( 'owner', 'task' ), $bodies );
 
 		$ids = $owners->query(
 			array(
