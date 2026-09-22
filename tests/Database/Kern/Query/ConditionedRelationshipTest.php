@@ -119,6 +119,34 @@ class CrEmptyListOwnerSchema extends CrOwnerSchema {
 	);
 }
 
+/** Owner whose malformed fixed condition must never become unscoped. */
+class CrMalformedOwnerSchema extends CrOwnerSchema {
+	public $columns = array(
+		array(
+			'name'          => 'id',
+			'type'          => 'bigint',
+			'length'        => '20',
+			'unsigned'      => true,
+			'extra'         => 'auto_increment',
+			'primary'       => true,
+			'relationships' => array(
+				array(
+					'name'      => 'notes',
+					'query'     => CrNoteQuery::class,
+					'column'    => 'object_id',
+					'type'      => 'has_many',
+					'condition' => array( 'object_type' => array( 'first' => 'owner' ) ),
+				),
+			),
+		),
+		array(
+			'name'   => 'name',
+			'type'   => 'varchar',
+			'length' => '50',
+		),
+	);
+}
+
 /** Polymorphic note: object_id + object_type point at different parent types. */
 class CrNoteSchema extends Schema {
 	public $columns = array(
@@ -215,6 +243,10 @@ class CrEmptyListOwnerQuery extends CrOwnerQuery {
 	protected $table_schema = CrEmptyListOwnerSchema::class;
 }
 
+class CrMalformedOwnerQuery extends CrOwnerQuery {
+	protected $table_schema = CrMalformedOwnerSchema::class;
+}
+
 class CrBadOwnerQuery extends Query {
 	protected $prefix       = 'cr';
 	protected $table_name   = 'bad_owners';
@@ -299,7 +331,7 @@ class ConditionedRelationshipTest extends TestCase {
 		wp_cache_flush();
 	}
 
-	/** Value object: a condition is sanitized and exposed. */
+	/** Value object: numeric-key condition lists are reindexed and exposed. */
 	public function test_condition_is_sanitized_and_exposed(): void {
 		$rel = new Relationship(
 			array(
@@ -310,9 +342,10 @@ class ConditionedRelationshipTest extends TestCase {
 				'type'       => 'has_many',
 				'condition'  => array(
 					'object_type' => 'owner',
-					'allowed'     => array( 'owner', 'task' ),  // kept: scalar list
-					'bad_value'   => array( array( 'nested' ) ), // dropped: non-scalar list
-					42            => 'skip',                    // dropped: non-string key
+					'allowed'     => array(
+						1 => 'owner',
+						3 => 'task',
+					),
 				),
 			)
 		);
@@ -325,6 +358,37 @@ class ConditionedRelationshipTest extends TestCase {
 			),
 			$rel->get_condition()
 		);
+	}
+
+	/** Malformed condition entries keep the relationship scoped to no rows. */
+	public function test_malformed_condition_is_rejected(): void {
+		$invalid = array(
+			array( 'object_type' => array( 'first' => 'owner' ) ),
+			array( 'object_type' => array( 'owner', array( 'nested' ) ) ),
+			array(
+				'object_type' => 'owner',
+				42            => 'skip',
+			),
+			array( 'relation' => 'OR' ),
+			'owner',
+		);
+
+		foreach ( $invalid as $condition ) {
+			$rel = new Relationship(
+				array(
+					'name'       => 'notes',
+					'query'      => CrNoteQuery::class,
+					'columns'    => array( 'id' ),
+					'references' => array( 'object_id' ),
+					'type'       => 'has_many',
+					'condition'  => $condition,
+				)
+			);
+
+			$this->assertTrue( $rel->has_condition() );
+			$this->assertSame( array( '' => array() ), $rel->get_condition() );
+			$this->assertContains( 'Relationship notes declares a malformed condition.', $rel->get_validation_errors() );
+		}
 	}
 
 	/** Value object: a conditioned relationship can never be a FOREIGN KEY. */
@@ -432,6 +496,35 @@ class ConditionedRelationshipTest extends TestCase {
 	/** Empty IN conditions fail closed for both relationship access paths. */
 	public function test_empty_list_condition_matches_nothing(): void {
 		$owners   = new CrEmptyListOwnerQuery();
+		$notes    = new CrNoteQuery();
+		$owner_id = (int) $owners->add_item( array( 'name' => 'Acme' ) );
+
+		$notes->add_item(
+			array(
+				'object_id'   => $owner_id,
+				'object_type' => 'owner',
+				'body'        => 'present',
+			)
+		);
+
+		wp_cache_flush();
+
+		$this->assertSame( array(), $owners->get_related( $owners->get_item( $owner_id ), 'notes' ) );
+		$this->assertSame(
+			array(),
+			$owners->query(
+				array(
+					'relation' => array( 'name' => 'notes' ),
+					'fields'   => 'ids',
+					'number'   => 0,
+				)
+			)
+		);
+	}
+
+	/** A malformed condition must not expose rows through traversal or filtering. */
+	public function test_malformed_condition_fails_closed(): void {
+		$owners   = new CrMalformedOwnerQuery();
 		$notes    = new CrNoteQuery();
 		$owner_id = (int) $owners->add_item( array( 'name' => 'Acme' ) );
 
