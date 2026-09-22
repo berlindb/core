@@ -190,7 +190,7 @@ class Relationship extends Base {
 		$relation = $query_vars[ 'relation' ] ?? null;
 
 		// Nothing to do without a relation directive.
-		if ( empty( $relation ) ) {
+		if ( empty( $relation ) || $caller->is_query_var_default_value( $relation ) ) {
 			return $query_vars;
 		}
 
@@ -682,7 +682,7 @@ class Relationship extends Base {
 		 * (belongs_to) or the correlated EXISTS WHERE, constraining matches without widening.
 		 */
 		$fixed = $relationship->has_condition()
-			? $this->build_conditions( $remote, $alias, $relationship->get_condition() )
+			? $this->build_conditions( $remote, $alias, $relationship->get_condition(), true )
 			: '';
 
 		if ( false === $fixed ) {
@@ -1033,7 +1033,7 @@ class Relationship extends Base {
 
 		// A conditioned hop scopes its subquery too (fails closed on an unknown column).
 		$fixed = $relationship->has_condition()
-			? $this->build_conditions( $remote, $remote_alias, $relationship->get_condition() )
+			? $this->build_conditions( $remote, $remote_alias, $relationship->get_condition(), true )
 			: '';
 
 		if ( false === $fixed ) {
@@ -1146,15 +1146,20 @@ class Relationship extends Base {
 	 * @param Query               $remote The remote query whose schema owns the columns.
 	 * @param string              $alias  The remote table alias.
 	 * @param array<string,mixed> $conds  Column => condition map (+ optional 'relation' and nested subgroups).
+	 * @param bool                $fixed  Whether every key names a fixed condition column.
 	 * @return string|false The combined WHERE group (or '' if none), or false on an unknown column.
 	 */
-	private function build_conditions( Query $remote, string $alias, array $conds ): string|false {
+	private function build_conditions( Query $remote, string $alias, array $conds, bool $fixed = false ): string|false {
 
-		// Extract the boolean relation for this group ('AND' default, or 'OR').
-		$relation = $this->get_clause_relation( $conds );
+		// Fixed conditions treat every key as a column, including 'relation'.
+		$relation = $fixed
+			? 'AND'
+			: $this->get_clause_relation( $conds );
 
-		// 'relation' is a directive, not a column condition.
-		unset( $conds[ 'relation' ] );
+		if ( ! $fixed ) {
+			// 'relation' is a directive in caller-supplied condition groups.
+			unset( $conds[ 'relation' ] );
+		}
 
 		$where = array();
 
