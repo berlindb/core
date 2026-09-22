@@ -535,12 +535,14 @@ class DateParserTest extends TestCase {
 	}
 
 	/**
-	 * Test that 0 is a REAL value ( midnight / 0000 ), not "forget me": it renders a
-	 * concrete comparison ( which happens to match no fixture row ).
+	 * Test that 0 is a real zero-date value, not "forget me". A bare '0' is
+	 * rejected in DATETIME comparisons on MySQL 8, including in an IN list.
 	 *
 	 * @since 3.1.0
 	 */
 	public function test_value_zero_is_a_real_value() {
+		global $wpdb;
+
 		$sql = $this->date_query_sql(
 			array(
 				'column'  => 'date_created',
@@ -549,7 +551,44 @@ class DateParserTest extends TestCase {
 			)
 		);
 
-		$this->assertStringContainsString( "`date_created` = '0'", $sql );
+		$this->assertStringContainsString( "`date_created` = '0000-00-00 00:00:00'", $sql );
+		$this->assertSame( '', $wpdb->last_error );
+
+		$sql = $this->date_query_sql(
+			array(
+				'column'  => 'date_created',
+				'value'   => array( '0' ),
+				'compare' => 'IN',
+			)
+		);
+
+		$this->assertStringContainsString( "'0000-00-00 00:00:00'", $sql );
+		$this->assertSame( '', $wpdb->last_error );
+
+		$wpdb->update(
+			self::$query->get_table_name(),
+			array( 'date_created' => '0000-00-00 00:00:00' ),
+			array( 'id' => $this->ids[0] ),
+			array( '%s' ),
+			array( '%d' )
+		);
+		wp_cache_flush();
+
+		$results = self::$query->query(
+			array(
+				'date_query'    => array(
+					array(
+						'column' => 'date_created',
+						'value'  => 0,
+					),
+				),
+				'cache_results' => false,
+			)
+		);
+
+		$this->assertCount( 1, $results );
+		$this->assertSame( (string) $this->ids[0], (string) $results[0]->id );
+		$this->assertSame( '', $wpdb->last_error );
 	}
 
 	/**

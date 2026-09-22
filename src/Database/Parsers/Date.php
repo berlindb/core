@@ -700,7 +700,7 @@ class Date extends Base {
 			 * non-unary operator - the same intent every date-part key honors via
 			 * build_numeric_value() ( which bails on null and filters out non-numeric
 			 * values ), and the WP_Date_Query contract. A real value ( a datetime
-			 * string, 0 = midnight / 0000, or '' ) is processed. A unary operator
+			 * string, 0 = the zero date, or '' ) is processed. A unary operator
 			 * ( IS NULL / IS NOT NULL, opted into with `value => null` ) renders
 			 * value-less regardless.
 			 */
@@ -711,13 +711,21 @@ class Date extends Base {
 					$value        = $clause[ 'value' ];
 
 					/*
-					 * Normalize a non-operand value exactly as the former build_value()
-					 * did, so the migrated branch stays byte-identical: reindex arrays,
-					 * stringify floats, and coerce bool / object / null to null.
+					 * Normalize non-operand values: reindex arrays, expand the zero-date
+					 * shorthand, stringify floats, and coerce other types to null.
 					 */
 				if ( ! $value_is_operand ) {
 					if ( is_array( $value ) ) {
 						$value = array_values( $value );
+
+						foreach ( $value as $index => $item ) {
+							if ( 0 === $item || '0' === $item ) {
+								$value[ $index ] = '0000-00-00 00:00:00';
+							}
+						}
+					} elseif ( 0 === $value || '0' === $value ) {
+						// MySQL rejects a bare '0' in a DATETIME comparison.
+						$value = '0000-00-00 00:00:00';
 					} elseif ( is_float( $value ) ) {
 						$value = (string) $value;
 					} elseif ( ! is_int( $value ) && ! is_string( $value ) ) {
