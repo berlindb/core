@@ -578,7 +578,7 @@ trait Cache {
 	private function prime_many_to_many_relationship( Relationship $relationship, array $items ): void {
 
 		// Conditioned relationships are left unprimed in this version (see prime_belongs_to_relationship).
-		if ( $relationship->has_condition() ) {
+		if ( $relationship->has_condition() || $relationship->has_through_condition() ) {
 			return;
 		}
 

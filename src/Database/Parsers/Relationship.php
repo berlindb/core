@@ -593,16 +593,11 @@ class Relationship extends Base {
 
 		// A many_to_many filters through a pivot table (two hops); see the helper.
 		if ( 'many_to_many' === $relationship->type ) {
-
-			/*
-			 * A condition is not applied to many_to_many in this version; fail closed
-			 * rather than emitting an unscoped (widening) filter.
-			 */
-			if ( $relationship->has_condition() ) {
-				return false;
-			}
-
 			return $this->build_many_to_many_clause( $relationship, $clause_args, (string) $alias_suffix );
+		}
+
+		if ( $relationship->has_through_condition() ) {
+			return false;
 		}
 
 		/*
@@ -873,6 +868,17 @@ class Relationship extends Base {
 			return false;
 		}
 
+		$target_fixed = $relationship->has_condition()
+			? $this->build_conditions( $target, $target_alias, $relationship->get_condition(), true )
+			: '';
+		$pivot_fixed  = $relationship->has_through_condition()
+			? $this->build_conditions( $pivot, $pivot_alias, $relationship->get_through_condition(), true )
+			: '';
+
+		if ( false === $target_fixed || false === $pivot_fixed ) {
+			return false;
+		}
+
 		// Pre-quote the shared identifiers.
 		$pivot_alias_sql  = $this->quote_identifier( $pivot_alias );
 		$target_alias_sql = $this->quote_identifier( $target_alias );
@@ -899,12 +905,18 @@ class Relationship extends Base {
 		$inner_where = ( '' === $conditions )
 			? $hop2_pairs
 			: array_merge( $hop2_pairs, array( $conditions ) );
+		if ( '' !== $target_fixed ) {
+			$inner_where[] = $target_fixed;
+		}
 
 		$inner = 'EXISTS ( SELECT 1 FROM ' . $target_table_sql . ' AS ' . $target_alias_sql
 			. ' WHERE ' . \BerlinDB\Database\Clauses\BooleanGroup::combine( 'AND', $inner_where ) . ' )';
 
 		// Outer (NOT) EXISTS: a pivot row for this row whose target satisfies the inner.
-		$outer_where     = array_merge( $hop1_pairs, array( $inner ) );
+		$outer_where = array_merge( $hop1_pairs, array( $inner ) );
+		if ( '' !== $pivot_fixed ) {
+			$outer_where[] = $pivot_fixed;
+		}
 		$exists_positive = ! array_key_exists( 'exists', $clause_args ) || (bool) $clause_args[ 'exists' ];
 		$keyword         = ( true === $exists_positive )
 			? 'EXISTS'
@@ -968,6 +980,7 @@ class Relationship extends Base {
 
 		if (
 			! in_array( $relationship->type, array( 'belongs_to', 'has_many' ), true )
+			|| $relationship->has_through_condition()
 			|| empty( $columns )
 			|| ( count( $columns ) !== count( $references ) )
 		) {

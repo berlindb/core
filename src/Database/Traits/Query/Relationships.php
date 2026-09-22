@@ -351,16 +351,11 @@ trait Relationships {
 		 * has_many key logic below. It is a to-many, returning an array of Rows.
 		 */
 		if ( 'many_to_many' === $relationship->type ) {
-
-			/*
-			 * A condition is not applied to a many_to_many in this version; fail closed
-			 * (empty) rather than silently returning unscoped rows.
-			 */
-			if ( $relationship->has_condition() ) {
-				return array();
-			}
-
 			return $this->get_related_many_to_many( $item, $relationship );
+		}
+
+		if ( $relationship->has_through_condition() ) {
+			return ( 'has_many' === $relationship->type ) ? array() : null;
 		}
 
 		// belongs_to or has_many, single- or multi-column ( composite ) key.
@@ -531,6 +526,10 @@ trait Relationships {
 			return array();
 		}
 
+		if ( ! $this->add_relationship_condition_vars( $pivot, $hop1, $relationship->get_through_condition() ) ) {
+			return array();
+		}
+
 		// Fetch every pivot row for this item (the full set, not a page).
 		$pivot_rows = $pivot->query( array_merge( $hop1, array( 'number' => 0 ) ) );
 		if ( ! is_array( $pivot_rows ) || empty( $pivot_rows ) ) {
@@ -573,6 +572,11 @@ trait Relationships {
 			return array();
 		}
 
+		$target_condition = array();
+		if ( ! $this->add_relationship_condition_vars( $target, $target_condition, $relationship->get_condition() ) ) {
+			return array();
+		}
+
 		// Hop 2: fetch the target rows for the collected keys, deduped by primary.
 		$primary = $target->get_primary_column_name();
 		$by_prim = ( 1 === count( $references ) ) && ( $references[0] === $primary );
@@ -582,7 +586,7 @@ trait Relationships {
 		foreach ( $target_keys as $key ) {
 
 			// A single-column primary key resolves through the cache-friendly get_item().
-			if ( true === $by_prim ) {
+			if ( true === $by_prim && ! $relationship->has_condition() ) {
 				$found = $target->get_item( reset( $key ) );
 				$rows  = ! empty( $found )
 					? array( $found )
@@ -590,7 +594,7 @@ trait Relationships {
 
 				// A non-primary or composite target key needs a full keyed query.
 			} else {
-				$found = $target->query( array_merge( $key, array( 'number' => 0 ) ) );
+				$found = $target->query( array_merge( $key, $target_condition, array( 'number' => 0 ) ) );
 				$rows  = is_array( $found )
 					? $found
 					: array();
@@ -611,5 +615,37 @@ trait Relationships {
 		}
 
 		return $results;
+	}
+
+	/**
+	 * Add fixed predicates to one hop's query without accepting unknown columns.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param Query                $query     Query for the conditioned table.
+	 * @param array<string,mixed> $query_vars Query vars to extend.
+	 * @param array<string,mixed> $condition Fixed column predicates.
+	 * @return bool Whether every predicate can be applied.
+	 */
+	private function add_relationship_condition_vars( Query $query, array &$query_vars, array $condition ): bool {
+		foreach ( $condition as $column => $value ) {
+			if ( array() === $value ) {
+				return false;
+			}
+
+			$columns = $query->get_columns(
+				array(
+					'name' => $column,
+					'in'   => true,
+				)
+			);
+			if ( empty( $columns ) ) {
+				return false;
+			}
+
+			$query_vars[ "{$column}__in" ] = is_array( $value ) ? $value : array( $value );
+		}
+
+		return true;
 	}
 }
