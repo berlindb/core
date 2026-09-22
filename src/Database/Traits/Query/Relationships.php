@@ -399,11 +399,17 @@ trait Relationships {
 		 * suffix means it can never be mistaken for a reserved control var and never
 		 * overwrites the FK correlation key. That path is in-filter based, so fail closed
 		 * on any condition column that is unknown OR not `in => true` - a typo (or a
-		 * missing flag) must not widen to all rows. Priming keys identically, so a primed
-		 * and an unprimed get_related() agree.
+		 * missing flag) must not widen to all rows.
 		 */
 		if ( $relationship->has_condition() ) {
 			foreach ( $relationship->get_condition() as $condition_col => $condition_value ) {
+				// An empty IN list matches no related rows.
+				if ( array() === $condition_value ) {
+					return ( 'has_many' === $relationship->type )
+						? array()
+						: null;
+				}
+
 				if ( empty(
 					$remote->get_columns(
 						array(
@@ -417,7 +423,9 @@ trait Relationships {
 						: null;
 				}
 
-				$key[ "{$condition_col}__in" ] = array( $condition_value );
+				$key[ "{$condition_col}__in" ] = is_array( $condition_value )
+					? $condition_value
+					: array( $condition_value );
 			}
 		}
 

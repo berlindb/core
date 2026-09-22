@@ -63,6 +63,62 @@ class CrOwnerSchema extends Schema {
 	);
 }
 
+/** Owner whose notes may have either of two object types. */
+class CrListOwnerSchema extends CrOwnerSchema {
+	public $columns = array(
+		array(
+			'name'          => 'id',
+			'type'          => 'bigint',
+			'length'        => '20',
+			'unsigned'      => true,
+			'extra'         => 'auto_increment',
+			'primary'       => true,
+			'relationships' => array(
+				array(
+					'name'      => 'notes',
+					'query'     => CrNoteQuery::class,
+					'column'    => 'object_id',
+					'type'      => 'has_many',
+					'condition' => array( 'object_type' => array( 'owner', 'task' ) ),
+				),
+			),
+		),
+		array(
+			'name'   => 'name',
+			'type'   => 'varchar',
+			'length' => '50',
+		),
+	);
+}
+
+/** Owner whose empty condition list must match no notes. */
+class CrEmptyListOwnerSchema extends CrOwnerSchema {
+	public $columns = array(
+		array(
+			'name'          => 'id',
+			'type'          => 'bigint',
+			'length'        => '20',
+			'unsigned'      => true,
+			'extra'         => 'auto_increment',
+			'primary'       => true,
+			'relationships' => array(
+				array(
+					'name'      => 'notes',
+					'query'     => CrNoteQuery::class,
+					'column'    => 'object_id',
+					'type'      => 'has_many',
+					'condition' => array( 'object_type' => array() ),
+				),
+			),
+		),
+		array(
+			'name'   => 'name',
+			'type'   => 'varchar',
+			'length' => '50',
+		),
+	);
+}
+
 /** Polymorphic note: object_id + object_type point at different parent types. */
 class CrNoteSchema extends Schema {
 	public $columns = array(
@@ -149,6 +205,14 @@ class CrOwnerQuery extends Query {
 	protected $table_schema = CrOwnerSchema::class;
 	protected $item_name    = 'owner';
 	protected $cache_group  = 'cr_owners';
+}
+
+class CrListOwnerQuery extends CrOwnerQuery {
+	protected $table_schema = CrListOwnerSchema::class;
+}
+
+class CrEmptyListOwnerQuery extends CrOwnerQuery {
+	protected $table_schema = CrEmptyListOwnerSchema::class;
 }
 
 class CrBadOwnerQuery extends Query {
@@ -246,14 +310,21 @@ class ConditionedRelationshipTest extends TestCase {
 				'type'       => 'has_many',
 				'condition'  => array(
 					'object_type' => 'owner',
-					'bad_value'   => array( 'not', 'scalar' ), // dropped: non-scalar
+					'allowed'     => array( 'owner', 'task' ),  // kept: scalar list
+					'bad_value'   => array( array( 'nested' ) ), // dropped: non-scalar list
 					42            => 'skip',                    // dropped: non-string key
 				),
 			)
 		);
 
 		$this->assertTrue( $rel->has_condition() );
-		$this->assertSame( array( 'object_type' => 'owner' ), $rel->get_condition() );
+		$this->assertSame(
+			array(
+				'object_type' => 'owner',
+				'allowed'     => array( 'owner', 'task' ),
+			),
+			$rel->get_condition()
+		);
 	}
 
 	/** Value object: a conditioned relationship can never be a FOREIGN KEY. */
@@ -321,6 +392,68 @@ class ConditionedRelationshipTest extends TestCase {
 		$this->assertIsArray( $found );
 		$this->assertCount( 1, $found );
 		$this->assertSame( 'owner-note', reset( $found )->body );
+	}
+
+	/** List condition: traversal and EXISTS both include the same two types. */
+	public function test_list_condition_scopes_traversal_and_filter(): void {
+		$owners   = new CrListOwnerQuery();
+		$notes    = new CrNoteQuery();
+		$owner_id = (int) $owners->add_item( array( 'name' => 'Acme' ) );
+
+		foreach ( array( 'owner', 'task', 'other' ) as $type ) {
+			$notes->add_item(
+				array(
+					'object_id'   => $owner_id,
+					'object_type' => $type,
+					'body'        => $type,
+				)
+			);
+		}
+
+		wp_cache_flush();
+
+		$found = $owners->get_related( $owners->get_item( $owner_id ), 'notes' );
+		$this->assertCount( 2, $found );
+		$this->assertSame( array( 'owner', 'task' ), array_column( $found, 'body' ) );
+
+		$ids = $owners->query(
+			array(
+				'relation' => array( 'name' => 'notes' ),
+				'fields'   => 'ids',
+				'number'   => 0,
+			)
+		);
+
+		$this->assertSame( array( $owner_id ), array_map( 'intval', (array) $ids ) );
+	}
+
+	/** Empty IN conditions fail closed for both relationship access paths. */
+	public function test_empty_list_condition_matches_nothing(): void {
+		$owners   = new CrEmptyListOwnerQuery();
+		$notes    = new CrNoteQuery();
+		$owner_id = (int) $owners->add_item( array( 'name' => 'Acme' ) );
+
+		$notes->add_item(
+			array(
+				'object_id'   => $owner_id,
+				'object_type' => 'owner',
+				'body'        => 'present',
+			)
+		);
+
+		wp_cache_flush();
+
+		$this->assertSame( array(), $owners->get_related( $owners->get_item( $owner_id ), 'notes' ) );
+		$this->assertSame(
+			array(),
+			$owners->query(
+				array(
+					'relation' => array( 'name' => 'notes' ),
+					'fields'   => 'ids',
+					'number'   => 0,
+				)
+			)
+		);
 	}
 
 	/** Filter: the correlated EXISTS is scoped by the condition. */

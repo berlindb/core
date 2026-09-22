@@ -1183,6 +1183,11 @@ class Relationship extends Base {
 	 */
 	private function build_condition( Query $remote, string $alias, string $column, mixed $cond ): string|false {
 
+		// An empty IN list cannot match; dropping it would widen the filter.
+		if ( array() === $cond ) {
+			return false;
+		}
+
 		// Resolve the remote Column object.
 		$name = $this->sanitize_column_name( $column );
 

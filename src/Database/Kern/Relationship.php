@@ -258,27 +258,26 @@ class Relationship {
 	protected $constraint = '';
 
 	/**
-	 * A fixed equality predicate that scopes the related rows, as column => value.
+	 * A fixed predicate that scopes the related rows, as column => value.
 	 *
 	 * Models a polymorphic / discriminated ownership pattern - a remote table with an
 	 * object_id + object_type pair pointing at different parent types - as ONE
-	 * relationship. The condition is appended to every SQL form of the relationship
-	 * (get_related() traversal, priming, and the in / join / EXISTS filters, plus the
-	 * store-meta reuse) as `AND {remote}.{column} = {value}`, so only the matching rows
-	 * are traversed or matched. Example: `array( 'object_type' => 'order' )`.
+	 * relationship. Traversal and join / EXISTS filters apply the condition to the
+	 * remote rows. Conditioned relationships are not bulk-primed, and the `in`
+	 * filter strategy is not supported. Example: `array( 'object_type' => 'order' )`.
 	 *
 	 * A conditioned relationship is application-layer only: a SQL FOREIGN KEY cannot
 	 * encode a discriminator, so it is never enforced - init() drops any `enforce`
 	 * (see is_foreign_key()). Supported on belongs_to / has_many (single-hop and nested);
 	 * a condition on a many_to_many is rejected (get_validation_errors()). For the
-	 * query-var forms (get_related() traversal and the `in` filter strategy) a condition
-	 * column must be queryable on the remote (declare `in => true`); the join / EXISTS
+	 * query-var traversal, a condition column must be queryable on the remote
+	 * (declare `in => true`); the join / EXISTS
 	 * paths render raw SQL and need no flag. An unknown condition column fails closed
-	 * everywhere. Equality-with-scalar-values in this version; richer predicates
-	 * (operators, IN) can extend the shape later without breaking it.
+	 * everywhere. A scalar matches by equality; a list of scalars matches with IN
+	 * (an empty list matches nothing). Other operators remain unsupported.
 	 *
 	 * @since 3.1.0
-	 * @var   array<string,scalar> Default empty array.
+	 * @var   array<string,scalar|list<scalar>> Default empty array.
 	 */
 	protected $condition = array();
 
@@ -389,11 +388,11 @@ class Relationship {
 	}
 
 	/**
-	 * Return the fixed equality predicate that scopes the related rows.
+	 * Return the fixed predicate that scopes the related rows.
 	 *
 	 * @since 3.1.0
 	 *
-	 * @return array<string,scalar> Map of column => value (empty when unconditioned).
+	 * @return array<string,scalar|list<scalar>> Map of column => value (empty when unconditioned).
 	 */
 	public function get_condition(): array {
 		return $this->condition;
@@ -729,17 +728,16 @@ class Relationship {
 	}
 
 	/**
-	 * Sanitize a relationship condition into a clean `column => scalar` equality map.
+	 * Sanitize a relationship condition into a column => scalar or list map.
 	 *
 	 * Each key must sanitize to a valid column name (it renders into SQL as an
-	 * identifier) and each value must be a scalar (it is escaped via prepare() at render
-	 * time). Anything else is dropped, so a malformed entry cannot reach SQL. This
-	 * version accepts equality with scalar values only.
+	 * identifier) and each value must be a scalar or a list of scalars
+	 * (escaped via prepare() at render time). Anything else is dropped.
 	 *
 	 * @since 3.1.0
 	 *
 	 * @param mixed $condition The raw condition config.
-	 * @return array<string,scalar> Map of column => value.
+	 * @return array<string,scalar|list<scalar>> Map of column => value.
 	 */
 	private function sanitize_condition( $condition = array() ): array {
 
@@ -751,7 +749,7 @@ class Relationship {
 		// Default return value.
 		$retval = array();
 
-		// Keep only valid column => scalar pairs (a fixed equality predicate).
+		// Keep only valid column => scalar or scalar-list pairs.
 		foreach ( $condition as $column => $value ) {
 
 			// A condition column must sanitize to a real column name.
@@ -759,8 +757,12 @@ class Relationship {
 				? $this->sanitize_column_name( $column )
 				: '';
 
-			// The value is a fixed scalar; prepare() escapes it at render time.
-			if ( is_string( $name ) && ( '' !== $name ) && is_scalar( $value ) ) {
+			$valid_list = is_array( $value )
+				&& array_is_list( $value )
+				&& ( count( array_filter( $value, 'is_scalar' ) ) === count( $value ) );
+
+			// prepare() escapes each accepted value at render time.
+			if ( is_string( $name ) && ( '' !== $name ) && ( is_scalar( $value ) || $valid_list ) ) {
 				$retval[ $name ] = $value;
 			}
 		}
