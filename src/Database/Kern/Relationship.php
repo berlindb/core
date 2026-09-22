@@ -111,6 +111,17 @@ class Relationship {
 	 */
 	private const REFERENTIAL_ACTIONS = array( 'RESTRICT', 'CASCADE', 'SET NULL', 'NO ACTION', 'SET DEFAULT' );
 
+	/**
+	 * Impossible condition used when a configured condition is malformed.
+	 *
+	 * Its empty list fails closed in both traversal and SQL filtering, while the
+	 * empty column name also lets get_validation_errors() identify the mistake.
+	 *
+	 * @since 3.1.0
+	 * @var   array<string,list<scalar>>
+	 */
+	private const INVALID_CONDITION = array( '' => array() );
+
 	/** Attributes ************************************************************/
 
 	/**
@@ -474,6 +485,11 @@ class Relationship {
 			$errors[] = "Relationship {$label} has mismatched local and remote column counts.";
 		}
 
+		// A malformed fixed condition is retained as an impossible predicate.
+		if ( self::INVALID_CONDITION === $this->condition ) {
+			$errors[] = "Relationship {$label} declares a malformed condition.";
+		}
+
 		// A many_to_many adds a second hop through a pivot table; validate it.
 		if ( 'many_to_many' === $this->type ) {
 			$errors = array_merge( $errors, $this->get_many_to_many_errors( $label ) );
@@ -733,7 +749,8 @@ class Relationship {
 	 *
 	 * Each key must sanitize to a valid column name (it renders into SQL as an
 	 * identifier) and each value must be a scalar or a list of scalars
-	 * (escaped via prepare() at render time). Anything else is dropped.
+	 * (escaped via prepare() at render time). Numeric-key lists are reindexed; any
+	 * malformed entry makes the whole condition fail closed.
 	 *
 	 * @since 3.1.0
 	 *
@@ -742,15 +759,15 @@ class Relationship {
 	 */
 	private function sanitize_condition( $condition = array() ): array {
 
-		// Bail if not an array.
+		// A supplied non-array condition must not become unconditioned.
 		if ( ! is_array( $condition ) ) {
-			return array();
+			return self::INVALID_CONDITION;
 		}
 
 		// Default return value.
 		$retval = array();
 
-		// Keep only valid column => scalar or scalar-list pairs.
+		// Validate every column => scalar or scalar-list pair.
 		foreach ( $condition as $column => $value ) {
 
 			// A condition column must sanitize to a real column name.
@@ -758,8 +775,9 @@ class Relationship {
 				? $this->sanitize_column_name( $column )
 				: '';
 
-			if ( ! is_string( $name ) || ( '' === $name ) ) {
-				continue;
+			// 'relation' is a query directive, not a usable fixed-condition column.
+			if ( ! is_string( $name ) || ( '' === $name ) || ( 'relation' === $name ) ) {
+				return self::INVALID_CONDITION;
 			}
 
 			// prepare() escapes each accepted value at render time.
@@ -768,25 +786,21 @@ class Relationship {
 				continue;
 			}
 
-			if ( ! is_array( $value ) || ! array_is_list( $value ) ) {
-				continue;
+			if ( ! is_array( $value ) ) {
+				return self::INVALID_CONDITION;
 			}
 
-			$list  = array();
-			$valid = true;
+			$list = array();
 
-			foreach ( $value as $item ) {
-				if ( ! is_scalar( $item ) ) {
-					$valid = false;
-					break;
+			foreach ( $value as $key => $item ) {
+				if ( ! is_int( $key ) || ! is_scalar( $item ) ) {
+					return self::INVALID_CONDITION;
 				}
 
 				$list[] = $item;
 			}
 
-			if ( true === $valid ) {
-				$retval[ $name ] = $list;
-			}
+			$retval[ $name ] = $list;
 		}
 
 		return $retval;
