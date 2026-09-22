@@ -869,10 +869,10 @@ class Relationship extends Base {
 		}
 
 		$target_fixed = $relationship->has_condition()
-			? $this->build_conditions( $target, $target_alias, $relationship->get_condition() )
+			? $this->build_conditions( $target, $target_alias, $relationship->get_condition(), true )
 			: '';
 		$pivot_fixed  = $relationship->has_through_condition()
-			? $this->build_conditions( $pivot, $pivot_alias, $relationship->get_through_condition() )
+			? $this->build_conditions( $pivot, $pivot_alias, $relationship->get_through_condition(), true )
 			: '';
 
 		if ( false === $target_fixed || false === $pivot_fixed ) {

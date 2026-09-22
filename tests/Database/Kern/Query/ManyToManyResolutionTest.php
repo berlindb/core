@@ -49,15 +49,17 @@ class M2MPostSchema extends Schema {
 	public function get_relationships() {
 		$relationships = array();
 		$variants      = array(
-			'tags'            => array(),
-			'tags_target'     => array( 'condition' => array( 'name' => 'alpha' ) ),
-			'tags_pivot'      => array( 'through_condition' => array( 'scope' => 'public' ) ),
-			'tags_both'       => array(
+			'tags'                 => array(),
+			'tags_target'          => array( 'condition' => array( 'name' => 'alpha' ) ),
+			'tags_pivot'           => array( 'through_condition' => array( 'scope' => 'public' ) ),
+			'tags_both'            => array(
 				'condition'         => array( 'name' => 'alpha' ),
 				'through_condition' => array( 'scope' => 'public' ),
 			),
-			'tags_bad_target' => array( 'condition' => array( 'missing_target' => 'alpha' ) ),
-			'tags_bad_pivot'  => array( 'through_condition' => array( 'missing_pivot' => 'public' ) ),
+			'tags_bad_target'      => array( 'condition' => array( 'missing_target' => 'alpha' ) ),
+			'tags_bad_pivot'       => array( 'through_condition' => array( 'missing_pivot' => 'public' ) ),
+			'tags_relation_target' => array( 'condition' => array( 'relation' => 'public' ) ),
+			'tags_relation_pivot'  => array( 'through_condition' => array( 'relation' => 'public' ) ),
 		);
 
 		foreach ( $variants as $name => $extra ) {
@@ -96,6 +98,12 @@ class M2MTagSchema extends Schema {
 			'name'    => 'name',
 			'type'    => 'varchar',
 			'length'  => '100',
+			'default' => '',
+		),
+		array(
+			'name'    => 'relation',
+			'type'    => 'varchar',
+			'length'  => '30',
 			'default' => '',
 		),
 	);
@@ -138,6 +146,12 @@ class M2MPostTagSchema extends Schema {
 			'length'  => '30',
 			'default' => '',
 		),
+		array(
+			'name'    => 'relation',
+			'type'    => 'varchar',
+			'length'  => '30',
+			'default' => '',
+		),
 	);
 	public $indexes = array(
 		array(
@@ -152,14 +166,16 @@ class M2MPostRow extends Row {
 	public $slug = '';
 }
 class M2MTagRow extends Row {
-	public $id   = 0;
-	public $name = '';
+	public $id       = 0;
+	public $name     = '';
+	public $relation = '';
 }
 class M2MPostTagRow extends Row {
-	public $id      = 0;
-	public $post_id = 0;
-	public $tag_id  = 0;
-	public $scope   = '';
+	public $id       = 0;
+	public $post_id  = 0;
+	public $tag_id   = 0;
+	public $scope    = '';
+	public $relation = '';
 }
 
 class M2MPostQuery extends Query {
@@ -424,6 +440,60 @@ class ManyToManyResolutionTest extends TestCase {
 				)
 			);
 			$this->assertSame( array(), $ids );
+		}
+	}
+
+	/** A real `relation` column remains a fixed predicate on either hop. */
+	public function test_relation_named_condition_columns_on_both_hops() {
+		$post_a = self::$posts->add_item( array( 'slug' => 'public' ) );
+		$post_b = self::$posts->add_item( array( 'slug' => 'private' ) );
+		$tag_a  = self::$tags->add_item(
+			array(
+				'name'     => 'a',
+				'relation' => 'public',
+			)
+		);
+		$tag_b  = self::$tags->add_item(
+			array(
+				'name'     => 'b',
+				'relation' => 'private',
+			)
+		);
+
+		self::$pivots->add_item(
+			array(
+				'post_id'  => $post_a,
+				'tag_id'   => $tag_a,
+				'relation' => 'public',
+			)
+		);
+		self::$pivots->add_item(
+			array(
+				'post_id'  => $post_a,
+				'tag_id'   => $tag_b,
+				'relation' => 'private',
+			)
+		);
+		self::$pivots->add_item(
+			array(
+				'post_id'  => $post_b,
+				'tag_id'   => $tag_b,
+				'relation' => 'private',
+			)
+		);
+
+		$post = self::$posts->get_item( $post_a );
+		$this->assertSame( array( (int) $tag_a ), $this->ids( self::$posts->get_related( $post, 'tags_relation_target' ) ) );
+		$this->assertSame( array( (int) $tag_a ), $this->ids( self::$posts->get_related( $post, 'tags_relation_pivot' ) ) );
+
+		foreach ( array( 'tags_relation_target', 'tags_relation_pivot' ) as $name ) {
+			$ids = self::$posts->query(
+				array(
+					'relation' => array( 'name' => $name ),
+					'fields'   => 'ids',
+				)
+			);
+			$this->assertSame( array( (int) $post_a ), array_map( 'intval', $ids ) );
 		}
 	}
 
