@@ -63,6 +63,33 @@ class ReleasedSchemaOverrides extends TestSchema {
  * @since 3.1.0
  */
 class ReleasedColumnOverrides extends Column {
+	/** @var int */
+	public $parse_args_calls = 0;
+
+	/** @inheritDoc */
+	public function is_json() {
+		return parent::is_json();
+	}
+
+	/** @inheritDoc */
+	public function is_bool() {
+		return parent::is_bool();
+	}
+
+	/** @inheritDoc */
+	public function is_date_time() {
+		return parent::is_date_time();
+	}
+
+	/** @inheritDoc */
+	public function is_int() {
+		return parent::is_int();
+	}
+
+	/** @inheritDoc */
+	public function is_decimal() {
+		return parent::is_decimal();
+	}
 
 	/**
 	 * Preserve the released predicate override.
@@ -72,6 +99,27 @@ class ReleasedColumnOverrides extends Column {
 	 */
 	public function is_numeric() {
 		return parent::is_numeric();
+	}
+
+	/** @inheritDoc */
+	public function is_text() {
+		return parent::is_text();
+	}
+
+	/** @inheritDoc */
+	public function is_binary() {
+		return parent::is_binary();
+	}
+
+	/** @inheritDoc */
+	public function get_name_sql( string $alias = '' ): string {
+		return parent::get_name_sql( $alias );
+	}
+
+	/** @inheritDoc */
+	protected function parse_args( $args = array() ) {
+		++$this->parse_args_calls;
+		return parent::parse_args( $args );
 	}
 
 	/**
@@ -167,6 +215,9 @@ class ReleasedOperatorOverride extends Equal {
 	}
 }
 
+/** An operator extending the class name shipped in 3.0. */
+class ReleasedOperatorClassName extends \BerlinDB\Database\Operators\Equal {}
+
 /**
  * Check extension loading and dispatch, not only reflection signatures.
  *
@@ -201,7 +252,8 @@ class ReleasedSubclassContractTest extends TestCase {
 				'type' => 'int',
 			)
 		);
-		$this->assertSame( 'CAST(`total` AS SIGNED)', $column->get_name_sql( '', 'SIGNED' ) );
+		$this->assertSame( 'CAST(`total` AS SIGNED)', $column->get_name_sql_with_cast( '', 'SIGNED' ) );
+		$this->assertSame( 0, $column->parse_args_calls );
 		$this->assertSame( 'custom = 1', ( new ReleasedOperatorOverride() )->get_sql_with_cast( $column, '', 1 ) );
 		$this->assertNotEmpty( ( new ReleasedQueryOverrides() )->get_columns() );
 	}
@@ -231,6 +283,44 @@ class ReleasedSubclassContractTest extends TestCase {
 			)
 		);
 		$this->assertSame( 'CAST(`total` AS SIGNED) = 1', ( new ReleasedOperatorOverride() )->get_sql_with_cast( $column, '', 1, 'SIGNED' ) );
+	}
+
+	/**
+	 * Comparison operator class names shipped in 3.0 remain loadable.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_released_operator_class_names_remain_loadable(): void {
+		$operators = array(
+			'Base',
+			'Between',
+			'Equal',
+			'Exists',
+			'GreaterThan',
+			'GreaterThanOrEqual',
+			'In',
+			'LessThan',
+			'LessThanOrEqual',
+			'Like',
+			'NotBetween',
+			'NotEqual',
+			'NotExists',
+			'NotIn',
+			'NotLike',
+			'NotRegexp',
+			'Regexp',
+			'Rlike',
+		);
+
+		foreach ( $operators as $operator ) {
+			$released = 'BerlinDB\\Database\\Operators\\' . $operator;
+			$current  = 'BerlinDB\\Database\\Operators\\Comparisons\\' . $operator;
+
+			$this->assertTrue( class_exists( $released ) );
+			$this->assertTrue( is_a( $released, $current, true ) );
+		}
+
+		$this->assertInstanceOf( Equal::class, new ReleasedOperatorClassName() );
 	}
 
 	/**

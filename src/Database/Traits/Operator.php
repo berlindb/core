@@ -406,6 +406,6 @@ trait Operator {
 		}
 
 		// Assemble and return the full expression, optionally casting the column.
-		return $col->get_name_sql( $alias, $cast ) . ' ' . $this->get_sql_compare() . ' ' . $value_sql;
+		return $col->get_name_sql_with_cast( $alias, $cast ) . ' ' . $this->get_sql_compare() . ' ' . $value_sql;
 	}
 }

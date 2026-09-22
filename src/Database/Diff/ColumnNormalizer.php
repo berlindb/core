@@ -111,8 +111,8 @@ class ColumnNormalizer {
 
 		return array(
 			'type'     => $canonical,
-			'length'   => $column->is_int( $canonical ) ? 0 : (int) $column->length,
-			'scale'    => $column->is_decimal( $canonical ) ? (int) $column->scale : 0,
+			'length'   => $column->is_type_int( $canonical ) ? 0 : (int) $column->length,
+			'scale'    => $column->is_type_decimal( $canonical ) ? (int) $column->scale : 0,
 			'nullable' => ! empty( $column->allow_null ),
 			'unsigned' => $is_numeric && ! empty( $column->unsigned ),
 			'zerofill' => $is_numeric && ! empty( $column->zerofill ),

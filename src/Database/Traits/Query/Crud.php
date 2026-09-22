@@ -1079,7 +1079,7 @@ trait Crud {
 	private function default_item( $args = array() ): array {
 
 		// Parse arguments.
-		$r = $this->parse_args( $args );
+		$r = $this->parse_args_to_array( $args );
 
 		// Get the column names and their defaults.
 		$names    = $this->get_column_names( $r );

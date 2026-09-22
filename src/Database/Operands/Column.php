@@ -97,7 +97,7 @@ class Column extends Base {
 	 * @return string
 	 */
 	public function get_sql(): string {
-		return $this->column->get_name_sql( $this->alias, $this->cast );
+		return $this->column->get_name_sql_with_cast( $this->alias, $this->cast );
 	}
 
 	/**

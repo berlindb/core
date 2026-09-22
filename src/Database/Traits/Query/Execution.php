@@ -607,7 +607,7 @@ trait Execution {
 			$overrides[ 'groupby' ] = '';
 		}
 
-		$r = $this->parse_args( $overrides, $this->get_current_array( 'request_clauses' ) );
+		$r = $this->parse_args_to_array( $overrides, $this->get_current_array( 'request_clauses' ) );
 
 		// Build and filter the found-items query.
 		$query = $this->filter_found_items_query( $this->parse_request_clauses( $r ) );

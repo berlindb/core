@@ -945,10 +945,20 @@ class Column {
 	 * Return if a column type is JSON.
 	 *
 	 * @since 3.0.0
-	 * @param string $type Optional type string to test. Defaults to $this->type.
 	 * @return bool True if json type only.
 	 */
-	public function is_json( $type = '' ) {
+	public function is_json() {
+		return $this->is_type_json( $this->type );
+	}
+
+	/**
+	 * Return if a supplied column type is JSON.
+	 *
+	 * @since 3.1.0
+	 * @param string $type Type string to test.
+	 * @return bool True if json type only.
+	 */
+	public function is_type_json( $type ) {
 		return $this->is_type(
 			array(
 				'json',
@@ -961,10 +971,20 @@ class Column {
 	 * Return if a column type is a bool.
 	 *
 	 * @since 3.0.0
-	 * @param string $type Optional type string to test. Defaults to $this->type.
 	 * @return bool True if bool type only.
 	 */
-	public function is_bool( $type = '' ) {
+	public function is_bool() {
+		return $this->is_type_bool( $this->type );
+	}
+
+	/**
+	 * Return if a supplied column type is a bool.
+	 *
+	 * @since 3.1.0
+	 * @param string $type Type string to test.
+	 * @return bool True if bool type only.
+	 */
+	public function is_type_bool( $type ) {
 		return $this->is_type(
 			array(
 				'bool',
@@ -977,10 +997,20 @@ class Column {
 	 * Return if a column type is a date.
 	 *
 	 * @since 3.0.0
-	 * @param string $type Optional type string to test. Defaults to $this->type.
 	 * @return bool True if any date or time.
 	 */
-	public function is_date_time( $type = '' ) {
+	public function is_date_time() {
+		return $this->is_type_date_time( $this->type );
+	}
+
+	/**
+	 * Return if a supplied column type is a date or time.
+	 *
+	 * @since 3.1.0
+	 * @param string $type Type string to test.
+	 * @return bool True if any date or time.
+	 */
+	public function is_type_date_time( $type ) {
 		return $this->is_type(
 			array(
 				'date',
@@ -1040,10 +1070,20 @@ class Column {
 	 * Return if a column type is an integer.
 	 *
 	 * @since 3.0.0
-	 * @param string $type Optional type string to test. Defaults to $this->type.
 	 * @return bool True if int.
 	 */
-	public function is_int( $type = '' ) {
+	public function is_int() {
+		return $this->is_type_int( $this->type );
+	}
+
+	/**
+	 * Return if a supplied column type is an integer.
+	 *
+	 * @since 3.1.0
+	 * @param string $type Type string to test.
+	 * @return bool True if int.
+	 */
+	public function is_type_int( $type ) {
 		return $this->is_type(
 			array(
 				'tinyint',
@@ -1060,10 +1100,20 @@ class Column {
 	 * Return if a column type is decimal.
 	 *
 	 * @since 3.0.0
-	 * @param string $type Optional type string to test. Defaults to $this->type.
 	 * @return bool True if float.
 	 */
-	public function is_decimal( $type = '' ) {
+	public function is_decimal() {
+		return $this->is_type_decimal( $this->type );
+	}
+
+	/**
+	 * Return if a supplied column type is decimal.
+	 *
+	 * @since 3.1.0
+	 * @param string $type Type string to test.
+	 * @return bool True if float.
+	 */
+	public function is_type_decimal( $type ) {
 		return $this->is_type(
 			array(
 				'float',
@@ -1083,7 +1133,7 @@ class Column {
 	 * @return bool True if bit, int, or float.
 	 */
 	public function is_numeric() {
-		return $this->is_numeric_type();
+		return $this->is_type_numeric( $this->type );
 	}
 
 	/**
@@ -1092,10 +1142,10 @@ class Column {
 	 * Consider using is_int() or is_decimal() for improved specificity.
 	 *
 	 * @since 3.1.0
-	 * @param string $type Optional type string to test. Defaults to $this->type.
+	 * @param string $type Type string to test.
 	 * @return bool True if bit, int, or float.
 	 */
-	public function is_numeric_type( $type = '' ) {
+	public function is_type_numeric( $type ) {
 		return $this->is_type(
 			array(
 
@@ -1124,10 +1174,20 @@ class Column {
 	 * For binary strings (blobs) use is_binary().
 	 *
 	 * @since 3.0.0
-	 * @param string $type Optional type string to test. Defaults to $this->type.
 	 * @return bool True if text.
 	 */
-	public function is_text( $type = '' ) {
+	public function is_text() {
+		return $this->is_type_text( $this->type );
+	}
+
+	/**
+	 * Return if a supplied column type is a string.
+	 *
+	 * @since 3.1.0
+	 * @param string $type Type string to test.
+	 * @return bool True if text.
+	 */
+	public function is_type_text( $type ) {
 		return $this->is_type(
 			array(
 
@@ -1149,10 +1209,20 @@ class Column {
 	 * Return if a column type is binary.
 	 *
 	 * @since 3.0.0
-	 * @param string $type Optional type string to test. Defaults to $this->type.
 	 * @return bool True if binary.
 	 */
-	public function is_binary( $type = '' ) {
+	public function is_binary() {
+		return $this->is_type_binary( $this->type );
+	}
+
+	/**
+	 * Return if a supplied column type is binary.
+	 *
+	 * @since 3.1.0
+	 * @param string $type Type string to test.
+	 * @return bool True if binary.
+	 */
+	public function is_type_binary( $type ) {
 		return $this->is_type(
 			array(
 
@@ -1352,7 +1422,7 @@ class Column {
 	 * @return array<string,mixed>
 	 */
 	private function sanitize_capabilities( $caps = array() ): array {
-		return $this->parse_args(
+		return $this->parse_args_to_array(
 			$caps,
 			array(
 				'select' => 'exist',
@@ -2430,20 +2500,30 @@ class Column {
 	 * When $alias is provided it is quoted and prepended, producing the fully
 	 * qualified form used in WHERE and SELECT clauses: `alias`.`column`.
 	 *
-	 * When $cast is a valid CAST target the reference is wrapped in
-	 * CAST( ... AS $cast ). $cast is sanitized here (sanitize_sql_cast_type()), so
-	 * this public helper does not trust its caller - an invalid value is safely
-	 * ignored (no cast). Casting is opt-in and never applied by default. CHAR is a
-	 * real target (string-semantics comparison), not a no-op.
-	 *
 	 * @since 3.0.0
 	 *
 	 * @param string $alias Optional. Table alias to prefix. Default empty (no alias).
-	 * @param string $cast  Optional. A CAST target; sanitized internally (invalid => no cast). Default empty.
 	 *
-	 * @return string Quoted SQL reference, e.g. `alias`.`column` or `column`.
+	 * @return string Quoted SQL reference, e.g. `alias`.`column`.
 	 */
-	public function get_name_sql( string $alias = '', string $cast = '' ): string {
+	public function get_name_sql( string $alias = '' ): string {
+		return $this->get_name_sql_with_cast( $alias );
+	}
+
+	/**
+	 * Return the backtick-quoted column name with an optional SQL cast.
+	 *
+	 * A valid CAST target wraps the reference in CAST( ... AS $cast ). The cast is
+	 * sanitized here; an invalid value is safely ignored. CHAR is a real target
+	 * for string-semantics comparisons, not a no-op.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $alias Optional. Table alias to prefix. Default empty.
+	 * @param string $cast  Optional. A CAST target. Default empty.
+	 * @return string Quoted, optionally cast SQL reference.
+	 */
+	public function get_name_sql_with_cast( string $alias = '', string $cast = '' ): string {
 
 		// Quote the column name.
 		$quoted = $this->quote_identifier( $this->name );
@@ -2516,8 +2596,8 @@ class Column {
 	 *
 	 * Without a cast, this returns the $type_category property (set explicitly or
 	 * inferred from the declared type by sanitize_type_category). An optional CAST
-	 * overrides it - mirroring get_name_sql(), so the category matches the SQL that
-	 * will actually render: a SIGNED/DECIMAL cast is 'numeric', a DATETIME cast is
+	 * overrides it - mirroring get_name_sql_with_cast(), so the category matches the
+	 * SQL that will actually render: a SIGNED/DECIMAL cast is 'numeric', a DATETIME cast is
 	 * 'date', etc.
 	 *
 	 * @since 3.1.0

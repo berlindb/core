@@ -102,7 +102,7 @@ final class Serial extends Base {
 		}
 
 		// Both forms promote an integer type to an auto-increment primary key.
-		if ( $column->is_int( $args[ 'type' ] ?? '' ) ) {
+		if ( $column->is_type_int( $args[ 'type' ] ?? '' ) ) {
 			$args[ 'allow_null' ] = false;
 			$args[ 'default' ]    = false;
 			$args[ 'primary' ]    = true;
