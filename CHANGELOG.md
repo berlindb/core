@@ -76,18 +76,20 @@ Notable changes to BerlinDB are documented here.
   longer independently guesses the column from `item_name`, and the WordPress meta-cache
   prime is gated to the legacy path (a store-backed object caches through its own `meta`
   relationship). Backward-compatible - an unset property preserves existing behavior.
-- Adds conditioned relationships. A relationship may declare a fixed `condition` (a
-  `column => scalar` equality map, e.g. `object_type => 'order'`) that scopes the related
-  rows, so a polymorphic child table - one table shared across parent types via an
-  `object_id` + `object_type` pair - models as a single relationship rather than hand-coded
-  SQL. The condition is appended (`AND {remote}.{col} = {val}`) across `get_related()`
-  traversal, the correlated `EXISTS` filter, and nested `EXISTS`. It is application-layer
-  only (a `FOREIGN KEY` cannot encode a discriminator, so `enforce` is dropped), defaults to
-  the `join` / `EXISTS` filter strategy, and fails closed on an unknown condition column; a
-  condition on a `many_to_many` is rejected. The condition column must declare `in => true`
-  on the remote for `get_related()` traversal (the `join` / `EXISTS` path needs no flag).
-  Equality-with-scalar values in this version; richer predicates (operators / `IN`) and
-  `many_to_many` support are follow-ups (#246).
+- Adds conditioned relationships. A fixed `condition` scopes related rows by scalar
+  equality or a scalar-list `IN` match (for example, `object_type => 'order'`). This lets
+  a polymorphic child table with `object_id` and `object_type` model one relationship
+  without hand-coded SQL. Traversal and `relation` filters apply the same condition;
+  unknown, empty, or malformed predicates fail closed. A condition column needs
+  `in => true` for query-var traversal; SQL `EXISTS` filters do not need that flag. Conditions
+  are application-layer only: a foreign key cannot encode a discriminator, so `enforce`
+  is dropped. Conditioned relationships skip eager cache priming for now (#246).
+- Supports fixed conditions on both hops of a `many_to_many` relationship. `condition`
+  scopes target rows, `through_condition` scopes pivot rows, and both combine with `AND`
+  in `get_related()` and SQL `relation` filters. A real column named `relation` is valid
+  in either fixed condition; it is not mistaken for the filter's boolean directive.
+  Fixed conditions remain equality/`IN` predicates; caller-supplied `relation` filters
+  use the existing Operator API for other comparisons.
 - Adds a per-column `compare` flag and its `{column}_compare` query-var shorthand. A column
   declared `compare => true` can be filtered with comparison operators (`>`, `>=`, `<`,
   `<=`, `!=`, `BETWEEN`, ...) through `{column}_compare` - exact sugar that folds into a
