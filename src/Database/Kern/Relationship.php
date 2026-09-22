@@ -775,8 +775,7 @@ class Relationship {
 				? $this->sanitize_column_name( $column )
 				: '';
 
-			// 'relation' is a query directive, not a usable fixed-condition column.
-			if ( ! is_string( $name ) || ( '' === $name ) || ( 'relation' === $name ) ) {
+			if ( ! is_string( $name ) || ( '' === $name ) ) {
 				return self::INVALID_CONDITION;
 			}
 

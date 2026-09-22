@@ -147,6 +147,34 @@ class CrMalformedOwnerSchema extends CrOwnerSchema {
 	);
 }
 
+/** Owner whose fixed condition uses a column named like a query directive. */
+class CrRelationOwnerSchema extends CrOwnerSchema {
+	public $columns = array(
+		array(
+			'name'          => 'id',
+			'type'          => 'bigint',
+			'length'        => '20',
+			'unsigned'      => true,
+			'extra'         => 'auto_increment',
+			'primary'       => true,
+			'relationships' => array(
+				array(
+					'name'      => 'notes',
+					'query'     => CrNoteQuery::class,
+					'column'    => 'object_id',
+					'type'      => 'has_many',
+					'condition' => array( 'relation' => 'owner' ),
+				),
+			),
+		),
+		array(
+			'name'   => 'name',
+			'type'   => 'varchar',
+			'length' => '50',
+		),
+	);
+}
+
 /** Polymorphic note: object_id + object_type point at different parent types. */
 class CrNoteSchema extends Schema {
 	public $columns = array(
@@ -181,6 +209,13 @@ class CrNoteSchema extends Schema {
 			'name'   => 'body',
 			'type'   => 'varchar',
 			'length' => '100',
+		),
+		array(
+			'name'    => 'relation',
+			'type'    => 'varchar',
+			'length'  => '20',
+			'default' => '',
+			'in'      => true,
 		),
 	);
 
@@ -245,6 +280,10 @@ class CrEmptyListOwnerQuery extends CrOwnerQuery {
 
 class CrMalformedOwnerQuery extends CrOwnerQuery {
 	protected $table_schema = CrMalformedOwnerSchema::class;
+}
+
+class CrRelationOwnerQuery extends CrOwnerQuery {
+	protected $table_schema = CrRelationOwnerSchema::class;
 }
 
 class CrBadOwnerQuery extends Query {
@@ -369,7 +408,6 @@ class ConditionedRelationshipTest extends TestCase {
 				'object_type' => 'owner',
 				42            => 'skip',
 			),
-			array( 'relation' => 'OR' ),
 			'owner',
 		);
 
@@ -546,6 +584,72 @@ class ConditionedRelationshipTest extends TestCase {
 					'relation' => array( 'name' => 'notes' ),
 					'fields'   => 'ids',
 					'number'   => 0,
+				)
+			)
+		);
+	}
+
+	/** A fixed condition on a relation column scopes traversal and filtering. */
+	public function test_relation_column_condition_scopes_traversal_and_filter(): void {
+		$owners      = new CrRelationOwnerQuery();
+		$notes       = new CrNoteQuery();
+		$matching_id = (int) $owners->add_item( array( 'name' => 'Matching' ) );
+		$other_id    = (int) $owners->add_item( array( 'name' => 'Other' ) );
+
+		$this->assertNotFalse(
+			$notes->add_item(
+				array(
+					'object_id'   => $matching_id,
+					'object_type' => 'owner',
+					'body'        => 'matching',
+					'relation'    => 'owner',
+				)
+			)
+		);
+		$this->assertNotFalse(
+			$notes->add_item(
+				array(
+					'object_id'   => $other_id,
+					'object_type' => 'owner',
+					'body'        => 'other',
+					'relation'    => 'other',
+				)
+			)
+		);
+
+		wp_cache_flush();
+
+		$this->assertCount( 1, $owners->get_related( $owners->get_item( $matching_id ), 'notes' ) );
+		$this->assertSame( array(), $owners->get_related( $owners->get_item( $other_id ), 'notes' ) );
+		$this->assertCount(
+			1,
+			$notes->query(
+				array(
+					'by'     => array( 'relation' => 'owner' ),
+					'fields' => 'ids',
+					'number' => 0,
+				)
+			)
+		);
+		$this->assertSame(
+			array(),
+			$notes->query(
+				array(
+					'relation' => 'owner',
+					'fields'   => 'ids',
+				)
+			)
+		);
+		$this->assertSame(
+			array( $matching_id ),
+			array_map(
+				'intval',
+				(array) $owners->query(
+					array(
+						'relation' => array( 'name' => 'notes' ),
+						'fields'   => 'ids',
+						'number'   => 0,
+					)
 				)
 			)
 		);
