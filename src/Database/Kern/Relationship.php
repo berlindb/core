@@ -54,6 +54,7 @@ defined( 'ABSPATH' ) || exit;
  *     @type string       $through            FQCN of the pivot Query class (many_to_many only).
  *     @type list<string> $through_columns    Pivot columns referencing this table (many_to_many hop 1).
  *     @type list<string> $through_references Pivot columns referencing the target (many_to_many hop 2).
+ *     @type array        $through_condition  Fixed predicates on pivot rows (many_to_many only).
  *     @type string       $constraint Optional SQL foreign-key constraint name
  *                                    (used only when enforced).
  *     @type string       $on_delete  Referential action: RESTRICT, CASCADE, SET NULL, NO ACTION, SET DEFAULT.
@@ -73,6 +74,7 @@ defined( 'ABSPATH' ) || exit;
  * @property-read string       $through
  * @property-read list<string> $through_columns
  * @property-read list<string> $through_references
+ * @property-read array<string,scalar|list<scalar>> $through_condition
  * @property-read string       $on_delete
  * @property-read string       $on_update
  * @property-read bool         $enforce
@@ -281,7 +283,8 @@ class Relationship {
 	 * A conditioned relationship is application-layer only: a SQL FOREIGN KEY cannot
 	 * encode a discriminator, so it is never enforced - init() drops any `enforce`
 	 * (see is_foreign_key()). Supported on belongs_to / has_many (single-hop and nested);
-	 * a condition on a many_to_many is rejected (get_validation_errors()). For the
+	 * a condition on a many_to_many scopes target rows. Its `through_condition`
+	 * scopes pivot rows; both may be declared and combine with AND. For the
 	 * query-var traversal, a condition column must be queryable on the remote
 	 * (declare `in => true`); join / EXISTS paths render raw SQL and need no flag.
 	 * An unknown condition column fails closed everywhere. A scalar matches by
@@ -292,6 +295,17 @@ class Relationship {
 	 * @var   array<string,scalar|list<scalar>> Default empty array.
 	 */
 	protected $condition = array();
+
+	/**
+	 * Fixed predicates on the pivot rows of a many_to_many relationship.
+	 *
+	 * Uses the same scalar equality / list IN shape as condition. A non-pivot
+	 * relationship cannot declare this property.
+	 *
+	 * @since 3.1.0
+	 * @var   array<string,scalar|list<scalar>> Default empty array.
+	 */
+	protected $through_condition = array();
 
 	/** Argument validation ***************************************************/
 
@@ -319,6 +333,7 @@ class Relationship {
 			'on_update'          => array( $this, 'sanitize_referential_action' ),
 			'enforce'            => array( $this, 'sanitize_boolean' ),
 			'condition'          => array( $this, 'sanitize_condition' ),
+			'through_condition'  => array( $this, 'sanitize_condition' ),
 		);
 	}
 
@@ -411,6 +426,26 @@ class Relationship {
 	}
 
 	/**
+	 * Return whether this relationship scopes its pivot rows.
+	 *
+	 * @since 3.1.0
+	 * @return bool
+	 */
+	public function has_through_condition(): bool {
+		return array() !== $this->through_condition;
+	}
+
+	/**
+	 * Return the fixed predicates on pivot rows.
+	 *
+	 * @since 3.1.0
+	 * @return array<string,scalar|list<scalar>> Map of pivot column => value.
+	 */
+	public function get_through_condition(): array {
+		return $this->through_condition;
+	}
+
+	/**
 	 * Return the FQCN of the remote Query class.
 	 *
 	 * Consumers (cache priming, parsers, lazy Row loading) operate through this
@@ -490,17 +525,16 @@ class Relationship {
 			$errors[] = "Relationship {$label} declares a malformed condition.";
 		}
 
+		if ( self::INVALID_CONDITION === $this->through_condition ) {
+			$errors[] = "Relationship {$label} declares a malformed through_condition.";
+		}
+
 		// A many_to_many adds a second hop through a pivot table; validate it.
 		if ( 'many_to_many' === $this->type ) {
 			$errors = array_merge( $errors, $this->get_many_to_many_errors( $label ) );
 
-			/*
-			 * A condition on a many_to_many is unsupported in this version (traversal and
-			 * filtering fail closed); surface it rather than let it silently do nothing.
-			 */
-			if ( array() !== $this->condition ) {
-				$errors[] = "Relationship {$label} declares a condition on a many_to_many, which is not supported.";
-			}
+		} elseif ( array() !== $this->through_condition ) {
+			$errors[] = "Relationship {$label} declares a through_condition without a many_to_many pivot.";
 		}
 
 		return $errors;

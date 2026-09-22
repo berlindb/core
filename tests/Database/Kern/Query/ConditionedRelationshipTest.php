@@ -685,8 +685,8 @@ class ConditionedRelationshipTest extends TestCase {
 		$this->assertSame( array(), $found );
 	}
 
-	/** Safety: a condition on a many_to_many is rejected as a validation error. */
-	public function test_condition_on_many_to_many_is_rejected(): void {
+	/** A target condition is valid on a many_to_many; a pivot condition needs a pivot. */
+	public function test_many_to_many_condition_validation(): void {
 		$rel = new Relationship(
 			array(
 				'name'               => 'x',
@@ -701,13 +701,18 @@ class ConditionedRelationshipTest extends TestCase {
 			)
 		);
 
-		$found = false;
-		foreach ( $rel->get_validation_errors() as $error ) {
-			if ( false !== strpos( $error, 'many_to_many, which is not supported' ) ) {
-				$found = true;
-			}
-		}
+		$this->assertSame( array(), $rel->get_validation_errors() );
 
-		$this->assertTrue( $found, 'expected a validation error rejecting the condition on a many_to_many' );
+		$single = new Relationship(
+			array(
+				'name'              => 'x',
+				'type'              => 'has_many',
+				'query'             => CrNoteQuery::class,
+				'columns'           => array( 'id' ),
+				'references'        => array( 'object_id' ),
+				'through_condition' => array( 'object_type' => 'owner' ),
+			)
+		);
+		$this->assertNotEmpty( $single->get_validation_errors() );
 	}
 }

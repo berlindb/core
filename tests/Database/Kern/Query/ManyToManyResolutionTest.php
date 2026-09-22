@@ -47,19 +47,37 @@ class M2MPostSchema extends Schema {
 	);
 
 	public function get_relationships() {
-		return array(
-			new Relationship(
-				array(
-					'name'               => 'tags',
-					'columns'            => array( 'id' ),
-					'query'              => M2MTagQuery::class,
-					'references'         => array( 'id' ),
-					'through'            => M2MPostTagQuery::class,
-					'through_columns'    => array( 'post_id' ),
-					'through_references' => array( 'tag_id' ),
-				)
+		$relationships = array();
+		$variants      = array(
+			'tags'            => array(),
+			'tags_target'     => array( 'condition' => array( 'name' => 'alpha' ) ),
+			'tags_pivot'      => array( 'through_condition' => array( 'scope' => 'public' ) ),
+			'tags_both'       => array(
+				'condition'         => array( 'name' => 'alpha' ),
+				'through_condition' => array( 'scope' => 'public' ),
 			),
+			'tags_bad_target' => array( 'condition' => array( 'missing_target' => 'alpha' ) ),
+			'tags_bad_pivot'  => array( 'through_condition' => array( 'missing_pivot' => 'public' ) ),
 		);
+
+		foreach ( $variants as $name => $extra ) {
+			$relationships[] = new Relationship(
+				array_merge(
+					array(
+						'name'               => $name,
+						'columns'            => array( 'id' ),
+						'query'              => M2MTagQuery::class,
+						'references'         => array( 'id' ),
+						'through'            => M2MPostTagQuery::class,
+						'through_columns'    => array( 'post_id' ),
+						'through_references' => array( 'tag_id' ),
+					),
+					$extra
+				)
+			);
+		}
+
+		return $relationships;
 	}
 }
 
@@ -114,6 +132,12 @@ class M2MPostTagSchema extends Schema {
 			'unsigned' => true,
 			'default'  => 0,
 		),
+		array(
+			'name'    => 'scope',
+			'type'    => 'varchar',
+			'length'  => '30',
+			'default' => '',
+		),
 	);
 	public $indexes = array(
 		array(
@@ -135,6 +159,7 @@ class M2MPostTagRow extends Row {
 	public $id      = 0;
 	public $post_id = 0;
 	public $tag_id  = 0;
+	public $scope   = '';
 }
 
 class M2MPostQuery extends Query {
@@ -313,6 +338,93 @@ class ManyToManyResolutionTest extends TestCase {
 			array( (int) $tag_a, (int) $tag_b ),
 			$this->ids( $tags )
 		);
+	}
+
+	/** Both fixed scopes apply to traversal and relation filters. */
+	public function test_target_and_pivot_conditions_apply_to_both_paths() {
+		$post_a        = self::$posts->add_item( array( 'slug' => 'both' ) );
+		$post_b        = self::$posts->add_item( array( 'slug' => 'private-only' ) );
+		$post_c        = self::$posts->add_item( array( 'slug' => 'beta-only' ) );
+		$alpha_public  = self::$tags->add_item( array( 'name' => 'alpha' ) );
+		$alpha_private = self::$tags->add_item( array( 'name' => 'alpha' ) );
+		$beta_public   = self::$tags->add_item( array( 'name' => 'beta' ) );
+
+		self::$pivots->add_item(
+			array(
+				'post_id' => $post_a,
+				'tag_id'  => $alpha_public,
+				'scope'   => 'public',
+			)
+		);
+		self::$pivots->add_item(
+			array(
+				'post_id' => $post_a,
+				'tag_id'  => $alpha_private,
+				'scope'   => 'private',
+			)
+		);
+		self::$pivots->add_item(
+			array(
+				'post_id' => $post_a,
+				'tag_id'  => $beta_public,
+				'scope'   => 'public',
+			)
+		);
+		self::$pivots->add_item(
+			array(
+				'post_id' => $post_b,
+				'tag_id'  => $alpha_private,
+				'scope'   => 'private',
+			)
+		);
+		self::$pivots->add_item(
+			array(
+				'post_id' => $post_c,
+				'tag_id'  => $beta_public,
+				'scope'   => 'public',
+			)
+		);
+
+		$post = self::$posts->get_item( $post_a );
+		$this->assertSame( array( (int) $alpha_public, (int) $alpha_private ), $this->ids( self::$posts->get_related( $post, 'tags_target' ) ) );
+		$this->assertSame( array( (int) $alpha_public, (int) $beta_public ), $this->ids( self::$posts->get_related( $post, 'tags_pivot' ) ) );
+		$this->assertSame( array( (int) $alpha_public ), $this->ids( self::$posts->get_related( $post, 'tags_both' ) ) );
+		$this->assertSame( array(), self::$posts->get_related( $post, 'tags_bad_target' ) );
+		$this->assertSame( array(), self::$posts->get_related( $post, 'tags_bad_pivot' ) );
+
+		// Eager loading must not replace the conditioned accessor with an unscoped set.
+		$primed = self::$posts->query( array( 'with' => array( 'tags_both' ) ) );
+		foreach ( $primed as $candidate ) {
+			if ( (int) $candidate->id === (int) $post_a ) {
+				$this->assertSame( array( (int) $alpha_public ), $this->ids( self::$posts->get_related( $candidate, 'tags_both' ) ) );
+			}
+		}
+
+		foreach ( array(
+			'tags_target' => array( $post_a, $post_b ),
+			'tags_pivot'  => array( $post_a, $post_c ),
+			'tags_both'   => array( $post_a ),
+		) as $name => $expected ) {
+			$ids = self::$posts->query(
+				array(
+					'relation' => array( 'name' => $name ),
+					'fields'   => 'ids',
+					'orderby'  => 'id',
+					'order'    => 'ASC',
+				)
+			);
+			$this->assertSame( array_map( 'intval', $expected ), array_map( 'intval', $ids ) );
+		}
+
+		foreach ( array( 'tags_bad_target', 'tags_bad_pivot' ) as $name ) {
+			$ids = self::$posts->query(
+				array(
+					'relation' => array( 'name' => $name ),
+					'fields'   => 'ids',
+				)
+			);
+			$this->assertSame( array(), $ids );
+		}
 	}
 
 	/**
