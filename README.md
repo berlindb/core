@@ -224,6 +224,7 @@ queries.
 
 - [Packagist](https://packagist.org/packages/berlindb/core)
 - [BerlinDB Wiki](https://github.com/berlindb/core/wiki)
+- [Upgrading from 3.0.x to 3.1.0](docs/upgrading-to-3.1.md)
 - [Changelog](CHANGELOG.md)
 - [Open Issues](https://github.com/berlindb/core/issues)
 
