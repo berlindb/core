@@ -62,26 +62,7 @@ trait Arguments {
 	}
 
 	/**
-	 * Parse an arguments value using the released extension signature.
-	 *
-	 * Kept as a compatibility seam for subclasses that overrode the construction
-	 * hook shipped in 3.0. Internal calls use parse_args_to_array() so a legacy
-	 * override cannot alter the new construction pipeline.
-	 *
-	 * @since 3.0.0
-	 * @since 3.1.0 No longer used as the construction hook.
-	 * @deprecated 3.1.0 Use parse_args_to_array() to parse arguments, or
-	 *                   consume_args() to handle construction arguments.
-	 *
-	 * @param array<string,mixed>|object|string $args Value to parse.
-	 * @return array<string,mixed>
-	 */
-	protected function parse_args( $args = array() ) {
-		return $this->parse_args_to_array( $args );
-	}
-
-	/**
-	 * Parse an arguments value into an array.
+	 * Merge an arguments value over a set of defaults.
 	 *
 	 * A dependency-free reimplementation of WordPress's wp_parse_args(): accepts
 	 * an array, an object (read via get_object_vars()), or a URL-style query
@@ -94,7 +75,7 @@ trait Arguments {
 	 * @param array<string,mixed>               $defaults Defaults to merge under $args.
 	 * @return array<string,mixed>
 	 */
-	protected function parse_args_to_array( $args = array(), $defaults = array() ): array {
+	protected function parse_args( $args = array(), $defaults = array() ): array {
 
 		// Normalize $args to an array.
 		if ( is_object( $args ) ) {

@@ -33,7 +33,7 @@ defined( 'ABSPATH' ) || exit;
  *   - is_strict_config(): reject unknown config keys instead of passing them on.
  *   - special_args() / validate_args(): force/validate values before set_vars().
  *
- * Requires the host to provide set_vars(), parse_args_to_array(), and log() (Traits\Base,
+ * Requires the host to provide set_vars(), parse_args(), and log() (Traits\Base,
  * which pulls Log). Declared via @method (not abstract methods) so tooling sees
  * the dependency without colliding with the real methods when a class composes
  * both.
@@ -41,7 +41,7 @@ defined( 'ABSPATH' ) || exit;
  * @since 3.1.0
  *
  * @method void set_vars( array<string,mixed> $args = [] )
- * @method array<string,mixed> parse_args_to_array( array<string,mixed>|object|string $args = [], array<string,mixed> $defaults = [] )
+ * @method array<string,mixed> parse_args( array<string,mixed>|object|string $args = [], array<string,mixed> $defaults = [] )
  * @method void log( string $level, string $code, string $message, array<string,mixed> $context = [] )
  * @method list<string> get_boot_reserved_vars()
  * @method list<string> get_lifecycle_reserved_vars()
@@ -139,7 +139,7 @@ trait Configuration {
 			 */
 			$reserved = array_flip( $this->get_reserved_vars() );
 			$defaults = array_diff_key( $this->args[ 'class' ], $reserved );
-			$r        = $this->parse_args_to_array( $args, $defaults );
+			$r        = $this->parse_args( $args, $defaults );
 
 			// Force special-type args, set them, then validate & set.
 			$r = $this->special_args( $r );

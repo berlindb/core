@@ -53,7 +53,7 @@ trait Clauses {
 		}
 
 		// Parse arguments.
-		$r = $this->parse_args_to_array( $query_vars );
+		$r = $this->parse_args( $query_vars );
 
 		// Parse $query_vars.
 		$join_where = $this->parse_join_where( $r );
@@ -772,7 +772,7 @@ trait Clauses {
 		}
 
 		// Default return value.
-		$retval = $this->parse_args_to_array( $clauses );
+		$retval = $this->parse_args( $clauses );
 
 		// Return array of clauses.
 		return $retval;

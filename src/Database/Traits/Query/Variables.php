@@ -152,10 +152,10 @@ trait Variables {
 	private function parse_query( $query = array() ): void {
 
 		// Stash the raw query args before any defaults are merged in.
-		$this->set_current( 'query_var_originals', $this->parse_args_to_array( $query ) );
+		$this->set_current( 'query_var_originals', $this->parse_args( $query ) );
 
 		// Setup the $query_vars parsed var.
-		$this->query_vars = $this->parse_args_to_array(
+		$this->query_vars = $this->parse_args(
 			$this->get_current_array( 'query_var_originals' ),
 			$this->query_var_defaults
 		);

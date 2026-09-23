@@ -161,7 +161,7 @@ class BaseSanitizationTestHelper {
 	}
 
 	/**
-	 * Public access to protected parse_args_to_array method.
+	 * Public access to protected parse_args method.
 	 *
 	 * @since 3.1.0
 	 *
@@ -169,8 +169,8 @@ class BaseSanitizationTestHelper {
 	 * @param array<string, mixed>               $defaults
 	 * @return array<string, mixed>
 	 */
-	public function get_parsed_args_array( $args = array(), $defaults = array() ) {
-		return $this->parse_args_to_array( $args, $defaults );
+	public function get_parsed_args( $args = array(), $defaults = array() ) {
+		return $this->parse_args( $args, $defaults );
 	}
 }
 
@@ -802,12 +802,12 @@ class BaseSanitizationTest extends \PHPUnit\Framework\TestCase {
 	}
 
 	/**
-	 * parse_args_to_array() mirrors wp_parse_args(): merges an array/object/query-string
+	 * parse_args() mirrors wp_parse_args(): merges an array/object/query-string
 	 * over defaults (filter-free).
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_parse_args_to_array() {
+	public function test_parse_args() {
 
 		// Array over defaults - passed values win, defaults fill the rest.
 		$this->assertSame(
@@ -815,7 +815,7 @@ class BaseSanitizationTest extends \PHPUnit\Framework\TestCase {
 				'a' => 1,
 				'b' => 2,
 			),
-			$this->helper->get_parsed_args_array(
+			$this->helper->get_parsed_args(
 				array( 'a' => 1 ),
 				array(
 					'a' => 0,
@@ -825,13 +825,13 @@ class BaseSanitizationTest extends \PHPUnit\Framework\TestCase {
 		);
 
 		// Array with no defaults passes through.
-		$this->assertSame( array( 'x' => 1 ), $this->helper->get_parsed_args_array( array( 'x' => 1 ) ) );
+		$this->assertSame( array( 'x' => 1 ), $this->helper->get_parsed_args( array( 'x' => 1 ) ) );
 
 		// Empty args with defaults yields the defaults.
-		$this->assertSame( array( 'd' => 4 ), $this->helper->get_parsed_args_array( array(), array( 'd' => 4 ) ) );
+		$this->assertSame( array( 'd' => 4 ), $this->helper->get_parsed_args( array(), array( 'd' => 4 ) ) );
 
 		// Object input is read via get_object_vars().
-		$this->assertSame( array( 'k' => 'v' ), $this->helper->get_parsed_args_array( (object) array( 'k' => 'v' ) ) );
+		$this->assertSame( array( 'k' => 'v' ), $this->helper->get_parsed_args( (object) array( 'k' => 'v' ) ) );
 
 		// Query-string input is parsed with parse_str().
 		$this->assertSame(
@@ -839,7 +839,7 @@ class BaseSanitizationTest extends \PHPUnit\Framework\TestCase {
 				'a' => '1',
 				'b' => '2',
 			),
-			$this->helper->get_parsed_args_array( 'a=1&b=2' )
+			$this->helper->get_parsed_args( 'a=1&b=2' )
 		);
 
 		// Query-string over defaults.
@@ -848,7 +848,7 @@ class BaseSanitizationTest extends \PHPUnit\Framework\TestCase {
 				'a' => '1',
 				'c' => '3',
 			),
-			$this->helper->get_parsed_args_array(
+			$this->helper->get_parsed_args(
 				'a=1',
 				array(
 					'a' => '0',

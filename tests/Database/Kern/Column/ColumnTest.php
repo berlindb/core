@@ -199,13 +199,13 @@ class ColumnTest extends TestCase {
 	public function test_type_predicate_helpers_accept_explicit_types() {
 		$column = new Column();
 
-		$this->assertTrue( $column->is_type_json( 'json' ) );
-		$this->assertTrue( $column->is_type_bool( 'bool' ) );
-		$this->assertTrue( $column->is_type_date_time( 'timestamp' ) );
-		$this->assertTrue( $column->is_type_int( 'bigint' ) );
-		$this->assertTrue( $column->is_type_decimal( 'decimal' ) );
-		$this->assertTrue( $column->is_type_text( 'varchar' ) );
-		$this->assertTrue( $column->is_type_binary( 'blob' ) );
+		$this->assertTrue( $column->is_json( 'json' ) );
+		$this->assertTrue( $column->is_bool( 'bool' ) );
+		$this->assertTrue( $column->is_date_time( 'timestamp' ) );
+		$this->assertTrue( $column->is_int( 'bigint' ) );
+		$this->assertTrue( $column->is_decimal( 'decimal' ) );
+		$this->assertTrue( $column->is_text( 'varchar' ) );
+		$this->assertTrue( $column->is_binary( 'blob' ) );
 	}
 
 	/**

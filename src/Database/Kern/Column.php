@@ -945,20 +945,10 @@ class Column {
 	 * Return if a column type is JSON.
 	 *
 	 * @since 3.0.0
+	 * @param string $type Optional type string to test. Defaults to $this->type.
 	 * @return bool True if json type only.
 	 */
-	public function is_json() {
-		return $this->is_type_json( $this->type );
-	}
-
-	/**
-	 * Return if a supplied column type is JSON.
-	 *
-	 * @since 3.1.0
-	 * @param string $type Type string to test.
-	 * @return bool True if json type only.
-	 */
-	public function is_type_json( $type ) {
+	public function is_json( $type = '' ) {
 		return $this->is_type(
 			array(
 				'json',
@@ -971,20 +961,10 @@ class Column {
 	 * Return if a column type is a bool.
 	 *
 	 * @since 3.0.0
+	 * @param string $type Optional type string to test. Defaults to $this->type.
 	 * @return bool True if bool type only.
 	 */
-	public function is_bool() {
-		return $this->is_type_bool( $this->type );
-	}
-
-	/**
-	 * Return if a supplied column type is a bool.
-	 *
-	 * @since 3.1.0
-	 * @param string $type Type string to test.
-	 * @return bool True if bool type only.
-	 */
-	public function is_type_bool( $type ) {
+	public function is_bool( $type = '' ) {
 		return $this->is_type(
 			array(
 				'bool',
@@ -997,20 +977,10 @@ class Column {
 	 * Return if a column type is a date.
 	 *
 	 * @since 3.0.0
+	 * @param string $type Optional type string to test. Defaults to $this->type.
 	 * @return bool True if any date or time.
 	 */
-	public function is_date_time() {
-		return $this->is_type_date_time( $this->type );
-	}
-
-	/**
-	 * Return if a supplied column type is a date or time.
-	 *
-	 * @since 3.1.0
-	 * @param string $type Type string to test.
-	 * @return bool True if any date or time.
-	 */
-	public function is_type_date_time( $type ) {
+	public function is_date_time( $type = '' ) {
 		return $this->is_type(
 			array(
 				'date',
@@ -1070,20 +1040,10 @@ class Column {
 	 * Return if a column type is an integer.
 	 *
 	 * @since 3.0.0
+	 * @param string $type Optional type string to test. Defaults to $this->type.
 	 * @return bool True if int.
 	 */
-	public function is_int() {
-		return $this->is_type_int( $this->type );
-	}
-
-	/**
-	 * Return if a supplied column type is an integer.
-	 *
-	 * @since 3.1.0
-	 * @param string $type Type string to test.
-	 * @return bool True if int.
-	 */
-	public function is_type_int( $type ) {
+	public function is_int( $type = '' ) {
 		return $this->is_type(
 			array(
 				'tinyint',
@@ -1100,20 +1060,10 @@ class Column {
 	 * Return if a column type is decimal.
 	 *
 	 * @since 3.0.0
+	 * @param string $type Optional type string to test. Defaults to $this->type.
 	 * @return bool True if float.
 	 */
-	public function is_decimal() {
-		return $this->is_type_decimal( $this->type );
-	}
-
-	/**
-	 * Return if a supplied column type is decimal.
-	 *
-	 * @since 3.1.0
-	 * @param string $type Type string to test.
-	 * @return bool True if float.
-	 */
-	public function is_type_decimal( $type ) {
+	public function is_decimal( $type = '' ) {
 		return $this->is_type(
 			array(
 				'float',
@@ -1133,7 +1083,7 @@ class Column {
 	 * @return bool True if bit, int, or float.
 	 */
 	public function is_numeric() {
-		return $this->is_type_numeric( $this->type );
+		return $this->is_numeric_type();
 	}
 
 	/**
@@ -1142,10 +1092,10 @@ class Column {
 	 * Consider using is_int() or is_decimal() for improved specificity.
 	 *
 	 * @since 3.1.0
-	 * @param string $type Type string to test.
+	 * @param string $type Optional type string to test. Defaults to $this->type.
 	 * @return bool True if bit, int, or float.
 	 */
-	public function is_type_numeric( $type ) {
+	public function is_numeric_type( $type = '' ) {
 		return $this->is_type(
 			array(
 
@@ -1174,20 +1124,10 @@ class Column {
 	 * For binary strings (blobs) use is_binary().
 	 *
 	 * @since 3.0.0
+	 * @param string $type Optional type string to test. Defaults to $this->type.
 	 * @return bool True if text.
 	 */
-	public function is_text() {
-		return $this->is_type_text( $this->type );
-	}
-
-	/**
-	 * Return if a supplied column type is a string.
-	 *
-	 * @since 3.1.0
-	 * @param string $type Type string to test.
-	 * @return bool True if text.
-	 */
-	public function is_type_text( $type ) {
+	public function is_text( $type = '' ) {
 		return $this->is_type(
 			array(
 
@@ -1209,20 +1149,10 @@ class Column {
 	 * Return if a column type is binary.
 	 *
 	 * @since 3.0.0
+	 * @param string $type Optional type string to test. Defaults to $this->type.
 	 * @return bool True if binary.
 	 */
-	public function is_binary() {
-		return $this->is_type_binary( $this->type );
-	}
-
-	/**
-	 * Return if a supplied column type is binary.
-	 *
-	 * @since 3.1.0
-	 * @param string $type Type string to test.
-	 * @return bool True if binary.
-	 */
-	public function is_type_binary( $type ) {
+	public function is_binary( $type = '' ) {
 		return $this->is_type(
 			array(
 
@@ -1422,7 +1352,7 @@ class Column {
 	 * @return array<string,mixed>
 	 */
 	private function sanitize_capabilities( $caps = array() ): array {
-		return $this->parse_args_to_array(
+		return $this->parse_args(
 			$caps,
 			array(
 				'select' => 'exist',

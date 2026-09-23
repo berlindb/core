@@ -937,7 +937,7 @@ class Query {
 	public function get_results( $cols = array(), $where_cols = array(), $limit = 25, $offset = null, $output = OBJECT ) {
 
 		// Parse arguments.
-		$r = $this->parse_args_to_array(
+		$r = $this->parse_args(
 			$where_cols,
 			array(
 				'fields'            => $cols,

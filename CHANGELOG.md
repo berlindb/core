@@ -12,18 +12,14 @@ Notable changes to BerlinDB are documented here.
   `get_create_table_strings()` builder and retains its released zero-argument
   signature. `Table::create()` appends enforced foreign keys in inline mode, so
   existing Schema overrides remain compatible.
-  Column's released `is_*()` predicates retain their parameterless signatures;
-  explicit type checks use the new `is_type_*()` helpers. `get_name_sql()` keeps
-  its released alias-only signature, while explicit casts use
-  `get_name_sql_with_cast()`. Cast-aware operator rendering uses
+  Column's `get_name_sql()` keeps its released alias-only signature, while
+  explicit casts use `get_name_sql_with_cast()`. Cast-aware operator rendering uses
   `get_sql_with_cast()`; custom operators must override that method to customize
   explicit casts. The comparison operator classes moved under `Comparisons\`
   retain aliases at their released `Operators\*` names.
   Removed newly added native return types from selected released untyped extension
-  methods while retaining their PHPDoc contracts. `parse_args()` also retains its
-  released one-argument declaration as a compatibility seam; internal argument
-  parsing uses `parse_args_to_array()`. The deliberate lifecycle and strict-config
-  changes below remain separate migration requirements.
+  methods while retaining their PHPDoc contracts. The intentional `parse_args()`
+  and Column type-predicate signature changes are documented below.
 
 - Extends the plural write verbs `update_items()` / `delete_items()` to composite-key
   tables (#241, following the singular verbs in #234). A query-var filter now resolves to
@@ -574,7 +570,7 @@ Notable changes to BerlinDB are documented here.
   a normalizer fails closed by returning a `query_filter_short_circuit` directive.
 - Reduces WordPress coupling: reimplements `wp_validate_boolean()`, `absint()`, and
   (filter-free) `sanitize_key()` in the `Sanitizer` trait and (filter-free)
-  `wp_parse_args()` as `Base::parse_args_to_array()`, and uses native PHP CSPRNG for UUIDs
+  `wp_parse_args()` as `Base::parse_args()`, and uses native PHP CSPRNG for UUIDs
   and random integers instead of `wp_rand()`.
 - Removes the internal `Parser::caller()` indirection in favor of direct,
   type-checked calls.
@@ -593,11 +589,14 @@ Notable changes to BerlinDB are documented here.
   query now runs AFTER `init()`; an old `init()` override that expected query results
   should move that work after `parent::consume_args()` or to `sunset()`.
 - The `parse_args()` construction hook (`Boot`/`Query`, 3.0.0) is renamed to
-  `consume_args()`. Rename any override of the leftover-args hook to
-  `consume_args()`. The old one-argument `parse_args()` declaration remains so a
-  released subclass can load, but construction no longer calls it; the new
-  `parse_args_to_array()` helper handles `wp_parse_args()`-style input parsing and
-  array merging. The old `parse_args()` method is deprecated.
+  `consume_args()`; `parse_args()` is now a `wp_parse_args()`-style array helper
+  with an optional `$defaults` parameter. Rename any override of the leftover-args
+  hook to `consume_args()` before upgrading: retaining a one-argument override
+  causes a PHP declaration fatal.
+- `Column::is_json()`, `is_bool()`, `is_date_time()`, `is_int()`, `is_decimal()`,
+  `is_text()`, and `is_binary()` now accept an optional type argument. Subclasses
+  overriding one of these methods must add the optional parameter before upgrading
+  or PHP will reject the subclass declaration.
 - Configuration is strict by default — keys outside the declared config surface
   (`get_config_callbacks()`) are dropped and logged. Declaring a custom property
   alone does not register it as configuration. Override `is_strict_config()`
