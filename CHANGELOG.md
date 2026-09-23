@@ -576,6 +576,9 @@ Notable changes to BerlinDB are documented here.
 
 ### 3.1.0 Upgrade Notes
 
+See the [3.1.0 upgrade guide](docs/upgrading-to-3.1.md) for migration steps
+and the changes most likely to affect consumers.
+
 - `add_item()` and `copy_item()` now return `int|string|false` (was `int|false`):
   the supplied primary key for a string/UUID-keyed table, or the auto-increment
   value otherwise. The `{item}_deleted` and `transition_{item}_{key}` action hooks
