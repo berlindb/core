@@ -12,15 +12,13 @@ Notable changes to BerlinDB are documented here.
   `get_create_table_strings()` builder and retains its released zero-argument
   signature. `Table::create()` appends enforced foreign keys in inline mode, so
   existing Schema overrides remain compatible.
-  Column compatibility is limited to APIs predating 3.0: `is_numeric()` retains
-  its parameterless signature, with explicit type checks on `is_numeric_type()`,
-  and `validate_datetime()`, `validate_decimal()`, and `validate_uuid()` remain
-  public. The 3.0-only Column predicates and cast-aware `get_name_sql()` keep their
-  expanded signatures. Cast-aware operator rendering uses `get_sql_with_cast()`;
-  custom operators must override that method to customize explicit casts.
+  Cast-aware operator rendering uses `get_sql_with_cast()`; custom operators must
+  override it to customize explicit casts. The comparison operator classes
+  moved under `Comparisons\`
+  retain aliases at their released `Operators\*` names.
   Removed newly added native return types from selected released untyped extension
-  methods while retaining their PHPDoc contracts. The deliberate lifecycle and
-  strict-config changes below remain separate migration requirements.
+  methods while retaining their PHPDoc contracts. The intentional `parse_args()`
+  and Column signature changes are documented below.
 
 - Extends the plural write verbs `update_items()` / `delete_items()` to composite-key
   tables (#241, following the singular verbs in #234). A query-var filter now resolves to
@@ -590,8 +588,17 @@ Notable changes to BerlinDB are documented here.
   query now runs AFTER `init()`; an old `init()` override that expected query results
   should move that work after `parent::consume_args()` or to `sunset()`.
 - The `parse_args()` construction hook (`Boot`/`Query`, 3.0.0) is renamed to
-  `consume_args()`; `parse_args()` is now a `wp_parse_args()`-style array helper.
-  Rename any override of the leftover-args hook to `consume_args()`.
+  `consume_args()`; `parse_args()` is now a `wp_parse_args()`-style array helper
+  with an optional `$defaults` parameter. Rename any override of the leftover-args
+  hook to `consume_args()` before upgrading: retaining a one-argument override
+  causes a PHP declaration fatal.
+- `Column::is_json()`, `is_bool()`, `is_date_time()`, `is_int()`, `is_decimal()`,
+  `is_text()`, and `is_binary()` now accept an optional type argument. Subclasses
+  overriding one of these methods must add the optional parameter before upgrading
+  or PHP will reject the subclass declaration.
+- `Column::get_name_sql()` now accepts an optional `$cast` argument. Subclasses
+  overriding it must add the optional parameter before upgrading or PHP will reject
+  the subclass declaration.
 - Configuration is strict by default — keys outside the declared config surface
   (`get_config_callbacks()`) are dropped and logged. Declaring a custom property
   alone does not register it as configuration. Override `is_strict_config()`

@@ -2430,18 +2430,16 @@ class Column {
 	 * When $alias is provided it is quoted and prepended, producing the fully
 	 * qualified form used in WHERE and SELECT clauses: `alias`.`column`.
 	 *
-	 * When $cast is a valid CAST target the reference is wrapped in
-	 * CAST( ... AS $cast ). $cast is sanitized here (sanitize_sql_cast_type()), so
-	 * this public helper does not trust its caller - an invalid value is safely
-	 * ignored (no cast). Casting is opt-in and never applied by default. CHAR is a
-	 * real target (string-semantics comparison), not a no-op.
+	 * A valid CAST target wraps the reference in CAST( ... AS $cast ). The cast is
+	 * sanitized here; an invalid value is safely ignored. CHAR is a real target
+	 * for string-semantics comparisons, not a no-op.
 	 *
 	 * @since 3.0.0
+	 * @since 3.1.0 Added the $cast parameter.
 	 *
-	 * @param string $alias Optional. Table alias to prefix. Default empty (no alias).
-	 * @param string $cast  Optional. A CAST target; sanitized internally (invalid => no cast). Default empty.
-	 *
-	 * @return string Quoted SQL reference, e.g. `alias`.`column` or `column`.
+	 * @param string $alias Optional. Table alias to prefix. Default empty.
+	 * @param string $cast  Optional. A CAST target. Default empty.
+	 * @return string Quoted, optionally cast SQL reference.
 	 */
 	public function get_name_sql( string $alias = '', string $cast = '' ): string {
 
@@ -2516,8 +2514,8 @@ class Column {
 	 *
 	 * Without a cast, this returns the $type_category property (set explicitly or
 	 * inferred from the declared type by sanitize_type_category). An optional CAST
-	 * overrides it - mirroring get_name_sql(), so the category matches the SQL that
-	 * will actually render: a SIGNED/DECIMAL cast is 'numeric', a DATETIME cast is
+	 * overrides it - mirroring get_name_sql(), so the category matches the
+	 * SQL that will actually render: a SIGNED/DECIMAL cast is 'numeric', a DATETIME cast is
 	 * 'date', etc.
 	 *
 	 * @since 3.1.0

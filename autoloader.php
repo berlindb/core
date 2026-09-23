@@ -31,8 +31,31 @@ spl_autoload_register(
 			'BerlinDB\\Database\\Table'  => 'BerlinDB\\Database\\Kern\\Table',
 		);
 
-		if ( isset( $legacy_kern_classes[ $class_name ] ) ) {
-			$target = $legacy_kern_classes[ $class_name ];
+		$legacy_operator_classes = array(
+			'BerlinDB\\Database\\Operators\\Base'               => 'BerlinDB\\Database\\Operators\\Comparisons\\Base',
+			'BerlinDB\\Database\\Operators\\Between'            => 'BerlinDB\\Database\\Operators\\Comparisons\\Between',
+			'BerlinDB\\Database\\Operators\\Equal'              => 'BerlinDB\\Database\\Operators\\Comparisons\\Equal',
+			'BerlinDB\\Database\\Operators\\Exists'             => 'BerlinDB\\Database\\Operators\\Comparisons\\Exists',
+			'BerlinDB\\Database\\Operators\\GreaterThan'        => 'BerlinDB\\Database\\Operators\\Comparisons\\GreaterThan',
+			'BerlinDB\\Database\\Operators\\GreaterThanOrEqual' => 'BerlinDB\\Database\\Operators\\Comparisons\\GreaterThanOrEqual',
+			'BerlinDB\\Database\\Operators\\In'                 => 'BerlinDB\\Database\\Operators\\Comparisons\\In',
+			'BerlinDB\\Database\\Operators\\LessThan'           => 'BerlinDB\\Database\\Operators\\Comparisons\\LessThan',
+			'BerlinDB\\Database\\Operators\\LessThanOrEqual'    => 'BerlinDB\\Database\\Operators\\Comparisons\\LessThanOrEqual',
+			'BerlinDB\\Database\\Operators\\Like'               => 'BerlinDB\\Database\\Operators\\Comparisons\\Like',
+			'BerlinDB\\Database\\Operators\\NotBetween'         => 'BerlinDB\\Database\\Operators\\Comparisons\\NotBetween',
+			'BerlinDB\\Database\\Operators\\NotEqual'           => 'BerlinDB\\Database\\Operators\\Comparisons\\NotEqual',
+			'BerlinDB\\Database\\Operators\\NotExists'          => 'BerlinDB\\Database\\Operators\\Comparisons\\NotExists',
+			'BerlinDB\\Database\\Operators\\NotIn'              => 'BerlinDB\\Database\\Operators\\Comparisons\\NotIn',
+			'BerlinDB\\Database\\Operators\\NotLike'            => 'BerlinDB\\Database\\Operators\\Comparisons\\NotLike',
+			'BerlinDB\\Database\\Operators\\NotRegexp'          => 'BerlinDB\\Database\\Operators\\Comparisons\\NotRegexp',
+			'BerlinDB\\Database\\Operators\\Regexp'             => 'BerlinDB\\Database\\Operators\\Comparisons\\Regexp',
+			'BerlinDB\\Database\\Operators\\Rlike'              => 'BerlinDB\\Database\\Operators\\Comparisons\\Rlike',
+		);
+
+		$legacy_classes = array_merge( $legacy_kern_classes, $legacy_operator_classes );
+
+		if ( isset( $legacy_classes[ $class_name ] ) ) {
+			$target = $legacy_classes[ $class_name ];
 			$strip  = str_replace( 'BerlinDB\\', '', $target );
 			$name   = str_replace( '\\', DIRECTORY_SEPARATOR, $strip );
 			$file   = sprintf( '%1$s/src/%2$s.php', __DIR__, $name );
@@ -76,13 +99,13 @@ spl_autoload_register(
 		require_once $file;
 
 		/*
-		 * Eagerly register this Kern class's legacy alias, if it has one. PHP's
+		 * Eagerly register this class's legacy alias, if it has one. PHP's
 		 * instanceof operator does not trigger autoloading, so an `instanceof
 		 * \BerlinDB\Database\Index` check would resolve to false until the alias
 		 * name was loaded some other way. Creating the alias as soon as the Kern
 		 * class loads keeps legacy type checks (instanceof / is_a) correct.
 		 */
-		$legacy_alias = array_search( $class_name, $legacy_kern_classes, true );
+		$legacy_alias = array_search( $class_name, $legacy_classes, true );
 
 		if ( ( false !== $legacy_alias ) && ! class_exists( $legacy_alias, false ) ) {
 			class_alias( $class_name, $legacy_alias );

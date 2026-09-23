@@ -167,6 +167,9 @@ class ReleasedOperatorOverride extends Equal {
 	}
 }
 
+/** An operator extending the class name shipped in 3.0. */
+class ReleasedOperatorClassName extends \BerlinDB\Database\Operators\Equal {}
+
 /**
  * Check extension loading and dispatch, not only reflection signatures.
  *
@@ -231,6 +234,44 @@ class ReleasedSubclassContractTest extends TestCase {
 			)
 		);
 		$this->assertSame( 'CAST(`total` AS SIGNED) = 1', ( new ReleasedOperatorOverride() )->get_sql_with_cast( $column, '', 1, 'SIGNED' ) );
+	}
+
+	/**
+	 * Comparison operator class names shipped in 3.0 remain loadable.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_released_operator_class_names_remain_loadable(): void {
+		$operators = array(
+			'Base',
+			'Between',
+			'Equal',
+			'Exists',
+			'GreaterThan',
+			'GreaterThanOrEqual',
+			'In',
+			'LessThan',
+			'LessThanOrEqual',
+			'Like',
+			'NotBetween',
+			'NotEqual',
+			'NotExists',
+			'NotIn',
+			'NotLike',
+			'NotRegexp',
+			'Regexp',
+			'Rlike',
+		);
+
+		foreach ( $operators as $operator ) {
+			$released = 'BerlinDB\\Database\\Operators\\' . $operator;
+			$current  = 'BerlinDB\\Database\\Operators\\Comparisons\\' . $operator;
+
+			$this->assertTrue( class_exists( $released ) );
+			$this->assertTrue( is_a( $released, $current, true ) );
+		}
+
+		$this->assertInstanceOf( Equal::class, new ReleasedOperatorClassName() );
 	}
 
 	/**

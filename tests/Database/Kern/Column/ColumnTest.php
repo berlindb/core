@@ -192,6 +192,23 @@ class ColumnTest extends TestCase {
 	}
 
 	/**
+	 * Explicit type checks use the new helpers without changing released signatures.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_type_predicate_helpers_accept_explicit_types() {
+		$column = new Column();
+
+		$this->assertTrue( $column->is_json( 'json' ) );
+		$this->assertTrue( $column->is_bool( 'bool' ) );
+		$this->assertTrue( $column->is_date_time( 'timestamp' ) );
+		$this->assertTrue( $column->is_int( 'bigint' ) );
+		$this->assertTrue( $column->is_decimal( 'decimal' ) );
+		$this->assertTrue( $column->is_text( 'varchar' ) );
+		$this->assertTrue( $column->is_binary( 'blob' ) );
+	}
+
+	/**
 	 * Test that is_bounded_string returns true for a varchar column.
 	 *
 	 * @since 3.1.0
@@ -2438,7 +2455,7 @@ class ColumnTest extends TestCase {
 	}
 
 	/**
-	 * Test that get_name_sql wraps the reference in CAST only when a cast is given.
+	 * Test that get_name_sql wraps the reference when a cast is given.
 	 *
 	 * @since 3.1.0
 	 */
