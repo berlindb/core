@@ -54,6 +54,12 @@ The older datetime, decimal, and UUID Column validators remain public.
   name on a preset is respected rather than replaced by the preset default.
   Declare an explicit `UNIQUE` index if a UUID must be unique in the database;
   the derived UUID lookup index is not unique.
+- A `Table` version bump with no pending custom upgrade callback now adds
+  missing declared columns and indexes automatically. Check the declared Schema
+  before bumping its version. Set `reconcile => false` on a Table to keep the
+  old version-only behavior; use `true` to opt into modifications, or an
+  explicit operations list to opt into drops. An incomplete schema snapshot
+  defers the version bump so the upgrade can retry.
 - Temporal columns declared with `CURRENT_TIMESTAMP` now emit the unquoted SQL
   function, and empty values can defer to MySQL's default or `ON UPDATE`
   behavior. Nullable datetimes with a `null` default now store SQL `NULL` for
