@@ -74,11 +74,6 @@ class ReleasedColumnOverrides extends Column {
 		return parent::is_numeric();
 	}
 
-	/** @inheritDoc */
-	public function get_name_sql( string $alias = '' ): string {
-		return parent::get_name_sql( $alias );
-	}
-
 	/**
 	 * Preserve the released success check override.
 	 *
@@ -209,7 +204,7 @@ class ReleasedSubclassContractTest extends TestCase {
 				'type' => 'int',
 			)
 		);
-		$this->assertSame( 'CAST(`total` AS SIGNED)', $column->get_name_sql_with_cast( '', 'SIGNED' ) );
+		$this->assertSame( 'CAST(`total` AS SIGNED)', $column->get_name_sql( '', 'SIGNED' ) );
 		$this->assertSame( 'custom = 1', ( new ReleasedOperatorOverride() )->get_sql_with_cast( $column, '', 1 ) );
 		$this->assertNotEmpty( ( new ReleasedQueryOverrides() )->get_columns() );
 	}

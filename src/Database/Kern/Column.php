@@ -2430,30 +2430,18 @@ class Column {
 	 * When $alias is provided it is quoted and prepended, producing the fully
 	 * qualified form used in WHERE and SELECT clauses: `alias`.`column`.
 	 *
-	 * @since 3.0.0
-	 *
-	 * @param string $alias Optional. Table alias to prefix. Default empty (no alias).
-	 *
-	 * @return string Quoted SQL reference, e.g. `alias`.`column`.
-	 */
-	public function get_name_sql( string $alias = '' ): string {
-		return $this->get_name_sql_with_cast( $alias );
-	}
-
-	/**
-	 * Return the backtick-quoted column name with an optional SQL cast.
-	 *
 	 * A valid CAST target wraps the reference in CAST( ... AS $cast ). The cast is
 	 * sanitized here; an invalid value is safely ignored. CHAR is a real target
 	 * for string-semantics comparisons, not a no-op.
 	 *
-	 * @since 3.1.0
+	 * @since 3.0.0
+	 * @since 3.1.0 Added the $cast parameter.
 	 *
 	 * @param string $alias Optional. Table alias to prefix. Default empty.
 	 * @param string $cast  Optional. A CAST target. Default empty.
 	 * @return string Quoted, optionally cast SQL reference.
 	 */
-	public function get_name_sql_with_cast( string $alias = '', string $cast = '' ): string {
+	public function get_name_sql( string $alias = '', string $cast = '' ): string {
 
 		// Quote the column name.
 		$quoted = $this->quote_identifier( $this->name );
@@ -2526,7 +2514,7 @@ class Column {
 	 *
 	 * Without a cast, this returns the $type_category property (set explicitly or
 	 * inferred from the declared type by sanitize_type_category). An optional CAST
-	 * overrides it - mirroring get_name_sql_with_cast(), so the category matches the
+	 * overrides it - mirroring get_name_sql(), so the category matches the
 	 * SQL that will actually render: a SIGNED/DECIMAL cast is 'numeric', a DATETIME cast is
 	 * 'date', etc.
 	 *

@@ -12,14 +12,13 @@ Notable changes to BerlinDB are documented here.
   `get_create_table_strings()` builder and retains its released zero-argument
   signature. `Table::create()` appends enforced foreign keys in inline mode, so
   existing Schema overrides remain compatible.
-  Column's `get_name_sql()` keeps its released alias-only signature, while
-  explicit casts use `get_name_sql_with_cast()`. Cast-aware operator rendering uses
-  `get_sql_with_cast()`; custom operators must override that method to customize
-  explicit casts. The comparison operator classes moved under `Comparisons\`
+  Cast-aware operator rendering uses `get_sql_with_cast()`; custom operators must
+  override it to customize explicit casts. The comparison operator classes
+  moved under `Comparisons\`
   retain aliases at their released `Operators\*` names.
   Removed newly added native return types from selected released untyped extension
   methods while retaining their PHPDoc contracts. The intentional `parse_args()`
-  and Column type-predicate signature changes are documented below.
+  and Column signature changes are documented below.
 
 - Extends the plural write verbs `update_items()` / `delete_items()` to composite-key
   tables (#241, following the singular verbs in #234). A query-var filter now resolves to
@@ -597,6 +596,9 @@ Notable changes to BerlinDB are documented here.
   `is_text()`, and `is_binary()` now accept an optional type argument. Subclasses
   overriding one of these methods must add the optional parameter before upgrading
   or PHP will reject the subclass declaration.
+- `Column::get_name_sql()` now accepts an optional `$cast` argument. Subclasses
+  overriding it must add the optional parameter before upgrading or PHP will reject
+  the subclass declaration.
 - Configuration is strict by default — keys outside the declared config surface
   (`get_config_callbacks()`) are dropped and logged. Declaring a custom property
   alone does not register it as configuration. Override `is_strict_config()`

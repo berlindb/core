@@ -2380,7 +2380,7 @@ class ColumnTest extends TestCase {
 		$this->assertSame( 'time', $varchar->get_type_category( 'TIME' ) );
 
 		/*
-		 * The cast is normalized like get_name_sql_with_cast(): a sloppy-but-valid cast is
+		 * The cast is normalized like get_name_sql(): a sloppy-but-valid cast is
 		 * honored, and an invalid cast is ignored (the declared type decides).
 		 */
 		$this->assertSame( 'numeric', $varchar->get_type_category( ' signed ' ) );
@@ -2455,11 +2455,11 @@ class ColumnTest extends TestCase {
 	}
 
 	/**
-	 * Test that get_name_sql_with_cast wraps the reference when a cast is given.
+	 * Test that get_name_sql wraps the reference when a cast is given.
 	 *
 	 * @since 3.1.0
 	 */
-	public function test_get_name_sql_with_cast_optionally_casts() {
+	public function test_get_name_sql_optionally_casts() {
 		$column = new Column(
 			array(
 				'name' => 'total',
@@ -2472,13 +2472,13 @@ class ColumnTest extends TestCase {
 		$this->assertSame( '`a`.`total`', $column->get_name_sql( 'a' ) );
 
 		// With a cast: wrapped.
-		$this->assertSame( 'CAST(`a`.`total` AS SIGNED)', $column->get_name_sql_with_cast( 'a', 'SIGNED' ) );
+		$this->assertSame( 'CAST(`a`.`total` AS SIGNED)', $column->get_name_sql( 'a', 'SIGNED' ) );
 
 		// CHAR is a real cast target (string-semantics comparison / LIKE).
-		$this->assertSame( 'CAST(`a`.`total` AS CHAR)', $column->get_name_sql_with_cast( 'a', 'CHAR' ) );
+		$this->assertSame( 'CAST(`a`.`total` AS CHAR)', $column->get_name_sql( 'a', 'CHAR' ) );
 
 		// Invalid cast is sanitized away at this public boundary (no cast).
-		$this->assertSame( '`a`.`total`', $column->get_name_sql_with_cast( 'a', 'nonsense' ) );
+		$this->assertSame( '`a`.`total`', $column->get_name_sql( 'a', 'nonsense' ) );
 	}
 
 	/**
