@@ -708,13 +708,21 @@ and the changes most likely to affect consumers.
   safer than a false modification that churns.
 - Adds a schema **diff subsystem** (`BerlinDB\Database\Diff\`, decoupled from `Kern`):
   a pure, stateless `Comparator` compares two schemas and returns a `Patch` describing
-  the changes that transform one into the other - added/dropped columns and indexes
-  (matched by identity; the primary key by type). `Schema::diff( Schema $other )` is the
-  pure entry point; `Table::diff()` introspects the live table and compares it to the
-  declared schema, and `Table::diverged()` is the boolean drift check. The `Patch` carries
+  the changes that transform one into the other - added, dropped, and modified columns
+  and indexes (matched by identity; the primary key by type).
+  `Schema::diff( Schema $other )` is the pure entry point; `Table::diff()` introspects
+  the live table and compares it to the declared schema, and `Table::diverged()` is
+  the boolean drift check. The `Patch` carries
   the real `Column`/`Index` objects and exposes `is_empty()`, `revert()` (the inverse
-  patch), and stubbed `apply()`/`to_sql()` (phase 3). v1 detects adds/drops only; modified
-  detection lands next (#224 phase 2).
+  patch), `to_sql()` for an ordered SQL preview, and `apply()` to reconcile a bound
+  table. Applying additions and modifications is the default; drops are opt-in (#224).
+- A `Table` version bump with no bespoke upgrade callback now reconciles added
+  columns and indexes against its declared Schema by default. This automatic
+  upgrade uses a complete live-schema snapshot and defers when introspection is
+  incomplete. Set `reconcile => false` to retain a version-only bump, `true` to
+  include modifications, or an explicit operations list to control additions,
+  modifications, and drops. Bespoke upgrade callbacks still run as before;
+  automatic reconciliation applies only when none are pending (#224).
 - `Schema::from_table()` now introspects **indexes** as well as columns: it runs
   `SHOW INDEX FROM`, groups the rows by `Key_name`, and builds an `Index` per group via
   `Index::from_mysql()`, so a live table round-trips losslessly into a `Schema` (#224
