@@ -445,85 +445,28 @@ trait Meta {
 			return;
 		}
 
-		// Get the meta table name.
-		$table = $this->get_meta_table_name();
-
-		// Bail if no meta table exists.
-		if ( empty( $table ) ) {
+		// Bail when WordPress has no registered metadata table for this type.
+		if ( false === $this->get_meta_table_name() ) {
 			return;
-		}
-
-		// Get the primary column name.
-		$primary = $this->get_primary_column_name();
-
-		$meta_type       = $this->get_meta_type();
-		$item_id_column  = '';
-		$meta_id_column  = '';
-		$item_id_pattern = $this->get_column_field( array( 'name' => $primary ), 'pattern', '%s' );
-
-		/*
-		 * A declared meta relationship supplies the object-ID column and the remote
-		 * schema supplies its primary key. Only use it when it describes the same
-		 * WordPress meta table that delete_metadata_by_mid() will delete from.
-		 */
-		$relationship = $this->get_relationship( 'meta' );
-		if (
-			( $relationship instanceof Relationship )
-			&& ( 'has_many' === $relationship->type )
-			&& ( array( $primary ) === $relationship->columns )
-			&& ( 1 === count( $relationship->references ) )
-		) {
-			$remote = $this->resolve_remote_query( $relationship );
-
-			if ( ( null !== $remote ) && ( $table === $remote->get_table_name() ) ) {
-				$reference      = $relationship->references[0];
-				$remote_primary = $remote->get_primary_column_name();
-
-				if (
-					( false !== $remote->get_column_by( array( 'name' => $reference ) ) )
-					&& ( false !== $remote->get_column_by( array( 'name' => $remote_primary ) ) )
-				) {
-					$item_id_column = $reference;
-					$meta_id_column = $remote_primary;
-				}
-			}
 		}
 
 		/*
-		 * Without a registered meta schema, leave column selection to WordPress.
-		 * Its metadata API knows the table's object and row ID columns, including
-		 * usermeta's umeta_id, so no SQL column names need to be guessed here.
+		 * A non-store path belongs to WordPress, even when a relationship models its
+		 * table for querying. Leave table ownership, column selection, hooks, and cache
+		 * invalidation to the metadata API; a relationship name alone does not transfer
+		 * those responsibilities to BerlinDB.
 		 */
-		if ( ( '' === $item_id_column ) || ( '' === $meta_id_column ) ) {
-			// The legacy WordPress metadata API accepts integer object IDs only.
-			if ( ! is_int( $item_id ) ) {
-				return;
-			}
-
-			$meta = get_metadata( $meta_type, $item_id );
-
-			if ( is_array( $meta ) ) {
-				foreach ( array_keys( $meta ) as $key ) {
-					delete_metadata( $meta_type, $item_id, $key );
-				}
-			}
-
+		if ( ! is_int( $item_id ) ) {
 			return;
 		}
 
-		// Get meta IDs.
-		$query    = "SELECT {$meta_id_column} FROM {$table} WHERE {$item_id_column} = {$item_id_pattern}";
-		$prepared = $this->db()->prepare( $query, $item_id );
-		$meta_ids = $this->db()->get_col( $prepared );
+		$meta_type = $this->get_meta_type();
+		$meta      = get_metadata( $meta_type, $item_id );
 
-		// Bail if no meta IDs to delete.
-		if ( empty( $meta_ids ) ) {
-			return;
-		}
-
-		// Delete all meta data for this item ID.
-		foreach ( $meta_ids as $mid ) {
-			delete_metadata_by_mid( $meta_type, $mid );
+		if ( is_array( $meta ) ) {
+			foreach ( array_keys( $meta ) as $key ) {
+				delete_metadata( $meta_type, $item_id, $key );
+			}
 		}
 	}
 

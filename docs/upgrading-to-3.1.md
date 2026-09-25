@@ -84,6 +84,13 @@ The older datetime, decimal, and UUID Column validators remain public.
   `get_item_meta()` retrieves all item meta. The documented
   `delete_item_meta( $id, $key, '', true )` call now deletes that key across
   every object, so audit calls that pass `true` for the final argument.
+- Item deletion treats a related `MetaStore` as BerlinDB-owned and resolves its
+  meta-row and owning-object columns from the store's registered Schema. A plain
+  `Query` relationship that only models a WordPress meta table remains
+  WordPress-owned; cleanup uses the WordPress metadata API once per key, including
+  its short-circuit filters, delete actions, and object-cache invalidation. Code
+  that observed the earlier per-meta-ID hook cadence should expect one hook call
+  per key instead.
 - Invalid relationship declarations are dropped with a warning. Use
   `Schema::get_validation_errors()` and `Query::get_relationship_errors()` to
   inspect local and remote declarations during an upgrade.

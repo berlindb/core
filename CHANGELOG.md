@@ -4,6 +4,15 @@ Notable changes to BerlinDB are documented here.
 
 ## 3.1.0 - Unreleased
 
+- Makes `MetaStore` the ownership boundary for item-meta cleanup (#262). A
+  BerlinDB-owned Meta preset now derives its meta-row primary column and owning-object
+  column from its registered Schema, so customized names are deleted through the
+  remote Query's normal item engine without `meta_id`, `umeta_id`, or `{type}_id`
+  guesses. A non-`MetaStore` relationship that models a WordPress-owned meta table
+  remains on WordPress's metadata API: cleanup runs once per key, preserving its
+  short-circuit filters, delete actions, and object-cache invalidation. This replaces
+  the previous per-meta-ID hook cadence for that modeled-WordPress-table path.
+
 - Preserves selected released subclass signatures for schema accessors, Query
   helpers, and operator rendering. New schema filtering uses `get_filtered_items()`,
   `get_filtered_columns()`, and `get_filtered_indexes()`; each filters the result of

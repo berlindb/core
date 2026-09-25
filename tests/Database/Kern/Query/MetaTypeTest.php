@@ -224,32 +224,46 @@ class MetaTypeTest extends TestCase {
 		$this->assertSame( '', get_metadata( 'comment', $id, 'berlindb_cleanup_probe', true ) );
 	}
 
-	/** User cleanup gets umeta_id from the declared remote schema. */
-	public function test_user_meta_cleanup_selects_umeta_id(): void {
-		global $wpdb;
-
+	/** A modeled WordPress table still uses per-key WordPress hooks and cache cleanup. */
+	public function test_user_meta_cleanup_preserves_wordpress_ownership(): void {
 		$id = 987654322;
-		add_metadata( 'user', $id, 'berlindb_cleanup_probe', 'present' );
+		add_metadata( 'user', $id, 'berlindb_cleanup_probe', 'first' );
+		add_metadata( 'user', $id, 'berlindb_cleanup_probe', 'second' );
+		add_metadata( 'user', $id, 'berlindb_cleanup_other', 'third' );
 
-		$queries = array();
-		$capture = static function ( $sql ) use ( &$queries ) {
-			$queries[] = $sql;
-			return $sql;
+		// Prime WordPress's object cache before cleanup.
+		$this->assertCount( 2, get_metadata( 'user', $id, 'berlindb_cleanup_probe' ) );
+
+		$before = array();
+		$after  = array();
+
+		$capture_before = static function ( $meta_ids, $object_id, $meta_key ) use ( &$before ) {
+			$before[] = array( $meta_ids, $object_id, $meta_key );
+		};
+		$capture_after  = static function ( $meta_ids, $object_id, $meta_key ) use ( &$after ) {
+			$after[] = array( $meta_ids, $object_id, $meta_key );
 		};
 
-		add_filter( 'query', $capture );
+		add_action( 'delete_user_meta', $capture_before, 10, 3 );
+		add_action( 'deleted_user_meta', $capture_after, 10, 3 );
 		try {
 			( new ReflectionMethod( MtqUserMetaQuery::class, 'delete_all_item_meta' ) )
 				->invoke( new MtqUserMetaQuery(), $id );
 		} finally {
-			remove_filter( 'query', $capture );
+			remove_action( 'delete_user_meta', $capture_before, 10 );
+			remove_action( 'deleted_user_meta', $capture_after, 10 );
 		}
 
-		$this->assertStringContainsString( "SELECT umeta_id FROM {$wpdb->usermeta} WHERE user_id =", implode( "\n", $queries ) );
-		$this->assertSame( '', get_metadata( 'user', $id, 'berlindb_cleanup_probe', true ) );
+		// One metadata-API call per key; duplicate rows travel together in the hook.
+		$this->assertCount( 2, $before );
+		$this->assertCount( 2, $after );
+		$this->assertEqualsCanonicalizing( array( 'berlindb_cleanup_probe', 'berlindb_cleanup_other' ), array_column( $before, 2 ) );
+		$this->assertCount( 2, $before[0][0] );
+		$this->assertSame( array( $id, $id ), array_column( $before, 1 ) );
+		$this->assertSame( array(), get_metadata( 'user', $id ) );
 	}
 
-	/** User cleanup without a meta relationship delegates column selection to WordPress. */
+	/** A missing relationship follows the same WordPress-owned cleanup path. */
 	public function test_user_meta_cleanup_without_meta_relationship(): void {
 		$id = 987654323;
 		add_metadata( 'user', $id, 'berlindb_cleanup_probe', 'first' );
