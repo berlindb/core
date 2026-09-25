@@ -16,6 +16,7 @@
 
 namespace BerlinDB\Tests;
 
+use BerlinDB\Database\Kern\Column;
 use BerlinDB\Database\Kern\Query;
 use BerlinDB\Database\Kern\Schema;
 use BerlinDB\Database\Kern\Table;
@@ -34,7 +35,7 @@ class UuidThingSchema extends Schema {
 			'relationships' => array(
 				array(
 					'query'  => UuidThingMetaQuery::class,
-					'column' => 'thing_id',
+					'column' => 'owner_uuid',
 					'type'   => 'has_many',
 					'name'   => 'meta',
 				),
@@ -82,7 +83,52 @@ class UuidThingTable extends Table {
 
 /** Meta Query + Table stubs (the FK mirrors the varchar(36) primary). */
 class UuidThingMetaQuery extends MetaQuery {
-	protected $primary_query_class = UuidThingQuery::class;
+	protected $primary_query_class = '\\BerlinDB\\Tests\\UuidThingQuery';
+
+	/** Build a valid meta Schema with deliberately nonstandard ownership columns. */
+	public static function build_schema( Column $primary_key_column, string $object_name, string $primary_query_class ): Schema {
+		return new Schema(
+			array(
+				'columns' => array(
+					array(
+						'name' => 'record_id',
+						'id'   => true,
+					),
+					array(
+						'name'          => 'owner_uuid',
+						'type'          => $primary_key_column->type,
+						'length'        => $primary_key_column->length,
+						'pattern'       => $primary_key_column->pattern,
+						'cast'          => $primary_key_column->cast,
+						'relationships' => array(
+							array(
+								'query'  => ltrim( $primary_query_class, '\\' ),
+								'column' => $primary_key_column->name,
+								'type'   => 'belongs_to',
+								'name'   => $object_name,
+							),
+						),
+					),
+					array( 'wp_meta_key' => true ),
+					array( 'wp_meta_value' => true ),
+				),
+				'indexes' => array(
+					array(
+						'type'    => 'primary',
+						'columns' => array( 'record_id' ),
+					),
+					array(
+						'name'    => 'owner_uuid',
+						'columns' => array( 'owner_uuid' ),
+					),
+					array(
+						'name'    => 'meta_key',
+						'columns' => array( 'meta_key' ),
+					),
+				),
+			)
+		);
+	}
 }
 class UuidThingMetaTable extends MetaTable {
 	protected $meta_query_class = UuidThingMetaQuery::class;
@@ -247,10 +293,19 @@ class UuidPrimaryKeyTest extends TestCase {
 
 		// Routes to the store with a UUID object_id (previously is_int-rejected).
 		$this->assertNotFalse( $query->expose_add_meta( $uuid, 'color', 'blue' ) );
+		$this->assertNotFalse( $query->expose_add_meta( $uuid, 'size', 'large' ) );
 		$this->assertSame( 'blue', $query->expose_get_meta( $uuid, 'color', true ) );
 
-		// The store addresses the row by its UUID foreign key.
+		// Store CRUD addresses rows through the Schema-owned primary and foreign keys.
 		$this->assertSame( array( 'blue' ), $store->get_meta( $uuid, 'color' ) );
+		$this->assertTrue( $store->update_meta( $uuid, 'color', 'red' ) );
+		$this->assertSame( array( 'red' ), $store->get_meta( $uuid, 'color' ) );
+		$this->assertTrue( $store->delete_meta( $uuid, 'size' ) );
+		$this->assertSame( array(), $store->get_meta( $uuid, 'size' ) );
+
+		// Prime the read cache, then delete through the primary's MetaStore route.
+		$this->assertTrue( $query->delete_item( $uuid ) );
+		$this->assertSame( array(), $store->get_meta( $uuid, 'color' ) );
 	}
 
 	/**

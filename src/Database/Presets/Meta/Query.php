@@ -79,13 +79,35 @@ class Query extends KernQuery implements MetaStore {
 	/**
 	 * Name of the foreign-key column pointing at the primary (e.g. 'order_id').
 	 *
-	 * Derived during configure_from_primary(); the MetaStore methods address
-	 * rows through it.
+	 * Derived from the resolved Schema by configure_columns_from_schema(); the
+	 * MetaStore methods address rows through it.
 	 *
 	 * @since 3.1.0
 	 * @var   string
 	 */
 	private $object_id_column_name = '';
+
+	/**
+	 * Name of this table's primary meta-row column.
+	 *
+	 * Derived from the registered Schema after it is resolved; MetaStore methods
+	 * address individual rows through it instead of assuming `meta_id`.
+	 *
+	 * @since 3.1.0
+	 * @var   string
+	 */
+	private $meta_id_column_name = '';
+
+	/**
+	 * Name of the primary object's single key column.
+	 *
+	 * Captured from the primary Query's registered Schema and used to select the
+	 * exact belongs_to relationship that owns this meta table.
+	 *
+	 * @since 3.1.0
+	 * @var   string
+	 */
+	private $primary_id_column_name = '';
 
 	/**
 	 * Derive identity and schema from the primary before normal setup.
@@ -96,6 +118,8 @@ class Query extends KernQuery implements MetaStore {
 		$this->configure_from_primary();
 
 		parent::init();
+
+		$this->configure_columns_from_schema();
 	}
 
 	/**
@@ -174,16 +198,92 @@ class Query extends KernQuery implements MetaStore {
 		$meta_table_name = "{$object_name}_meta";
 
 		// Late static binding, so a stub may override build_schema() to customize.
-		$this->prefix                = $primary_query->get_prefix();
-		$this->table_name            = $meta_table_name;
-		$this->item_name             = $meta_table_name;
-		$this->item_name_plural      = $meta_table_name;
-		$this->cache_group           = $meta_table_name;
-		$this->object_id_column_name = self::sanitize_object_name( $object_name ) . '_id';
-		$this->table_schema          = static::build_schema( $primary_key_column, $object_name, $this->primary_query_class );
+		$this->prefix                 = $primary_query->get_prefix();
+		$this->table_name             = $meta_table_name;
+		$this->item_name              = $meta_table_name;
+		$this->item_name_plural       = $meta_table_name;
+		$this->cache_group            = $meta_table_name;
+		$this->table_schema           = static::build_schema( $primary_key_column, $object_name, $this->primary_query_class );
+		$this->primary_id_column_name = $primary_key_column->name;
 
-		// Mark success; Meta-specific paths bail when this never happened.
+		// Mark primary configuration success; schema-column configuration verifies it.
 		$this->configured_from_primary = true;
+	}
+
+	/**
+	 * Resolve the meta row and owning-object columns from the registered Schema.
+	 *
+	 * The primary key identifies one meta row. The owning-object column is the
+	 * single local column of the Schema's belongs_to relationship back to the
+	 * configured primary Query. A customized build_schema() therefore remains the
+	 * authority for both names.
+	 *
+	 * @since 3.1.0
+	 */
+	private function configure_columns_from_schema(): void {
+
+		// Bail when primary configuration already failed.
+		if ( ! $this->configured_from_primary ) {
+			return;
+		}
+
+		// Require exactly one real, sortable primary column from the resolved Schema.
+		$primary_names  = $this->get_primary_column_names();
+		$primary        = ( 1 === count( $primary_names ) )
+			? $primary_names[0]
+			: '';
+		$primary_column = $this->get_column_by( array( 'name' => $primary ) );
+
+		if ( ! ( $primary_column instanceof Column ) || ! $primary_column->sortable ) {
+			$this->configured_from_primary = false;
+			$this->log( 'error', 'meta_schema_primary_missing', 'Meta query schema has no single sortable primary meta-row column; not configured.' );
+
+			return;
+		}
+
+		// The Meta preset's storage contract requires both EAV value columns.
+		foreach ( array( 'meta_key', 'meta_value' ) as $column_name ) {
+			if ( ! ( $this->get_column_by( array( 'name' => $column_name ) ) instanceof Column ) ) {
+				$this->configured_from_primary = false;
+				$this->log(
+					'error',
+					'meta_schema_column_missing',
+					'Meta query schema is missing a required EAV column; not configured.',
+					array( 'column' => $column_name )
+				);
+
+				return;
+			}
+		}
+
+		$matches = array();
+
+		// Find the Schema-owned foreign key back to the configured primary Query.
+		foreach ( $this->get_belongs_to_relationships() as $relationship ) {
+			if (
+				( 0 === strcasecmp( ltrim( $this->primary_query_class, '\\' ), ltrim( $relationship->get_query_class(), '\\' ) ) )
+				&& ( 1 === count( $relationship->columns ) )
+				&& ( 1 === count( $relationship->references ) )
+				&& ( $this->primary_id_column_name === $relationship->references[0] )
+			) {
+				$matches[] = $relationship->columns[0];
+			}
+		}
+
+		// Exactly one Schema-owned object-ID column is required by this preset.
+		$object_id = ( 1 === count( $matches ) )
+			? $matches[0]
+			: '';
+
+		if ( ! ( $this->get_column_by( array( 'name' => $object_id ) ) instanceof Column ) ) {
+			$this->configured_from_primary = false;
+			$this->log( 'error', 'meta_schema_owner_missing', 'Meta query schema has no unambiguous owning-object relationship; not configured.' );
+
+			return;
+		}
+
+		$this->meta_id_column_name   = $primary;
+		$this->object_id_column_name = $object_id;
 	}
 
 	/**
@@ -366,7 +466,9 @@ class Query extends KernQuery implements MetaStore {
 		 */
 		$retval = false;
 		foreach ( $rows as $row ) {
-			if ( $this->update_item( $row->meta_id, array( 'meta_value' => $serialized ) ) ) { // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+			$meta_id = $this->get_meta_row_id( $row );
+
+			if ( ( false !== $meta_id ) && $this->update_item( $meta_id, array( 'meta_value' => $serialized ) ) ) { // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
 				$retval = true;
 			}
 		}
@@ -432,7 +534,9 @@ class Query extends KernQuery implements MetaStore {
 		// Delete each matching entry through the normal item engine.
 		$retval = false;
 		foreach ( $rows as $row ) {
-			if ( $this->delete_item( $row->meta_id ) ) {
+			$meta_id = $this->get_meta_row_id( $row );
+
+			if ( ( false !== $meta_id ) && $this->delete_item( $meta_id ) ) {
 				$retval = true;
 			}
 		}
@@ -466,12 +570,30 @@ class Query extends KernQuery implements MetaStore {
 		// Delete each entry through the normal item engine.
 		$retval = false;
 		foreach ( $rows as $row ) {
-			if ( $this->delete_item( $row->meta_id ) ) {
+			$meta_id = $this->get_meta_row_id( $row );
+
+			if ( ( false !== $meta_id ) && $this->delete_item( $meta_id ) ) {
 				$retval = true;
 			}
 		}
 
 		return $retval;
+	}
+
+	/**
+	 * Get one meta row's Schema-owned primary value.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param Row $row Meta row.
+	 * @return int|string|false The row ID, or false when unavailable.
+	 */
+	private function get_meta_row_id( Row $row ): int|string|false {
+		$value = $row->{$this->meta_id_column_name};
+
+		return ( ( is_int( $value ) && ( 0 < $value ) ) || ( is_string( $value ) && ( '' !== $value ) ) )
+			? $value
+			: false;
 	}
 
 	/**
@@ -493,7 +615,7 @@ class Query extends KernQuery implements MetaStore {
 		// Unlimited, oldest-first (insertion order, like the WP meta API).
 		$args = array(
 			'number'  => 0,
-			'orderby' => 'meta_id',
+			'orderby' => $this->meta_id_column_name,
 			'order'   => 'asc',
 		);
 
