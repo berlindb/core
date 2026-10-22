@@ -270,30 +270,24 @@ trait Aggregates {
 	}
 
 	/**
-	 * Run the 'aggregate' container and return its results.
+	 * Build the request SQL for the 'aggregate' container.
 	 *
-	 * Called from the query path (get_item_ids()) once the query vars are parsed, so
-	 * it reads the compiled WHERE/JOIN directly. Each canonical entry renders
+	 * Called from the query path (set_item_ids_request()) once the query vars are
+	 * parsed, so it reads the compiled WHERE/JOIN directly. Each canonical entry renders
 	 * "FUNC( column ) AS alias". A JOIN-producing filter is wrapped in a
 	 * distinct-primary subquery (the same dedup the scalar methods use), so a
-	 * one-to-many join does not fan out and double-count.
-	 *
-	 * Without a 'groupby' var the whole set is ONE row: an assoc keyed by every
-	 * requested alias, each value null when its aggregate is NULL (an empty set) -
-	 * unlike COUNT, an empty SUM/MAX is null, not zero. With 'groupby' the group
-	 * column(s) join the SELECT and drive a GROUP BY (grouped AFTER the fan-out dedup),
-	 * so it returns a LIST of rows, each carrying the group column(s) plus each alias;
-	 * an empty set is an empty list (no groups).
+	 * one-to-many join does not fan out and double-count. With a 'groupby' var the
+	 * group column(s) join the SELECT and drive a GROUP BY (grouped AFTER the fan-out
+	 * dedup).
 	 *
 	 * @since 3.1.0
 	 *
 	 * @param array<string,array{function: string, column: string}> $aggregate The
 	 *        canonical aggregate container (from normalize_aggregate_container()).
 	 *
-	 * @return array<string,string|null>|array<int,array<string,mixed>> One row keyed by
-	 *         alias, or a list of grouped rows.
+	 * @return string The request SQL, or '' when no entry renders.
 	 */
-	private function run_aggregate( array $aggregate ): array {
+	private function get_aggregate_request( array $aggregate ): string {
 
 		/*
 		 * A 'groupby' var puts the group column(s) into the SELECT and drives a GROUP BY,
@@ -336,7 +330,7 @@ trait Aggregates {
 
 		// Nothing renderable resolves to an empty result set.
 		if ( empty( $fields ) ) {
-			return array();
+			return '';
 		}
 
 		$group_clause = ( true === $grouped )
@@ -381,7 +375,36 @@ trait Aggregates {
 			$clauses[ 'orderby' ] = $this->resolve_aggregate_orderby( $group_names, array_keys( $fields ) );
 		}
 
-		$request = $this->parse_request_clauses( $clauses );
+		return $this->parse_request_clauses( $clauses );
+	}
+
+	/**
+	 * Run the 'aggregate' container's request and return its results.
+	 *
+	 * Runs the request get_aggregate_request() built. Without a 'groupby' var the
+	 * whole set is ONE row: an assoc keyed by every requested alias, each value null
+	 * when its aggregate is NULL (an empty set) - unlike COUNT, an empty SUM/MAX is
+	 * null, not zero. With 'groupby' it returns a LIST of rows, each carrying the group
+	 * column(s) plus each alias; an empty set is an empty list (no groups).
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string,array{function: string, column: string}> $aggregate The
+	 *        canonical aggregate container (from normalize_aggregate_container()).
+	 * @param string                                                $request   The
+	 *        request SQL from get_aggregate_request().
+	 *
+	 * @return array<string,string|null>|array<int,array<string,mixed>> One row keyed by
+	 *         alias, or a list of grouped rows.
+	 */
+	private function run_aggregate( array $aggregate, string $request ): array {
+
+		// Nothing renderable resolves to an empty result set.
+		if ( '' === $request ) {
+			return array();
+		}
+
+		$grouped = ! empty( $this->get_valid_groupby_columns( (array) $this->get_query_var( 'groupby' ) ) );
 
 		// Grouped: a list of rows (group column(s) + aliases), as the database returns them.
 		if ( true === $grouped ) {

@@ -173,6 +173,7 @@ trait Filters {
 	 * Filter the query clauses before they are parsed into a SQL string.
 	 *
 	 * @since 3.0.0
+	 * @since 3.1.0 Records the clauses the filter changed, for the result-cache key.
 	 *
 	 * @param array<string,mixed> $clauses All of the SQL query clauses.
 	 * @return array<string,mixed>
@@ -183,6 +184,7 @@ trait Filters {
 		$filter_name = $this->apply_hook_prefix( $this->get_item_name_plural() . '_query_clauses' );
 
 		if ( '' === $filter_name ) {
+			$this->set_filtered_clauses( (array) $clauses, (array) $clauses );
 			return $clauses;
 		}
 
@@ -194,12 +196,16 @@ trait Filters {
 		 * @param array<string,mixed> $clauses An array of query clauses.
 		 * @param Query               $query   Current query instance.
 		 */
-		return (array) apply_filters_ref_array(
+		$filtered = (array) apply_filters_ref_array(
 			$filter_name,
 			array(
 				$clauses,
 				&$this,
 			)
 		);
+
+		$this->set_filtered_clauses( (array) $clauses, $filtered );
+
+		return $filtered;
 	}
 }

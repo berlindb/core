@@ -229,6 +229,64 @@ class CacheKeyGuardTest extends TestCase {
 	}
 
 	/**
+	 * Test the other direction: a var with no registered default that only a
+	 * query-clauses callback reads still segments the key, because the callback
+	 * changes which rows return.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_var_read_only_by_clauses_filter_segments_cache_key() {
+		$callback = static function ( $clauses, $query ) {
+			$name = (string) $query->get_query_var( 'only_name' );
+
+			if ( '' !== $name ) {
+				global $wpdb;
+				$clauses[ 'where' ] = $wpdb->prepare( 'WHERE name = %s', $name );
+			}
+
+			return $clauses;
+		};
+
+		add_filter( 'berlindb_database_widgets_query_clauses', $callback, 10, 2 );
+		try {
+			$plain    = $this->cache_key( array( 'number' => 10 ) );
+			$filtered = $this->cache_key(
+				array(
+					'number'    => 10,
+					'only_name' => 'beta',
+				)
+			);
+		} finally {
+			remove_filter( 'berlindb_database_widgets_query_clauses', $callback, 10 );
+		}
+
+		$this->assertNotSame( $plain, $filtered );
+	}
+
+	/**
+	 * Test that a query-clauses callback which changes nothing does not segment the
+	 * key: hooking the filter alone must not fragment every query's cache entry.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_clauses_filter_that_changes_nothing_does_not_segment_cache_key() {
+		$plain = $this->cache_key( array( 'number' => 10 ) );
+
+		$callback = static function ( $clauses ) {
+			return $clauses;
+		};
+
+		add_filter( 'berlindb_database_widgets_query_clauses', $callback );
+		try {
+			$hooked = $this->cache_key( array( 'number' => 10 ) );
+		} finally {
+			remove_filter( 'berlindb_database_widgets_query_clauses', $callback );
+		}
+
+		$this->assertSame( $plain, $hooked );
+	}
+
+	/**
 	 * Test that RESULTS_INVARIANT_VARS matches the reviewed list and contains only
 	 * real query vars (no typos, no drift).
 	 *

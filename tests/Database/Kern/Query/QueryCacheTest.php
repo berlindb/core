@@ -379,4 +379,139 @@ class QueryCacheTest extends TestCase {
 		$this->assertCount( 1, $query->query( $args ) );
 		$this->assertGreaterThan( $queries_before, $wpdb->num_queries );
 	}
+
+	/**
+	 * A query-clauses callback narrowing on a var with no registered default must
+	 * not be served the unfiltered result, nor fill the entry the unfiltered query
+	 * reads afterward.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_clauses_filter_on_unregistered_var_gets_its_own_cache_entry(): void {
+		$beta_id = $this->add_named_widget( 'beta' );
+
+		$callback = function ( $clauses, $query ) {
+			return $this->restrict_to_name( $clauses, (string) $query->get_query_var( 'only_name' ) );
+		};
+
+		add_filter( 'berlindb_database_widgets_query_clauses', $callback, 10, 2 );
+		try {
+			$all_ids   = ( new TestQuery( array( 'fields' => 'ids' ) ) )->items;
+			$beta_only = ( new TestQuery(
+				array(
+					'fields'    => 'ids',
+					'only_name' => 'beta',
+				)
+			) )->items;
+			$all_again = ( new TestQuery( array( 'fields' => 'ids' ) ) )->items;
+		} finally {
+			remove_filter( 'berlindb_database_widgets_query_clauses', $callback, 10 );
+		}
+
+		$this->assertCount( 2, $all_ids );
+		$this->assertEquals( array( $beta_id ), $beta_only );
+		$this->assertCount( 2, $all_again );
+	}
+
+	/**
+	 * A query-clauses callback narrowing on state outside the query vars, such as a
+	 * request superglobal, has no var to register, so only the filtered clauses can
+	 * separate its cache entry.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_clauses_filter_on_outside_state_gets_its_own_cache_entry(): void {
+		$beta_id     = $this->add_named_widget( 'beta' );
+		$restrict_to = '';
+
+		$callback = function ( $clauses ) use ( &$restrict_to ) {
+			return $this->restrict_to_name( $clauses, $restrict_to );
+		};
+
+		add_filter( 'berlindb_database_widgets_query_clauses', $callback );
+		try {
+			$all_ids = ( new TestQuery( array( 'fields' => 'ids' ) ) )->items;
+
+			$restrict_to = 'beta';
+			$beta_only   = ( new TestQuery( array( 'fields' => 'ids' ) ) )->items;
+		} finally {
+			remove_filter( 'berlindb_database_widgets_query_clauses', $callback );
+		}
+
+		$this->assertCount( 2, $all_ids );
+		$this->assertEquals( array( $beta_id ), $beta_only );
+	}
+
+	/**
+	 * The aggregate path runs the same query-clauses filter, so a filtered aggregate
+	 * must not be served the unfiltered aggregate's cached result.
+	 *
+	 * @since 3.1.0
+	 */
+	public function test_clauses_filter_on_aggregate_gets_its_own_cache_entry(): void {
+		$this->add_named_widget( 'beta' );
+		$restrict_to = '';
+
+		$callback = function ( $clauses ) use ( &$restrict_to ) {
+			return $this->restrict_to_name( $clauses, $restrict_to );
+		};
+
+		add_filter( 'berlindb_database_widgets_query_clauses', $callback );
+		try {
+			$all_count = ( new TestQuery() )->query( array( 'aggregate' => array( 'count' => 'id' ) ) );
+
+			$restrict_to = 'beta';
+			$beta_count  = ( new TestQuery() )->query( array( 'aggregate' => array( 'count' => 'id' ) ) );
+		} finally {
+			remove_filter( 'berlindb_database_widgets_query_clauses', $callback );
+		}
+
+		$this->assertEquals( 2, $all_count[ 'count' ] );
+		$this->assertEquals( 1, $beta_count[ 'count' ] );
+	}
+
+	/**
+	 * Add a widget with the given name alongside the setUp() fixture row.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param string $name Widget name.
+	 * @return int The new widget's ID.
+	 */
+	private function add_named_widget( string $name ): int {
+		$widget_id = self::$query->add_item(
+			array(
+				'name'   => $name,
+				'status' => 'active',
+			)
+		);
+
+		$this->assertIsInt( $widget_id );
+
+		return $widget_id;
+	}
+
+	/**
+	 * Narrow query clauses to one widget name, or leave them as-is for an empty name.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string,mixed> $clauses The query clauses.
+	 * @param string              $name    Widget name to narrow to.
+	 * @return array<string,mixed>
+	 */
+	private function restrict_to_name( array $clauses, string $name ): array {
+		if ( '' === $name ) {
+			return $clauses;
+		}
+
+		global $wpdb;
+
+		$condition          = $wpdb->prepare( 'name = %s', $name );
+		$clauses[ 'where' ] = ( '' === $clauses[ 'where' ] )
+			? "WHERE {$condition}"
+			: "{$clauses[ 'where' ]} AND {$condition}";
+
+		return $clauses;
+	}
 }

@@ -149,6 +149,9 @@ trait Execution {
 			return $this->items;
 		}
 
+		// Build the request first, so the cache key sees what the query-clauses filter changed.
+		$this->set_item_ids_request();
+
 		/*
 		 * Check the cache. EXPLAIN returns a plan (not rows) and must reflect the
 		 * current optimizer state, so it is never served from or stored in the cache.
@@ -288,29 +291,45 @@ trait Execution {
 	}
 
 	/**
+	 * Build and store the request SQL for the resolved query mode.
+	 *
+	 * Runs before the result-cache lookup, because get_cache_key() includes the
+	 * clauses the query-clauses filter changed.
+	 *
+	 * @since 3.1.0
+	 */
+	private function set_item_ids_request(): void {
+
+		// Aggregate mode builds its own request, with no primary-ID selection.
+		if ( 'aggregate' === $this->get_query_mode() ) {
+			$this->set_current( 'request', $this->get_aggregate_request( (array) $this->get_query_var( 'aggregate' ) ) );
+			return;
+		}
+
+		// Count and rows both run the assembled request.
+		$this->set_query_clauses();
+		$this->set_request_clauses();
+		$this->set_request();
+	}
+
+	/**
 	 * Used internally to get a list of item IDs matching the query vars.
+	 *
+	 * Runs the request set_item_ids_request() built.
 	 *
 	 * @since 1.0.0
 	 * @since 3.0.0 Uses wp_parse_list() instead of wp_parse_id_list()
+	 * @since 3.1.0 No longer builds the request.
 	 *
 	 * @return array<bool|float|int|string>|array<string,mixed>[]|array<string,string|null>|int Item IDs for a full query, int/rows for a count query, or aggregate results keyed by alias.
 	 */
 	private function get_item_ids(): array|int {
-
-		/*
-		 * Aggregate mode computes its result from its own request (run_aggregate()),
-		 * with no primary-ID selection, so it returns before the shared request below.
-		 */
-		if ( 'aggregate' === $this->get_query_mode() ) {
-			return $this->run_aggregate( (array) $this->get_query_var( 'aggregate' ) );
-		}
-
-		// Count and rows both run the assembled request; build it once.
-		$this->set_query_clauses();
-		$this->set_request_clauses();
-		$this->set_request();
-
 		$request = $this->get_current_string( 'request' ) ?? '';
+
+		// Aggregate mode shapes its own result, with no primary-ID selection.
+		if ( 'aggregate' === $this->get_query_mode() ) {
+			return $this->run_aggregate( (array) $this->get_query_var( 'aggregate' ), $request );
+		}
 
 		// Dispatch to the mode's execution.
 		return ( 'count' === $this->get_query_mode() )

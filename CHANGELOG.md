@@ -4,6 +4,12 @@ Notable changes to BerlinDB are documented here.
 
 ## 3.1.0 - Unreleased
 
+- Keys the result cache on what a `{prefix}_{items}_query_clauses` filter changed
+  (#275). A callback that narrows rows on a query var with no registered default, or
+  on state outside the query vars, no longer shares one cache entry with the
+  unfiltered query. The request is now built before the cache lookup, so the filter
+  runs on cache hits too; a query no callback changes keeps its previous key.
+
 - Makes `MetaStore` the ownership boundary for item-meta cleanup (#262). A
   BerlinDB-owned Meta preset now derives its meta-row primary column and owning-object
   column from its registered Schema, so customized names are deleted through the

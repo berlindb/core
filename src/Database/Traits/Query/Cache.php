@@ -60,18 +60,23 @@ trait Cache {
 	abstract protected function get_items_raw( string $where ): array;
 
 	/**
-	 * Get cache key from $query_vars and $query_var_defaults.
+	 * Get cache key from $query_vars, $query_var_defaults, and filtered clauses.
 	 *
 	 * Performs the following operations to create a consistent cache-key:
 	 * - Removes the "fields" query_var, because whole objects/items are cached
 	 * - Removes unknown or unregistered query_var keys
 	 * - Sorts query_vars by query_var_default keys
 	 * - Removes query_vars with default values
-	 * - Serializes and md5 hashes query_vars
+	 * - Adds the clauses the query-clauses filter changed, if any
+	 * - Serializes and md5 hashes the result
 	 * - Combines plural name and hash independently of the cache generation
+	 *
+	 * The request must be built first (set_item_ids_request()), so the
+	 * query-clauses filter has run.
 	 *
 	 * @since 1.0.0
 	 * @since 2.1.0 Correctly removes unique query_var_default_value values
+	 * @since 3.1.0 Includes the clauses the query-clauses filter changed
 	 *
 	 * @return string
 	 */
@@ -102,11 +107,50 @@ trait Cache {
 			$slice[ $key ] = $this->query_vars[ $key ];
 		}
 
+		/*
+		 * A query-clauses callback can narrow the rows on a var with no registered
+		 * default, or on state outside the query vars entirely, so neither reaches
+		 * the slice. Key on what the filter changed; an unfiltered key is unchanged.
+		 */
+		$filtered = $this->get_current_array( 'filtered_clauses' );
+		$hashable = empty( $filtered )
+			? $slice
+			: array( $slice, $filtered );
+
 		// Hash the sliced query vars. serialize() is intentional and safe here.
-		$hash = md5( serialize( $slice ) ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.serialize_serialize
+		$hash = md5( serialize( $hashable ) ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.serialize_serialize
 
 		// Return the namespaced cache key.
 		return "get_{$this->get_item_name_plural()}:{$hash}";
+	}
+
+	/**
+	 * Record which query clauses the query-clauses filter changed.
+	 *
+	 * A removed clause is recorded as null. get_cache_key() hashes the result.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param array<string,mixed> $clauses  The clauses before the filter.
+	 * @param array<string,mixed> $filtered The clauses after the filter.
+	 * @return void
+	 */
+	private function set_filtered_clauses( array $clauses, array $filtered ): void {
+		$changed = array();
+
+		foreach ( $filtered as $key => $value ) {
+			if ( ! array_key_exists( $key, $clauses ) || ( $clauses[ $key ] !== $value ) ) {
+				$changed[ $key ] = $value;
+			}
+		}
+
+		foreach ( array_keys( array_diff_key( $clauses, $filtered ) ) as $key ) {
+			$changed[ $key ] = null;
+		}
+
+		ksort( $changed );
+
+		$this->set_current( 'filtered_clauses', $changed );
 	}
 
 	/**
